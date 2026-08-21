@@ -44,7 +44,9 @@ export type Action =
   /** 結ぶコマをタップ */
   | { type: "tapKoma"; koma: number }
   /** 次の支柱へ */
-  | { type: "nextPost" };
+  | { type: "nextPost" }
+  /** 火打を見終えてシートへ進む */
+  | { type: "toSheet" };
 
 export type Verdict =
   | { kind: "good"; message: string; state: Ch3State; scene?: Scene }
@@ -114,8 +116,8 @@ function judgeHiuchi(s: Ch3State, a: Extract<Action, { type: "hiuchiPick" }>): V
   const cn = CORNERS.find((c) => c.id === a.corner)!.nm;
   if (hiuchi.length === CORNERS.length) {
     return good(
-      { ...s, hiuchi, phase: "hang" },
-      "4隅とも入った。これで平面がひし形に崩れん。次はシートだ。",
+      { ...s, hiuchi, phase: "hiuchiDone" },
+      "4隅とも入った。これで平面が固まった。",
     );
   }
   return good({ ...s, hiuchi }, `${cn}に火打が入った。残り${CORNERS.length - hiuchi.length}箇所。`);
@@ -253,6 +255,10 @@ export function judge(s: Ch3State, a: Action): Verdict {
     const c = CORNERS.find((x) => x.id === a.corner)!;
     return good(s, `${c.nm}に火打を掛ける。`, { type: "hiuchi", corner: a.corner });
   }
+  if (a.type === "toSheet") {
+    if (s.phase !== "hiuchiDone") return note("いま火打を見ている場面じゃない。");
+    return good({ ...s, phase: "hang" }, "次はシートだ。上から下へ、1スパンに1枚張っていく。");
+  }
   if (a.type === "hiuchiPick") return judgeHiuchi(s, a);
   return judgeSheet(s, a);
 }
@@ -264,6 +270,8 @@ export function hint(s: Ch3State): string {
       return `出隅4箇所に火打を掛ける。足場と二等辺三角形になるよう、支柱に付ける。残り${
         CORNERS.length - s.hiuchi.length
       }箇所。`;
+    case "hiuchiDone":
+      return "4隅とも入った。火打が無いと足場は上から見てひし形に崩れる。次はシートだ。";
     case "hang":
       return "シートは縦張り、1スパンに1枚、重ねしろ無し。まず全スパンを最上段から垂らす。広げるときは足で挟め。";
     case "pitch":

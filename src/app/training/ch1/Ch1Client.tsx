@@ -94,7 +94,8 @@ export function Ch1Client({ tutorial }: { tutorial: boolean }) {
         setMood("good");
         setTimeout(() => setMood("normal"), 800);
         setScold(null);
-        sc.good();
+        /* 段取りから建方への切り替えは作業ではないので点は付けない */
+        if (a.type !== "toTate") sc.good();
         if (v.scene) setScene(v.scene);
         return;
       }

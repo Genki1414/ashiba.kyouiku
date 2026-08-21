@@ -21,7 +21,24 @@ export function Ch3Client({ tutorial }: { tutorial: boolean }) {
   );
   const [angry, setAngry] = useState<string>("");
   const [scene, setScene] = useState<Scene | null>(null);
+  /* 平面図をひし形に傾ける量。0のときは傾けない */
+  const [skew, setSkew] = useState(0);
   const sc = useScore();
+
+  /* 火打が無いとどうなるか。平面図の上辺だけ横へ揺らして見せる
+     （プロトタイプ ashiba-ch3-v13.tsx の demo と同じ動き） */
+  const showCollapse = useCallback(() => {
+    setMsg("火打が無ければ、この通り。上から見てひし形に崩れる。");
+    let t = 0;
+    const id = setInterval(() => {
+      t += 1;
+      setSkew(Math.sin(t / 6) * 26);
+      if (t > 38) {
+        clearInterval(id);
+        setSkew(0);
+      }
+    }, 45);
+  }, []);
 
   const pg = progress(s);
   const done = isComplete(s);
@@ -35,7 +52,8 @@ export function Ch3Client({ tutorial }: { tutorial: boolean }) {
         setMsg(v.message);
         setAngry("");
         setScene(v.scene ?? null);
-        sc.good();
+        /* 火打からシートへの切り替えは作業ではないので点は付けない */
+        if (a.type !== "toSheet") sc.good();
         return true;
       }
       if (v.kind === "note") {
@@ -82,7 +100,7 @@ export function Ch3Client({ tutorial }: { tutorial: boolean }) {
         </Link>
         <div className="min-w-0 flex-1">
           <div className="text-[11px] text-dim">
-            第3章　{s.phase === "hiuchi" ? "火打" : "シート"}
+            第3章　{s.phase === "hiuchi" || s.phase === "hiuchiDone" ? "火打" : "シート"}
             <span className="ml-2 rounded border border-line px-1 text-[10px]">
               {tutorial ? "チュートリアル" : "本番"}
             </span>
@@ -93,19 +111,67 @@ export function Ch3Client({ tutorial }: { tutorial: boolean }) {
       <Bar v={pg.done} max={pg.total} />
       <Hud score={sc.score} combo={sc.combo} mult={sc.mult} skill={sc.skill} sec={sc.sec} />
 
+      {/* 親方の指示。プロトタイプと同じく、画面の上にずっと出しておく */}
+      <div
+        className="border-b border-line bg-panel px-3.5 py-2.5 text-[12.5px] leading-[1.75]"
+        data-testid="ch3-msg"
+      >
+        {angry ? <span className="text-ng-tx">{angry}</span> : msg}
+      </div>
+
       {/* 火打：平面図。シート：立面 */}
-      {s.phase === "hiuchi" ? (
+      {s.phase === "hiuchi" || s.phase === "hiuchiDone" ? (
         <>
           <div className="border-b border-line bg-[#0F1318]">
             <Plan
               done={s.hiuchi}
-              cur={nextCorner ? { id: nextCorner.id, ...CORNER_XY[nextCorner.id] } : null}
-              onTap={() => nextCorner && act({ type: "tapCorner", corner: nextCorner.id })}
+              cur={
+                s.phase === "hiuchi" && nextCorner
+                  ? { id: nextCorner.id, ...CORNER_XY[nextCorner.id] }
+                  : null
+              }
+              onTap={() =>
+                s.phase === "hiuchi" && nextCorner && act({ type: "tapCorner", corner: nextCorner.id })
+              }
+              skew={skew}
             />
           </div>
           <div className="px-4 py-3">
             <Oyakata show={!!angry} text={angry || msg} />
-            {tutorial ? (
+
+            {/* 4隅とも入ったら、何のために入れたかを見せてから次へ */}
+            {s.phase === "hiuchiDone" && (
+              <div className="mt-3">
+                <div className="text-[16px] font-black">火打が入った</div>
+                <div className="my-2 text-[12.5px] leading-[1.9] text-dim">
+                  4つの出隅に三角形ができた。これで平面がねじれない。
+                  <br />
+                  火打が無いと、足場は上から見てひし形に崩れていく。
+                </div>
+                <Btn onClick={showCollapse} dis={skew !== 0} className="mb-2.5" testid="see-collapse">
+                  火打が無いとどうなるか見る
+                </Btn>
+                <Btn
+                  tone="y"
+                  onClick={() => act({ type: "toSheet" })}
+                  className="mb-2.5"
+                  testid="to-sheet"
+                >
+                  シートへ進む
+                </Btn>
+                <div className="rounded-lg border border-line bg-panel px-3.5 py-3 text-[12px] leading-[1.9] text-dim">
+                  この現場で入れた火打　
+                  <span className="font-extrabold text-txt">{s.hiuchi.length}箇所</span>
+                  <br />
+                  指摘された回数　
+                  <span className={`font-extrabold ${sc.errs.length ? "text-red" : "text-grn"}`}>
+                    {sc.errs.length}回
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {s.phase === "hiuchi" && tutorial ? (
               <Btn
                 onClick={() => {
                   sc.countAsk();
@@ -116,11 +182,11 @@ export function Ch3Client({ tutorial }: { tutorial: boolean }) {
               >
                 親方に聞く{sc.asks > 0 ? `（${sc.asks}回）` : ""}
               </Btn>
-            ) : (
+            ) : s.phase === "hiuchi" ? (
               <div className="text-center text-[11.5px] text-dim2">
                 本番だ。親方にも聞けん。
               </div>
-            )}
+            ) : null}
           </div>
         </>
       ) : (

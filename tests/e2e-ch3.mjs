@@ -62,7 +62,21 @@ for (let n = 1; n <= 4; n++) {
   await page.waitForTimeout(400);
 }
 console.log("OK: 火打4箇所");
+await page.waitForSelector("text=火打が入った", { timeout: 8000 });
 await shot(page, "04-hiuchi-done");
+
+/* 火打が無いとどうなるかを見る。平面図がひし形に揺れて、元へ戻る */
+const skewNow = async () => Number(await page.getByTestId("plan").getAttribute("data-skew"));
+check((await skewNow()) === 0, "デモの前は傾いていない");
+await page.getByTestId("see-collapse").click();
+await page.waitForTimeout(450);
+const mid = await skewNow();
+check(mid !== 0, `ひし形に崩れて見える（skew=${mid}）`);
+await shot(page, "04b-collapse");
+await page.waitForTimeout(1800);
+check((await skewNow()) === 0, "見終わると元の形に戻る");
+
+await page.getByTestId("to-sheet").click();
 
 /* ── シート：垂らす ── */
 await page.waitForSelector("text=まず全スパンを垂らす", { timeout: 8000 });

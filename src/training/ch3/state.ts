@@ -6,6 +6,8 @@ import type { CornerId, Pitch, PostKey } from "./layout";
 export type Phase =
   /** 火打を4箇所に掛ける */
   | "hiuchi"
+  /** 火打が4箇所とも入った。何のために入れたかを確かめる */
+  | "hiuchiDone"
   /** シートを全スパン垂らす */
   | "hang"
   /** 緊結ピッチを決める */

@@ -93,7 +93,9 @@ export function Plan({ done, cur, onTap, skew = 0 }: { done: string[]; cur?: { i
   };
 
   return (
-    <svg viewBox="0 0 340 300" preserveAspectRatio="xMidYMid meet" style={{ width: "100%", height: "100%", display: "block" }}>
+    <svg viewBox="0 0 340 300" preserveAspectRatio="xMidYMid meet"
+      data-testid="plan" data-skew={Math.round(skew)}
+      style={{ width: "100%", height: "100%", display: "block" }}>
       <rect width="340" height="300" fill="#0C1015" />
 
       {/* 建物 */}
@@ -115,8 +117,9 @@ export function Plan({ done, cur, onTap, skew = 0 }: { done: string[]; cur?: { i
         return <circle key={i} cx={p[0]} cy={p[1]} r="4.5" fill={C.steelLt} />;
       })}
 
-      {/* 入れた火打 */}
-      {CORNERS.filter((c) => done.includes(c.id)).map((c) => {
+      {/* 入れた火打。崩れるところを見せている間は外して描く
+          （火打があれば崩れないので、付けたまま傾けると話が逆になる） */}
+      {skew === 0 && CORNERS.filter((c) => done.includes(c.id)).map((c) => {
         const a = sk(c.x + c.dx * SP, c.y), b = sk(c.x, c.y + c.dy * SP);
         return (
           <g key={c.id}>

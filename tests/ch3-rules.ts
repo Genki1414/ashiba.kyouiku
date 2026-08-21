@@ -90,7 +90,19 @@ for (const c of CORNERS) {
   s = step(s, { type: "hiuchiPick", corner: c.id, a: P("a", "post", 1), b: P("b", "post", 1) }, `${c.nm}の火打`);
 }
 check(s.hiuchi.length === 4, "火打が4箇所とも入った");
+check(s.phase === "hiuchiDone", "火打が入ったことを確かめる場面へ");
+
+/* 火打を見ている間はシートの手は受け付けない */
+{
+  const v = judge(s, { type: "tapSpan", span: 0 });
+  check(v.kind === "note", "火打の場面ではシートを垂らせない");
+}
+s = step(s, { type: "toSheet" }, "シートへ進む");
 check(s.phase === "hang", "シートの作業に移った");
+{
+  const v = judge(s, { type: "toSheet" });
+  check(v.kind === "note", "シートに入ってからは戻れない");
+}
 
 console.log("── シートを垂らす ──");
 
