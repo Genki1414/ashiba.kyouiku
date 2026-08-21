@@ -114,6 +114,34 @@ const doWJack = async () => {
   return false;
 };
 
+/* 場面：手摺の入れ方（1段目の1本目だけ）。
+   低い方から。踏板の1つ上が中さん450、2つ上が上さん900 */
+const doRail = async () => {
+  await page.waitForSelector('[data-scene="rail"]', { timeout: 8000 });
+  await shot(page, "04a-rail-scene");
+  const box = await page.locator('[data-scene="rail"]').boundingBox();
+  const P = (x, y) => ({ x: box.x + (x / 340) * box.width, y: box.y + (y / 320) * box.height });
+  const ZP = 40, ZD = 268, ZX1 = 74, ZX2 = 266;
+  const zk = (n) => ZD - n * ZP;
+  const mid = (ZX1 + ZX2) / 2;
+  /* わざと上さんのコマを先に押して、低い方からだと言わせる */
+  const before = await skill();
+  let q = P(mid, zk(2));
+  await page.mouse.click(q.x, q.y);
+  await page.waitForTimeout(400);
+  check((await skill()) < before, "上さんを先に押すと減点される");
+  await clearScold();
+  /* 中さん → 上さん */
+  for (const n of [1, 2]) {
+    q = P(mid, zk(n));
+    await page.mouse.click(q.x, q.y);
+    await page.waitForTimeout(900);
+  }
+  const next = page.getByRole("button", { name: "次へ" });
+  if (await next.count()) { await next.first().click(); await page.waitForTimeout(300); return true; }
+  return false;
+};
+
 await page.goto(`${BASE}/training/ch2`);
 await page.waitForSelector("text=高所作業");
 await shot(page, "01-start");
@@ -137,6 +165,7 @@ check((await page.locator("text=安全帯 支柱").count()) > 0, "安全帯が�
 await tool("手摺");
 await tapSpan("P0-P1");
 await page.waitForTimeout(300);
+check(await doRail(), "手摺の入れ方の場面を通せた");
 await doBelt("入れた手摺に掛け替える");
 check((await page.locator("text=安全帯 手摺").count()) > 0, "1本目が入ったら手摺へ掛け替え");
 await shot(page, "04-rail1");

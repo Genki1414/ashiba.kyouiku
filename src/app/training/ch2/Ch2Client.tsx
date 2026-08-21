@@ -24,6 +24,7 @@ import {
   BeltZoom,
   Boss,
   BraceZoom,
+  RailZoom,
   Scold,
   WJackZoom,
 } from "@/components/training/ch2/Parts";
@@ -259,6 +260,9 @@ export function Ch2Client({ tutorial }: { tutorial: boolean }) {
           onClear={closeScene}
           onFoul={(fb) => sceneFoul("安全帯の取り付け位置の誤り", fb)}
         />
+      )}
+      {scene?.type === "rail" && (
+        <RailZoom onClear={closeScene} onFoul={(fb) => sceneFoul("手摺を入れるコマの誤り", fb)} />
       )}
       {scene?.type === "brace" && (
         <BraceZoom onClear={closeScene} onFoul={(fb) => sceneFoul("筋交の入れ方", fb)} />

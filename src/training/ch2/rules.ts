@@ -51,6 +51,8 @@ export type BeltMode = "post" | "rail";
 export type Scene =
   /** 安全帯の掛け先を選ぶ */
   | { type: "belt"; mode: BeltMode }
+  /** 手摺の入れ方（中さん・上さんをどのコマへ入れるか）。1段目の1本目だけ */
+  | { type: "rail"; span: SpanId }
   /** 筋交の入れ方（上のコマへ先端を入れてから、後端を下のコマへ振り下ろす） */
   | { type: "brace"; span: SpanId; first: boolean }
   /** 壁当てジャッキ。踏板手摺のすぐ下のコマへ */
@@ -281,12 +283,22 @@ function judgeSpan(s: Ch2State, tool: Tool, id: SpanId): Verdict {
     if (lvl === 2 && !has(s, `D2:${id}`)) {
       return foul("先に踏板を敷け。", "床が無いところで手摺は入れられん。", "手順の飛ばし");
     }
+    /* 1段目の1本目は、入れ方を図解で教える（プロトタイプと同じ。1回だけ） */
+    if (lvl === 1 && !s.railTaught) {
+      return good(s, "手摺を入れる。", { type: "rail", span: id });
+    }
     const next = adv(put(s, key));
     /* 1段目の1本目が入ったら、安全帯を手摺へ掛け替える */
     if (lvl === 1 && s.belt === "post") {
-      return good(next, "1段目の手摺が入った。", { type: "belt", mode: "rail" });
+      return good(next, "1段目の手摺が入った。ここが自分の囲いになる。", {
+        type: "belt",
+        mode: "rail",
+      });
     }
-    return good(next, `${lvl}段目の手摺を入れた。`);
+    return good(
+      next,
+      lvl === 1 ? "1段目の手摺が入った。ここが自分の囲いになる。" : "2段目の手摺が入った。",
+    );
   }
 
   if (tool === "deck") {
@@ -342,6 +354,20 @@ function judgeScene(s: Ch2State, sc: Scene): Verdict {
       return good({ ...s, belt: "post" }, "支柱に安全帯を取った。ここから2段目を組む。");
     }
     return good({ ...s, belt: "rail" }, "手摺に掛け替えた。これで動ける。");
+  }
+
+  /* 手摺の図解が終わった。入れて、必要なら安全帯の掛け替えへ続ける */
+  if (sc.type === "rail") {
+    const cur = current(s);
+    if (!cur || cur.k !== "rail1") return note("いまその場面じゃない。");
+    const next = adv(put({ ...s, railTaught: true }, `R1:${cur.t}`));
+    if (s.belt === "post") {
+      return good(next, "1段目の手摺が入った。ここが自分の囲いになる。", {
+        type: "belt",
+        mode: "rail",
+      });
+    }
+    return good(next, "1段目の手摺が入った。ここが自分の囲いになる。");
   }
 
   if (sc.type === "brace") {

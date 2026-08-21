@@ -31,6 +31,8 @@ export type Ch2State = {
   at: PostId;
   /** 筋交の入れ方を一度教えたか（1本目だけ図解を出す） */
   braceTaught: boolean;
+  /** 手摺の入れ方を一度教えたか（1段目の1本目だけ図解を出す） */
+  railTaught: boolean;
 };
 
 export const initialState = (): Ch2State => ({
@@ -40,6 +42,7 @@ export const initialState = (): Ch2State => ({
   lv: 0,
   at: "P0",
   braceTaught: false,
+  railTaught: false,
 });
 
 export const STEPS: Step[] = buildSteps();
