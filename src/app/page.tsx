@@ -28,11 +28,19 @@ export default async function Home() {
           </div>
         </Link>
 
-        <div className="rounded-xl border border-line bg-panel p-5 opacity-60">
-          <div className="text-[11px] font-extrabold tracking-widest text-dim">実務トレーニング</div>
+        <Link
+          href="/training"
+          className="block rounded-xl border border-line bg-panel p-5 no-underline"
+        >
+          <div className="text-[11px] font-extrabold tracking-widest text-cyan">実務トレーニング</div>
           <div className="mt-1 text-[17px] font-black text-txt">足場を組むゲーム</div>
-          <div className="mt-2 text-[12px] leading-relaxed text-dim">フェーズ5で実装（準備中）</div>
-        </div>
+          <div className="mt-2 text-[12px] leading-relaxed text-dim">
+            作業員を動かして足場を組む。手を間違えると親方に叱られる。
+            <br />
+            第1章 段取りと根がらみ（第2章以降は準備中）
+          </div>
+        </Link>
+
       </div>
     </main>
   );
