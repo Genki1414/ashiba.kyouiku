@@ -49,7 +49,7 @@ export function PrepClient() {
     <main className="pb-10">
       <div className="tape" />
       <div className="px-4 pt-4">
-        <Link href="/edu" className="text-[13px] text-dim no-underline">
+        <Link href="/edu" className="backlink text-[13px] text-dim no-underline">
           ← 科目一覧
         </Link>
       </div>

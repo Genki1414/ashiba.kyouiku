@@ -236,7 +236,7 @@ function Ch2Game({
   return (
     <main className="relative pb-6">
       <div className="flex items-center gap-2.5 border-b border-line px-4 py-2.5">
-        <Link href="/training" className="p-1 text-[16px] text-dim no-underline">
+        <Link href="/training" className="backlink-bar text-[16px] text-dim no-underline">
           ←
         </Link>
         <div className="min-w-0 flex-1">

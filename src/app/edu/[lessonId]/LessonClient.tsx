@@ -151,14 +151,14 @@ export function LessonClient({
     <div className="pb-10">
       {/* ヘッダ */}
       <div className="flex items-center gap-2.5 border-b border-line px-4 py-2.5">
-        <Link href="/edu" className="p-1 text-[16px] text-dim no-underline">
+        <Link href="/edu" className="backlink-bar text-[16px] text-dim no-underline">
           ←
         </Link>
         <div className="min-w-0 flex-1">
           <div className="text-[11px] text-dim">
             科目{subject.id}　{lesson.id}
             {s.mode === "local" && loaded && (
-              <span className="ml-2 rounded border border-org px-1 text-[10px] text-org">
+              <span className="ml-2 rounded border border-org px-1 text-[11px] text-org">
                 端末内記録
               </span>
             )}

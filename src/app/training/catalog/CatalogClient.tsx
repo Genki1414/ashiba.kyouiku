@@ -21,7 +21,7 @@ export function CatalogClient() {
     <main className="pb-10">
       <div className="tape" />
       <div className="px-5 pb-3 pt-5">
-        <Link href={back} className="text-[13px] text-dim no-underline">
+        <Link href={back} className="backlink text-[13px] text-dim no-underline">
           ← 戻る
         </Link>
         <h1 className="mt-2 text-[18px] font-black">資材カタログ</h1>

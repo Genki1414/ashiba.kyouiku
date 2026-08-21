@@ -59,7 +59,7 @@ export function SetupClient() {
     <main className="pb-10">
       <div className="tape" />
       <div className="px-5 pt-6">
-        <Link href="/" className="text-[13px] text-dim no-underline">
+        <Link href="/" className="backlink text-[13px] text-dim no-underline">
           ← ホーム
         </Link>
         <h1 className="mt-2 text-[20px] font-black">接続の確認</h1>

@@ -85,3 +85,25 @@ body {
 
 @keyframes rk { 0% { opacity: 0; transform: scale(2.2); } 100% { opacity: 1; transform: scale(1); } }
 .rank { animation: rk 0.5s cubic-bezier(0.2, 0.9, 0.3, 1.2) both; }
+
+/* ── 戻るリンク ──
+   字はそのままに、指で押せる大きさ（44px）を確保する。
+   現場では手袋のまま触るので、小さい的は押せない。 */
+.backlink {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25em;
+  min-height: 44px;
+  min-width: 44px;
+  padding-right: 8px;
+}
+/* 見出しの帯の中に置くとき。帯の高さいっぱいまで広げる */
+.backlink-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-self: stretch;
+  min-width: 44px;
+  margin-top: -10px;
+  margin-bottom: -10px;
+}

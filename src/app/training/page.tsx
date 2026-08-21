@@ -10,7 +10,7 @@ export default function TrainingPage() {
     <main className="pb-10">
       <div className="tape" />
       <div className="px-5 pb-4 pt-6">
-        <Link href="/" className="text-[13px] text-dim no-underline">
+        <Link href="/" className="backlink text-[13px] text-dim no-underline">
           ← ホーム
         </Link>
         <h1 className="mt-2 text-[18px] font-black">実務トレーニング</h1>

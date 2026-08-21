@@ -88,7 +88,7 @@ export function ExamClient({ lessonIds }: { lessonIds: string[] }) {
     <main className="pb-10">
       <div className="tape" />
       <div className="flex items-center gap-2.5 px-4 py-3">
-        <Link href="/edu" className="text-[15px] text-dim no-underline">
+        <Link href="/edu" className="backlink-bar text-[15px] text-dim no-underline">
           ←
         </Link>
         <div className="text-[14px] font-extrabold">修了試験</div>

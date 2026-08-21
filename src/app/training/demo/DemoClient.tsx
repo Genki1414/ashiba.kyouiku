@@ -28,7 +28,7 @@ export function DemoClient() {
     <main className="flex h-dvh flex-col">
       {/* 見出し */}
       <div className="flex flex-none items-center gap-2.5 border-b border-line px-4 py-2.5">
-        <Link href="/training" className="p-1 text-[16px] text-dim no-underline">
+        <Link href="/training" className="backlink-bar text-[16px] text-dim no-underline">
           ←
         </Link>
         <div className="min-w-0 flex-1">

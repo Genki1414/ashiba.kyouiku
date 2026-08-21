@@ -18,6 +18,7 @@
     "test:e2e:ch1": "node tests/e2e-ch1.mjs",
     "test:e2e:ch1sk": "node tests/e2e-ch1-sk.mjs",
     "test:e2e:fit": "node tests/e2e-scene-fit.mjs",
+    "test:e2e:fitall": "node tests/e2e-fit-all.mjs",
     "test:e2e:tap": "node tests/e2e-tap.mjs",
     "test:e2e:update": "node tests/e2e-update-notice.mjs",
     "test:e2e:record": "node tests/e2e-record.mjs",

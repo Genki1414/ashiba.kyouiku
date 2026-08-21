@@ -45,7 +45,7 @@ export function LessonList({
     <main className="pb-10">
       <div className="tape" />
       <div className="px-5 pb-4 pt-6">
-        <Link href="/" className="text-[13px] text-dim no-underline">
+        <Link href="/" className="backlink text-[13px] text-dim no-underline">
           ← ホーム
         </Link>
         <h1 className="mt-2 text-[18px] font-black leading-snug">{meta.title}</h1>
@@ -93,7 +93,7 @@ export function LessonList({
       {subjects.map((s) => (
         <section key={s.id} className="mb-5 px-5">
           <div className="mb-2 flex items-baseline gap-2">
-            <span className="font-mono text-[12px] text-yel">科目{s.id}</span>
+            <span className="shrink-0 whitespace-nowrap font-mono text-[12px] text-yel">科目{s.id}</span>
             <span className="text-[14px] font-extrabold">{s.name}</span>
             <span className="ml-auto shrink-0 text-[11px] text-dim">{hm(s.legal_min * 60)}</span>
           </div>

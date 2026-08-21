@@ -42,7 +42,7 @@ export function NoteClient() {
     <main className="pb-10">
       <div className="tape" />
       <div className="px-5 pb-4 pt-6">
-        <Link href="/training" className="text-[13px] text-dim no-underline">
+        <Link href="/training" className="backlink text-[13px] text-dim no-underline">
           ← 章の一覧
         </Link>
         <h1 className="mt-2 text-[18px] font-black">間違いノート</h1>
@@ -55,7 +55,7 @@ export function NoteClient() {
 
       {/* 通した章のまとめ */}
       <div className="mx-5 rounded-xl border border-line bg-panel p-4">
-        <div className="mb-2 text-[10px] tracking-[2px] text-dim">これまで</div>
+        <div className="mb-2 text-[11px] tracking-[2px] text-dim">これまで</div>
         {READY_CHAPTERS.map((c) => {
           const n = countOf(rec, c.id);
           const last = lastOf(rec, c.id);
