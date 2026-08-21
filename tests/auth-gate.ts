@@ -21,6 +21,8 @@ const open = [
   "/api/health",
   "/manifest.webmanifest",
   "/sw.js",
+  "/verify",
+  "/api/verify-cert",
   "/icon-192.png",
   "/apple-touch-icon.png",
   "/_next/static/chunks/main.js",
@@ -46,18 +48,23 @@ const shut = [
   "/api/exam",
   "/api/enrollment",
   "/api/verify-log",
+  "/api/cert",
+  "/edu/cert",
 ];
 for (const p of shut) check(!isOpenPath(p), `止める: ${p}`);
 
 /* ── 紛らわしいもの ── */
 check(!isOpenPath("/loginish"), "/loginish は /login ではない");
 check(!isOpenPath("/api/healthy"), "/api/healthy は /api/health ではない");
+check(!isOpenPath("/api/verify-log"), "/api/verify-log（顔照合のログ）は通さない");
+check(isOpenPath("/api/verify-cert"), "/api/verify-cert（修了証の照会）は通す");
+check(!isOpenPath("/api/cert"), "/api/cert（修了証の発行）は本人だけ");
 check(isOpenPath("/login/reset"), "/login の下は通す");
 check(!isOpenPath("/edu/1-1/js"), "拡張子に見えても道の一部なら止める");
 check(isOpenPath("/edu/fig.png"), "画像は通す");
 
 /* ── 記録に関わる道が開いていないか（いちばん怖い取り違え）── */
-for (const p of ["/api/progress", "/api/exam", "/api/enrollment"]) {
+for (const p of ["/api/progress", "/api/exam", "/api/enrollment", "/api/cert", "/api/verify-log"]) {
   check(!OPEN_PATHS.includes(p), `${p} が通す一覧に入っていない`);
 }
 check(OPEN_PATHS.includes("/login"), "/login は通す一覧にある");

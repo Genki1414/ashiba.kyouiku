@@ -134,8 +134,8 @@ for (let q = 0; q < 20; q++) {
   if (await page.locator("text=/^(合格|不合格)$/").count()) break;
 }
 await page.waitForSelector("text=/^合格$/", { timeout: 10000 });
-await page.waitForSelector("text=修了証の発行は、お申込みの入金確認後に行われます");
-console.log("OK: 全問正解で合格（20/20）→ 修了証はフェーズ3の案内");
+await page.waitForSelector("text=修了証を出す");
+console.log("OK: 全問正解で合格（20/20）→ 修了証へ進める");
 await page.screenshot({ path: `${SC}/p2-06b-exam-passed.png` });
 
 // 6) 一覧に準備状態と修了試験カードが出る

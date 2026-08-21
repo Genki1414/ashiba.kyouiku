@@ -202,9 +202,12 @@ export function ExamClient({ lessonIds }: { lessonIds: string[] }) {
 
           <div className="mt-4 grid gap-2">
             {result.passed ? (
-              <div className="rounded-lg border border-line bg-panel p-3.5 text-center text-[13px] leading-relaxed text-dim">
-                修了証の発行は、お申込みの入金確認後に行われます（フェーズ3で実装）。
-              </div>
+              <Link
+                href="/edu/cert"
+                className="rounded-lg border border-yel bg-yel p-3.5 text-center text-[14px] font-extrabold text-bg no-underline"
+              >
+                修了証を出す
+              </Link>
             ) : (
               <Btn tone="y" onClick={start}>
                 もう一度受験する

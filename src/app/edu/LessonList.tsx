@@ -154,6 +154,14 @@ export function LessonList({
             </div>
           </div>
         )}
+
+        {/* 修了証。試験に受かっていれば出せる */}
+        <Link
+          href="/edu/cert"
+          className="mt-2 block rounded-lg border border-line p-3 text-center text-[12.5px] text-dim no-underline"
+        >
+          修了証を見る
+        </Link>
       </div>
     </main>
   );
