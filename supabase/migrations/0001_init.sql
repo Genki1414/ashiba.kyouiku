@@ -5,14 +5,24 @@
 create extension if not exists "pgcrypto";
 
 -- ── 列挙型 ─────────────────────────────────
-create type public.user_role     as enum ('learner', 'admin');
-create type public.order_method  as enum ('card', 'invoice');
-create type public.order_status  as enum ('pending', 'paid', 'cancelled');
-create type public.verify_result as enum ('ok', 'ng');
-create type public.verify_reason as enum ('no_face', 'multi_face', 'blocked', 'no_motion');
+do $$ begin
+  create type public.user_role as enum ('learner', 'admin');
+exception when duplicate_object then null; end $$;
+do $$ begin
+  create type public.order_method as enum ('card', 'invoice');
+exception when duplicate_object then null; end $$;
+do $$ begin
+  create type public.order_status as enum ('pending', 'paid', 'cancelled');
+exception when duplicate_object then null; end $$;
+do $$ begin
+  create type public.verify_result as enum ('ok', 'ng');
+exception when duplicate_object then null; end $$;
+do $$ begin
+  create type public.verify_reason as enum ('no_face', 'multi_face', 'blocked', 'no_motion');
+exception when duplicate_object then null; end $$;
 
 -- ── 事業者 ─────────────────────────────────
-create table public.companies (
+create table if not exists public.companies (
   id               uuid primary key default gen_random_uuid(),
   name             text        not null,
   responsible_name text,
@@ -21,7 +31,7 @@ create table public.companies (
 
 -- ── ユーザー（受講者・教育担当者）──────────
 -- id は auth.users.id と同一。Auth 導入前は種データで直接投入する。
-create table public.users (
+create table if not exists public.users (
   id         uuid primary key references auth.users (id) on delete cascade,
   company_id uuid references public.companies (id) on delete set null,
   name       text             not null,
@@ -30,11 +40,11 @@ create table public.users (
   role       public.user_role not null default 'learner',
   created_at timestamptz      not null default now()
 );
-create index users_company_id_idx on public.users (company_id);
+create index if not exists users_company_id_idx on public.users (company_id);
 
 -- ── 注文 ───────────────────────────────────
 -- 金額は円。小数を持たせない。
-create table public.orders (
+create table if not exists public.orders (
   id                uuid primary key default gen_random_uuid(),
   company_id        uuid not null references public.companies (id) on delete restrict,
   seats             int  not null check (seats > 0),
@@ -50,11 +60,11 @@ create table public.orders (
   constraint orders_paid_at_matches_status
     check ((status = 'paid') = (paid_at is not null))
 );
-create index orders_company_id_idx on public.orders (company_id);
-create index orders_status_idx     on public.orders (status);
+create index if not exists orders_company_id_idx on public.orders (company_id);
+create index if not exists orders_status_idx     on public.orders (status);
 
 -- ── 受講コード ─────────────────────────────
-create table public.seats (
+create table if not exists public.seats (
   id         uuid primary key default gen_random_uuid(),
   order_id   uuid not null references public.orders (id) on delete cascade,
   code       text not null unique,
@@ -63,11 +73,11 @@ create table public.seats (
   expires_at timestamptz,
   constraint seats_used_pair check ((used_by is null) = (used_at is null))
 );
-create index seats_order_id_idx on public.seats (order_id);
-create index seats_used_by_idx  on public.seats (used_by);
+create index if not exists seats_order_id_idx on public.seats (order_id);
+create index if not exists seats_used_by_idx  on public.seats (used_by);
 
 -- ── 受講状態 ───────────────────────────────
-create table public.enrollments (
+create table if not exists public.enrollments (
   id                 uuid primary key default gen_random_uuid(),
   user_id            uuid not null references public.users (id) on delete cascade,
   seat_id            uuid unique references public.seats (id) on delete set null,
@@ -78,12 +88,12 @@ create table public.enrollments (
   completed_at       timestamptz,
   created_at         timestamptz not null default now()
 );
-create index enrollments_user_id_idx on public.enrollments (user_id);
+create index if not exists enrollments_user_id_idx on public.enrollments (user_id);
 
 -- ── 視聴記録（単元ごと）────────────────────
 -- lesson_id は curriculum.json の '1-1' 形式。教材は DB に持たないので FK は張らない。
 -- watched_sec の加算は 0003 の sync_watched_sec 経由のみ（クライアントの時刻を信用しない）。
-create table public.progress (
+create table if not exists public.progress (
   id             uuid primary key default gen_random_uuid(),
   enrollment_id  uuid not null references public.enrollments (id) on delete cascade,
   lesson_id      text not null,
@@ -95,7 +105,7 @@ create table public.progress (
 
 -- ── 照合ログ（顔認証）──────────────────────
 -- 画像・特徴量は保存しない。結果と理由だけ。
-create table public.verify_logs (
+create table if not exists public.verify_logs (
   id            uuid primary key default gen_random_uuid(),
   enrollment_id uuid not null references public.enrollments (id) on delete cascade,
   lesson_id     text,
@@ -105,10 +115,10 @@ create table public.verify_logs (
   constraint verify_logs_reason_required
     check ((result = 'ng') = (reason is not null))
 );
-create index verify_logs_enrollment_idx on public.verify_logs (enrollment_id, created_at desc);
+create index if not exists verify_logs_enrollment_idx on public.verify_logs (enrollment_id, created_at desc);
 
 -- ── 修了試験 ───────────────────────────────
-create table public.exams (
+create table if not exists public.exams (
   id            uuid primary key default gen_random_uuid(),
   enrollment_id uuid not null references public.enrollments (id) on delete cascade,
   score         int  not null check (score >= 0),
@@ -122,7 +132,7 @@ create table public.exams (
 
 -- ── 修了証 ─────────────────────────────────
 -- 発行名義は事業者。1受講につき1枚（再発行は revoked_at を立ててから）。
-create table public.certificates (
+create table if not exists public.certificates (
   id            uuid primary key default gen_random_uuid(),
   enrollment_id uuid not null references public.enrollments (id) on delete cascade,
   cert_no       text not null unique,
@@ -130,5 +140,5 @@ create table public.certificates (
   issued_by     uuid references public.users (id) on delete set null,
   revoked_at    timestamptz
 );
-create unique index certificates_active_one_per_enrollment
+create unique index if not exists certificates_active_one_per_enrollment
   on public.certificates (enrollment_id) where revoked_at is null;

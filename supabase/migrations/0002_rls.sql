@@ -47,23 +47,29 @@ alter table public.exams        enable row level security;
 alter table public.certificates enable row level security;
 
 -- ── companies ──────────────────────────────
+drop policy if exists companies_select_own on public.companies;
 create policy companies_select_own on public.companies
   for select using (id = public.current_company_id());
 
 -- ── users ──────────────────────────────────
+drop policy if exists users_select_self on public.users;
 create policy users_select_self on public.users
   for select using (id = auth.uid());
+drop policy if exists users_select_company on public.users;
 create policy users_select_company on public.users
   for select using (public.is_admin() and company_id = public.current_company_id());
+drop policy if exists users_update_self on public.users;
 create policy users_update_self on public.users
   for update using (id = auth.uid()) with check (id = auth.uid());
 -- role・company_id の書き換えは 0003 のトリガで拒否する。
 
 -- ── orders / seats ─────────────────────────
 -- 参照は自社の admin。作成・入金反映は Stripe webhook（service_role）のみ。
+drop policy if exists orders_select_company on public.orders;
 create policy orders_select_company on public.orders
   for select using (public.is_admin() and company_id = public.current_company_id());
 
+drop policy if exists seats_select_company on public.seats;
 create policy seats_select_company on public.seats
   for select using (
     public.is_admin()
@@ -71,48 +77,63 @@ create policy seats_select_company on public.seats
                 where o.id = seats.order_id and o.company_id = public.current_company_id())
   );
 -- 受講者は引き換え時に自分のコードを見る
+drop policy if exists seats_select_own on public.seats;
 create policy seats_select_own on public.seats
   for select using (used_by = auth.uid());
 
 -- ── enrollments ────────────────────────────
+drop policy if exists enrollments_select_own on public.enrollments;
 create policy enrollments_select_own on public.enrollments
   for select using (user_id = auth.uid());
+drop policy if exists enrollments_select_company on public.enrollments;
 create policy enrollments_select_company on public.enrollments
   for select using (public.is_admin() and public.enrollment_in_my_company(id));
+drop policy if exists enrollments_insert_own on public.enrollments;
 create policy enrollments_insert_own on public.enrollments
   for insert with check (user_id = auth.uid());
 -- 同意・顔登録・書類の日時は本人が更新する。completed_at はサーバ側だけが立てる（0003）。
+drop policy if exists enrollments_update_own on public.enrollments;
 create policy enrollments_update_own on public.enrollments
   for update using (user_id = auth.uid()) with check (user_id = auth.uid());
 
 -- ── progress ───────────────────────────────
 -- 行の作成は本人。watched_sec の加算と quiz_passed_at は sync_watched_sec / mark_quiz_passed 経由。
+drop policy if exists progress_select_own on public.progress;
 create policy progress_select_own on public.progress
   for select using (public.owns_enrollment(enrollment_id));
+drop policy if exists progress_select_company on public.progress;
 create policy progress_select_company on public.progress
   for select using (public.is_admin() and public.enrollment_in_my_company(enrollment_id));
+drop policy if exists progress_insert_own on public.progress;
 create policy progress_insert_own on public.progress
   for insert with check (public.owns_enrollment(enrollment_id) and watched_sec = 0);
 -- update ポリシーは置かない（クライアントからの直接更新を拒否）
 
 -- ── verify_logs ────────────────────────────
+drop policy if exists verify_logs_insert_own on public.verify_logs;
 create policy verify_logs_insert_own on public.verify_logs
   for insert with check (public.owns_enrollment(enrollment_id));
+drop policy if exists verify_logs_select_own on public.verify_logs;
 create policy verify_logs_select_own on public.verify_logs
   for select using (public.owns_enrollment(enrollment_id));
+drop policy if exists verify_logs_select_company on public.verify_logs;
 create policy verify_logs_select_company on public.verify_logs
   for select using (public.is_admin() and public.enrollment_in_my_company(enrollment_id));
 
 -- ── exams ──────────────────────────────────
 -- 採点はサーバ側（service_role）。クライアントは結果を読むだけ。
+drop policy if exists exams_select_own on public.exams;
 create policy exams_select_own on public.exams
   for select using (public.owns_enrollment(enrollment_id));
+drop policy if exists exams_select_company on public.exams;
 create policy exams_select_company on public.exams
   for select using (public.is_admin() and public.enrollment_in_my_company(enrollment_id));
 
 -- ── certificates ───────────────────────────
 -- 発行は service_role のみ（入金確認の判定を通す。0003 のトリガ参照）。
+drop policy if exists certificates_select_own on public.certificates;
 create policy certificates_select_own on public.certificates
   for select using (public.owns_enrollment(enrollment_id));
+drop policy if exists certificates_select_company on public.certificates;
 create policy certificates_select_company on public.certificates
   for select using (public.is_admin() and public.enrollment_in_my_company(enrollment_id));

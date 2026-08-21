@@ -8,7 +8,8 @@
     "typecheck": "tsc --noEmit",
     "check:narration": "tsx scripts/check-narration.ts",
     "sync:lessons": "tsx scripts/sync-lessons.ts",
-    "upload:curriculum": "tsx scripts/upload-curriculum.ts"
+    "upload:curriculum": "tsx scripts/upload-curriculum.ts",
+    "build:sql": "tsx scripts/build-apply-all.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.0",
@@ -21,8 +22,10 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4.0.0",
     "@types/node": "^22",
+    "@types/pg": "^8.23.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "pg": "^8.23.0",
     "playwright-core": "^1.62.1",
     "postcss": "^8.5.1",
     "tailwindcss": "^4.0.0",

@@ -37,7 +37,6 @@ await page.waitForSelector('a[href="/edu/1-1"]');
 const hrefs = await page.locator('a[href^="/edu/"]').evaluateAll((as) => as.map((a) => a.getAttribute("href")));
 const cards = hrefs.filter((h) => /^\/edu\/\d+-\d+$/.test(h)).length;
 if (cards !== 13) die(`一覧の単元数が ${cards}（13のはず）`);
-await page.waitForSelector("text=端末内記録");
 await shot(page, "02-list");
 
 // 2) 受講画面：ナレーション
@@ -111,7 +110,18 @@ for (let c = 1; c <= 2; c++) {
 }
 console.log("OK: 災害事例2件を通過");
 
-// 6) 規定時間前はロック
+// 6) 以降は端末内記録モードでのみ検証する。
+//    サーバ記録モードでは規定時間の判定を DB が持つため画面から時間を飛ばせない
+//    （そちらは tests/supabase-mode.mjs で確認する）
+const mode = await page.evaluate(() => window.__lessonStore.getState().mode);
+if (mode !== "local") {
+  console.log("SKIP: サーバ記録モードのため確認問題以降は検証しない（supabase-mode.mjs 側で確認）");
+  await browser.close();
+  console.log("ALL OK");
+  process.exit(0);
+}
+
+// 規定時間前はロック
 await page.waitForSelector("text=確認問題はまだ受けられません");
 console.log("OK: 規定時間前は確認問題がロックされる");
 await shot(page, "08-locked");

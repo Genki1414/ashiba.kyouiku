@@ -11,15 +11,19 @@ npm run dev        # http://localhost:3000
 ```
 
 Supabase 未設定でもそのまま動く（視聴記録は端末内＝localStorage に「端末内記録」表示付きで保存）。
-Supabase につなぐ場合は `.env.example` を `.env.local` に写し、
-`supabase/migrations/` を適用 → `supabase/seed.sql` を投入 → `npm run sync:lessons`。
+
+**Supabase につなぐ場合**は `supabase/apply-all.sql` を SQL Editor に1回貼って実行し、
+`.env.example` を `.env.local` に写して鍵を入れるだけ。
+接続できたかは <http://localhost:3000/setup> で確認できます。
+手順は `docs/01-Supabase接続手順.md`。
 
 | コマンド | 用途 |
 |---|---|
 | `npm run build` | 本番ビルド |
 | `npm run typecheck` | 型検査 |
 | `npm run check:narration` | narration-all.csv と script[] の1対1を検証（音声収録前に必ず） |
-| `npm run sync:lessons` | curriculum.json → lessons 表（規定時間の写し） |
+| `npm run build:sql` | `supabase/apply-all.sql` を生成（マイグレーション＋lessons＋seed） |
+| `npm run sync:lessons` | curriculum.json → lessons 表（apply-all を使うなら不要） |
 | `npm run upload:curriculum` | curriculum.json → Supabase Storage |
 
 ## ディレクトリ
@@ -28,7 +32,8 @@ Supabase につなぐ場合は `.env.example` を `.env.local` に写し、
 |---|---|
 | `src/` | アプリ本体（Next.js App Router + TypeScript + Tailwind + Zustand） |
 | `content/` | 教材の正本。`curriculum.json`（そのまま使う・変更しない）と `narration-all.csv` |
-| `supabase/` | マイグレーション3本・検証SQL・開発用 seed |
+| `supabase/` | `apply-all.sql`（貼るだけの初期化）・マイグレーション3本・検証SQL・開発用 seed |
+| `tests/` | E2E（実ブラウザ）とサーバ記録モードの検証 |
 | `scripts/` | 教材データの投入・検証スクリプト |
 | `docs/` | 設計文書（フェーズ0の設計案など） |
 | `handoff/` | チャットで作ったプロトタイプ。**仕様の参照用**。ビルド対象外 |

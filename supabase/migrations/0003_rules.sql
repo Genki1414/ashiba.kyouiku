@@ -5,7 +5,7 @@
 -- 理由：規定時間に達したかの判定をクライアントの申告に任せないため。
 
 -- ── 単元の規定時間（curriculum.json から scripts/sync-lessons.ts で投入）──
-create table public.lessons (
+create table if not exists public.lessons (
   lesson_id  text primary key,          -- '1-1' 形式
   subject_id int  not null,
   title      text not null,
@@ -13,11 +13,35 @@ create table public.lessons (
   sort_order int  not null
 );
 alter table public.lessons enable row level security;
+drop policy if exists lessons_select_all on public.lessons;
 create policy lessons_select_all on public.lessons for select using (true);
 
-alter table public.progress
-  add constraint progress_lesson_id_fkey
-  foreign key (lesson_id) references public.lessons (lesson_id) on delete restrict;
+do $$ begin
+  alter table public.progress
+    add constraint progress_lesson_id_fkey
+    foreign key (lesson_id) references public.lessons (lesson_id) on delete restrict;
+exception when duplicate_object then null; end $$;
+
+-- ── 単元を開いたことを記録 ─────────────────
+-- 進捗行をここで作る。updated_at が「単元を開いた時刻」になるので、
+-- 最初の同期でも、開いてからの実経過ぶんを正しく加算できる。
+create or replace function public.touch_progress(
+  p_enrollment_id uuid, p_lesson_id text)
+returns public.progress language plpgsql security definer set search_path = public as $$
+declare v_row public.progress;
+begin
+  if auth.role() <> 'service_role' and not public.owns_enrollment(p_enrollment_id) then
+    raise exception '受講者が一致しません';
+  end if;
+
+  insert into public.progress (enrollment_id, lesson_id)
+       values (p_enrollment_id, p_lesson_id)
+  on conflict (enrollment_id, lesson_id) do nothing;
+
+  select * into v_row from public.progress
+   where enrollment_id = p_enrollment_id and lesson_id = p_lesson_id;
+  return v_row;
+end $$;
 
 -- ── 視聴時間の加算 ─────────────────────────
 -- クライアントは「前回同期からの再生秒数」を送るだけ。
@@ -48,8 +72,13 @@ begin
    where enrollment_id = p_enrollment_id and lesson_id = p_lesson_id
      for update;
 
-  -- 実経過 + 2秒 を上限にする（通信の遅れ分だけ許容し、それ以上は切り捨てる）
-  v_add := least(p_delta_sec, greatest(0, floor(extract(epoch from (v_now - v_prev)))::int) + 2);
+  -- 上限は二重にかける。
+  --  ・実経過 + 2秒（通信の遅れ分だけ許容し、それ以上は切り捨てる）
+  --  ・1回あたり 120秒（同期は15秒間隔なので、通信失敗の取り返しでも足りる）
+  v_add := least(
+    p_delta_sec,
+    greatest(0, floor(extract(epoch from (v_now - v_prev)))::int) + 2,
+    120);
 
   update public.progress
      set watched_sec = watched_sec + v_add,
@@ -96,6 +125,8 @@ begin
   return v_at;
 end $$;
 
+revoke all on function public.touch_progress(uuid, text)      from public;
+grant execute on function public.touch_progress(uuid, text)   to authenticated;
 revoke all on function public.sync_watched_sec(uuid, text, int) from public;
 revoke all on function public.mark_quiz_passed(uuid, text)      from public;
 grant execute on function public.sync_watched_sec(uuid, text, int) to authenticated;
@@ -112,6 +143,7 @@ begin
   end if;
   return new;
 end $$;
+drop trigger if exists users_guard_columns on public.users;
 create trigger users_guard_columns before update on public.users
   for each row execute function public.guard_users_columns();
 
@@ -125,6 +157,7 @@ begin
   end if;
   return new;
 end $$;
+drop trigger if exists enrollments_guard_columns on public.enrollments;
 create trigger enrollments_guard_columns before update on public.enrollments
   for each row execute function public.guard_enrollment_columns();
 
@@ -148,5 +181,6 @@ begin
   end if;
   return new;
 end $$;
+drop trigger if exists certificates_check_paid on public.certificates;
 create trigger certificates_check_paid before insert on public.certificates
   for each row execute function public.certificates_require_paid();

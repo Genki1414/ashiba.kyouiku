@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
   const lessonId = typeof body?.lessonId === "string" ? body.lessonId : null;
   const deltaSec = Number.isInteger(body?.deltaSec) ? (body.deltaSec as number) : null;
-  if (!lessonId || deltaSec === null || deltaSec < 0 || deltaSec > 3600) {
+  if (!lessonId || deltaSec === null || deltaSec < 0 || deltaSec > 300) {
     return NextResponse.json({ error: "不正なリクエストです" }, { status: 400 });
   }
   if (!(await getLesson(lessonId))) {
@@ -45,12 +45,12 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ mode: "local" });
   }
 
-  const { data, error } = await supabase
-    .from("progress")
-    .select("watched_sec, quiz_passed_at")
-    .eq("enrollment_id", enrollmentId)
-    .eq("lesson_id", lessonId)
-    .maybeSingle();
+  // 進捗行をここで作る（updated_at が「単元を開いた時刻」になり、
+  // 最初の同期でも開いてからの実経過ぶんが正しく加算される）
+  const { data, error } = await supabase.rpc("touch_progress", {
+    p_enrollment_id: enrollmentId,
+    p_lesson_id: lessonId,
+  });
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
