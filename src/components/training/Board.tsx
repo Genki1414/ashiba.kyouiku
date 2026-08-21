@@ -6,6 +6,7 @@
 import { useMemo, useRef } from "react";
 import { POSTS as BASE_POSTS, SPANS, postsFor, type PostId, type SpanId } from "@/training/ch1/layout";
 import { has, type Ch1State } from "@/training/ch1/state";
+import type { Tool } from "@/training/ch1/rules";
 import {
   P,
   VB_DAN,
@@ -24,6 +25,7 @@ type Node = { key: string; kind: "post" | "inner" | "span"; id: string; sx: numb
 
 export function Board({
   s,
+  tool,
   mood,
   at,
   ghost,
@@ -32,6 +34,8 @@ export function Board({
   onTapSpan,
 }: {
   s: Ch1State;
+  /** いま持っている道具。押せる場所は道具で変わる */
+  tool: Tool;
   mood: Mood;
   /** 作業員の位置 */
   at: { x: number; y: number };
@@ -67,6 +71,41 @@ export function Board({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dan, POSTS]);
 
+  /* いまの道具で押せる場所。プロトタイプと同じ振り分け。
+     押せない種類を候補から外しておかないと、
+     隣の点に吸い寄せられて「押していない所」が反応してしまう。 */
+  const valid = useMemo(() => {
+    if (tool === "move") return { post: true, inner: true, span: true };
+    if (dan) {
+      return {
+        post: tool === "jack",
+        inner: tool === "rail6" || tool === "jack",
+        span: tool === "ledger",
+      };
+    }
+    return {
+      post: tool === "post" || tool === "inner" || tool === "brk",
+      inner: false,
+      span: tool === "ledger" || tool === "deck" || tool === "sgake" || tool === "rail6",
+    };
+  }, [tool, dan]);
+
+  /* 段取りでジャッキを配るときだけ、柱と内柱の両方が押せる。
+     内柱は柱から600mmしか離れていないので、画面では指1本ぶんも離れていない。
+     縮尺は変えられないので、「まだ置いていない方」を先に取る。 */
+  const stillNeeded = (n: Node) => {
+    if (!dan || tool !== "jack") return true;
+    if (n.kind === "post") return !has(s, `J:${n.id}`);
+    if (n.kind === "inner") return s.inner.includes(n.id as PostId) && !has(s, `J:in:${n.id}`);
+    return true;
+  };
+
+  /* 印の濃さ。押せない種類は薄く、押せてももう済んだ場所は控えめに */
+  const markOpacity = (n: Node) => {
+    if (!valid[n.kind]) return 0.12;
+    return stillNeeded(n) ? ghost : ghost * 0.35;
+  };
+
   /* 押した点にいちばん近い節点へ振り分ける */
   const onBoardClick = (e: React.MouseEvent<SVGRectElement>) => {
     const svg = svgRef.current;
@@ -77,18 +116,27 @@ export function Board({
     const ctm = svg.getScreenCTM();
     if (!ctm) return;
     const loc = pt.matrixTransform(ctm.inverse());
-    let best: Node | null = null;
-    let bestD = Infinity;
-    for (const n of nodes) {
-      /* 縦は投影で潰れているので、その分だけ縦の差を重く見る */
-      const dx = loc.x - n.sx;
-      const dy = (loc.y - n.sy) * 1.9;
-      const d = dx * dx + dy * dy;
-      if (d < bestD) {
-        bestD = d;
-        best = n;
+    const pick = (list: Node[]) => {
+      let b: Node | null = null;
+      let bd = Infinity;
+      for (const n of list) {
+        /* 縦は投影で潰れているので、その分だけ縦の差を重く見る */
+        const dx = loc.x - n.sx;
+        const dy = (loc.y - n.sy) * 1.9;
+        const d = dx * dx + dy * dy;
+        if (d < bd) {
+          bd = d;
+          b = n;
+        }
       }
-    }
+      return { node: b, d: bd };
+    };
+    const usable = nodes.filter((n) => valid[n.kind]);
+    /* まだ手を付けていない場所を先に見る。無ければ全部から選ぶ */
+    const first = pick(usable.filter(stillNeeded));
+    const r = first.node && first.d <= 60 * 60 ? first : pick(usable);
+    const best = r.node;
+    const bestD = r.d;
     if (!best || bestD > 60 * 60) return;
     if (best.kind === "post") onTapPost(best.id as PostId);
     else if (best.kind === "inner") onTapInner(best.id as PostId);
@@ -260,7 +308,7 @@ export function Board({
                   ? "var(--color-cyan)"
                   : "var(--color-org)"
             }
-            opacity={ghost * (n.kind === "span" ? 0.1 : 0.13)}
+            opacity={markOpacity(n) * (n.kind === "span" ? 0.1 : 0.13)}
           />
           {n.kind === "post" && (
             <text x={n.sx} y={n.sy + 20} textAnchor="middle" fontSize="11" fill="var(--color-dim)">

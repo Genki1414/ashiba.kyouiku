@@ -16,6 +16,7 @@
     "test:e2e:ch1": "node tests/e2e-ch1.mjs",
     "test:e2e:ch1sk": "node tests/e2e-ch1-sk.mjs",
     "test:e2e:fit": "node tests/e2e-scene-fit.mjs",
+    "test:e2e:tap": "node tests/e2e-tap.mjs",
     "test:e2e:catalog": "node tests/e2e-catalog-demo.mjs",
     "test:ch2": "tsx tests/ch2-rules.ts",
     "test:e2e:ch2": "node tests/e2e-ch2.mjs",

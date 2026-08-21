@@ -235,6 +235,7 @@ export function Ch1Client({ tutorial, sk = false }: { tutorial: boolean; sk?: bo
         <PopText pop={sc.pop} />
         <Board
           s={s}
+          tool={tool}
           mood={mood}
           at={at}
           ghost={ghost}
@@ -281,7 +282,13 @@ export function Ch1Client({ tutorial, sk = false }: { tutorial: boolean; sk?: bo
           <div className="mb-2 rounded-xl border border-line bg-panel p-3.5">
             <div className="mb-2 text-[11px] tracking-[2px] text-dim">段取りの残り</div>
             {danChecklist(s).map((c) => (
-              <div key={c.t} className="mb-1.5 flex items-center gap-2 text-[12.5px]">
+              <div
+                key={c.t}
+                data-check={c.t}
+                data-now={c.now}
+                data-need={c.need}
+                className="mb-1.5 flex items-center gap-2 text-[12.5px]"
+              >
                 <span className={c.now >= c.need && c.need > 0 ? "text-grn" : "text-dim2"}>
                   {c.now >= c.need && c.need > 0 ? "✓" : "□"}
                 </span>
