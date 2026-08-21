@@ -19,6 +19,14 @@ type Health = {
   checks?: Record<string, { ok: boolean; detail: string }>;
 };
 
+/* NEXT_PUBLIC_ はビルド時にこのファイルへ直接埋め込まれる。
+   サーバ側の値と突き合わせると、届いていないのがビルド時か実行時かが分かる。 */
+const BROWSER_ENV: [string, boolean][] = [
+  ["NEXT_PUBLIC_SUPABASE_URL", !!process.env.NEXT_PUBLIC_SUPABASE_URL],
+  ["NEXT_PUBLIC_SUPABASE_ANON_KEY", !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY],
+  ["NEXT_PUBLIC_AUDIO_BASE", !!process.env.NEXT_PUBLIC_AUDIO_BASE],
+];
+
 const CHECK_LABEL: Record<string, string> = {
   lessons: "lessons テーブル（単元13件）",
   enrollment: "開発用の受講（DEV_ENROLLMENT_ID）",
@@ -73,7 +81,7 @@ export function SetupClient() {
             </div>
 
             <div className="mt-4 rounded-xl border border-line bg-panel p-4">
-              <div className="mb-2 text-[11px] tracking-[2px] text-dim">環境変数</div>
+              <div className="mb-2 text-[11px] tracking-[2px] text-dim">サーバ側（実行時に読まれる）</div>
               {(
                 [
                   ["NEXT_PUBLIC_SUPABASE_URL", h.env.url ?? "未設定"],
@@ -92,6 +100,26 @@ export function SetupClient() {
                   </div>
                 );
               })}
+            </div>
+
+            {/* ブラウザ側（ビルド時に埋め込まれる） */}
+            <div className="mt-3 rounded-xl border border-line bg-panel p-4">
+              <div className="mb-1 text-[11px] tracking-[2px] text-dim">
+                ブラウザ側（ビルド時に埋め込まれる）
+              </div>
+              <div className="mb-2 text-[11px] leading-relaxed text-dim2">
+                サーバ側は「設定済み」なのにここが「届いていない」なら、ビルドに値が渡っていません。
+                Sensitive を外すか、ビルドキャッシュを使わずに Redeploy してください。
+              </div>
+              {BROWSER_ENV.map(([k, ok]) => (
+                <div key={k} className="mb-1.5 flex items-baseline gap-2">
+                  <span className={`text-[13px] ${ok ? "text-grn" : "text-dim2"}`}>{ok ? "✓" : "□"}</span>
+                  <span className="font-mono text-[11px] text-dim">{k}</span>
+                  <span className={`ml-auto shrink-0 text-[12px] ${ok ? "text-txt" : "text-dim2"}`}>
+                    {ok ? "届いている" : "届いていない"}
+                  </span>
+                </div>
+              ))}
             </div>
 
             {h.checks && (
