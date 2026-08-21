@@ -75,8 +75,8 @@ export function Ch3Client({ tutorial }: { tutorial: boolean }) {
   if (done) {
     return (
       <Result
-        chapter="第3章 火打とシート"
-        lowText="まだ任せられん"
+        ch="ch3"
+        tutorial={tutorial}
         r={sc.result}
         onRetry={() => window.location.reload()}
         extra={

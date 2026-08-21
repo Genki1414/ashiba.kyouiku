@@ -195,8 +195,9 @@ export function Ch1Client({ tutorial, sk = false }: { tutorial: boolean; sk?: bo
   if (done) {
     return (
       <Result
-        chapter="第1章 段取りと根がらみ"
-        lowText="まだ現場に出せん"
+        ch="ch1"
+        tutorial={tutorial}
+        sk={s.sk}
         r={sc.result}
         onRetry={() => window.location.reload()}
       />

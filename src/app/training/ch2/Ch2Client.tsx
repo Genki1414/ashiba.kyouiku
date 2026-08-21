@@ -131,8 +131,8 @@ export function Ch2Client({ tutorial }: { tutorial: boolean }) {
   if (done && view === "result") {
     return (
       <Result
-        chapter="第2章 高所作業"
-        lowText="まだ上に上げられん"
+        ch="ch2"
+        tutorial={tutorial}
         r={sc.result}
         onRetry={() => window.location.reload()}
       />

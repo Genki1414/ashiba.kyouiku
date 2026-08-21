@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { isPass, mmss, rankOf, summarize, type Score } from "@/training/score";
+import { chapterLabel, chapterOf, type ChapterId } from "@/training/chapters";
+import { saveAttempt } from "@/lib/trainingRecord";
 import { Boss } from "./Characters";
 import { Btn } from "@/components/ui/Btn";
 import { SFX } from "@/lib/sfx";
@@ -11,20 +13,33 @@ import { SFX } from "@/lib/sfx";
    段位・SCORE・最大コンボ・技能点と、親方に言われたことの一覧を出す。 */
 
 export function Result({
-  chapter,
-  lowText,
+  ch,
+  tutorial,
+  sk,
   r,
   onRetry,
   extra,
 }: {
-  chapter: string;        // 「第1章 段取りと根がらみ」
-  lowText: string;        // Cランクの呼び方。章で違う
+  ch: ChapterId;
+  tutorial: boolean;
+  /** 手摺先行工法で組んだか（第1章だけ） */
+  sk?: boolean;
   r: Score;
   onRetry: () => void;
   extra?: React.ReactNode; // 章ごとの追記（第3章の指摘回数など）
 }) {
-  useEffect(() => { SFX.fanfare(); }, []);
+  const saved = useRef(false);
+  useEffect(() => {
+    SFX.fanfare();
+    /* 通し終えた記録を端末に残す。二度書かないよう一度だけ */
+    if (saved.current) return;
+    saved.current = true;
+    saveAttempt(ch, r, { tutorial, sk });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
+  const chapter = chapterLabel(ch);
+  const lowText = chapterOf(ch)?.lowText ?? "まだ任せられん";
   const rk = rankOf(r.skill, lowText);
   const pass = isPass(r.skill);
   const u = summarize(r.errs);

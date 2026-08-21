@@ -1,15 +1,9 @@
 import Link from "next/link";
+import { CHAPTERS, type ChapterId } from "@/training/chapters";
+import { ChapterRecord } from "@/components/training/ChapterRecord";
+import { NoteLink } from "@/components/training/NoteLink";
 
 /* 実務トレーニングの章選択（HANDOFF.md 2章の画面の流れ） */
-
-const CHAPTERS = [
-  { id: "ch1", n: 1, t: "段取りと根がらみ", d: "割り付け・内柱・ジャッキ合わせ・建方の基準", ready: true },
-  { id: "ch2", n: 2, t: "高所作業", d: "筋交・安全帯の掛け替え・壁当てジャッキ", ready: true },
-  { id: "ch3", n: 3, t: "火打とシート", d: "出隅の火打・シートの縦張りと緊結", ready: true },
-  { id: "ch4", n: 4, t: "本足場", d: "準備中", ready: false },
-  { id: "ch5", n: 5, t: "壁つなぎ・層間ネット", d: "準備中", ready: false },
-  { id: "ch6", n: 6, t: "技能士試験の実技", d: "準備中", ready: false },
-];
 
 export default function TrainingPage() {
   return (
@@ -34,6 +28,8 @@ export default function TrainingPage() {
                 <span className="text-[15px] font-black">{c.t}</span>
               </div>
               <div className="mt-1 text-[12px] leading-relaxed text-dim">{c.d}</div>
+              {/* 前に通したときの成績（端末に残したもの） */}
+              <ChapterRecord ch={c.id as ChapterId} />
               {/* 第1章だけ、前に資材カタログと通し見学を挟む（HANDOFF.md 2章） */}
               <div className="mt-3 grid gap-2">
                 {c.id === "ch1" && (
@@ -106,9 +102,14 @@ export default function TrainingPage() {
         ④ は手摺先行工法。出隅の片側を600スパンにして、床を張る前に先行手摺を上げる段取りです。
       </p>
 
+      {/* 言われたことを章をまたいで見返す */}
+      <div className="mt-4 px-5">
+        <NoteLink />
+      </div>
+
       <Link
         href="/updates"
-        className="mx-5 mt-4 block rounded-lg border border-line p-3 text-center text-[12.5px] text-dim no-underline"
+        className="mx-5 mt-3 block rounded-lg border border-line p-3 text-center text-[12.5px] text-dim no-underline"
       >
         更新の一覧を見る
       </Link>
