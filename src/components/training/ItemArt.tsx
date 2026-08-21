@@ -8,7 +8,7 @@ import type { ReactNode } from "react";
 export function ItemArt({ id, big }: { id: string; big?: boolean }) {
   const V = (kids: ReactNode) => (
     <svg
-      viewBox="0 0 86 90"
+      viewBox="0 0 100 92"
       preserveAspectRatio="xMidYMid meet"
       className={big ? "block h-full w-full" : "mx-auto block h-[76px] w-full"}
     >
@@ -30,7 +30,6 @@ export function ItemArt({ id, big }: { id: string; big?: boolean }) {
         return V(<>
           <rect x="38" y="26" width="10" height="52" fill={"var(--color-steel)"} />
           {[0, 1, 2, 3, 4, 5].map((i) => <line key={i} x1="36" y1={70 - i * 7} x2="50" y2={70 - i * 7} stroke={"var(--color-steel-dk)"} strokeWidth="2" />)}
-          <rect x="34" y="8" width="18" height="42" fill={"var(--color-steel)"} stroke={"var(--color-steel-dk)"} />
           <rect x="28" y="46" width="30" height="9" rx="3" fill="#7E8A96" />
           <text x="62" y="54" fontSize="8" fill={"var(--color-dim)"}>ハンドル</text>
           <rect x="22" y="78" width="42" height="6" rx="1" fill={"var(--color-steel-lt)"} />

@@ -56,3 +56,19 @@ body {
   height: 6px;
   background: repeating-linear-gradient(115deg, var(--color-yel) 0 12px, var(--color-bg) 12px 24px);
 }
+
+/* ── 実務トレーニングの動き（プロトタイプと同じ） ── */
+@keyframes drop { from { opacity: 0; transform: translateY(-14px); } to { opacity: 1; transform: none; } }
+.drop { animation: drop 0.32s cubic-bezier(0.2, 0.9, 0.3, 1.4) both; }
+
+@keyframes wk { 0%, 100% { transform: translateY(0) rotate(0); } 25% { transform: translateY(-3px) rotate(-3deg); } 75% { transform: translateY(-3px) rotate(3deg); } }
+.walk { animation: wk 0.32s ease-in-out; }
+
+@keyframes tgtPulse { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
+.tgt { animation: tgtPulse 1.9s ease-in-out infinite; }
+
+@keyframes shk { 0%, 100% { transform: translateX(0); } 20% { transform: translateX(-7px); } 40% { transform: translateX(7px); } 60% { transform: translateX(-4px); } 80% { transform: translateX(4px); } }
+.shake { animation: shk 0.4s ease; }
+
+@keyframes fl { 0% { opacity: 0.8; transform: scale(0.4); } 100% { opacity: 0; transform: scale(1.6); } }
+.flash { animation: fl 0.45s ease-out both; transform-origin: center; }

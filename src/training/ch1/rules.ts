@@ -44,20 +44,30 @@ export const LEVEL_SPOT_NAME: Record<LevelSpot, string> = {
   mid: "手摺の中ほど",
 };
 
-/** 置き場所を外したときの理由。なぜ駄目かを必ず言う */
+/** 置き場所を外したときの理由。プロトタイプの文言 */
 export const LEVEL_SPOT_WHY: Record<LevelSpot, string> = {
-  end: "端は差し込みの都合で凹んどる。面が出とらんから、気泡が中央でも水平は出ていない。前にこれで測って、4面が一周したときに高さが合わんかった。",
+  end: "そこは手摺の端だ。差し込みの都合で凹んでいる。面が出ていないから、気泡が真ん中に来ても水平は出ていないぞ。",
   in: "",
-  mid: "中ほどはジャッキから遠い。回しながら気泡が見えんから、合わせようがない。",
+  mid: "遠すぎる。ジャッキを回しながら気泡が見えないだろう。回しては見に行き、を繰り返す気か。",
 };
 
+/* 場面はプロトタイプの overlay 連鎖と同じ並びにしてある。
+   内柱の箇所は cA → anim → cB → lvI の4段。 */
 export type Scene =
-  | { type: "jackAdjust"; post: PostId }        // 挿す手前のジャッキ合わせ
+  /** 挿す手前のジャッキ合わせ */
+  | { type: "jackAdjust"; post: PostId }
+  /** 建物からの離れ */
   | { type: "hanare"; post: PostId; label: string }
-  /** 外柱の水平。根がらみ手摺のどこに水平器を置くかを選ばせる。
-      spots と作業員は進行方向側（dir）に出す */
-  | { type: "level"; a: PostId; b: PostId; dir: "south" | "east"; spots: LevelSpot[] }
-  | { type: "innerNext"; post: PostId };         // 内柱を立てた直後（600手摺 → 離れ → 水平は支柱に当てる）
+  /** 外柱の水平。根がらみ手摺のどこに置くかを選んでから気泡を合わせる */
+  | { type: "level"; a: PostId; b: PostId }
+  /** 内柱を立てた直後の選択（cA） */
+  | { type: "innerChoiceA"; post: PostId }
+  /** 600手摺の取付（anim） */
+  | { type: "railAnim"; post: PostId }
+  /** 水平器をどこに当てるかの選択（cB） */
+  | { type: "innerChoiceB"; post: PostId }
+  /** 内柱の水平。水平器は支柱に当てる（lvI） */
+  | { type: "levelInner"; post: PostId };
 
 export type Action =
   | { type: "tapPost"; tool: Tool; id: PostId }
@@ -66,7 +76,9 @@ export type Action =
   | { type: "useHanare" }
   | { type: "useLevel" }
   | { type: "toTate" }
-  | { type: "sceneDone"; scene: Scene; value?: number; spot?: LevelSpot };
+  | { type: "sceneDone"; scene: Scene; value?: number }
+  /** 場面の中で起きたファール（置き場所を外した／基準側のジャッキを触った など） */
+  | { type: "sceneFoul"; tag: string; message: string; why: string };
 
 export type Verdict =
   | { kind: "good"; message: string; state: Ch1State; scene?: Scene }
@@ -290,7 +302,7 @@ function judgeTate(s: Ch1State, a: Action): Verdict {
           );
         }
         return good(put({ ...s, at: id }, `PI:${id}`), "内柱を立てた。", {
-          type: "innerNext",
+          type: "innerChoiceA",
           post: id,
         });
       }
@@ -303,7 +315,7 @@ function judgeTate(s: Ch1State, a: Action): Verdict {
         );
       }
       return good(put({ ...s, at: id }, `PI:${id}`), "内柱を立てた。", {
-        type: "innerNext",
+        type: "innerChoiceA",
         post: id,
       });
     }
@@ -395,7 +407,7 @@ function judgeTate(s: Ch1State, a: Action): Verdict {
         );
       }
       if (s.level.includes(s.at)) return note("その柱の水平はもう出した。もう一方の柱へ行け。");
-      return good(s, "水平を出す。どこに水平器を置く？", levelScene("C", s.at));
+      return good(s, "水平を出す。", { type: "level", a: "C", b: s.at });
     }
     const m = find((st) => st.k === "level" && st.b === s.at);
     if (m && s.at && !s.hanare.includes(s.at)) {
@@ -415,19 +427,13 @@ function judgeTate(s: Ch1State, a: Action): Verdict {
       );
     }
     const st = m.step as Extract<typeof m.step, { k: "level" }>;
-    return good(s, "水平を出す。どこに水平器を置く？", levelScene(st.a, st.b));
+    return good(s, "水平を出す。", { type: "level", a: st.a, b: st.b });
   }
 
   if (a.type === "tapInner") return note("内柱は柱の位置をタップして立てる。");
   if (a.type === "toTate") return note("もう建方に入っとる。");
 
   return note("いまその手はない。");
-}
-
-/** 外柱の水平の場面。候補と作業員は進行方向側に出す */
-function levelScene(a: PostId, b: PostId): Scene {
-  const dir = POSTS[b].face === "E" ? "east" : "south";
-  return { type: "level", a, b, dir, spots: ["end", "in", "mid"] };
 }
 
 /** 支柱を立てる（ジャッキ合わせが済んだあと） */
@@ -484,16 +490,8 @@ function judgeScene(s: Ch1State, a: Extract<Action, { type: "sceneDone" }>): Ver
     return good(next, `${POSTS[sc.post].n}の離れが合った。次は水平だ。`);
   }
 
+  /* 外柱の水平が出た */
   if (sc.type === "level") {
-    const spot = a.spot;
-    if (!spot) return note("水平器を置く場所を選べ。");
-    if (spot !== "in") {
-      return foul(
-        `そこは違う。水平器は${LEVEL_SPOT_NAME.in}に置く。`,
-        LEVEL_SPOT_WHY[spot],
-        "水平器の置き場所",
-      );
-    }
     const b = sc.b;
     const withL = { ...s, level: [...s.level, b] };
     if (inStageA(s)) {
@@ -507,15 +505,30 @@ function judgeScene(s: Ch1State, a: Extract<Action, { type: "sceneDone" }>): Ver
     return good(next, "水平が出た。脚部の狂いは上段で拡大する。");
   }
 
-  if (sc.type === "innerNext") {
-    /* 内柱を立てた → 踏板高さの600手摺でつなぐ → 離れ → 水平（水平器は支柱に当てる） */
+  /* 内柱：立てた → 600手摺でつなぐ → 水平器は支柱に当てる（HANDOFF.md ルール7） */
+  if (sc.type === "innerChoiceA") {
+    return good(s, "踏板高さの600手摺で外柱とつなぐ。", { type: "railAnim", post: sc.post });
+  }
+
+  if (sc.type === "railAnim") {
     const withTie = { ...s, innerTied: [...s.innerTied, sc.post] };
+    return good(withTie, "踏板高さの600手摺で外柱とつないだ。", {
+      type: "innerChoiceB",
+      post: sc.post,
+    });
+  }
+
+  if (sc.type === "innerChoiceB") {
+    return good(s, "支柱に水平器を当てる。", { type: "levelInner", post: sc.post });
+  }
+
+  if (sc.type === "levelInner") {
     if (inStageA(s)) {
-      return good(markAdjust(withTie, sc.post), "600手摺でつないで、内柱の水平も出した。この柱は仕上がりだ。");
+      return good(markAdjust(s, sc.post), "内柱の水平が出た。この柱は仕上がりだ。");
     }
     const m = activeSteps(s).find((x) => x.step.k === "inner" && x.step.t === sc.post);
-    const next = m ? advance(withTie, m.face) : withTie;
-    return good(next, "600手摺でつないで、内柱の水平も出した。");
+    const next = m ? advance(s, m.face) : s;
+    return good(next, "内柱の水平が出た。");
   }
 
   return note("いまその場面じゃない。");
@@ -526,6 +539,8 @@ function judgeScene(s: Ch1State, a: Extract<Action, { type: "sceneDone" }>): Ver
    ══════════════════════════════════════════ */
 
 export function judge(s: Ch1State, a: Action): Verdict {
+  /* 場面の中で起きたファール。状態は進めず、技能点だけ引く */
+  if (a.type === "sceneFoul") return foul(a.message, a.why, a.tag);
   if (a.type === "sceneDone") return judgeScene(s, a);
   return s.phase === "dan" ? judgeDan(s, a) : judgeTate(s, a);
 }

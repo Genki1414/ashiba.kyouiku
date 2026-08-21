@@ -15,17 +15,22 @@ import {
   hint as hintOf,
   judge,
   type Action,
-  type LevelSpot,
   type Scene,
   type Tool,
 } from "@/training/ch1/rules";
 import { Board } from "@/components/training/Board";
 import { Boss, type Mood } from "@/components/training/Characters";
-import { innerPos, spanMid } from "@/components/training/geometry";
 import { JackScene } from "@/components/training/scenes/JackScene";
-import { LevelScene } from "@/components/training/scenes/LevelScene";
 import { HanareScene } from "@/components/training/scenes/HanareScene";
-import { InnerScene } from "@/components/training/scenes/InnerScene";
+import {
+  Choice,
+  InnerArt,
+  LevelZoom,
+  RailAnim,
+  Scold,
+  type ChoiceOpt,
+} from "@/components/training/scenes/Prototype";
+import { flipOf, innerPos } from "@/components/training/geometry";
 import { Bar } from "@/components/ui/Bar";
 import { Btn } from "@/components/ui/Btn";
 
@@ -56,12 +61,11 @@ export function Ch1Client({ tutorial }: { tutorial: boolean }) {
     "よし、段取りからいくぞ。まず割り付けどおりに根がらみ手摺を並べろ。",
   );
   const [mood, setMood] = useState<Mood>("normal");
-  const [scold, setScold] = useState<string | null>(null);
+  const [scold, setScold] = useState<string | null>(null);      // 親方の横に出す（プロトタイプの bad）
+  const [scoldModal, setScoldModal] = useState<string | null>(null); // 怒りの画面（プロトタイプの foul）
   const [skill, setSkill] = useState(100);
   const [errs, setErrs] = useState<Err[]>([]);
   const [scene, setScene] = useState<Scene | null>(null);
-  const [levelWrong, setLevelWrong] = useState<{ spot: LevelSpot; why: string } | null>(null);
-  const [innerPick, setInnerPick] = useState<string | null>(null);
   const [asks, setAsks] = useState(0);
 
   const pg = progress(s);
@@ -83,11 +87,7 @@ export function Ch1Client({ tutorial }: { tutorial: boolean }) {
         setMood("good");
         setTimeout(() => setMood("normal"), 800);
         setScold(null);
-        if (v.scene) {
-          setScene(v.scene);
-          setLevelWrong(null);
-          setInnerPick(null);
-        }
+        if (v.scene) setScene(v.scene);
         return;
       }
       if (v.kind === "note") {
@@ -106,32 +106,35 @@ export function Ch1Client({ tutorial }: { tutorial: boolean }) {
 
   /* 場面を閉じる */
   const closeScene = useCallback(
-    (extra: { value?: number; spot?: LevelSpot } = {}) => {
+    (value?: number) => {
       if (!scene) return;
-      const v = judge(s, { type: "sceneDone", scene, ...extra });
+      const v = judge(s, { type: "sceneDone", scene, value });
       if (v.kind === "good") {
         setS(v.state);
         setMsg(v.message);
-        setScene(null);
-        setLevelWrong(null);
+        /* 次の場面が続くなら差し替え、無ければ閉じる */
+        setScene(v.scene ?? null);
         setMood("good");
         setTimeout(() => setMood("normal"), 800);
-        return;
-      }
-      if (v.kind === "foul") {
-        setMood("bad");
-        setSkill((x) => Math.max(0, x - v.penalty));
-        setErrs((e) => [...e, { tag: v.tag, message: v.message, why: v.why }]);
-        if (scene.type === "level" && extra.spot) {
-          setLevelWrong({ spot: extra.spot, why: v.why });
-        } else {
-          setScold(`${v.message}\n${v.why}`);
-        }
         return;
       }
       setMsg(v.message);
     },
     [s, scene],
+  );
+
+  /* 場面の中で起きたファール。状態は進めず技能点だけ引く */
+  const sceneFoul = useCallback(
+    (tag: string, message: string, why: string) => {
+      const v = judge(s, { type: "sceneFoul", tag, message, why });
+      if (v.kind !== "foul") return;
+      setMood("bad");
+      /* 場面でのファールはプロトタイプと同じく −10 */
+      setSkill((x) => Math.max(0, x - 10));
+      setErrs((e) => [...e, { tag: v.tag, message: v.message, why: v.why }]);
+      setScoldModal(`${v.message}\n${v.why}`);
+    },
+    [s],
   );
 
   const tools = s.phase === "dan" ? DAN_TOOLS : TATE_TOOLS;
@@ -176,7 +179,7 @@ export function Ch1Client({ tutorial }: { tutorial: boolean }) {
   }
 
   return (
-    <main className="pb-6">
+    <main className="relative pb-6">
       {/* 上のバー */}
       <div className="flex items-center gap-2.5 border-b border-line px-4 py-2.5">
         <Link href="/training" className="p-1 text-[16px] text-dim no-underline">
@@ -292,31 +295,107 @@ export function Ch1Client({ tutorial }: { tutorial: boolean }) {
         )}
       </div>
 
-      {/* 場面 */}
+      {/* 場面。すべてプロトタイプの overlay をそのまま使う */}
       {scene?.type === "jackAdjust" && (
-        <JackScene post={scene.post} onDone={(value) => closeScene({ value })} />
+        <JackScene post={scene.post} onDone={(value) => closeScene(value)} />
       )}
+
       {scene?.type === "hanare" && (
         <HanareScene label={scene.label} onDone={() => closeScene()} />
       )}
+
+      {/* 外柱の水平：置き場所を選んでから気泡を合わせる */}
       {scene?.type === "level" && (
-        <LevelScene
-          a={scene.a}
-          b={scene.b}
-          dir={scene.dir}
-          spots={scene.spots}
-          wrong={levelWrong}
-          onPick={(spot) => closeScene({ spot })}
+        <LevelZoom
+          baseN={POSTS[scene.a].n}
+          tgtN={POSTS[scene.b].n}
+          aId={scene.a}
+          bId={scene.b}
+          flip={flipOf(POSTS[scene.a], POSTS[scene.b])}
+          onClear={() => closeScene()}
+          onFoul={() =>
+            sceneFoul(
+              "基準柱のジャッキを操作",
+              "そこは基準の柱じゃ！　基準を動かしたら全部狂うぞ！",
+              "基準の柱を動かすと、そこまでに出した水平が全部やり直しになる。",
+            )
+          }
         />
       )}
-      {scene?.type === "innerNext" && (
-        <InnerScene
-          post={scene.post}
-          picked={innerPick}
-          onPick={setInnerPick}
+
+      {/* 内柱：立てた直後 → 600手摺 → 水平器をどこに当てるか → 内柱の水平 */}
+      {scene?.type === "innerChoiceA" && (
+        <Choice
+          title="内柱を立てた"
+          q="次にどうする？"
+          art={<InnerArt flip={flipOf(POSTS[scene.post], innerPos(scene.post))} ghost />}
+          opts={[
+            { t: "内柱に水平器を当てて水平を見る", ok: false },
+            { t: "踏板高さの手摺を付ける", ok: true },
+          ]}
+          onPick={(o: ChoiceOpt) => {
+            if (!o.ok) {
+              return sceneFoul(
+                "内柱の水平を先に見た",
+                "順番が逆じゃ！　手摺で外柱とつないでから見んかい！",
+                "つないでいない内柱は動く。動くものに水平器を当てても意味がない。",
+              );
+            }
+            closeScene();
+          }}
+        />
+      )}
+
+      {scene?.type === "railAnim" && (
+        <RailAnim
+          flip={flipOf(POSTS[scene.post], innerPos(scene.post))}
           onDone={() => closeScene()}
         />
       )}
+
+      {scene?.type === "innerChoiceB" && (
+        <Choice
+          title="水平を見る"
+          q="水平器はどこに当てる？"
+          art={<InnerArt flip={flipOf(POSTS[scene.post], innerPos(scene.post))} rail />}
+          opts={[
+            { t: "支柱（内柱）に当てる", ok: true },
+            { t: "取り付けた手摺に当てる", ok: false },
+          ]}
+          onPick={(o: ChoiceOpt) => {
+            if (!o.ok) {
+              return sceneFoul(
+                "水平器を当てる箇所の誤り",
+                "手摺で見るな！　柱で見るんじゃ！",
+                "手摺は差し込みに遊びがある。柱に当てんと本当の垂直は分からん。",
+              );
+            }
+            closeScene();
+          }}
+        />
+      )}
+
+      {scene?.type === "levelInner" && (
+        <LevelZoom
+          vertical
+          baseN="外柱"
+          tgtN="内柱"
+          aId={scene.post}
+          flip={flipOf(POSTS[scene.post], innerPos(scene.post))}
+          onClear={() => closeScene()}
+          onFoul={() =>
+            sceneFoul(
+              "外柱のジャッキを操作",
+              "外柱を動かすな！　もう水平は出とるじゃろが！",
+              "外柱はもう決まっとる。動かせば、そこまでの離れも水平もやり直しだ。",
+            )
+          }
+        />
+      )}
+
+      {/* ファールのとき、親方が怒る */}
+      {scoldModal && <Scold line={scoldModal} onClose={() => { setScoldModal(null); setMood("normal"); }} />}
+
     </main>
   );
 }

@@ -12,7 +12,14 @@ const browser = await chromium.launch({ executablePath: process.env.PW_CHROMIUM 
 const page = await browser.newPage({ viewport: { width: 390, height: 900 } });
 page.on("pageerror", (e) => die(`pageerror: ${e.message}`));
 
-const tool = (t) => page.getByRole("button", { name: t, exact: true }).click();
+const skill = async () => parseInt((await page.locator("text=/技能 \\d+/").textContent()).match(/\d+/)[0], 10);
+
+/* 怒りの画面が出ていたら閉じる（場面でのファールのとき出る） */
+const clearScold = async () => {
+  const b = page.getByRole("button", { name: "すいません！" });
+  if (await b.count()) { await b.click(); await page.waitForTimeout(150); }
+};
+const tool = async (t) => { await clearScold(); await page.getByRole("button", { name: t, exact: true }).click(); };
 /* 盤面は「押した点にいちばん近い節点」へ振り分けるので、
    印の実座標をとって、そこを実際にマウスで押す（振り分けごと確かめる） */
 const tapNode = async (key) => {
@@ -20,6 +27,7 @@ const tapNode = async (key) => {
   if (!box) throw new Error(`節点が見つからない: ${key}`);
   await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
   await page.waitForTimeout(60);
+  await clearScold();
 };
 const tapPost = (id) => tapNode(`post:${id}`);
 const tapInner = (id) => tapNode(`inner:${id}`);
@@ -54,7 +62,78 @@ const doHanare = async () => {
   await page.waitForTimeout(120);
 };
 
-const skill = async () => parseInt((await page.locator("text=/技能 \\d+/").textContent()).match(/\d+/)[0], 10);
+
+/* 水平：まず置き場所（端から少し中）を選び、そのあと気泡を合わせる。
+   的は g.tgt の中の丸を押す（g の中心は文字と丸の間で、そこには当たり判定が無い） */
+const tapSpot = async (label) => {
+  const tgts = page.locator("g.tgt");
+  const n = await tgts.count();
+  for (let i = 0; i < n; i++) {
+    const t = await tgts.nth(i).textContent();
+    if (t && t.includes(label)) {
+      /* 的は点滅しているので、座標を取って直接押す */
+      const box = await tgts.nth(i).locator("circle").first().boundingBox();
+      await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+      await page.waitForTimeout(250);
+      return true;
+    }
+  }
+  return false;
+};
+
+/* 気泡を合わせる。ずれ o が 0 になれば水平。調整側（進行方向側）のボタンだけ押す */
+const settleBubble = async () => {
+  for (let i = 0; i < 30; i++) {
+    const el = page.getByTestId("level-now");
+    if (!(await el.count())) break;
+    const o = Number(await el.getAttribute("data-o"));
+    if (o === 0) break;
+    /* 動かすのは調整側だけ。基準側を触るとファールになる */
+    const btn = page
+      .locator('[data-side="adj"]')
+      .getByRole("button", { name: o > 0 ? "↓ 下げる" : "↑ 上げる" });
+    if (!(await btn.count())) break;
+    await btn.click();
+    await page.waitForTimeout(70);
+  }
+  // 合うと自動で閉じる
+  await page.waitForSelector('[data-testid="level-now"]', { state: "detached", timeout: 5000 });
+  await page.waitForTimeout(200);
+};
+
+const doLevel = async ({ wrongFirst = false } = {}) => {
+  await page.waitForSelector("text=水平器をどこに置く？");
+  const before = await skill();
+  if (wrongFirst) {
+    check(await tapSpot("手摺の端"), "「手摺の端」の的がある");
+    check(
+      (await page.locator("text=/凹んでいる/").count()) > 0,
+      "端に置くと凹みの理由が親方から出る",
+    );
+    check((await skill()) === before, "置き場所を外しても技能点は引かない（プロトタイプと同じ）");
+  }
+  check(await tapSpot("端から少し中"), "「端から少し中」の的がある");
+  await settleBubble();
+};
+
+/* 内柱：立てた直後 → 600手摺 → 水平器の当て先 → 内柱の水平 */
+const doInner = async () => {
+  await page.waitForSelector("text=次にどうする？");
+  await page.getByRole("button", { name: "踏板高さの手摺を付ける" }).click();
+  /* 600手摺の取付アニメが終わるのを待って「次へ」 */
+  await page.waitForSelector("text=踏板用手摺（600手摺）", { timeout: 8000 });
+  const next = page.getByRole("button", { name: "次へ" });
+  for (let i = 0; i < 40; i++) {
+    if (await next.isEnabled().catch(() => false)) break;
+    await page.waitForTimeout(150);
+  }
+  await next.click();
+  await page.waitForSelector("text=水平器はどこに当てる？", { timeout: 10000 });
+  await page.getByRole("button", { name: "支柱（内柱）に当てる" }).click();
+  await page.waitForTimeout(400);
+  await settleBubble();
+};
+
 const bossSays = () => page.locator(".whitespace-pre-line").textContent();
 
 await page.goto(`${BASE}/training/ch1`);
@@ -126,16 +205,11 @@ await doHanare();
 console.log("OK: 離れ");
 
 await page.getByRole("button", { name: "水平を見る" }).click();
-await page.waitForSelector("text=水平器はどこに置く？");
+await page.waitForSelector("text=水平器をどこに置く？");
 await shot(page, "07-level");
-await page.getByRole("button", { name: /手摺の端/ }).click();
-await page.waitForTimeout(200);
-check((await page.locator("text=/凹ん/").count()) > 0, "端に置くと凹みの理由が出る");
-await shot(page, "08-level-wrong");
-await page.getByRole("button", { name: /端から少し中/ }).click();
-await page.waitForTimeout(200);
-check(!(await page.locator("text=水平器はどこに置く？").count()), "正しい置き場所で場面が閉じる");
-console.log("OK: 水平器の置き場所");
+await doLevel({ wrongFirst: true });
+await shot(page, "08-level-done");
+console.log("OK: 水平器の置き場所と気泡合わせ");
 
 await tool("ブラケット"); await tapPost("E1"); await page.waitForTimeout(120);
 
@@ -146,19 +220,17 @@ check((await bossSays()).includes("内柱"), "内柱の箇所にブラケット�
 await page.getByRole("button", { name: "離れを見る" }).click();
 await doHanare();
 await page.getByRole("button", { name: "水平を見る" }).click();
-await page.waitForSelector("text=水平器はどこに置く？");
-await page.getByRole("button", { name: /端から少し中/ }).click();
-await page.waitForTimeout(200);
+await doLevel();
 await tool("内柱"); await tapPost("S1");
 await page.waitForSelector("text=次にどうする？");
 await shot(page, "09-inner");
-await page.getByRole("button", { name: "先に踏板を敷く" }).click();
-await page.waitForTimeout(150);
-check((await page.locator("text=/まだ早い/").count()) > 0, "内柱の場面で誤答に理由が出る");
-await page.getByRole("button", { name: "踏板高さの600手摺でつなぐ" }).click();
-await page.waitForTimeout(120);
-await page.getByRole("button", { name: "つないで水平を出す" }).click();
+// 順番を逆にすると叱られる
+await page.getByRole("button", { name: "内柱に水平器を当てて水平を見る" }).click();
+await page.waitForTimeout(250);
+check((await page.locator("text=/順番が逆/").count()) > 0, "内柱の水平を先に見ると叱られる");
+await page.getByRole("button", { name: "すいません！" }).click();
 await page.waitForTimeout(200);
+await doInner();
 console.log("OK: 内柱の箇所");
 await shot(page, "10-stage-a-done");
 
@@ -172,17 +244,9 @@ const face = async (steps) => {
     }
     if (t === "level") {
       await page.getByRole("button", { name: "水平を見る" }).click();
-      await page.waitForSelector("text=水平器はどこに置く？");
-      await page.getByRole("button", { name: /端から少し中/ }).click();
-      await page.waitForTimeout(150); continue;
+      await doLevel(); continue;
     }
-    if (t === "innerScene") {
-      await page.waitForSelector("text=次にどうする？");
-      await page.getByRole("button", { name: "踏板高さの600手摺でつなぐ" }).click();
-      await page.waitForTimeout(100);
-      await page.getByRole("button", { name: "つないで水平を出す" }).click();
-      await page.waitForTimeout(150); continue;
-    }
+    if (t === "innerScene") { await doInner(); continue; }
     await tool(t);
     if (kind === "post") await tapPost(id); else await tapSpan(id);
     await page.waitForTimeout(90);

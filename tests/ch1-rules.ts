@@ -38,22 +38,23 @@ function step(s: Ch1State, a: Action, label: string): Ch1State {
     return s;
   }
   ok++;
-  // 場面が出たらそのまま閉じる（値が要るものは合った値を渡す）
-  if (v.scene) {
-    const done = judge(v.state, {
+  /* 場面は連鎖する（内柱は cA → 手摺 → cB → 水平の4段）。
+     続く限り順に閉じる */
+  let cur = v;
+  for (let i = 0; i < 8 && cur.kind === "good" && cur.scene; i++) {
+    const done: Verdict = judge(cur.state, {
       type: "sceneDone",
-      scene: v.scene,
-      value: v.scene.type === "jackAdjust" ? JACK_TARGET : undefined,
-      spot: v.scene.type === "level" ? "in" : undefined,
+      scene: cur.scene,
+      value: cur.scene.type === "jackAdjust" ? JACK_TARGET : undefined,
     });
     if (done.kind !== "good") {
       ng++;
       console.error(`NG  ${label} の場面が閉じない → ${done.kind}: ${done.message}`);
-      return v.state;
+      return cur.state;
     }
-    return done.state;
+    cur = done;
   }
-  return v.state;
+  return cur.kind === "good" ? cur.state : v.state;
 }
 
 /** ファールであることを確かめる */
@@ -150,25 +151,17 @@ expectFoul(s, { type: "useLevel" }, "手順の飛ばし", "離れの前に水平
 s = step(s, { type: "useHanare" }, "東①の離れ");
 expectFoul(s, { type: "tapPost", tool: "brk", id: "E1" }, "手順の飛ばし", "水平の前にブラケット");
 
-/* ルール6：水平器は根がらみ手摺の端から少し中。候補と作業員は進行方向側 */
+/* ルール6：水平器の置き場所。
+   プロトタイプでは場面の中で選ばせ、外しても技能点は引かず、
+   その場で理由を言って選び直させる。判定側は場面を出すところまでを持つ。 */
 {
   const v = judge(s, { type: "useLevel" });
-  check(
-    v.kind === "good" && v.scene?.type === "level" && v.scene.dir === "east",
-    "東面の水平は進行方向（東）側に候補を出す",
-  );
+  check(v.kind === "good" && v.scene?.type === "level", "水平の場面が出る");
   if (v.kind === "good" && v.scene?.type === "level") {
-    for (const bad of ["end", "mid"] as const) {
-      const r = judge(v.state, { type: "sceneDone", scene: v.scene, spot: bad });
-      check(
-        r.kind === "foul" && r.tag === "水平器の置き場所" && r.why.length > 0,
-        `水平器を「${bad}」に置くとファール（理由つき）`,
-      );
-    }
-    const r = judge(v.state, { type: "sceneDone", scene: v.scene, spot: "in" });
-    check(r.kind === "good", "端から少し中なら通る");
+    check(v.scene.b === "E1", "対象は東①");
   }
 }
+
 s = step(s, { type: "useLevel" }, "東①の水平");
 s = step(s, { type: "tapPost", tool: "brk", id: "E1" }, "東①のブラケット");
 

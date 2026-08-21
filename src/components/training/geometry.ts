@@ -51,6 +51,11 @@ export function viewBox(zTop: number): string {
   return `${x0} ${y0} ${Math.max(...xs) - x0} ${Math.max(...ys) - y0}`;
 }
 
+/** 俯瞰したときに、進行方向が画面の左に来るか。
+    プロトタイプと同じ判定（南面＝基準右・進行左／東面＝基準左・進行右） */
+export const flipOf = (a: { x: number; y: number }, b: { x: number; y: number }) =>
+  (b.x - a.x) * SX + (b.y - a.y) * DX < 0;
+
 /** 段取り中は地面だけなので寄せる／建方は柱の高さぶん引く */
 export const VB_DAN = viewBox(0.75);
 export const VB_TATE = viewBox(2.5);
