@@ -12,6 +12,7 @@ import {
   type Ch1State,
 } from "@/training/ch1/state";
 import {
+  LEVEL_SPOT_WHY,
   hint as hintOf,
   judge,
   type Action,
@@ -53,6 +54,13 @@ const TATE_TOOLS: { k: Tool; t: string }[] = [
   { k: "deck", t: "踏板" },
   { k: "move", t: "移動" },
 ];
+
+/** 置き場所を外したまま進めるとどうなるか（記録に残す一言） */
+const LEVEL_SPOT_RESULT: Record<"end" | "in" | "mid", string> = {
+  end: "1本の狂いは小さくても、4面が一周すると積み上がって最後の根がらみが入らなくなる。",
+  in: "",
+  mid: "回しては見に行き、を繰り返すことになる。ジャッキに手が届く場所で見る。",
+};
 
 export function Ch1Client({ tutorial }: { tutorial: boolean }) {
   const [s, setS] = useState<Ch1State>(initialState);
@@ -121,6 +129,16 @@ export function Ch1Client({ tutorial }: { tutorial: boolean }) {
       setMsg(v.message);
     },
     [s, scene],
+  );
+
+  /* 場面の中で叱りを出しきっているとき。点と記録だけ足す */
+  const scenePenalty = useCallback(
+    (tag: string, message: string, why: string) => {
+      setMood("bad");
+      setSkill((x) => Math.max(0, x - 8));
+      setErrs((e) => [...e, { tag, message, why }]);
+    },
+    [],
   );
 
   /* 場面の中で起きたファール。状態は進めず技能点だけ引く */
@@ -319,6 +337,9 @@ export function Ch1Client({ tutorial }: { tutorial: boolean }) {
               "そこは基準の柱じゃ！　基準を動かしたら全部狂うぞ！",
               "基準の柱を動かすと、そこまでに出した水平が全部やり直しになる。",
             )
+          }
+          onSpotFoul={(spot) =>
+            scenePenalty("水平器の置き場所", LEVEL_SPOT_WHY[spot], LEVEL_SPOT_RESULT[spot])
           }
         />
       )}

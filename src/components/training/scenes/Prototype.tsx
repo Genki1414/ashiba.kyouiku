@@ -71,6 +71,9 @@ type LevelZoomProps = {
   onClear: () => void;
   /** 基準側のジャッキを触ったとき */
   onFoul: () => void;
+  /** 水平器の置き場所を外したとき。叱るのは場面の中で行うので、
+      呼び出し側は技能点を引くだけにする */
+  onSpotFoul?: (spot: "end" | "mid") => void;
 };
 
 export function InnerArt({ flip, ghost, rail }: { flip?: boolean; ghost?: boolean; rail?: boolean }) {
@@ -240,7 +243,7 @@ export function RailAnim({ flip, corner, onDone }: { flip?: boolean; corner?: bo
   );
 }
 
-export function LevelZoom({ baseN, tgtN, aId, bId, flip, vertical, miniInner, onClear, onFoul }: LevelZoomProps) {
+export function LevelZoom({ baseN, tgtN, aId, bId, flip, vertical, miniInner, onClear, onFoul, onSpotFoul }: LevelZoomProps) {
   const [o, setO] = useState(() => (Math.random() < .5 ? -1 : 1) * (2 + Math.floor(Math.random() * 2)));
   /* 根がらみのときは、まず水平器をどこに置くかを選ばせる */
   const [spot, setSpot] = useState<SpotKey | null>(vertical ? "in" : null);
@@ -259,6 +262,7 @@ export function LevelZoom({ baseN, tgtN, aId, bId, flip, vertical, miniInner, on
   const putLevel = (k: SpotKey) => {
     if (k === "in") { SFX.tick(); setNg(null); setSpot("in"); return; }
     SFX.buzz(); SFX.shout();
+    onSpotFoul?.(k);
     setNg(k === "end"
       ? "そこは手摺の端だ。差し込みの都合で凹んでいる。面が出ていないから、気泡が真ん中に来ても水平は出ていないぞ。"
       : "遠すぎる。ジャッキを回しながら気泡が見えないだろう。回しては見に行き、を繰り返す気か。");

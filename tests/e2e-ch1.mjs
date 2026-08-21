@@ -110,7 +110,7 @@ const doLevel = async ({ wrongFirst = false } = {}) => {
       (await page.locator("text=/凹んでいる/").count()) > 0,
       "端に置くと凹みの理由が親方から出る",
     );
-    check((await skill()) === before, "置き場所を外しても技能点は引かない（プロトタイプと同じ）");
+    check((await skill()) === before - 8, `置き場所を外すと技能点が8引かれる（${before} → ${await skill()}）`);
   }
   check(await tapSpot("端から少し中"), "「端から少し中」の的がある");
   await settleBubble();
