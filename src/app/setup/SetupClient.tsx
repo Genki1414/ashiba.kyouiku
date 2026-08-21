@@ -6,6 +6,8 @@ import { Btn } from "@/components/ui/Btn";
 
 type Health = {
   mode: "local" | "supabase" | "error";
+  /** どこで動いているか。手順の出し分けに使う */
+  host?: "vercel" | "local";
   message: string;
   env: {
     url: string | null;
@@ -111,15 +113,37 @@ export function SetupClient() {
 
             {h.mode !== "supabase" && (
               <div className="mt-3 rounded-xl border border-line bg-panel p-4 text-[12.5px] leading-loose text-dim">
-                <div className="mb-1.5 text-[11px] tracking-[2px] text-yel">手順</div>
-                1. Supabase の SQL Editor で <span className="font-mono text-txt">supabase/apply-all.sql</span> を貼って実行
-                <br />
-                2. Project Settings → API Keys で URL と2つの鍵を取得
-                <br />
-                3. <span className="font-mono text-txt">.env.local</span> に貼る（
-                <span className="font-mono text-txt">.env.example</span> が雛形）
-                <br />
-                4. 開発サーバを再起動して、この画面を再確認
+                <div className="mb-1.5 text-[11px] tracking-[2px] text-yel">
+                  手順（{h.host === "vercel" ? "Vercel" : "手元の開発"}）
+                </div>
+                {h.host === "vercel" ? (
+                  <>
+                    1. Supabase の SQL Editor で{" "}
+                    <span className="font-mono text-txt">supabase/apply-all.sql</span> を貼って実行
+                    <br />
+                    2. Project Settings → API Keys で URL と2つの鍵を取得
+                    <br />
+                    3. Vercel の Settings → Environment Variables に5つ追加（Production にチェック）
+                    <br />
+                    4. Deployments → 最新 → ⋯ → <span className="text-txt">Redeploy</span>
+                    <br />
+                    <span className="text-org">
+                      環境変数はビルド時に読まれます。追加しただけでは変わりません。
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    1. Supabase の SQL Editor で{" "}
+                    <span className="font-mono text-txt">supabase/apply-all.sql</span> を貼って実行
+                    <br />
+                    2. Project Settings → API Keys で URL と2つの鍵を取得
+                    <br />
+                    3. <span className="font-mono text-txt">.env.local</span> に貼る（
+                    <span className="font-mono text-txt">.env.example</span> が雛形）
+                    <br />
+                    4. 開発サーバを再起動して、この画面を再確認
+                  </>
+                )}
                 <br />
                 詳しくは <span className="font-mono text-txt">docs/01-Supabase接続手順.md</span>
               </div>

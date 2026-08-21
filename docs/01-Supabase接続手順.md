@@ -113,3 +113,27 @@ npm run dev
 | `lessons` が13件でない | `apply-all.sql` を最後まで実行できていない。Run し直す |
 | `DEV_ENROLLMENT_ID に対応する受講がありません` | seed 部分が流れていない。`apply-all.sql` を再実行 |
 | 視聴時間が思ったより増えない | 仕様です。サーバ側で実経過時間を上限に切り詰めています（`SPEC.md` 5章） |
+
+
+## Vercel に載せる場合
+
+手元の `.env.local` は Vercel には持っていかれません。同じ5つを
+Vercel 側にも入れます。
+
+1. **Settings → Environment Variables** で5つ追加（Production にチェック）
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - `SUPABASE_SERVICE_ROLE_KEY`（`NEXT_PUBLIC_` を付けない。付けるとブラウザまで配られる）
+   - `DEV_ENROLLMENT_ID`
+   - `EXAM_SECRET`
+2. **Deployments → 最新 → ⋯ → Redeploy**
+   環境変数はビルド時に読まれるので、追加しただけでは反映されません。
+3. デプロイ先の `/setup` を開いて、緑になっていることを確認
+
+`/setup` の手順書きは、Vercel 上で開くと Vercel 用の文言に切り替わります。
+
+### 公開範囲の注意
+
+Auth を入れるまでは、URL を開いた人全員が `DEV_ENROLLMENT_ID` の
+同じ受講記録に書き込みます。人に見せる前に
+**Settings → Deployment Protection → Vercel Authentication** を有効にしてください。

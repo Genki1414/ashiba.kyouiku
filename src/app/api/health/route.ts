@@ -11,6 +11,9 @@ export async function GET() {
   const enrollmentId = getDevEnrollmentId();
   const supabase = getServiceClient();
 
+  /* Vercel 上か手元か。手順の出し分けに使う（VERCEL は Vercel が自動で入れる） */
+  const host: "vercel" | "local" = process.env.VERCEL ? "vercel" : "local";
+
   const env = {
     url: url ? url.replace(/^https:\/\/([^.]{4})[^.]*/, "https://$1…") : null,
     anonKey: hasAnon,
@@ -22,6 +25,7 @@ export async function GET() {
   if (!supabase || !enrollmentId) {
     return NextResponse.json({
       mode: "local",
+      host,
       env,
       message: "Supabase 未設定です。視聴記録はブラウザ内（localStorage）に保存されます。",
     });
@@ -70,6 +74,7 @@ export async function GET() {
   const ok = Object.values(checks).every((c) => c.ok);
   return NextResponse.json({
     mode: ok ? "supabase" : "error",
+    host,
     env,
     checks,
     message: ok
