@@ -48,6 +48,15 @@ export default function TrainingPage() {
                     </Link>
                   </div>
                 )}
+                {/* 第2章・第3章にも通し見学。やる前に手順を最後まで見る */}
+                {(c.id === "ch2" || c.id === "ch3") && (
+                  <Link
+                    href={`/training/demo/${c.id}`}
+                    className="rounded-lg border border-cyan p-3 text-center text-[13px] font-bold text-cyan no-underline"
+                  >
+                    通し見学
+                  </Link>
+                )}
                 <div className="grid grid-cols-2 gap-2">
                   <Link
                     href={`/training/${c.id}`}
