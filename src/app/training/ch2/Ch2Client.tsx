@@ -32,6 +32,8 @@ import { Bar } from "@/components/ui/Bar";
 import { Btn } from "@/components/ui/Btn";
 import { Complete } from "@/components/training/Complete";
 import { Hud, PopText } from "@/components/training/Hud";
+import { SoundToggle } from "@/components/training/SoundToggle";
+import { SFX } from "@/lib/sfx";
 import { Result } from "@/components/training/Result";
 import { useScore } from "@/components/training/useScore";
 
@@ -105,7 +107,8 @@ export function Ch2Client({ tutorial }: { tutorial: boolean }) {
       setScene(v.scene ?? null);
       setMood("good");
       setTimeout(() => setMood("normal"), 800);
-      sc.good();
+      /* 場面が自分で音を鳴らしているので、ここでは鳴らさない */
+      sc.good("none");
       return;
     }
     setMsg(v.message);
@@ -116,6 +119,7 @@ export function Ch2Client({ tutorial }: { tutorial: boolean }) {
   const sceneFoul = useCallback(
     (tag: string, line: string) => {
       setMood("bad");
+      SFX.shout();
       sc.bad(10, { tag, message: line, why: "" });
       setScoldModal(line);
     },
@@ -199,6 +203,7 @@ export function Ch2Client({ tutorial }: { tutorial: boolean }) {
         >
           安全帯 {s.belt === "none" ? "未" : s.belt === "post" ? "支柱" : "手摺"}
         </span>
+        <SoundToggle />
       </div>
       <Bar v={pg.done} max={pg.total} />
       <Hud score={sc.score} combo={sc.combo} mult={sc.mult} skill={sc.skill} sec={sc.sec} />

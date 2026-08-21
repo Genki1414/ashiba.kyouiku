@@ -10,12 +10,13 @@
    - Choice     選択の場面
    - Scold      ファールのとき、親方が怒る
 
-   音（SFX）はまだ移植していない。鳴らす場所だけ同じにしてある。 */
+   音は src/lib/sfx.ts。プロトタイプと同じ波形をその場で作って鳴らす。 */
 
 import React, { useEffect, useState } from "react";
 import { POSTS, type PostId } from "@/training/ch1/layout";
 import { P, pts, innerPos as inPos, VB_TATE as VB } from "../geometry";
 import { Boss, WorkerSide } from "../Characters";
+import { SFX } from "@/lib/sfx";
 
 /* ── プロトタイプの定数（そのまま） ── */
 const C = {
@@ -26,12 +27,6 @@ const C = {
 };
 const F = `"Hiragino Kaku Gothic ProN","Noto Sans JP","Yu Gothic",sans-serif`;
 const MO = `ui-monospace,"SFMono-Regular",Menlo,monospace`;
-
-/* 音はまだ無い。鳴らす場所だけ残しておく */
-const SFX = {
-  tick: () => {}, hammer: () => {}, buzz: () => {}, shout: () => {},
-  place: () => {}, combo: (_n?: number) => {}, chime: () => {}, fanfare: () => {},
-};
 
 /* プロトタイプの Btn（big 付き） */
 function Btn({

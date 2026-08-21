@@ -11,6 +11,7 @@
     "upload:curriculum": "tsx scripts/upload-curriculum.ts",
     "build:sql": "tsx scripts/build-apply-all.ts",
     "test:score": "tsx tests/score.ts",
+    "test:sfx": "tsx tests/sfx.mts",
     "test:ch1": "tsx tests/ch1-rules.ts",
     "test:e2e:ch1": "node tests/e2e-ch1.mjs",
     "test:e2e:fit": "node tests/e2e-scene-fit.mjs",
@@ -18,7 +19,8 @@
     "test:ch2": "tsx tests/ch2-rules.ts",
     "test:e2e:ch2": "node tests/e2e-ch2.mjs",
     "test:ch3": "tsx tests/ch3-rules.ts",
-    "test:e2e:ch3": "node tests/e2e-ch3.mjs"
+    "test:e2e:ch3": "node tests/e2e-ch3.mjs",
+    "test:e2e:sfx": "node tests/e2e-sfx.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.0",

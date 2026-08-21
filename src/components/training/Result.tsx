@@ -1,9 +1,11 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
 import { isPass, mmss, rankOf, summarize, type Score } from "@/training/score";
 import { Boss } from "./Characters";
 import { Btn } from "@/components/ui/Btn";
+import { SFX } from "@/lib/sfx";
 
 /* プロトタイプの Result をそのまま移したもの。
    段位・SCORE・最大コンボ・技能点と、親方に言われたことの一覧を出す。 */
@@ -21,6 +23,8 @@ export function Result({
   onRetry: () => void;
   extra?: React.ReactNode; // 章ごとの追記（第3章の指摘回数など）
 }) {
+  useEffect(() => { SFX.fanfare(); }, []);
+
   const rk = rankOf(r.skill, lowText);
   const pass = isPass(r.skill);
   const u = summarize(r.errs);

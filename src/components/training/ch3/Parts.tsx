@@ -18,6 +18,7 @@ import {
   type Pitch,
   type PostKey,
 } from "@/training/ch3/layout";
+import { SFX } from "@/lib/sfx";
 
 /* ── プロトタイプの定数（そのまま） ── */
 const C = {
@@ -28,8 +29,6 @@ const C = {
 };
 const F = `"Hiragino Kaku Gothic ProN","Noto Sans JP","Yu Gothic",sans-serif`;
 const MO = `ui-monospace,"SFMono-Regular",Menlo,monospace`;
-
-const SFX = { ham: () => {}, buzz: () => {}, shout: () => {}, ok: () => {}, step: () => {} };
 
 function Btn({
   children, onClick, tone, dis, style,

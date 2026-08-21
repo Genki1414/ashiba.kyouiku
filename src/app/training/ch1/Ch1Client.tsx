@@ -35,6 +35,8 @@ import { flipOf, innerPos } from "@/components/training/geometry";
 import { Bar } from "@/components/ui/Bar";
 import { Btn } from "@/components/ui/Btn";
 import { Hud, PopText } from "@/components/training/Hud";
+import { SoundToggle } from "@/components/training/SoundToggle";
+import { SFX } from "@/lib/sfx";
 import { Result } from "@/components/training/Result";
 import { useScore } from "@/components/training/useScore";
 
@@ -95,7 +97,7 @@ export function Ch1Client({ tutorial }: { tutorial: boolean }) {
         setTimeout(() => setMood("normal"), 800);
         setScold(null);
         /* 段取りから建方への切り替えは作業ではないので点は付けない */
-        if (a.type !== "toTate") sc.good();
+        if (a.type !== "toTate") sc.good(s.phase === "dan" ? "place" : "hammer");
         if (v.scene) setScene(v.scene);
         return;
       }
@@ -125,7 +127,8 @@ export function Ch1Client({ tutorial }: { tutorial: boolean }) {
         setScene(v.scene ?? null);
         setMood("good");
         setTimeout(() => setMood("normal"), 800);
-        sc.good();
+        /* 場面が自分で音を鳴らしているので、ここでは鳴らさない */
+        sc.good("none");
         return;
       }
       setMsg(v.message);
@@ -149,6 +152,7 @@ export function Ch1Client({ tutorial }: { tutorial: boolean }) {
       if (v.kind !== "foul") return;
       setMood("bad");
       /* 場面でのファールはプロトタイプと同じく −10 */
+      SFX.shout();
       sc.bad(10, { tag: v.tag, message: v.message, why: v.why });
       setScoldModal(`${v.message}\n${v.why}`);
     },
@@ -191,6 +195,7 @@ export function Ch1Client({ tutorial }: { tutorial: boolean }) {
         >
           資材
         </Link>
+        <SoundToggle />
       </div>
       <Bar v={pg.done} max={pg.total} />
       <Hud score={sc.score} combo={sc.combo} mult={sc.mult} skill={sc.skill} sec={sc.sec} />

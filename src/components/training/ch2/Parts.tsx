@@ -7,6 +7,7 @@
    内柱は奥行きを表すため少し左へずらす。建物は描かず、屋根だけ出す。 */
 
 import React, { useEffect, useRef, useState } from "react";
+import { SFX } from "@/lib/sfx";
 
 /* ── プロトタイプの定数（そのまま） ── */
 const C = {
@@ -17,11 +18,6 @@ const C = {
 };
 const F = `"Hiragino Kaku Gothic ProN","Noto Sans JP","Yu Gothic",sans-serif`;
 const MO = `ui-monospace,"SFMono-Regular",Menlo,monospace`;
-
-/* 音はまだ無い。鳴らす場所だけ残しておく */
-const SFX = {
-  ham: () => {}, buzz: () => {}, shout: () => {}, ok: () => {}, step: () => {},
-};
 
 /* ── 立面の座標（プロトタイプのまま）── */
 export const X0 = 56;

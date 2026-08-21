@@ -9,6 +9,8 @@ import { CORNER_XY, HiuchiZoom, Oyakata, Plan, SheetPart } from "@/components/tr
 import { Bar } from "@/components/ui/Bar";
 import { Btn } from "@/components/ui/Btn";
 import { Hud } from "@/components/training/Hud";
+import { SoundToggle } from "@/components/training/SoundToggle";
+import { SFX } from "@/lib/sfx";
 import { Result } from "@/components/training/Result";
 import { useScore } from "@/components/training/useScore";
 
@@ -52,8 +54,9 @@ export function Ch3Client({ tutorial }: { tutorial: boolean }) {
         setMsg(v.message);
         setAngry("");
         setScene(v.scene ?? null);
-        /* 火打からシートへの切り替えは作業ではないので点は付けない */
-        if (a.type !== "toSheet") sc.good();
+        /* 火打からシートへの切り替えは作業ではないので点は付けない。
+           音は場面の部品（HiuchiZoom / SheetPart）が自分で鳴らすので、ここでは鳴らさない */
+        if (a.type !== "toSheet") sc.good("none");
         return true;
       }
       if (v.kind === "note") {
@@ -61,6 +64,7 @@ export function Ch3Client({ tutorial }: { tutorial: boolean }) {
         sc.miss();
         return false;
       }
+      SFX.shout();
       setAngry(v.message);
       sc.bad(v.penalty, { tag: v.tag, message: v.message, why: v.why });
       return false;
@@ -107,6 +111,7 @@ export function Ch3Client({ tutorial }: { tutorial: boolean }) {
           </div>
           <div className="truncate text-[14px] font-extrabold">火打とシート</div>
         </div>
+        <SoundToggle />
       </div>
       <Bar v={pg.done} max={pg.total} />
       <Hud score={sc.score} combo={sc.combo} mult={sc.mult} skill={sc.skill} sec={sc.sec} />

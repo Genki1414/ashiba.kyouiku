@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { gainOf, multOf, type Err, type Score } from "@/training/score";
+import { gainOf, isComboBeat, multOf, type Err, type Score } from "@/training/score";
+import { SFX } from "@/lib/sfx";
 
 /** 点の吹き出し（+300 / −10） */
 export type Pop = { id: number; t: string; k: "g" | "b" };
@@ -33,21 +34,29 @@ export function useScore() {
     setPop({ id: seq.current, t, k });
   }, []);
 
-  /** 正しい手。コンボが伸び、倍率ぶんの点が入る */
-  const good = useCallback(() => {
-    setCombo((c) => {
-      const n = c + 1;
-      setBest((b) => Math.max(b, n));
-      const g = gainOf(c);
-      setScore((v) => v + g);
-      showPop(`+${g}`, "g");
-      return n;
-    });
-  }, [showPop]);
+  /** 正しい手。コンボが伸び、倍率ぶんの点が入る。
+      sound は鳴らす音。段取りで材料を置くときは "place"、叩くときは "hammer"。
+      場面の中で既に音が鳴っているときは "none" */
+  const good = useCallback(
+    (sound: "hammer" | "place" | "none" = "hammer") => {
+      if (sound !== "none") SFX[sound]();
+      setCombo((c) => {
+        const n = c + 1;
+        setBest((b) => Math.max(b, n));
+        const g = gainOf(c);
+        setScore((v) => v + g);
+        showPop(`+${g}`, "g");
+        if (isComboBeat(n)) setTimeout(() => SFX.combo(n), 90);
+        return n;
+      });
+    },
+    [showPop],
+  );
 
   /** 指摘。コンボが切れ、技能点が引かれる */
   const bad = useCallback(
     (penalty: number, err: Err) => {
+      SFX.buzz();
       setCombo(0);
       if (penalty > 0) {
         setSkill((v) => Math.max(0, v - penalty));
@@ -60,10 +69,10 @@ export function useScore() {
 
   /* 減点にはならないが手は止まった（置き直し・効率の問題）。
      プロトタイプの bad(t) と同じく、コンボだけ切れる */
-  const miss = useCallback(() => setCombo(0), []);
+  const miss = useCallback(() => { SFX.buzz(); setCombo(0); }, []);
 
-  const countHint = useCallback(() => setHints((v) => v + 1), []);
-  const countAsk = useCallback(() => setAsks((v) => v + 1), []);
+  const countHint = useCallback(() => { SFX.tick(); setHints((v) => v + 1); }, []);
+  const countAsk = useCallback(() => { SFX.tick(); setAsks((v) => v + 1); }, []);
 
   const result = useMemo<Score>(
     () => ({ skill, score, best, sec, hints, asks, errs }),
