@@ -11,7 +11,8 @@ const browser = await chromium.launch({ executablePath: process.env.PW_CHROMIUM 
 const page = await browser.newPage({ viewport: { width: 390, height: 900 } });
 page.on("pageerror", (e) => { console.error("pageerror:", e.message); ng++; });
 
-const skill = async () => parseInt((await page.locator("text=/技能 \\d+/").textContent()).match(/\d+/)[0], 10);
+const skill = async () => Number(await page.getByTestId("hud-skill").textContent());
+const score = async () => Number(await page.getByTestId("hud-score").textContent());
 /* 的の <g> には文字ラベルも入っているので、中の丸（無ければ矩形）を押す。
    点滅しているので座標を取って直接押す */
 const clickAt = async (loc) => {
@@ -48,6 +49,7 @@ for (let n = 1; n <= 4; n++) {
     await clickAt(page.locator('[data-hiuchi="b-post-1"]'));
     await page.waitForTimeout(600);
     check((await skill()) < before, "手摺に付けると減点される");
+    check((await page.getByTestId("hud-time").textContent()).match(/^\d\d:\d\d$/) !== null, "経過時間が出ている");
     await shot(page, "03-hiuchi-ng");
     await page.getByRole("button", { name: "やり直す" }).click();
     await page.waitForTimeout(300);
@@ -111,8 +113,13 @@ const tieOne = async (k) => {
 for (const k of ["s1", "s2", "s3", "w1", "w2", "corner"]) await tieOne(k);
 console.log("OK: 6本の支柱を結んだ");
 
-await page.waitForSelector("text=火打とシートが入った", { timeout: 8000 }).catch(() => check(false, "最後まで通らなかった"));
-await shot(page, "08-complete");
+await page.waitForSelector('[data-testid="result"]', { timeout: 8000 }).catch(() => check(false, "最後まで通らなかった"));
+await shot(page, "08-result");
+const rank = (await page.getByTestId("result-rank").textContent()).trim();
+const rScore = Number((await page.locator('[data-testid="result"] .font-mono').nth(1).textContent()).trim());
+check(rScore > 0, `結果のSCOREが積み上がっている（${rScore}）`);
+check(["S", "A", "B", "C"].includes(rank), `段位が出る（${rank}）`);
+check((await page.locator("text=指摘された回数").count()) > 0, "指摘された回数が出る");
 console.log("OK: 第3章を最後まで通せた");
 
 await browser.close();

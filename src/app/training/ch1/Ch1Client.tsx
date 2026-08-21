@@ -34,11 +34,12 @@ import {
 import { flipOf, innerPos } from "@/components/training/geometry";
 import { Bar } from "@/components/ui/Bar";
 import { Btn } from "@/components/ui/Btn";
+import { Hud, PopText } from "@/components/training/Hud";
+import { Result } from "@/components/training/Result";
+import { useScore } from "@/components/training/useScore";
 
 /* 第1章のゲーム画面。判定は src/training/ch1/rules.ts に任せ、
    ここは「見せ方」だけを持つ。 */
-
-type Err = { tag: string; message: string; why: string };
 
 const DAN_TOOLS: { k: Tool; t: string }[] = [
   { k: "ledger", t: "根がらみ手摺" },
@@ -71,10 +72,8 @@ export function Ch1Client({ tutorial }: { tutorial: boolean }) {
   const [mood, setMood] = useState<Mood>("normal");
   const [scold, setScold] = useState<string | null>(null);      // 親方の横に出す（プロトタイプの bad）
   const [scoldModal, setScoldModal] = useState<string | null>(null); // 怒りの画面（プロトタイプの foul）
-  const [skill, setSkill] = useState(100);
-  const [errs, setErrs] = useState<Err[]>([]);
   const [scene, setScene] = useState<Scene | null>(null);
-  const [asks, setAsks] = useState(0);
+  const sc = useScore();
 
   const pg = progress(s);
   const done = isComplete(s);
@@ -95,21 +94,22 @@ export function Ch1Client({ tutorial }: { tutorial: boolean }) {
         setMood("good");
         setTimeout(() => setMood("normal"), 800);
         setScold(null);
+        sc.good();
         if (v.scene) setScene(v.scene);
         return;
       }
       if (v.kind === "note") {
         setMsg(v.message);
         setScold(null);
+        sc.miss();
         return;
       }
       /* ファール：怒り顔＋なぜ駄目かを必ず添える */
       setMood("bad");
       setScold(`${v.message}\n${v.why}`);
-      setSkill((x) => Math.max(0, x - v.penalty));
-      setErrs((e) => [...e, { tag: v.tag, message: v.message, why: v.why }]);
+      sc.bad(v.penalty, { tag: v.tag, message: v.message, why: v.why });
     },
-    [s],
+    [s, sc],
   );
 
   /* 場面を閉じる */
@@ -124,21 +124,21 @@ export function Ch1Client({ tutorial }: { tutorial: boolean }) {
         setScene(v.scene ?? null);
         setMood("good");
         setTimeout(() => setMood("normal"), 800);
+        sc.good();
         return;
       }
       setMsg(v.message);
     },
-    [s, scene],
+    [s, scene, sc],
   );
 
   /* 場面の中で叱りを出しきっているとき。点と記録だけ足す */
   const scenePenalty = useCallback(
     (tag: string, message: string, why: string) => {
       setMood("bad");
-      setSkill((x) => Math.max(0, x - 8));
-      setErrs((e) => [...e, { tag, message, why }]);
+      sc.bad(8, { tag, message, why });
     },
-    [],
+    [sc],
   );
 
   /* 場面の中で起きたファール。状態は進めず技能点だけ引く */
@@ -148,11 +148,10 @@ export function Ch1Client({ tutorial }: { tutorial: boolean }) {
       if (v.kind !== "foul") return;
       setMood("bad");
       /* 場面でのファールはプロトタイプと同じく −10 */
-      setSkill((x) => Math.max(0, x - 10));
-      setErrs((e) => [...e, { tag: v.tag, message: v.message, why: v.why }]);
+      sc.bad(10, { tag: v.tag, message: v.message, why: v.why });
       setScoldModal(`${v.message}\n${v.why}`);
     },
-    [s],
+    [s, sc],
   );
 
   const tools = s.phase === "dan" ? DAN_TOOLS : TATE_TOOLS;
@@ -160,39 +159,12 @@ export function Ch1Client({ tutorial }: { tutorial: boolean }) {
 
   if (done) {
     return (
-      <main className="px-5 py-10">
-        <div className="rounded-xl border border-grn bg-panel p-6 text-center">
-          <div className="text-[11px] tracking-[3px] text-dim">第1章</div>
-          <div className="mt-1 text-[20px] font-black text-grn">組み上がった</div>
-          <div className="mt-4 font-mono text-[44px] font-bold leading-none text-yel">
-            {skill}
-            <span className="text-[18px] text-dim">/100</span>
-          </div>
-          <div className="mt-2 text-[12px] text-dim">技能点</div>
-        </div>
-
-        {errs.length > 0 && (
-          <div className="mt-5">
-            <div className="mb-2 text-[11px] tracking-[2px] text-yel">親方に言われたこと</div>
-            {errs.map((e, i) => (
-              <div key={i} className="mb-2 rounded-lg border border-line bg-panel px-3.5 py-3">
-                <div className="text-[11px] text-red">{e.tag}</div>
-                <div className="mt-1 text-[13.5px] font-bold leading-snug">{e.message}</div>
-                <div className="mt-1 text-[12.5px] leading-relaxed text-dim">{e.why}</div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <div className="mt-5 grid gap-2">
-          <Btn tone="y" onClick={() => window.location.reload()}>
-            もう一度やる
-          </Btn>
-          <Link href="/training" className="rounded-lg border border-line p-3 text-center text-[13px] text-dim no-underline">
-            章の一覧へ
-          </Link>
-        </div>
-      </main>
+      <Result
+        chapter="第1章 段取りと根がらみ"
+        lowText="まだ現場に出せん"
+        r={sc.result}
+        onRetry={() => window.location.reload()}
+      />
     );
   }
 
@@ -218,12 +190,13 @@ export function Ch1Client({ tutorial }: { tutorial: boolean }) {
         >
           資材
         </Link>
-        <div className="font-mono text-[12px] text-yel">技能 {skill}</div>
       </div>
       <Bar v={pg.done} max={pg.total} />
+      <Hud score={sc.score} combo={sc.combo} mult={sc.mult} skill={sc.skill} sec={sc.sec} />
 
       {/* 盤面 */}
-      <div className="border-b border-line bg-[#10151B]">
+      <div className="relative border-b border-line bg-[#10151B]">
+        <PopText pop={sc.pop} />
         <Board
           s={s}
           mood={mood}
@@ -297,14 +270,14 @@ export function Ch1Client({ tutorial }: { tutorial: boolean }) {
         {tutorial ? (
           <Btn
             onClick={() => {
-              setAsks((v) => v + 1);
+              sc.countAsk();
               setScold(null);
               setMood("normal");
               setMsg(hintOf(s));
             }}
             className="text-[12.5px] font-normal text-cyan"
           >
-            親方に聞く{asks > 0 ? `（${asks}回）` : ""}
+            親方に聞く{sc.asks > 0 ? `（${sc.asks}回）` : ""}
           </Btn>
         ) : (
           <div className="text-center text-[11.5px] text-dim2">

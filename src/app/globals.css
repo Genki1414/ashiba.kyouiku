@@ -72,3 +72,16 @@ body {
 
 @keyframes fl { 0% { opacity: 0.8; transform: scale(0.4); } 100% { opacity: 0; transform: scale(1.6); } }
 .flash { animation: fl 0.45s ease-out both; transform-origin: center; }
+
+@keyframes pp {
+  0% { opacity: 0; transform: translate(-50%, 10px) scale(0.8); }
+  25% { opacity: 1; transform: translate(-50%, 0) scale(1.1); }
+  100% { opacity: 0; transform: translate(-50%, -26px) scale(1); }
+}
+.pop { animation: pp 1s ease both; }
+
+@keyframes cb { 0% { transform: scale(1.35); } 100% { transform: scale(1); } }
+.combo { animation: cb 0.3s ease; }
+
+@keyframes rk { 0% { opacity: 0; transform: scale(2.2); } 100% { opacity: 1; transform: scale(1); } }
+.rank { animation: rk 0.5s cubic-bezier(0.2, 0.9, 0.3, 1.2) both; }

@@ -11,7 +11,8 @@ const browser = await chromium.launch({ executablePath: process.env.PW_CHROMIUM 
 const page = await browser.newPage({ viewport: { width: 390, height: 900 } });
 page.on("pageerror", (e) => { console.error("pageerror:", e.message); ng++; });
 
-const skill = async () => parseInt((await page.locator("text=/技能 \\d+/").textContent()).match(/\d+/)[0], 10);
+const skill = async () => Number(await page.getByTestId("hud-skill").textContent());
+const score = async () => Number(await page.getByTestId("hud-score").textContent());
 const bossSays = () => page.locator(".whitespace-pre-line").textContent();
 
 /* 怒りの画面が出ていたら閉じる */
@@ -130,6 +131,8 @@ const doRail = async () => {
   await page.mouse.click(q.x, q.y);
   await page.waitForTimeout(400);
   check((await skill()) < before, "上さんを先に押すと減点される");
+  check((await score()) > 0, "HUDにSCOREが出ている");
+  check((await page.getByTestId("hud-time").textContent()).match(/^\d\d:\d\d$/) !== null, "経過時間が出ている");
   await clearScold();
   /* 中さん → 上さん */
   for (const n of [1, 2]) {
@@ -228,8 +231,18 @@ await tool("転落防止手摺");
 for (const id of ["P0-P1", "P1-P2", "P2-P3"]) { await tapSpan(id); await tapSpan(id); }
 await shot(page, "08-fall");
 
-await page.waitForSelector("text=2段目まで組み上がった", { timeout: 6000 }).catch(() => check(false, "最後まで通らなかった"));
+await page.waitForSelector('[data-testid="complete"]', { timeout: 6000 }).catch(() => check(false, "最後まで通らなかった"));
 await shot(page, "09-complete");
+check((await page.locator("text=この現場で入れたもの").count()) > 0, "組み上がりの内訳が出る");
+await page.getByTestId("to-result").click();
+
+await page.waitForSelector('[data-testid="result"]', { timeout: 4000 }).catch(() => check(false, "結果画面が出ない"));
+await shot(page, "10-result");
+const rank = (await page.getByTestId("result-rank").textContent()).trim();
+check(["S", "A", "B", "C"].includes(rank), `段位が出る（${rank}）`);
+const rScore = Number((await page.locator('[data-testid="result"] .font-mono').nth(1).textContent()).trim());
+check(rScore > 0, `結果のSCOREが積み上がっている（${rScore}）`);
+check((await page.locator("text=/タイム \\d\\d:\\d\\d/").count()) > 0, "結果にタイムが出る");
 console.log("OK: 第2章を最後まで通せた");
 
 await browser.close();

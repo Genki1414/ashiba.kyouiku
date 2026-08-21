@@ -12,7 +12,8 @@ const browser = await chromium.launch({ executablePath: process.env.PW_CHROMIUM 
 const page = await browser.newPage({ viewport: { width: 390, height: 900 } });
 page.on("pageerror", (e) => die(`pageerror: ${e.message}`));
 
-const skill = async () => parseInt((await page.locator("text=/技能 \\d+/").textContent()).match(/\d+/)[0], 10);
+const skill = async () => Number(await page.getByTestId("hud-skill").textContent());
+const score = async () => Number(await page.getByTestId("hud-score").textContent());
 
 /* 怒りの画面が出ていたら閉じる（場面でのファールのとき出る） */
 const clearScold = async () => {
@@ -165,6 +166,8 @@ await shot(page, "03-dan-done");
 
 await page.getByRole("button", { name: "建方へ進む" }).click();
 await page.waitForSelector("text=よし建方だ");
+check((await score()) > 0, "段取りの時点でSCOREが入っている");
+check((await page.getByTestId("hud-time").textContent()).match(/^\d\d:\d\d$/) !== null, "経過時間が出ている");
 console.log("OK: 段取り");
 
 /* ── 建方：共通ステージ ── */
@@ -283,12 +286,21 @@ await face([
   ["踏板", "span", "E1-E2"],
 ]);
 
-await page.waitForSelector("text=組み上がった", { timeout: 5000 }).catch(() => die("最後まで通らなかった"));
-await shot(page, "11-complete");
+await page.waitForSelector('[data-testid="result"]', { timeout: 5000 }).catch(() => die("最後まで通らなかった"));
+await shot(page, "11-result");
 console.log("OK: 第1章を最後まで通せた");
+
+const rank = (await page.getByTestId("result-rank").textContent()).trim();
+check(["S", "A", "B", "C"].includes(rank), `段位が出る（${rank}）`);
+const rScore = Number((await page.locator('[data-testid="result"] .font-mono').nth(1).textContent()).trim());
+check(rScore > 0, `結果のSCOREが積み上がっている（${rScore}）`);
+check((await page.locator("text=/最大コンボ/").count()) > 0, "結果に最大コンボが出る");
+check((await page.locator("text=/タイム \\d\\d:\\d\\d/").count()) > 0, "結果にタイムが出る");
 
 const errCount = await page.locator("text=親方に言われたこと").count();
 check(errCount > 0, "叱られた記録が残る");
+/* 同じ指摘は1件にまとまって「×2」が付く */
+check((await page.getByTestId("result-retry").count()) === 1, "もう一度やるボタンが出る");
 
 await browser.close();
 if (ng) { console.error(`\n${ng} 件失敗`); process.exit(1); }

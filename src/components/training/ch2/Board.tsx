@@ -54,6 +54,7 @@ export function Board({
   mood,
   walking,
   tuto,
+  still,
   onTapPost,
   onTapSpan,
 }: {
@@ -62,6 +63,8 @@ export function Board({
   mood?: string;
   walking?: boolean;
   tuto: boolean;
+  /** 組み上がりを見せるだけのとき。タップ位置の印を出さない */
+  still?: boolean;
   onTapPost: (i: number) => void;
   onTapSpan: (i: number) => void;
 }) {
@@ -196,14 +199,18 @@ export function Board({
 
       {/* タップ位置：柱 */}
       {POSTS.map((p, i) => (
-        <g key={"tp" + p} data-node={`post:${p}`} className="tgt" style={{ cursor: "pointer" }} onClick={() => tapPost(i)}>
-          <circle cx={px(i)} cy={py(Math.min(lv, 2)) - 34} r="18" fill={C.yel} opacity=".10" />
-          <circle cx={px(i)} cy={py(Math.min(lv, 2)) - 34} r="18" fill="none" stroke={C.yel} strokeWidth="1.4" strokeDasharray="4 4" />
+        <g key={"tp" + p} data-node={`post:${p}`} className={still ? undefined : "tgt"}
+          style={{ cursor: still ? "default" : "pointer" }} onClick={still ? undefined : () => tapPost(i)}>
+          {!still && <>
+            <circle cx={px(i)} cy={py(Math.min(lv, 2)) - 34} r="18" fill={C.yel} opacity=".10" />
+            <circle cx={px(i)} cy={py(Math.min(lv, 2)) - 34} r="18" fill="none" stroke={C.yel} strokeWidth="1.4" strokeDasharray="4 4" />
+          </>}
+          {/* 柱の呼び名は組み上がりの図でも要る */}
           <text x={px(i)} y={GY + 24} textAnchor="middle" fontSize="10.5" fill={C.dim} fontFamily={F}>{PN[p]}</text>
         </g>
       ))}
       {/* タップ位置：スパン */}
-      {SPID.map((id, i) => {
+      {!still && SPID.map((id, i) => {
         const onRoof = lv >= 3;
         const kind = cur && cur.k === "fall" ? cur.t.split(":")[0] : "M";
         const onBrace = cur && cur.k === "brace";

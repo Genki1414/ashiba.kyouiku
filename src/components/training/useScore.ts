@@ -1,0 +1,74 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { gainOf, multOf, type Err, type Score } from "@/training/score";
+
+/** 点の吹き出し（+300 / −10） */
+export type Pop = { id: number; t: string; k: "g" | "b" };
+
+/** 章のあいだ、点・コンボ・時間・指摘をまとめて持つ。
+    プロトタイプの Game が持っていた score/combo/best/pop/sec/hints/asks/skill/errs と同じ。 */
+export function useScore() {
+  const [skill, setSkill] = useState(100);
+  const [score, setScore] = useState(0);
+  const [combo, setCombo] = useState(0);
+  const [best, setBest] = useState(0);
+  const [pop, setPop] = useState<Pop | null>(null);
+  const [errs, setErrs] = useState<Err[]>([]);
+  const [hints, setHints] = useState(0);
+  const [asks, setAsks] = useState(0);
+  const [sec, setSec] = useState(0);
+  const t0 = useRef(Date.now());
+  const seq = useRef(0);
+
+  useEffect(() => {
+    const i = setInterval(() => setSec(Math.floor((Date.now() - t0.current) / 1000)), 1000);
+    return () => clearInterval(i);
+  }, []);
+
+  const mult = multOf(combo);
+
+  const showPop = useCallback((t: string, k: "g" | "b") => {
+    seq.current += 1;
+    setPop({ id: seq.current, t, k });
+  }, []);
+
+  /** 正しい手。コンボが伸び、倍率ぶんの点が入る */
+  const good = useCallback(() => {
+    setCombo((c) => {
+      const n = c + 1;
+      setBest((b) => Math.max(b, n));
+      const g = gainOf(c);
+      setScore((v) => v + g);
+      showPop(`+${g}`, "g");
+      return n;
+    });
+  }, [showPop]);
+
+  /** 指摘。コンボが切れ、技能点が引かれる */
+  const bad = useCallback(
+    (penalty: number, err: Err) => {
+      setCombo(0);
+      if (penalty > 0) {
+        setSkill((v) => Math.max(0, v - penalty));
+        showPop(`−${penalty}`, "b");
+      }
+      setErrs((e) => [...e, err]);
+    },
+    [showPop],
+  );
+
+  /* 減点にはならないが手は止まった（置き直し・効率の問題）。
+     プロトタイプの bad(t) と同じく、コンボだけ切れる */
+  const miss = useCallback(() => setCombo(0), []);
+
+  const countHint = useCallback(() => setHints((v) => v + 1), []);
+  const countAsk = useCallback(() => setAsks((v) => v + 1), []);
+
+  const result = useMemo<Score>(
+    () => ({ skill, score, best, sec, hints, asks, errs }),
+    [skill, score, best, sec, hints, asks, errs],
+  );
+
+  return { skill, score, combo, best, mult, pop, errs, hints, asks, sec, good, bad, miss, countHint, countAsk, result };
+}

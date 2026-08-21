@@ -8,10 +8,11 @@ import { hint as hintOf, judge, progress, type Action, type Scene } from "@/trai
 import { CORNER_XY, HiuchiZoom, Oyakata, Plan, SheetPart } from "@/components/training/ch3/Parts";
 import { Bar } from "@/components/ui/Bar";
 import { Btn } from "@/components/ui/Btn";
+import { Hud } from "@/components/training/Hud";
+import { Result } from "@/components/training/Result";
+import { useScore } from "@/components/training/useScore";
 
 /* 第3章のゲーム画面。判定は src/training/ch3/rules.ts に任せる。 */
-
-type Err = { tag: string; message: string; why: string };
 
 export function Ch3Client({ tutorial }: { tutorial: boolean }) {
   const [s, setS] = useState<Ch3State>(initialState);
@@ -19,10 +20,8 @@ export function Ch3Client({ tutorial }: { tutorial: boolean }) {
     "4面が組み上がった。まず出隅4箇所に火打を掛ける。足場と二等辺三角形になるようにな。",
   );
   const [angry, setAngry] = useState<string>("");
-  const [skill, setSkill] = useState(100);
-  const [errs, setErrs] = useState<Err[]>([]);
   const [scene, setScene] = useState<Scene | null>(null);
-  const [asks, setAsks] = useState(0);
+  const sc = useScore();
 
   const pg = progress(s);
   const done = isComplete(s);
@@ -36,58 +35,39 @@ export function Ch3Client({ tutorial }: { tutorial: boolean }) {
         setMsg(v.message);
         setAngry("");
         setScene(v.scene ?? null);
+        sc.good();
         return true;
       }
       if (v.kind === "note") {
         setMsg(v.message);
+        sc.miss();
         return false;
       }
       setAngry(v.message);
-      setSkill((x) => Math.max(0, x - v.penalty));
-      setErrs((e) => [...e, { tag: v.tag, message: v.message, why: v.why }]);
+      sc.bad(v.penalty, { tag: v.tag, message: v.message, why: v.why });
       return false;
     },
-    [s],
+    [s, sc],
   );
 
   if (done) {
     return (
-      <main className="px-5 py-10">
-        <div className="rounded-xl border border-grn bg-panel p-6 text-center">
-          <div className="text-[11px] tracking-[3px] text-dim">第3章</div>
-          <div className="mt-1 text-[20px] font-black text-grn">火打とシートが入った</div>
-          <div className="mt-4 font-mono text-[44px] font-bold leading-none text-yel">
-            {skill}
-            <span className="text-[18px] text-dim">/100</span>
+      <Result
+        chapter="第3章 火打とシート"
+        lowText="まだ任せられん"
+        r={sc.result}
+        onRetry={() => window.location.reload()}
+        extra={
+          <div className="mt-4 rounded-lg border border-line bg-panel px-3.5 py-3 text-[12px] leading-[1.9] text-dim">
+            出隅4箇所の火打と、最上段のシート。
+            <br />
+            指摘された回数　
+            <span className={`font-extrabold ${sc.errs.length ? "text-red" : "text-grn"}`}>
+              {sc.errs.length}回
+            </span>
           </div>
-          <div className="mt-2 text-[12px] text-dim">技能点</div>
-        </div>
-
-        {errs.length > 0 && (
-          <div className="mt-5">
-            <div className="mb-2 text-[11px] tracking-[2px] text-yel">親方に言われたこと</div>
-            {errs.map((e, i) => (
-              <div key={i} className="mb-2 rounded-lg border border-line bg-panel px-3.5 py-3">
-                <div className="text-[11px] text-red">{e.tag}</div>
-                <div className="mt-1 text-[13.5px] font-bold leading-snug">{e.message}</div>
-                <div className="mt-1 text-[12.5px] leading-relaxed text-dim">{e.why}</div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <div className="mt-5 grid gap-2">
-          <Btn tone="y" onClick={() => window.location.reload()}>
-            もう一度やる
-          </Btn>
-          <Link
-            href="/training"
-            className="rounded-lg border border-line p-3 text-center text-[13px] text-dim no-underline"
-          >
-            章の一覧へ
-          </Link>
-        </div>
-      </main>
+        }
+      />
     );
   }
 
@@ -109,9 +89,9 @@ export function Ch3Client({ tutorial }: { tutorial: boolean }) {
           </div>
           <div className="truncate text-[14px] font-extrabold">火打とシート</div>
         </div>
-        <div className="font-mono text-[12px] text-yel">技能 {skill}</div>
       </div>
       <Bar v={pg.done} max={pg.total} />
+      <Hud score={sc.score} combo={sc.combo} mult={sc.mult} skill={sc.skill} sec={sc.sec} />
 
       {/* 火打：平面図。シート：立面 */}
       {s.phase === "hiuchi" ? (
@@ -128,13 +108,13 @@ export function Ch3Client({ tutorial }: { tutorial: boolean }) {
             {tutorial ? (
               <Btn
                 onClick={() => {
-                  setAsks((v) => v + 1);
+                  sc.countAsk();
                   setAngry("");
                   setMsg(hintOf(s));
                 }}
                 className="text-[12.5px] font-normal text-cyan"
               >
-                親方に聞く{asks > 0 ? `（${asks}回）` : ""}
+                親方に聞く{sc.asks > 0 ? `（${sc.asks}回）` : ""}
               </Btn>
             ) : (
               <div className="text-center text-[11.5px] text-dim2">

@@ -10,6 +10,7 @@
     "sync:lessons": "tsx scripts/sync-lessons.ts",
     "upload:curriculum": "tsx scripts/upload-curriculum.ts",
     "build:sql": "tsx scripts/build-apply-all.ts",
+    "test:score": "tsx tests/score.ts",
     "test:ch1": "tsx tests/ch1-rules.ts",
     "test:e2e:ch1": "node tests/e2e-ch1.mjs",
     "test:e2e:fit": "node tests/e2e-scene-fit.mjs",
