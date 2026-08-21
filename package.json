@@ -9,7 +9,8 @@
     "check:narration": "tsx scripts/check-narration.ts",
     "sync:lessons": "tsx scripts/sync-lessons.ts",
     "upload:curriculum": "tsx scripts/upload-curriculum.ts",
-    "build:sql": "tsx scripts/build-apply-all.ts"
+    "build:sql": "tsx scripts/build-apply-all.ts",
+    "test:ch1": "tsx tests/ch1-rules.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.0",
