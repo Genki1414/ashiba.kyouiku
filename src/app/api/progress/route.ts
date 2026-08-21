@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServiceClient, getDevEnrollmentId } from "@/lib/supabase/server";
+import { getServiceClient } from "@/lib/supabase/server";
+import { currentEnrollment } from "@/lib/enrollment";
 import { getLesson } from "@/lib/curriculum";
 
 /* 視聴時間の同期。
    クライアントは「前回同期からの再生秒数」を送るだけで、
    実際の加算は DB の sync_watched_sec()（実経過＋2秒で頭打ち）が決める。
-   Supabase 未設定のあいだは mode:"local" を返し、記録は端末内に置く。 */
+   Supabase 未設定のあいだ、またはログインしていないあいだは
+   mode:"local" を返し、記録は端末内に置く。 */
 
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
@@ -19,10 +21,11 @@ export async function POST(req: NextRequest) {
   }
 
   const supabase = getServiceClient();
-  const enrollmentId = getDevEnrollmentId();
-  if (!supabase || !enrollmentId) {
+  const who = await currentEnrollment();
+  if (!supabase || !who) {
     return NextResponse.json({ mode: "local" });
   }
+  const enrollmentId = who.enrollmentId;
 
   const { data, error } = await supabase.rpc("sync_watched_sec", {
     p_enrollment_id: enrollmentId,
@@ -40,10 +43,11 @@ export async function GET(req: NextRequest) {
   if (!lessonId) return NextResponse.json({ error: "lessonId が必要です" }, { status: 400 });
 
   const supabase = getServiceClient();
-  const enrollmentId = getDevEnrollmentId();
-  if (!supabase || !enrollmentId) {
+  const who = await currentEnrollment();
+  if (!supabase || !who) {
     return NextResponse.json({ mode: "local" });
   }
+  const enrollmentId = who.enrollmentId;
 
   // 進捗行をここで作る（updated_at が「単元を開いた時刻」になり、
   // 最初の同期でも開いてからの実経過ぶんが正しく加算される）

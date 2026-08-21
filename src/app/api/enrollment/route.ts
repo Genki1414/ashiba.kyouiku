@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServiceClient, getDevEnrollmentId } from "@/lib/supabase/server";
+import { getServiceClient } from "@/lib/supabase/server";
+import { currentEnrollment } from "@/lib/enrollment";
 
 /* 受講の準備（同意・顔登録・書類・受講者情報）の記録。
    顔写真そのものは受け取らない。日時と氏名だけ。 */
@@ -18,7 +19,8 @@ export async function POST(req: NextRequest) {
   };
 
   const supabase = getServiceClient();
-  const enrollmentId = getDevEnrollmentId();
+  const who = await currentEnrollment();
+  const enrollmentId = who?.enrollmentId ?? null;
   if (!supabase || !enrollmentId) {
     return NextResponse.json({ mode: "local" });
   }

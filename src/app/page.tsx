@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { getCurriculum } from "@/lib/curriculum";
+import { AccountBar } from "@/components/AccountBar";
 
 export default async function Home() {
   const cur = await getCurriculum();
   return (
     <main>
       <div className="tape" />
+      <AccountBar />
       <div className="px-5 pt-10 pb-6">
         <div className="text-[11px] tracking-[3px] text-yel font-extrabold">ASHIBA TRAINING</div>
         <h1 className="mt-2 text-[22px] font-black leading-snug">足場の教育アプリ</h1>

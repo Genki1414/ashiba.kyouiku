@@ -1,7 +1,8 @@
 import { createHmac } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { getExamPool, getQuestionsByIds, EXAM_N, EXAM_PASS } from "@/lib/examPool";
-import { getServiceClient, getDevEnrollmentId } from "@/lib/supabase/server";
+import { getServiceClient } from "@/lib/supabase/server";
+import { currentEnrollment } from "@/lib/enrollment";
 
 /* 修了試験。
    GET  … プールから20問を無作為に選び、正解を除いて返す。
@@ -69,7 +70,8 @@ export async function POST(req: NextRequest) {
   let mode: "supabase" | "local" = "local";
   let attempt = 1;
   const supabase = getServiceClient();
-  const enrollmentId = getDevEnrollmentId();
+  const who = await currentEnrollment();
+  const enrollmentId = who?.enrollmentId ?? null;
   if (supabase && enrollmentId) {
     const { count } = await supabase
       .from("exams")

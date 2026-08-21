@@ -13,6 +13,7 @@
     "test:score": "tsx tests/score.ts",
     "test:changelog": "tsx tests/changelog.ts",
     "test:record": "tsx tests/record.ts",
+    "test:authgate": "tsx tests/auth-gate.ts",
     "test:sfx": "tsx tests/sfx.mts",
     "test:ch1": "tsx tests/ch1-rules.ts",
     "test:e2e:ch1": "node tests/e2e-ch1.mjs",
@@ -20,6 +21,7 @@
     "test:e2e:fit": "node tests/e2e-scene-fit.mjs",
     "test:e2e:fitall": "node tests/e2e-fit-all.mjs",
     "test:e2e:pwa": "node tests/e2e-pwa.mjs",
+    "test:e2e:auth": "node tests/e2e-auth.mjs",
     "test:e2e:tap": "node tests/e2e-tap.mjs",
     "test:e2e:update": "node tests/e2e-update-notice.mjs",
     "test:e2e:record": "node tests/e2e-record.mjs",
@@ -32,6 +34,7 @@
     "test:e2e:sfx": "node tests/e2e-sfx.mjs"
   },
   "dependencies": {
+    "@supabase/ssr": "^0.12.4",
     "@supabase/supabase-js": "^2.49.0",
     "next": "^15.5.12",
     "react": "^19.0.0",

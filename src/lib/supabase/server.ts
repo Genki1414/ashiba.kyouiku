@@ -1,8 +1,12 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 /* サーバ専用。service_role キーはクライアントへ出さない。
-   フェーズ1は Auth 導入前なので、seed の開発用受講（DEV_ENROLLMENT_ID）に記録する。
-   環境変数が無ければ null を返し、呼び出し側はローカル記録（端末内）へ切り替える。 */
+
+   書き込みは service_role で行うが、「誰の受講に書くか」は
+   クッキーのログインから決める（src/lib/enrollment.ts）。
+   クライアントから直に触られたときは RLS が受け持つ。
+
+   環境変数が無ければ null を返し、呼び出し側は端末内の記録へ切り替える。 */
 
 let cached: SupabaseClient | null | undefined;
 
@@ -14,6 +18,8 @@ export function getServiceClient(): SupabaseClient | null {
   return cached;
 }
 
+/** ログインが無いときに使う開発用の受講。手元で画面を確かめるときのため。
+    本番では設定しない（設定すると、ログインしていない人の記録が1か所に混ざる）。 */
 export function getDevEnrollmentId(): string | null {
   return process.env.DEV_ENROLLMENT_ID ?? null;
 }

@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { getServiceClient, getDevEnrollmentId } from "@/lib/supabase/server";
+import { currentEnrollment } from "@/lib/enrollment";
+import { currentUser } from "@/lib/supabase/session";
 
 /* 接続確認。/setup 画面がこれを見て、何が足りないかを表示する。
    鍵そのものは返さない（設定されているかどうかだけ）。 */
@@ -8,8 +10,11 @@ export async function GET() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
   const hasAnon = !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   const hasService = !!process.env.SUPABASE_SERVICE_ROLE_KEY;
-  const enrollmentId = getDevEnrollmentId();
+  const devEnrollment = getDevEnrollmentId();
   const supabase = getServiceClient();
+  const user = await currentUser();
+  const who = await currentEnrollment();
+  const enrollmentId = who?.enrollmentId ?? devEnrollment;
 
   /* Vercel 上か手元か。手順の出し分けに使う（VERCEL は Vercel が自動で入れる） */
   const host: "vercel" | "local" = process.env.VERCEL ? "vercel" : "local";
@@ -18,8 +23,17 @@ export async function GET() {
     url: url ? url.replace(/^https:\/\/([^.]{4})[^.]*/, "https://$1…") : null,
     anonKey: hasAnon,
     serviceKey: hasService,
-    devEnrollmentId: !!enrollmentId,
+    devEnrollmentId: !!devEnrollment,
     examSecret: !!process.env.EXAM_SECRET,
+  };
+
+  /* いま誰として記録しているか。鍵やメールの中身は返さない */
+  const auth = {
+    /* ログインを求める状態か（設定してあれば求める） */
+    required: !!(url && hasAnon),
+    signedIn: !!user,
+    /* 記録の宛先が決まっているか */
+    enrollment: who ? (user ? "本人" : "開発用") : "なし",
   };
 
   if (!supabase || !enrollmentId) {
@@ -27,7 +41,10 @@ export async function GET() {
       mode: "local",
       host,
       env,
-      message: "Supabase 未設定です。視聴記録はブラウザ内（localStorage）に保存されます。",
+      auth,
+      message: !supabase
+        ? "Supabase 未設定です。視聴記録はブラウザ内（localStorage）に保存されます。"
+        : "ログインしていないので、視聴記録はブラウザ内（localStorage）に保存されます。",
     });
   }
 
@@ -56,7 +73,7 @@ export async function GET() {
       .eq("id", enrollmentId)
       .maybeSingle();
     if (error) throw new Error(error.message);
-    if (!data) throw new Error("DEV_ENROLLMENT_ID に対応する受講がありません");
+    if (!data) throw new Error("受講の行が見つかりません");
     return "あり";
   });
 
@@ -76,6 +93,7 @@ export async function GET() {
     mode: ok ? "supabase" : "error",
     host,
     env,
+    auth,
     checks,
     message: ok
       ? "Supabase に接続できています。視聴記録・照合ログ・受験記録はサーバに保存されます。"

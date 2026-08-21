@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { LATEST, unseen, type Release } from "@/content/changelog";
 import { Btn } from "@/components/ui/Btn";
 
@@ -11,6 +12,10 @@ const KEY = "ashiba.seen-update";
 
 export function UpdateNotice() {
   const [list, setList] = useState<Release[] | null>(null);
+  const path = usePathname();
+  /* ログインの前には出さない。まだ使っていない人に更新の知らせは要らないし、
+     ログインの邪魔になる */
+  const quiet = path === "/login" || path.startsWith("/auth");
 
   useEffect(() => {
     let seen: string | null = null;
@@ -32,7 +37,7 @@ export function UpdateNotice() {
     }
   };
 
-  if (!list) return null;
+  if (!list || quiet) return null;
 
   return (
     <div

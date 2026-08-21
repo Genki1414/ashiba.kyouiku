@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServiceClient, getDevEnrollmentId } from "@/lib/supabase/server";
+import { getServiceClient } from "@/lib/supabase/server";
+import { currentEnrollment } from "@/lib/enrollment";
 
 /* 照合ログ。失敗（ng）だけを記録する。画像は受け取らない・保存しない。 */
 
@@ -14,7 +15,8 @@ export async function POST(req: NextRequest) {
   }
 
   const supabase = getServiceClient();
-  const enrollmentId = getDevEnrollmentId();
+  const who = await currentEnrollment();
+  const enrollmentId = who?.enrollmentId ?? null;
   if (!supabase || !enrollmentId) {
     return NextResponse.json({ mode: "local" });
   }
