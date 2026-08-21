@@ -42,15 +42,17 @@ export function InnerScene({
   const cur = CHOICES.find((c) => c.k === picked) ?? null;
 
   return (
-    <div className="fixed inset-0 z-30 flex items-center bg-[#0C1015ee] p-5">
-      <div className="w-full">
-        <div className="mb-1 text-[11px] font-extrabold tracking-widest text-yel">
-          内柱を立てた　{POSTS[post].n}
+    <div className="fixed inset-0 z-30 flex flex-col bg-[#0C1015]">
+      <div className="flex-none border-b border-line px-4 py-3">
+        <div className="flex items-center gap-2">
+          <span className="text-[12px] font-extrabold text-yel">内柱を立てた</span>
+          <span className="text-[11px] text-dim">{POSTS[post].n}</span>
         </div>
-        <div className="mb-3 text-[17px] font-black leading-snug">次にどうする？</div>
+        <div className="mt-1 text-[16px] font-black leading-snug">次にどうする？</div>
+      </div>
 
-        <div className="overflow-hidden rounded-xl border border-line bg-[#10151B]">
-          <svg viewBox="0 0 300 200" preserveAspectRatio="xMidYMid meet" className="block w-full">
+      <div className="min-h-0 flex-1">
+          <svg viewBox="0 0 300 200" preserveAspectRatio="xMidYMid meet" className="block h-full w-full">
             <rect y="170" width="300" height="30" fill="#1A2027" />
             {/* 外柱と内柱。内柱〜外柱＝600mm */}
             <line x1="200" y1="170" x2="200" y2="30" stroke="var(--color-steel)" strokeWidth="8" />
@@ -66,9 +68,10 @@ export function InnerScene({
           </svg>
         </div>
 
+      <div className="flex-none px-4 pb-4 pt-3">
         {cur && (
           <div
-            className={`fade mt-3 rounded-lg border px-3.5 py-3 text-[13px] leading-relaxed ${
+            className={`fade mb-3 rounded-lg border px-3.5 py-3 text-[12.5px] leading-relaxed ${
               cur.ok ? "border-grn bg-ok-bg text-ok-tx" : "border-red bg-ng-bg text-ng-tx"
             }`}
           >
@@ -76,7 +79,7 @@ export function InnerScene({
           </div>
         )}
 
-        <div className="mt-3 grid gap-2">
+        <div className="grid gap-2">
           {CHOICES.map((c) => (
             <Btn key={c.k} onClick={() => onPick(c.k)}>
               {c.t}
@@ -85,7 +88,7 @@ export function InnerScene({
         </div>
 
         {cur?.ok && (
-          <Btn tone="y" onClick={onDone} className="mt-3">
+          <Btn tone="y" onClick={onDone} className="mt-2">
             つないで水平を出す
           </Btn>
         )}

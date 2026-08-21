@@ -24,6 +24,36 @@ const tapNode = async (key) => {
 const tapPost = (id) => tapNode(`post:${id}`);
 const tapInner = (id) => tapNode(`inner:${id}`);
 const tapSpan = (id) => tapNode(`span:${id}`);
+
+/* ジャッキ合わせ：0から始まり、10刻みで目標150±15へ寄せる（プロトタイプと同じ操作） */
+const doJack = async () => {
+  if (!(await page.locator("text=ハンドルの高さ").count())) return false;
+  for (let i = 0; i < 40; i++) {
+    const now = Number(await page.getByTestId("jack-now").getAttribute("data-value"));
+    if (Math.abs(now - 150) <= 15) break;
+    await page.getByRole("button", { name: now < 150 ? "上げる（10）" : "下げる（10）" }).click();
+    await page.waitForTimeout(20);
+  }
+  await page.getByRole("button", { name: "柱を挿す" }).click();
+  await page.waitForTimeout(180);
+  return true;
+};
+
+/* 離れ：ずれた状態から始まり、50刻みで900へ寄せる。合うと自動で閉じる */
+const doHanare = async () => {
+  await page.waitForSelector("text=離れを測る");
+  for (let i = 0; i < 20; i++) {
+    const el = page.getByTestId("hanare-now");
+    if (!(await el.count())) break;
+    const now = Number(await el.getAttribute("data-value"));
+    if (now === 900) break;
+    await page.getByRole("button", { name: now > 900 ? "← 押す（50）" : "引く（50）→" }).click();
+    await page.waitForTimeout(40);
+  }
+  await page.waitForSelector("text=離れを測る", { state: "detached", timeout: 3000 });
+  await page.waitForTimeout(120);
+};
+
 const skill = async () => parseInt((await page.locator("text=/技能 \\d+/").textContent()).match(/\d+/)[0], 10);
 const bossSays = () => page.locator(".whitespace-pre-line").textContent();
 
@@ -65,14 +95,9 @@ await page.waitForTimeout(120);
 check((await bossSays()).includes("出隅"), "出隅より先に南①を立てると叱られる");
 
 await tapPost("C");
-await page.waitForSelector("text=支柱を挿す手前");
+await page.waitForSelector("text=ハンドルの高さ");
 await shot(page, "04-jack-scene");
-// 目標150。60から10刻みで上げる
-for (let i = 0; i < 9; i++) { await page.getByRole("button", { name: "上げる ▶" }).click(); await page.waitForTimeout(30); }
-const jackBtn = page.getByRole("button", { name: "この高さで挿す" });
-check(await jackBtn.isEnabled(), "150付近でボタンが有効になる");
-await jackBtn.click();
-await page.waitForTimeout(200);
+check(await doJack(), "ジャッキ合わせを操作できた");
 console.log("OK: ジャッキ合わせ");
 
 await tool("手摺");
@@ -84,13 +109,9 @@ await tapSpan("C-E1"); await page.waitForTimeout(80);
 
 await tool("支柱");
 await tapPost("S1"); await page.waitForTimeout(150);
-if (await page.locator("text=支柱を挿す手前").count()) {
-  for (let i = 0; i < 9; i++) { await page.getByRole("button", { name: "上げる ▶" }).click(); await page.waitForTimeout(25); }
-  await page.getByRole("button", { name: "この高さで挿す" }).click();
-  await page.waitForTimeout(150);
-}
+await doJack();
 await tapPost("E1"); await page.waitForTimeout(150);
-check(!(await page.locator("text=支柱を挿す手前").count()), "ジャッキ合わせは2回で打ち止め");
+check(!(await page.locator("text=ハンドルの高さ").count()), "ジャッキ合わせは2回で打ち止め");
 await shot(page, "05-posts-up");
 
 /* 東①：離れ → 水平 → ブラケット */
@@ -101,9 +122,7 @@ check((await bossSays()).includes("離れ"), "離れの前にブラケットは�
 await page.getByRole("button", { name: "離れを見る" }).click();
 await page.waitForSelector("text=離れを測る");
 await shot(page, "06-hanare");
-for (let i = 0; i < 8; i++) { await page.getByRole("button", { name: "離す ▶" }).click(); await page.waitForTimeout(25); }
-await page.getByRole("button", { name: "離れが合った" }).click();
-await page.waitForTimeout(150);
+await doHanare();
 console.log("OK: 離れ");
 
 await page.getByRole("button", { name: "水平を見る" }).click();
@@ -125,10 +144,7 @@ await tool("移動"); await tapPost("S1"); await page.waitForTimeout(80);
 await tool("ブラケット"); await tapPost("S1"); await page.waitForTimeout(120);
 check((await bossSays()).includes("内柱"), "内柱の箇所にブラケットは叱られる");
 await page.getByRole("button", { name: "離れを見る" }).click();
-await page.waitForSelector("text=離れを測る");
-for (let i = 0; i < 8; i++) { await page.getByRole("button", { name: "離す ▶" }).click(); await page.waitForTimeout(25); }
-await page.getByRole("button", { name: "離れが合った" }).click();
-await page.waitForTimeout(150);
+await doHanare();
 await page.getByRole("button", { name: "水平を見る" }).click();
 await page.waitForSelector("text=水平器はどこに置く？");
 await page.getByRole("button", { name: /端から少し中/ }).click();
@@ -152,10 +168,7 @@ const face = async (steps) => {
     if (t === "move") { await tool("移動"); await tapPost(id); await page.waitForTimeout(70); continue; }
     if (t === "hanare") {
       await page.getByRole("button", { name: "離れを見る" }).click();
-      await page.waitForSelector("text=離れを測る");
-      for (let i = 0; i < 8; i++) { await page.getByRole("button", { name: "離す ▶" }).click(); await page.waitForTimeout(20); }
-      await page.getByRole("button", { name: "離れが合った" }).click();
-      await page.waitForTimeout(120); continue;
+      await doHanare(); continue;
     }
     if (t === "level") {
       await page.getByRole("button", { name: "水平を見る" }).click();
@@ -173,11 +186,7 @@ const face = async (steps) => {
     await tool(t);
     if (kind === "post") await tapPost(id); else await tapSpan(id);
     await page.waitForTimeout(90);
-    if (await page.locator("text=支柱を挿す手前").count()) {
-      for (let i = 0; i < 9; i++) { await page.getByRole("button", { name: "上げる ▶" }).click(); await page.waitForTimeout(20); }
-      await page.getByRole("button", { name: "この高さで挿す" }).click();
-      await page.waitForTimeout(120);
-    }
+    await doJack();
   }
 };
 

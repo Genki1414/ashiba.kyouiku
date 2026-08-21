@@ -288,11 +288,7 @@ export function Ch1Client({ tutorial }: { tutorial: boolean }) {
 
       {/* 場面 */}
       {scene?.type === "jackAdjust" && (
-        <JackScene
-          post={scene.post}
-          onDone={(value) => closeScene({ value })}
-          onCancel={() => setScene(null)}
-        />
+        <JackScene post={scene.post} onDone={(value) => closeScene({ value })} />
       )}
       {scene?.type === "hanare" && (
         <HanareScene label={scene.label} onDone={() => closeScene()} />

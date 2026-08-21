@@ -11,7 +11,8 @@
     "upload:curriculum": "tsx scripts/upload-curriculum.ts",
     "build:sql": "tsx scripts/build-apply-all.ts",
     "test:ch1": "tsx tests/ch1-rules.ts",
-    "test:e2e:ch1": "node tests/e2e-ch1.mjs"
+    "test:e2e:ch1": "node tests/e2e-ch1.mjs",
+    "test:e2e:fit": "node tests/e2e-scene-fit.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.0",

@@ -38,17 +38,17 @@ export function LevelScene({
   const X: Record<LevelSpot, number> = { end: L + 16, in: L + 54, mid: (L + R) / 2 };
 
   return (
-    <div className="fixed inset-0 z-30 flex items-center bg-[#0C1015ee] p-5">
-      <div className="w-full">
-        <div className="mb-1 text-[11px] font-extrabold tracking-widest text-yel">
-          水平を出す　{POSTS[b].n}
+    <div className="fixed inset-0 z-30 flex flex-col bg-[#0C1015]">
+      <div className="flex-none border-b border-line px-4 py-3">
+        <div className="flex items-center gap-2">
+          <span className="text-[12px] font-extrabold text-yel">水平を出す</span>
+          <span className="text-[11px] text-dim">{POSTS[b].n}</span>
         </div>
-        <div className="mb-3 text-[17px] font-black leading-snug">
-          水平器はどこに置く？
-        </div>
+        <div className="mt-1 text-[16px] font-black leading-snug">水平器はどこに置く？</div>
+      </div>
 
-        <div className="overflow-hidden rounded-xl border border-line bg-[#10151B]">
-          <svg viewBox="0 0 360 290" preserveAspectRatio="xMidYMid meet" className="block w-full">
+      <div className="min-h-0 flex-1">
+          <svg viewBox="0 0 360 290" preserveAspectRatio="xMidYMid meet" className="block h-full w-full">
             <rect y={GY} width="360" height="40" fill="#1A2027" />
 
             {/* 柱2本。左＝いま立てた柱（進行方向側） */}
@@ -132,13 +132,14 @@ export function LevelScene({
           </svg>
         </div>
 
+      <div className="flex-none px-4 pb-4 pt-3">
         {wrong && (
-          <div className="fade mt-3 rounded-lg border border-red bg-ng-bg px-3.5 py-3 text-[13px] leading-relaxed text-ng-tx">
+          <div className="fade mb-3 rounded-lg border border-red bg-ng-bg px-3.5 py-3 text-[12.5px] leading-relaxed text-ng-tx">
             {wrong.why}
           </div>
         )}
 
-        <div className="mt-3 grid gap-2">
+        <div className="grid gap-2">
           {spots.map((k, i) => (
             <Btn key={k} onClick={() => { setSel(k); onPick(k); }}>
               {"①②③"[i]}　{LEVEL_SPOT_NAME[k]}
