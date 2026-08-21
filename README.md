@@ -1,18 +1,49 @@
-# 足場トレーニング 実装用パッケージ
+# 足場トレーニング
 
-Claude Code に渡す一式です。
+足場業界向けの教育アプリ。実務トレーニング（足場を組むゲーム）と、
+労働安全衛生法にもとづく特別教育（学科6時間）を1つに収める。
+
+## 動かし方
+
+```sh
+npm install
+npm run dev        # http://localhost:3000
+```
+
+Supabase 未設定でもそのまま動く（視聴記録は端末内＝localStorage に「端末内記録」表示付きで保存）。
+Supabase につなぐ場合は `.env.example` を `.env.local` に写し、
+`supabase/migrations/` を適用 → `supabase/seed.sql` を投入 → `npm run sync:lessons`。
+
+| コマンド | 用途 |
+|---|---|
+| `npm run build` | 本番ビルド |
+| `npm run typecheck` | 型検査 |
+| `npm run check:narration` | narration-all.csv と script[] の1対1を検証（音声収録前に必ず） |
+| `npm run sync:lessons` | curriculum.json → lessons 表（規定時間の写し） |
+| `npm run upload:curriculum` | curriculum.json → Supabase Storage |
+
+## ディレクトリ
+
+| 場所 | 中身 |
+|---|---|
+| `src/` | アプリ本体（Next.js App Router + TypeScript + Tailwind + Zustand） |
+| `content/` | 教材の正本。`curriculum.json`（そのまま使う・変更しない）と `narration-all.csv` |
+| `supabase/` | マイグレーション3本・検証SQL・開発用 seed |
+| `scripts/` | 教材データの投入・検証スクリプト |
+| `docs/` | 設計文書（フェーズ0の設計案など） |
+| `handoff/` | チャットで作ったプロトタイプ。**仕様の参照用**。ビルド対象外 |
+
+## 引き継ぎ資料
 
 | ファイル | 用途 |
 |---|---|
-| `PROMPT.md` | Claude Code に貼る指示文（そのままコピーできる） |
 | `HANDOFF.md` | **最初に読む**。画面の流れ、現場のルール（判定条件）、演出の決まり、残タスク |
 | `SPEC.md` | 技術構成・データモデル・実装順序 |
-| `ashiba-app-v16h.tsx` | 統合プロトタイプ。仕様の参照用。コードは移植せず、仕様として読む |
-| `curriculum.json` | 特別教育の全教材。そのまま使う |
-| `narration-all.csv` | ナレーション1,683行。音声ファイル名と1対1対応 |
-| `prototypes/` | 章ごと・機能ごとの単体プロトタイプ |
+| `PROMPT.md` | Claude Code に貼る指示文 |
+| `handoff/ashiba-app-v16h.tsx` | 統合プロトタイプ。コードは移植せず、仕様として読む |
+| `handoff/prototypes/` | 章ごと・機能ごとの単体プロトタイプ |
 
-## prototypes の中身
+## handoff/prototypes の中身
 
 | ファイル | 中身 |
 |---|---|
@@ -22,8 +53,11 @@ Claude Code に渡す一式です。
 | `ashiba-demo-v8.tsx` | 組立の通し見学（15手・「なぜ」付き） |
 | `ashiba-suihei-v2.tsx` | 水平器の置き場所を選ぶ場面 |
 
-## 進め方の目安
+## 実装の進み
 
-1. `HANDOFF.md` の「現場のルール」を、そのまま判定ロジックの仕様として起こす
-2. `SPEC.md` のフェーズ1（特別教育の受講画面）から実装する
-3. 実務トレーニングは、工程キュー（順序）と判定を先に固め、描画は後から寄せる
+- [x] フェーズ0：設計案・Supabase マイグレーション（`docs/00-フェーズ0-設計案.md`）
+- [x] フェーズ1：特別教育の受講画面（一覧 → ナレーション → 図解 → 災害事例 → 確認問題）
+- [ ] フェーズ2：本人確認と記録（Auth・顔照合・修了試験）
+- [ ] フェーズ3：課金と発行（Stripe・受講コード・修了証）
+- [ ] フェーズ4：管理画面
+- [ ] フェーズ5：実務トレーニング

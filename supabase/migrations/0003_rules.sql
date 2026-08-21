@@ -31,7 +31,8 @@ declare
   v_add  int;
   v_total int;
 begin
-  if not public.owns_enrollment(p_enrollment_id) then
+  -- Auth 導入前のフェーズ1は service_role の API ルートが開発用受講に記録する
+  if auth.role() <> 'service_role' and not public.owns_enrollment(p_enrollment_id) then
     raise exception '受講者が一致しません';
   end if;
   if p_delta_sec is null or p_delta_sec < 0 then
@@ -69,7 +70,7 @@ declare
   v_watched int;
   v_at timestamptz;
 begin
-  if not public.owns_enrollment(p_enrollment_id) then
+  if auth.role() <> 'service_role' and not public.owns_enrollment(p_enrollment_id) then
     raise exception '受講者が一致しません';
   end if;
 

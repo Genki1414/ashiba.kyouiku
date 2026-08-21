@@ -54,3 +54,8 @@ do $$ begin
   update orders set status='pending' where id='33333333-3333-3333-3333-333333333333';
   raise exception 'ここへ来てはいけない';
 exception when others then raise notice 'expected: %', sqlerrm; end $$;
+
+\echo -- 9) service_role は開発用受講に加算できる（フェーズ1のAPIルート）
+set test.uid = '';
+set test.role = 'service_role';
+select sync_watched_sec('55555555-5555-5555-5555-555555555555','1-1',10) >= 3000 as service_ok;
