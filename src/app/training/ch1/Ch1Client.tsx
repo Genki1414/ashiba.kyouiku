@@ -191,6 +191,12 @@ export function Ch1Client({ tutorial }: { tutorial: boolean }) {
           </div>
           <div className="truncate text-[14px] font-extrabold">段取りと根がらみ</div>
         </div>
+        <Link
+          href={`/training/catalog?back=/training/ch1${tutorial ? "" : "?mode=honban"}`}
+          className="rounded border border-line px-2 py-1 text-[11.5px] text-cyan no-underline"
+        >
+          資材
+        </Link>
         <div className="font-mono text-[12px] text-yel">技能 {skill}</div>
       </div>
       <Bar v={pg.done} max={pg.total} />

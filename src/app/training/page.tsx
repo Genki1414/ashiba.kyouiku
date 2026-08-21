@@ -34,19 +34,36 @@ export default function TrainingPage() {
                 <span className="text-[15px] font-black">{c.t}</span>
               </div>
               <div className="mt-1 text-[12px] leading-relaxed text-dim">{c.d}</div>
-              <div className="mt-3 grid grid-cols-2 gap-2">
-                <Link
-                  href={`/training/${c.id}`}
-                  className="rounded-lg border border-yel bg-yel p-3 text-center text-[13px] font-extrabold text-bg no-underline"
-                >
-                  チュートリアル
-                </Link>
-                <Link
-                  href={`/training/${c.id}?mode=honban`}
-                  className="rounded-lg border border-line p-3 text-center text-[13px] font-bold text-txt no-underline"
-                >
-                  本番
-                </Link>
+              {/* HANDOFF.md 2章の流れ：資材カタログ → 通し見学 → チュートリアル/本番 */}
+              <div className="mt-3 grid gap-2">
+                <div className="grid grid-cols-2 gap-2">
+                  <Link
+                    href="/training/catalog?back=/training"
+                    className="rounded-lg border border-cyan p-3 text-center text-[13px] font-bold text-cyan no-underline"
+                  >
+                    ① 資材カタログ
+                  </Link>
+                  <Link
+                    href="/training/demo"
+                    className="rounded-lg border border-cyan p-3 text-center text-[13px] font-bold text-cyan no-underline"
+                  >
+                    ② 通し見学
+                  </Link>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <Link
+                    href={`/training/${c.id}`}
+                    className="rounded-lg border border-yel bg-yel p-3 text-center text-[13px] font-extrabold text-bg no-underline"
+                  >
+                    ③ チュートリアル
+                  </Link>
+                  <Link
+                    href={`/training/${c.id}?mode=honban`}
+                    className="rounded-lg border border-line p-3 text-center text-[13px] font-bold text-txt no-underline"
+                  >
+                    本番
+                  </Link>
+                </div>
               </div>
             </div>
           ) : (
@@ -62,8 +79,10 @@ export default function TrainingPage() {
       </div>
 
       <p className="mt-5 px-5 text-[11.5px] leading-relaxed text-dim2">
-        チュートリアルは手順書と「親方に聞く」が使えます。本番はどちらも無く、
-        設置箇所の目印も薄くなります。
+        はじめての方は ① → ② → ③ の順に。資材の名前を覚えてから、
+        組む手順を最後まで見て、それから自分で組みます。
+        <br />
+        チュートリアルは「親方に聞く」が使えます。本番は聞けず、設置箇所の目印も薄くなります。
       </p>
     </main>
   );

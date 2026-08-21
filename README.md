@@ -22,6 +22,10 @@ Supabase 未設定でもそのまま動く（視聴記録は端末内＝localSto
 | `npm run build` | 本番ビルド |
 | `npm run typecheck` | 型検査 |
 | `npm run check:narration` | narration-all.csv と script[] の1対1を検証（音声収録前に必ず） |
+| `npm run test:ch1` | 第1章の判定（現場のルール1〜8） |
+| `npm run test:e2e:ch1` | 第1章をブラウザで段取り→完了まで通す |
+| `npm run test:e2e:catalog` | 資材カタログと通し見学 |
+| `npm run test:e2e:fit` | 場面が小さい画面に収まるか |
 | `npm run build:sql` | `supabase/apply-all.sql` を生成（マイグレーション＋lessons＋seed） |
 | `npm run sync:lessons` | curriculum.json → lessons 表（apply-all を使うなら不要） |
 | `npm run upload:curriculum` | curriculum.json → Supabase Storage |
@@ -66,4 +70,4 @@ Supabase 未設定でもそのまま動く（視聴記録は端末内＝localSto
   - Supabase Auth のログインは未接続（プロジェクト作成後に接続。それまでは開発用受講に記録）
 - [ ] フェーズ3：課金と発行（Stripe・受講コード・修了証）
 - [ ] フェーズ4：管理画面
-- [ ] フェーズ5：実務トレーニング
+- [ ] フェーズ5：実務トレーニング（第1章＋資材カタログ＋通し見学は実装済み。第2〜6章が残り）
