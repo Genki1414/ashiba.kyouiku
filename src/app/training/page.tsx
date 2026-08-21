@@ -4,7 +4,7 @@ import Link from "next/link";
 
 const CHAPTERS = [
   { id: "ch1", n: 1, t: "段取りと根がらみ", d: "割り付け・内柱・ジャッキ合わせ・建方の基準", ready: true },
-  { id: "ch2", n: 2, t: "高所作業", d: "筋交・安全帯の掛け替え・壁当てジャッキ", ready: false },
+  { id: "ch2", n: 2, t: "高所作業", d: "筋交・安全帯の掛け替え・壁当てジャッキ", ready: true },
   { id: "ch3", n: 3, t: "火打とシート", d: "出隅の火打・シートの縦張りと緊結", ready: false },
   { id: "ch4", n: 4, t: "本足場", d: "準備中", ready: false },
   { id: "ch5", n: 5, t: "壁つなぎ・層間ネット", d: "準備中", ready: false },
@@ -34,28 +34,30 @@ export default function TrainingPage() {
                 <span className="text-[15px] font-black">{c.t}</span>
               </div>
               <div className="mt-1 text-[12px] leading-relaxed text-dim">{c.d}</div>
-              {/* HANDOFF.md 2章の流れ：資材カタログ → 通し見学 → チュートリアル/本番 */}
+              {/* 第1章だけ、前に資材カタログと通し見学を挟む（HANDOFF.md 2章） */}
               <div className="mt-3 grid gap-2">
-                <div className="grid grid-cols-2 gap-2">
-                  <Link
-                    href="/training/catalog?back=/training"
-                    className="rounded-lg border border-cyan p-3 text-center text-[13px] font-bold text-cyan no-underline"
-                  >
-                    ① 資材カタログ
-                  </Link>
-                  <Link
-                    href="/training/demo"
-                    className="rounded-lg border border-cyan p-3 text-center text-[13px] font-bold text-cyan no-underline"
-                  >
-                    ② 通し見学
-                  </Link>
-                </div>
+                {c.id === "ch1" && (
+                  <div className="grid grid-cols-2 gap-2">
+                    <Link
+                      href="/training/catalog?back=/training"
+                      className="rounded-lg border border-cyan p-3 text-center text-[13px] font-bold text-cyan no-underline"
+                    >
+                      ① 資材カタログ
+                    </Link>
+                    <Link
+                      href="/training/demo"
+                      className="rounded-lg border border-cyan p-3 text-center text-[13px] font-bold text-cyan no-underline"
+                    >
+                      ② 通し見学
+                    </Link>
+                  </div>
+                )}
                 <div className="grid grid-cols-2 gap-2">
                   <Link
                     href={`/training/${c.id}`}
                     className="rounded-lg border border-yel bg-yel p-3 text-center text-[13px] font-extrabold text-bg no-underline"
                   >
-                    ③ チュートリアル
+                    {c.id === "ch1" ? "③ チュートリアル" : "チュートリアル"}
                   </Link>
                   <Link
                     href={`/training/${c.id}?mode=honban`}

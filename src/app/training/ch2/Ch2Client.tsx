@@ -1,0 +1,281 @@
+"use client";
+
+import { useCallback, useState } from "react";
+import Link from "next/link";
+import { POSTS, SPAN_IDS, type PostId, type SpanId } from "@/training/ch2/layout";
+import {
+  current,
+  initialState,
+  isComplete,
+  progress,
+  type Ch2State,
+} from "@/training/ch2/state";
+import {
+  TOOL_NAME,
+  hint as hintOf,
+  judge,
+  usableTools,
+  type Action,
+  type Scene,
+  type Tool,
+} from "@/training/ch2/rules";
+import { Board } from "@/components/training/ch2/Board";
+import {
+  BeltZoom,
+  Boss,
+  BraceZoom,
+  Scold,
+  WJackZoom,
+} from "@/components/training/ch2/Parts";
+import { Bar } from "@/components/ui/Bar";
+import { Btn } from "@/components/ui/Btn";
+
+/* 第2章のゲーム画面。判定は src/training/ch2/rules.ts に任せる。 */
+
+type Err = { tag: string; message: string; why: string };
+
+const ALL_TOOLS: Tool[] = [
+  "move",
+  "brace",
+  "rail",
+  "post",
+  "wjack",
+  "brk",
+  "rail6",
+  "deck",
+  "fall",
+];
+
+export function Ch2Client({ tutorial }: { tutorial: boolean }) {
+  const [s, setS] = useState<Ch2State>(initialState);
+  const [tool, setTool] = useState<Tool>("brace");
+  const [msg, setMsg] = useState("まず地上から筋交を入れろ。南端から出隅へ、一直線に上げていく。");
+  const [mood, setMood] = useState<"normal" | "good" | "bad">("normal");
+  const [walking, setWalking] = useState(false);
+  const [scold, setScold] = useState<string | null>(null);
+  const [scoldModal, setScoldModal] = useState<string | null>(null);
+  const [skill, setSkill] = useState(100);
+  const [errs, setErrs] = useState<Err[]>([]);
+  const [scene, setScene] = useState<Scene | null>(null);
+  const [asks, setAsks] = useState(0);
+
+  const cur = current(s);
+  const pg = progress(s);
+  const done = isComplete(s);
+
+  const run = useCallback(
+    (a: Action) => {
+      const v = judge(s, a);
+      if (v.kind === "good") {
+        setS(v.state);
+        setMsg(v.message);
+        setMood("good");
+        setTimeout(() => setMood("normal"), 800);
+        setScold(null);
+        if (a.type === "tapPost" && a.tool === "move") {
+          setWalking(true);
+          setTimeout(() => setWalking(false), 320);
+        }
+        if (v.scene) setScene(v.scene);
+        return;
+      }
+      if (v.kind === "note") {
+        setMsg(v.message);
+        setScold(null);
+        return;
+      }
+      /* 盤面のファールは親方の横に文字（第1章と同じ扱い） */
+      setMood("bad");
+      setScold(`${v.message}\n${v.why}`);
+      setSkill((x) => Math.max(0, x - v.penalty));
+      setErrs((e) => [...e, { tag: v.tag, message: v.message, why: v.why }]);
+    },
+    [s],
+  );
+
+  const closeScene = useCallback(() => {
+    if (!scene) return;
+    const v = judge(s, { type: "sceneDone", scene });
+    if (v.kind === "good") {
+      setS(v.state);
+      setMsg(v.message);
+      setScene(v.scene ?? null);
+      setMood("good");
+      setTimeout(() => setMood("normal"), 800);
+      return;
+    }
+    setMsg(v.message);
+    setScene(null);
+  }, [s, scene]);
+
+  /* 場面の中のファール（安全帯の掛け先など）は怒りの画面 */
+  const sceneFoul = useCallback(
+    (tag: string, line: string) => {
+      setMood("bad");
+      setSkill((x) => Math.max(0, x - 10));
+      setErrs((e) => [...e, { tag, message: line, why: "" }]);
+      setScoldModal(line);
+    },
+    [],
+  );
+
+  const tools = tutorial ? usableTools(s) : ALL_TOOLS;
+
+  if (done) {
+    return (
+      <main className="px-5 py-10">
+        <div className="rounded-xl border border-grn bg-panel p-6 text-center">
+          <div className="text-[11px] tracking-[3px] text-dim">第2章</div>
+          <div className="mt-1 text-[20px] font-black text-grn">2段目まで組み上がった</div>
+          <div className="mt-4 font-mono text-[44px] font-bold leading-none text-yel">
+            {skill}
+            <span className="text-[18px] text-dim">/100</span>
+          </div>
+          <div className="mt-2 text-[12px] text-dim">技能点</div>
+        </div>
+
+        {errs.length > 0 && (
+          <div className="mt-5">
+            <div className="mb-2 text-[11px] tracking-[2px] text-yel">親方に言われたこと</div>
+            {errs.map((e, i) => (
+              <div key={i} className="mb-2 rounded-lg border border-line bg-panel px-3.5 py-3">
+                <div className="text-[11px] text-red">{e.tag}</div>
+                <div className="mt-1 text-[13.5px] font-bold leading-snug">{e.message}</div>
+                {e.why && <div className="mt-1 text-[12.5px] leading-relaxed text-dim">{e.why}</div>}
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="mt-5 grid gap-2">
+          <Btn tone="y" onClick={() => window.location.reload()}>
+            もう一度やる
+          </Btn>
+          <Link
+            href="/training"
+            className="rounded-lg border border-line p-3 text-center text-[13px] text-dim no-underline"
+          >
+            章の一覧へ
+          </Link>
+        </div>
+      </main>
+    );
+  }
+
+  return (
+    <main className="relative pb-6">
+      <div className="flex items-center gap-2.5 border-b border-line px-4 py-2.5">
+        <Link href="/training" className="p-1 text-[16px] text-dim no-underline">
+          ←
+        </Link>
+        <div className="min-w-0 flex-1">
+          <div className="text-[11px] text-dim">
+            第2章　{s.lv === 0 ? "地上" : s.lv === 3 ? "屋根" : `${s.lv}段目`}
+            <span className="ml-2 rounded border border-line px-1 text-[10px]">
+              {tutorial ? "チュートリアル" : "本番"}
+            </span>
+          </div>
+          <div className="truncate text-[14px] font-extrabold">高所作業</div>
+        </div>
+        <span
+          className={`rounded border px-1.5 py-0.5 text-[10.5px] ${
+            s.belt === "none" ? "border-red text-ng-tx" : "border-grn text-grn"
+          }`}
+        >
+          安全帯 {s.belt === "none" ? "未" : s.belt === "post" ? "支柱" : "手摺"}
+        </span>
+        <div className="font-mono text-[12px] text-yel">技能 {skill}</div>
+      </div>
+      <Bar v={pg.done} max={pg.total} />
+
+      <div className="relative border-b border-line bg-[#0F1318]">
+        {tutorial && cur && (
+          <div className="absolute inset-x-2 top-2 z-[4] flex items-center gap-2 rounded-lg border border-yel bg-[#0F1318ee] px-3 py-2">
+            <span className="rounded bg-yel px-1.5 py-0.5 text-[9px] font-black text-bg">次</span>
+            <span className="text-[12.5px] font-bold leading-snug">{cur.d}</span>
+          </div>
+        )}
+        <Board
+          s={s}
+          cur={cur}
+          mood={mood}
+          walking={walking}
+          tuto={tutorial}
+          onTapPost={(i) => run({ type: "tapPost", tool, post: POSTS[i] })}
+          onTapSpan={(i) => run({ type: "tapSpan", tool, span: SPAN_IDS[i] })}
+        />
+      </div>
+
+      {/* 親方 */}
+      <div className="flex items-start gap-3 border-b border-line bg-panel px-4 py-3">
+        <Boss size={44} angry={mood === "bad"} />
+        <div className="min-w-0 flex-1 whitespace-pre-line text-[13px] leading-relaxed">
+          {scold ? <span className="text-ng-tx">{scold}</span> : msg}
+        </div>
+      </div>
+
+      <div className="px-4 py-3">
+        <div className="mb-2 grid grid-cols-3 gap-2">
+          {tools.map((t) => (
+            <button
+              key={t}
+              onClick={() => setTool(t)}
+              className={`rounded-lg border p-2.5 text-[12.5px] font-bold ${
+                tool === t ? "border-yel bg-yel text-bg" : "border-line bg-panel2 text-txt"
+              }`}
+            >
+              {TOOL_NAME[t]}
+            </button>
+          ))}
+        </div>
+
+        <Btn onClick={() => run({ type: "climb" })} className="mb-2">
+          {s.lv === 0 ? "昇降階段で上がる" : s.lv >= 2 ? "屋根に上がる" : "次の段へ上がる"}
+        </Btn>
+
+        {tutorial ? (
+          <Btn
+            onClick={() => {
+              setAsks((v) => v + 1);
+              setScold(null);
+              setMood("normal");
+              setMsg(hintOf(s));
+            }}
+            className="text-[12.5px] font-normal text-cyan"
+          >
+            親方に聞く{asks > 0 ? `（${asks}回）` : ""}
+          </Btn>
+        ) : (
+          <div className="text-center text-[11.5px] text-dim2">
+            本番だ。手順書も無いし、親方にも聞けん。
+          </div>
+        )}
+      </div>
+
+      {/* 場面 */}
+      {scene?.type === "belt" && (
+        <BeltZoom
+          mode={scene.mode}
+          onClear={closeScene}
+          onFoul={(fb) => sceneFoul("安全帯の取り付け位置の誤り", fb)}
+        />
+      )}
+      {scene?.type === "brace" && (
+        <BraceZoom onClear={closeScene} onFoul={(fb) => sceneFoul("筋交の入れ方", fb)} />
+      )}
+      {scene?.type === "wjack" && (
+        <WJackZoom onClear={closeScene} onFoul={(fb) => sceneFoul("壁当てジャッキの位置", fb)} />
+      )}
+
+      {scoldModal && (
+        <Scold
+          line={scoldModal}
+          onClose={() => {
+            setScoldModal(null);
+            setMood("normal");
+          }}
+        />
+      )}
+    </main>
+  );
+}
