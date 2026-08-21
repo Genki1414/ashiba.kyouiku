@@ -116,7 +116,13 @@ await page.getByTestId("login-pw").fill("kotobade12");
 await page.getByTestId("login-go").click();
 await page.waitForTimeout(5000);
 const msg = await page.getByTestId("login-error").textContent();
-check(msg.includes("うまくいきませんでした"), `繋がらないときも日本語で返す（${msg.slice(0, 40)}）`);
+check(msg.includes("つながりませんでした"), `繋がらないときも日本語で返す（${msg.slice(0, 40)}）`);
+/* Supabase の英語の言い分をそのまま出していないか
+   （固有名詞の Supabase は出てよい） */
+check(
+  !/Failed to fetch|Invalid login|disabled|Database error/i.test(msg),
+  `英語の言い分をそのまま出していない（${msg.slice(0, 40)}）`,
+);
 console.log("OK: ログイン画面が使える");
 
 await browser.close();

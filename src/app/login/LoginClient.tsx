@@ -205,5 +205,15 @@ function readable(e: unknown): string {
   if (/Unable to validate email address|invalid format/i.test(m)) return "メールアドレスの形が違います。";
   if (/Email not confirmed/i.test(m)) return "メールの確認がまだです。届いたメールのリンクを押してください。";
   if (/rate limit|too many/i.test(m)) return "短い間に何度も試しました。少し待ってからもう一度。";
+  /* 設定がまだのとき。何を触ればよいかまで言う */
+  if (/logins are disabled|Email signups are disabled|Signups not allowed/i.test(m)) {
+    return "メールでのログインが、まだ使える状態になっていません。Supabase の Authentication → Providers → Email を有効にしてください。";
+  }
+  if (/Database error|relation .* does not exist|violates foreign key/i.test(m)) {
+    return "受け皿がまだできていません。supabase/apply-all.sql を SQL Editor で実行してください。";
+  }
+  if (/Failed to fetch|NetworkError|Load failed/i.test(m)) {
+    return "つながりませんでした。電波の届く所でもう一度。それでも駄目なら、Supabase の設定（URLと鍵）を確かめてください。";
+  }
   return `うまくいきませんでした。（${m}）`;
 }
