@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { POSTS, SPAN_IDS, isInner } from "@/training/ch2/layout";
 import {
@@ -32,6 +32,10 @@ import { Bar } from "@/components/ui/Bar";
 import { Btn } from "@/components/ui/Btn";
 import { Complete } from "@/components/training/Complete";
 import { Hud, PopText } from "@/components/training/Hud";
+import { ResumeGate } from "@/components/training/ResumeGate";
+import { useBoot } from "@/components/training/useBoot";
+import { clearSaved, writeSaved } from "@/lib/resumeStore";
+import type { Saved } from "@/training/resume";
 import { SoundToggle } from "@/components/training/SoundToggle";
 import { SFX } from "@/lib/sfx";
 import { Result } from "@/components/training/Result";
@@ -51,21 +55,69 @@ const ALL_TOOLS: Tool[] = [
   "fall",
 ];
 
+/* 章を開いたときの殻。途中まで残っていたら、続きからやるか聞く */
 export function Ch2Client({ tutorial }: { tutorial: boolean }) {
-  const [s, setS] = useState<Ch2State>(initialState);
-  const [tool, setTool] = useState<Tool>("brace");
-  const [msg, setMsg] = useState("まず地上から筋交を入れろ。南端から出隅へ、一直線に上げていく。");
+  const { ask, boot, begin } = useBoot<Ch2State>("ch2", { tutorial, sk: false });
+
+  if (ask) {
+    return (
+      <ResumeGate
+        ch="ch2"
+        saved={ask}
+        where={`${progress(ask.s).done}/${progress(ask.s).total}`}
+        onResume={() => begin(ask)}
+        onFresh={() => begin(null)}
+      />
+    );
+  }
+  if (!boot) return null;
+
+  return <Ch2Game key={boot.n} tutorial={tutorial} init={boot.saved} onRestart={() => begin(null)} />;
+}
+
+function Ch2Game({
+  tutorial,
+  init,
+  onRestart,
+}: {
+  tutorial: boolean;
+  init: Saved<Ch2State> | null;
+  onRestart: () => void;
+}) {
+  const [s, setS] = useState<Ch2State>(() => init?.s ?? initialState());
+  const [tool, setTool] = useState<Tool>((init?.tool as Tool) ?? "brace");
+  const [msg, setMsg] = useState(
+    init?.msg ?? "まず地上から筋交を入れろ。南端から出隅へ、一直線に上げていく。",
+  );
   const [mood, setMood] = useState<"normal" | "good" | "bad">("normal");
   const [walking, setWalking] = useState(false);
   const [scold, setScold] = useState<string | null>(null);
   const [scoldModal, setScoldModal] = useState<string | null>(null);
-  const [scene, setScene] = useState<Scene | null>(null);
+  const [scene, setScene] = useState<Scene | null>((init?.scene as Scene) ?? null);
   const [view, setView] = useState<"play" | "result">("play");
-  const sc = useScore();
+  const sc = useScore(init?.score);
 
   const cur = current(s);
   const pg = progress(s);
   const done = isComplete(s);
+
+  /* 手を打つたびに、続きを端末に残す。通し終えたら消す */
+  const scoreRef = useRef(sc.result);
+  scoreRef.current = sc.result;
+  useEffect(() => {
+    if (done) {
+      clearSaved("ch2");
+      return;
+    }
+    writeSaved<Ch2State>("ch2", {
+      s,
+      score: scoreRef.current,
+      tutorial,
+      tool,
+      msg,
+      scene: scene ?? undefined,
+    });
+  }, [s, tool, msg, scene, done, tutorial]);
 
   const run = useCallback(
     (a: Action) => {
@@ -134,7 +186,7 @@ export function Ch2Client({ tutorial }: { tutorial: boolean }) {
         ch="ch2"
         tutorial={tutorial}
         r={sc.result}
-        onRetry={() => window.location.reload()}
+        onRetry={onRestart}
       />
     );
   }

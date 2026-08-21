@@ -48,3 +48,21 @@ export const initialState = (): Ch3State => ({
 });
 
 export const isComplete = (s: Ch3State) => s.phase === "done";
+
+/** 途中で閉じたときに残す形。
+    シートは描画の部品が自分の中に状態を持っていて途中から作り直せないので、
+    シートに入っていたら「シートの手前」まで戻す。火打はそのまま残す。 */
+export function beforeSheet(s: Ch3State): Ch3State {
+  if (s.phase === "hiuchi" || s.phase === "hiuchiDone") return s;
+  return {
+    ...s,
+    phase: "hang",
+    hung: [],
+    footOK: false,
+    pitch: null,
+    band: 0,
+    tied: [],
+    tying: null,
+    dots: [],
+  };
+}

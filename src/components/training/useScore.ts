@@ -8,18 +8,22 @@ import { SFX } from "@/lib/sfx";
 export type Pop = { id: number; t: string; k: "g" | "b" };
 
 /** 章のあいだ、点・コンボ・時間・指摘をまとめて持つ。
-    プロトタイプの Game が持っていた score/combo/best/pop/sec/hints/asks/skill/errs と同じ。 */
-export function useScore() {
-  const [skill, setSkill] = useState(100);
-  const [score, setScore] = useState(0);
+    プロトタイプの Game が持っていた score/combo/best/pop/sec/hints/asks/skill/errs と同じ。
+
+    init を渡すと、その続きから始める（途中で閉じたときの再開）。
+    コンボだけは切れた扱いにする。手が途切れているので。 */
+export function useScore(init?: Score) {
+  const [skill, setSkill] = useState(init?.skill ?? 100);
+  const [score, setScore] = useState(init?.score ?? 0);
   const [combo, setCombo] = useState(0);
-  const [best, setBest] = useState(0);
+  const [best, setBest] = useState(init?.best ?? 0);
   const [pop, setPop] = useState<Pop | null>(null);
-  const [errs, setErrs] = useState<Err[]>([]);
-  const [hints, setHints] = useState(0);
-  const [asks, setAsks] = useState(0);
-  const [sec, setSec] = useState(0);
-  const t0 = useRef(Date.now());
+  const [errs, setErrs] = useState<Err[]>(init?.errs ?? []);
+  const [hints, setHints] = useState(init?.hints ?? 0);
+  const [asks, setAsks] = useState(init?.asks ?? 0);
+  const [sec, setSec] = useState(init?.sec ?? 0);
+  /* 続きのときは、そこまでにかかった時間から数え直す */
+  const t0 = useRef(Date.now() - (init?.sec ?? 0) * 1000);
   const seq = useRef(0);
 
   useEffect(() => {

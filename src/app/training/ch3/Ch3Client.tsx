@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { CORNERS, type CornerId } from "@/training/ch3/layout";
 import { initialState, isComplete, type Ch3State } from "@/training/ch3/state";
@@ -9,6 +9,11 @@ import { CORNER_XY, HiuchiZoom, Oyakata, Plan, SheetPart } from "@/components/tr
 import { Bar } from "@/components/ui/Bar";
 import { Btn } from "@/components/ui/Btn";
 import { Hud } from "@/components/training/Hud";
+import { ResumeGate } from "@/components/training/ResumeGate";
+import { useBoot } from "@/components/training/useBoot";
+import { clearSaved, writeSaved } from "@/lib/resumeStore";
+import { beforeSheet } from "@/training/ch3/state";
+import type { Saved } from "@/training/resume";
 import { SoundToggle } from "@/components/training/SoundToggle";
 import { SFX } from "@/lib/sfx";
 import { Result } from "@/components/training/Result";
@@ -16,16 +21,46 @@ import { useScore } from "@/components/training/useScore";
 
 /* 第3章のゲーム画面。判定は src/training/ch3/rules.ts に任せる。 */
 
+/* 章を開いたときの殻。途中まで残っていたら、続きからやるか聞く */
 export function Ch3Client({ tutorial }: { tutorial: boolean }) {
-  const [s, setS] = useState<Ch3State>(initialState);
+  const { ask, boot, begin } = useBoot<Ch3State>("ch3", { tutorial, sk: false });
+
+  if (ask) {
+    return (
+      <ResumeGate
+        ch="ch3"
+        saved={ask}
+        where={`${progress(ask.s).done}/${progress(ask.s).total}`}
+        note="シートは途中から作り直せないので、シートの手前まで戻します。火打はそのままです。"
+        onResume={() => begin(ask)}
+        onFresh={() => begin(null)}
+      />
+    );
+  }
+  if (!boot) return null;
+
+  return <Ch3Game key={boot.n} tutorial={tutorial} init={boot.saved} onRestart={() => begin(null)} />;
+}
+
+function Ch3Game({
+  tutorial,
+  init,
+  onRestart,
+}: {
+  tutorial: boolean;
+  init: Saved<Ch3State> | null;
+  onRestart: () => void;
+}) {
+  const [s, setS] = useState<Ch3State>(() => init?.s ?? initialState());
   const [msg, setMsg] = useState(
-    "4面が組み上がった。まず出隅4箇所に火打を掛ける。足場と二等辺三角形になるようにな。",
+    init?.msg ??
+      "4面が組み上がった。まず出隅4箇所に火打を掛ける。足場と二等辺三角形になるようにな。",
   );
   const [angry, setAngry] = useState<string>("");
-  const [scene, setScene] = useState<Scene | null>(null);
+  const [scene, setScene] = useState<Scene | null>((init?.scene as Scene) ?? null);
   /* 平面図をひし形に傾ける量。0のときは傾けない */
   const [skew, setSkew] = useState(0);
-  const sc = useScore();
+  const sc = useScore(init?.score);
 
   /* 火打が無いとどうなるか。平面図の上辺だけ横へ揺らして見せる
      （プロトタイプ ashiba-ch3-v13.tsx の demo と同じ動き） */
@@ -44,6 +79,25 @@ export function Ch3Client({ tutorial }: { tutorial: boolean }) {
 
   const pg = progress(s);
   const done = isComplete(s);
+
+  /* 手を打つたびに、続きを端末に残す。通し終えたら消す。
+     シートは部品が自分の中に状態を持っていて途中から作り直せないので、
+     シートに入ったら「シートの手前」として残す（火打はそのまま） */
+  const scoreRef = useRef(sc.result);
+  scoreRef.current = sc.result;
+  useEffect(() => {
+    if (done) {
+      clearSaved("ch3");
+      return;
+    }
+    writeSaved<Ch3State>("ch3", {
+      s: beforeSheet(s),
+      score: scoreRef.current,
+      tutorial,
+      msg,
+      scene: scene ?? undefined,
+    });
+  }, [s, msg, scene, done, tutorial]);
 
   /* 手を打つ。良手なら true。第3章はここが唯一の判定の入口 */
   const act = useCallback(
@@ -78,7 +132,7 @@ export function Ch3Client({ tutorial }: { tutorial: boolean }) {
         ch="ch3"
         tutorial={tutorial}
         r={sc.result}
-        onRetry={() => window.location.reload()}
+        onRetry={onRestart}
         extra={
           <div className="mt-4 rounded-lg border border-line bg-panel px-3.5 py-3 text-[12px] leading-[1.9] text-dim">
             出隅4箇所の火打と、最上段のシート。

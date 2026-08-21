@@ -21,6 +21,7 @@
     "test:e2e:tap": "node tests/e2e-tap.mjs",
     "test:e2e:update": "node tests/e2e-update-notice.mjs",
     "test:e2e:record": "node tests/e2e-record.mjs",
+    "test:e2e:resume": "node tests/e2e-resume.mjs",
     "test:e2e:catalog": "node tests/e2e-catalog-demo.mjs",
     "test:ch2": "tsx tests/ch2-rules.ts",
     "test:e2e:ch2": "node tests/e2e-ch2.mjs",

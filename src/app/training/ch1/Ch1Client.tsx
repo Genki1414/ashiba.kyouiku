@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   POSTS,
@@ -44,6 +44,10 @@ import { flipOf, innerPos } from "@/components/training/geometry";
 import { Bar } from "@/components/ui/Bar";
 import { Btn } from "@/components/ui/Btn";
 import { Hud, PopText } from "@/components/training/Hud";
+import { ResumeGate } from "@/components/training/ResumeGate";
+import { useBoot } from "@/components/training/useBoot";
+import { clearSaved, writeSaved } from "@/lib/resumeStore";
+import type { Saved } from "@/training/resume";
 import { SoundToggle } from "@/components/training/SoundToggle";
 import { SFX } from "@/lib/sfx";
 import { Result } from "@/components/training/Result";
@@ -80,20 +84,70 @@ const LEVEL_SPOT_RESULT: Record<"end" | "in" | "mid", string> = {
   mid: "回しては見に行き、を繰り返すことになる。ジャッキに手が届く場所で見る。",
 };
 
+/* 章を開いたときの殻。途中まで残っていたら、続きからやるか聞く */
 export function Ch1Client({ tutorial, sk = false }: { tutorial: boolean; sk?: boolean }) {
-  const [s, setS] = useState<Ch1State>(() => initialState(sk));
-  const [tool, setTool] = useState<Tool>("ledger");
+  const { ask, boot, begin } = useBoot<Ch1State>("ch1", { tutorial, sk });
+
+  if (ask) {
+    return (
+      <ResumeGate
+        ch="ch1"
+        saved={ask}
+        where={ask.s.phase === "dan" ? "段取り" : `${progress(ask.s).done}/${progress(ask.s).total}`}
+        onResume={() => begin(ask)}
+        onFresh={() => begin(null)}
+      />
+    );
+  }
+  if (!boot) return null; // 調べているあいだは何も出さない
+
+  return <Ch1Game key={boot.n} tutorial={tutorial} sk={sk} init={boot.saved} onRestart={() => begin(null)} />;
+}
+
+function Ch1Game({
+  tutorial,
+  sk,
+  init,
+  onRestart,
+}: {
+  tutorial: boolean;
+  sk: boolean;
+  init: Saved<Ch1State> | null;
+  onRestart: () => void;
+}) {
+  const [s, setS] = useState<Ch1State>(() => init?.s ?? initialState(sk));
+  const [tool, setTool] = useState<Tool>((init?.tool as Tool) ?? "ledger");
   const [msg, setMsg] = useState(
-    "よし、段取りからいくぞ。まず割り付けどおりに根がらみ手摺を並べろ。",
+    init?.msg ?? "よし、段取りからいくぞ。まず割り付けどおりに根がらみ手摺を並べろ。",
   );
   const [mood, setMood] = useState<Mood>("normal");
   const [scold, setScold] = useState<string | null>(null);      // 親方の横に出す（プロトタイプの bad）
   const [scoldModal, setScoldModal] = useState<string | null>(null); // 怒りの画面（プロトタイプの foul）
-  const [scene, setScene] = useState<Scene | null>(null);
-  const sc = useScore();
+  const [scene, setScene] = useState<Scene | null>((init?.scene as Scene) ?? null);
+  const sc = useScore(init?.score);
 
   const pg = progress(s);
   const done = isComplete(s);
+
+  /* 手を打つたびに、続きを端末に残す。通し終えたら消す。
+     時間だけは書いた時点のものなので、置いたまま離れた分は数えない */
+  const scoreRef = useRef(sc.result);
+  scoreRef.current = sc.result;
+  useEffect(() => {
+    if (done) {
+      clearSaved("ch1");
+      return;
+    }
+    writeSaved<Ch1State>("ch1", {
+      s,
+      score: scoreRef.current,
+      tutorial,
+      sk,
+      tool,
+      msg,
+      scene: scene ?? undefined,
+    });
+  }, [s, tool, msg, scene, done, tutorial, sk]);
 
   /* 手摺先行工法では出隅の片側が600スパンになり、柱の位置がずれる */
   const posts = useMemo(() => postsFor(s.side), [s.side]);
@@ -199,7 +253,7 @@ export function Ch1Client({ tutorial, sk = false }: { tutorial: boolean; sk?: bo
         tutorial={tutorial}
         sk={s.sk}
         r={sc.result}
-        onRetry={() => window.location.reload()}
+        onRetry={onRestart}
       />
     );
   }
