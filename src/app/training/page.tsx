@@ -5,7 +5,7 @@ import Link from "next/link";
 const CHAPTERS = [
   { id: "ch1", n: 1, t: "段取りと根がらみ", d: "割り付け・内柱・ジャッキ合わせ・建方の基準", ready: true },
   { id: "ch2", n: 2, t: "高所作業", d: "筋交・安全帯の掛け替え・壁当てジャッキ", ready: true },
-  { id: "ch3", n: 3, t: "火打とシート", d: "出隅の火打・シートの縦張りと緊結", ready: false },
+  { id: "ch3", n: 3, t: "火打とシート", d: "出隅の火打・シートの縦張りと緊結", ready: true },
   { id: "ch4", n: 4, t: "本足場", d: "準備中", ready: false },
   { id: "ch5", n: 5, t: "壁つなぎ・層間ネット", d: "準備中", ready: false },
   { id: "ch6", n: 6, t: "技能士試験の実技", d: "準備中", ready: false },
