@@ -2,7 +2,11 @@
    斜め上から見た平行投影で、x は南面方向、y は東面方向、z は高さ（1＝1段＝1,800mm）。
    縮尺は HANDOFF.md 4章のとおり。1コマ＝450mm なので z は 0.25 刻みでコマ1つ。 */
 
-import { POSTS, SPANS, type PostId } from "@/training/ch1/layout";
+import { POSTS, SPANS, type Post, type PostId } from "@/training/ch1/layout";
+
+/** 柱の位置。手摺先行工法では出隅の片側が600スパンになるので、
+    そのときだけ postsFor(side) で作った表を渡す */
+export type PostMap = Record<PostId, Post>;
 
 export const SX = 62;
 export const SY = 31;
@@ -22,15 +26,15 @@ export const pts = (...a: Pt[]) => a.map((p) => p.join(",")).join(" ");
 /** 内柱は外柱から建物側へ600mm（1スパン1,800mmの 0.42 ≒ 600/1,800 のかわりに実寸比） */
 export const INNER_OFFSET = 600 / 1800;
 
-export const innerPos = (id: PostId) =>
-  POSTS[id].face === "E"
-    ? { x: POSTS[id].x - INNER_OFFSET, y: POSTS[id].y }
-    : { x: POSTS[id].x, y: POSTS[id].y + INNER_OFFSET };
+export const innerPos = (id: PostId, posts: PostMap = POSTS) =>
+  posts[id].face === "E"
+    ? { x: posts[id].x - INNER_OFFSET, y: posts[id].y }
+    : { x: posts[id].x, y: posts[id].y + INNER_OFFSET };
 
 /** スパンの中点（作業員が立つ場所） */
-export const spanMid = (a: PostId, b: PostId) => ({
-  x: (POSTS[a].x + POSTS[b].x) / 2,
-  y: (POSTS[a].y + POSTS[b].y) / 2,
+export const spanMid = (a: PostId, b: PostId, posts: PostMap = POSTS) => ({
+  x: (posts[a].x + posts[b].x) / 2,
+  y: (posts[a].y + posts[b].y) / 2,
 });
 
 /** 盤面が見切れないように viewBox を作る（HANDOFF.md 4章：縦横比を保って縮小し、見切れさせない） */

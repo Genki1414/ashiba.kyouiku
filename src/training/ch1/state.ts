@@ -1,6 +1,6 @@
 /* 第1章の状態。JSON にそのまま落とせる形にしておく（保存・再開・テストのため）。 */
 
-import { END_INNER, MID_NEED, POSTS, SPANS, type Face, type PostId, type SpanId } from "./layout";
+import { END_INNER, MID_NEED, POSTS, SPANS, type Face, type PostId, type Side, type SpanId } from "./layout";
 import { STAGE_A, buildFace, type FaceStep } from "./queue";
 
 /** 盤面に置いた物の鍵 */
@@ -13,10 +13,16 @@ export type PlacedKey =
   | `PI:${PostId}`       // 建方：立てた内柱
   | `LU:${SpanId}`       // 建方：コマへ入れた根がらみ手摺
   | `BRK:${PostId}:${Face}` // 建方：掛けたブラケット（出隅は面ごとに1枚ずつ要る）
+  | `R6S:${SpanId}`      // 建方：600スパンに入れた踏板高さの手摺
+  | `SG:${SpanId}`       // 建方：上げた先行手摺
   | `DK:${SpanId}`;      // 建方：敷いた踏板
 
 export type Ch1State = {
   phase: "dan" | "tate";
+  /** 手摺先行工法（先行手摺を使う）で組むか */
+  sk: boolean;
+  /** 出隅のどちら側を600スパンにしたか。先行手摺を使うときだけ決める */
+  side: Side | null;
   placed: string[];
   /** 内柱にすると決めた柱 */
   inner: PostId[];
@@ -42,8 +48,10 @@ export type Ch1State = {
   ord: PostId[];
 };
 
-export const initialState = (): Ch1State => ({
+export const initialState = (sk = false): Ch1State => ({
   phase: "dan",
+  sk,
+  side: null,
   placed: [],
   inner: [],
   stageA: 0,
@@ -89,8 +97,8 @@ export function danChecklist(s: Ch1State) {
 
 /** 面ごとのキューは内柱の割り付けで変わるので、状態から都度組み立てる */
 export const faceQueue = (s: Ch1State) => ({
-  S: buildFace("S", s.inner),
-  E: buildFace("E", s.inner),
+  S: buildFace("S", s.inner, s.sk, s.side),
+  E: buildFace("E", s.inner, s.sk, s.side),
 });
 
 export const inStageA = (s: Ch1State) => s.stageA < STAGE_A.length;

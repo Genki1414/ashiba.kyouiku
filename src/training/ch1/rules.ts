@@ -17,8 +17,12 @@ import {
   MID_OK,
   POSTS,
   faceOf,
+  post600,
+  span600,
   spanById,
+  type Face,
   type PostId,
+  type Side,
   type SpanId,
 } from "./layout";
 import { STAGE_A } from "./queue";
@@ -31,7 +35,10 @@ import {
   type Ch1State,
 } from "./state";
 
-export type Tool = "move" | "ledger" | "rail6" | "jack" | "post" | "inner" | "brk" | "deck";
+export type Tool =
+  | "move" | "ledger" | "rail6" | "jack" | "post" | "inner" | "brk" | "deck"
+  /** 先行手摺（手摺先行工法のときだけ使う） */
+  | "sgake";
 
 /** 判定のあとに画面へ出す場面。状態は「場面が終わった」通知で進む */
 /** 水平器をどこに置くか（HANDOFF.md 3章 第1章 ルール6）
@@ -67,7 +74,14 @@ export type Scene =
   /** 水平器をどこに当てるかの選択（cB） */
   | { type: "innerChoiceB"; post: PostId }
   /** 内柱の水平。水平器は支柱に当てる（lvI） */
-  | { type: "levelInner"; post: PostId };
+  | { type: "levelInner"; post: PostId }
+  /* ── ここから手摺先行工法のときだけ出る場面 ── */
+  /** 600スパンを踏板高さの手摺でつなぐ（anim600） */
+  | { type: "rail600"; post: PostId }
+  /** 600スパンの柱の水平。出隅を基準に縦で見る（lv600） */
+  | { type: "level600"; post: PostId }
+  /** 先行手摺を下から上げる（sganim） */
+  | { type: "sgake"; span: SpanId; face: Face };
 
 export type Action =
   | { type: "tapPost"; tool: Tool; id: PostId }
@@ -76,6 +90,8 @@ export type Action =
   | { type: "useHanare" }
   | { type: "useLevel" }
   | { type: "toTate" }
+  /** 出隅のどちら側を600スパンにするか */
+  | { type: "pickSide"; side: Side }
   | { type: "sceneDone"; scene: Scene; value?: number }
   /** 場面の中で起きたファール（置き場所を外した／基準側のジャッキを触った など） */
   | { type: "sceneFoul"; tag: string; message: string; why: string };
@@ -212,6 +228,9 @@ function judgeDan(s: Ch1State, a: Action): Verdict {
 function judgeTate(s: Ch1State, a: Action): Verdict {
   const stA = currentStageA(s);
   const acts = activeSteps(s);
+  /* 手摺先行工法のとき、出隅の600スパンとその先の柱 */
+  const p600 = s.sk ? post600(s.side) : null;
+  const sp600 = s.sk ? span600(s.side) : null;
   const find = <T,>(pred: (st: (typeof acts)[number]["step"]) => boolean) =>
     acts.find((x) => pred(x.step));
 
@@ -351,6 +370,64 @@ function judgeTate(s: Ch1State, a: Action): Verdict {
       return good(advance(next, m!.face), "立っとる柱のコマへ入れた。柱を立てる前に入れておく。");
     }
 
+    /* 600スパンの踏板高さの手摺（手摺先行工法のときだけ） */
+    if (a.tool === "rail6") {
+      if (!sp600) {
+        return foul(
+          "いま600手摺を使う場面じゃない。",
+          "踏板高さの手摺を入れるのは、出隅の600スパンと内柱の箇所だけだ。",
+          "手順の飛ばし",
+        );
+      }
+      if (a.id !== sp600) {
+        return foul(
+          "600手摺は出隅の600スパンに入れる。",
+          "1スパンぶんの長さのところに600の手摺は入らん。コマの位置も合わん。",
+          "取付位置の誤り",
+        );
+      }
+      if (has(s, `R6S:${a.id}`)) return note("もう入っとる。");
+      if (!(inStageA(s) && stA && stA.k === "adjust")) {
+        return foul(
+          "いまその場面じゃない。",
+          "600手摺は、両隣の柱を立てて離れを見てからだ。",
+          "手順の飛ばし",
+        );
+      }
+      if (!p600 || !s.hanare.includes(p600)) {
+        return foul(
+          "先に離れを見ろ。",
+          "離れが決まらんうちに手摺でつないでも、あとで柱ごと動かすことになる。",
+          "手順の飛ばし",
+        );
+      }
+      return good(put(s, `R6S:${a.id}`), "600スパンを踏板高さの手摺でつなぐ。", {
+        type: "rail600",
+        post: p600,
+      });
+    }
+
+    /* 先行手摺。踏板を張る前に、下から手摺枠を上げる */
+    if (a.tool === "sgake") {
+      if (!s.sk) {
+        return note("この現場は先行手摺を使わん段取りだ。");
+      }
+      if (has(s, `SG:${a.id}`)) return note("もう上がっとる。");
+      const m = find((st) => st.k === "sgake" && st.t === a.id);
+      if (!m) {
+        return foul(
+          "いま先行手摺を上げる場面じゃない。水平が出てからだ。",
+          "柱の水平が出ていないうちに枠を上げると、コマの高さが揃わず入らん。",
+          "手順の飛ばし",
+        );
+      }
+      return good(put(s, `SG:${a.id}`), "先行手摺を上げる。", {
+        type: "sgake",
+        span: a.id,
+        face: m.face as Face,
+      });
+    }
+
     if (a.tool === "deck") {
       if (has(s, `DK:${a.id}`)) return note("もう敷いてある。");
       const m = find((st) => st.k === "deck" && st.t === a.id);
@@ -405,6 +482,18 @@ function judgeTate(s: Ch1State, a: Action): Verdict {
           "離れが決まらんうちに水平を出しても、柱ごと動かせば狂う。",
           "手順の飛ばし",
         );
+      }
+      /* 600スパンの柱は、先に踏板高さの手摺で出隅とつないでから水平を見る */
+      if (p600 && s.at === p600) {
+        if (!sp600 || !has(s, `R6S:${sp600}`)) {
+          return foul(
+            "600スパンだ。先に踏板高さの600手摺でつなげ。",
+            "600は根がらみだけでは持たん。つないでいない柱に水平器を当てても動く。",
+            "手順の飛ばし",
+          );
+        }
+        if (s.level.includes(s.at)) return note("その柱の水平はもう出した。");
+        return good(s, "水平を出す。", { type: "level600", post: s.at });
       }
       if (s.level.includes(s.at)) return note("その柱の水平はもう出した。もう一方の柱へ行け。");
       return good(s, "水平を出す。", { type: "level", a: "C", b: s.at });
@@ -522,6 +611,23 @@ function judgeScene(s: Ch1State, a: Extract<Action, { type: "sceneDone" }>): Ver
     return good(s, "支柱に水平器を当てる。", { type: "levelInner", post: sc.post });
   }
 
+  /* 600スパンを踏板高さの手摺でつないだ */
+  if (sc.type === "rail600") {
+    return good(s, "600スパンを踏板高さの手摺でつないだ。次は水平だ。");
+  }
+
+  /* 600スパンの柱の水平が出た。このあとブラケット */
+  if (sc.type === "level600") {
+    return good({ ...s, level: [...s.level, sc.post] }, "水平が出た。次はブラケットを掛けろ。");
+  }
+
+  /* 先行手摺が上がった */
+  if (sc.type === "sgake") {
+    const m = activeSteps(s).find((x) => x.step.k === "sgake" && x.step.t === sc.span);
+    const next = m ? advance(s, m.face) : s;
+    return good(next, "先行手摺が上がった。ここまで来てから床を張る。");
+  }
+
   if (sc.type === "levelInner") {
     if (inStageA(s)) {
       return good(markAdjust(s, sc.post), "内柱の水平が出た。この柱は仕上がりだ。");
@@ -541,12 +647,21 @@ function judgeScene(s: Ch1State, a: Extract<Action, { type: "sceneDone" }>): Ver
 export function judge(s: Ch1State, a: Action): Verdict {
   /* 場面の中で起きたファール。状態は進めず、技能点だけ引く */
   if (a.type === "sceneFoul") return foul(a.message, a.why, a.tag);
+  if (a.type === "pickSide") {
+    if (!s.sk) return note("この現場は先行手摺を使わん段取りだ。");
+    if (s.side) return note("もう決めてある。");
+    return good(
+      { ...s, side: a.side },
+      `出隅の${a.side === "S" ? "南面" : "東面"}側を600にした。これでブラケットと先行手摺のコマが重ならん。`,
+    );
+  }
   if (a.type === "sceneDone") return judgeScene(s, a);
   return s.phase === "dan" ? judgeDan(s, a) : judgeTate(s, a);
 }
 
 /** 親方に聞いたときの答え（いま何をすべきか） */
 export function hint(s: Ch1State): string {
+  if (s.sk && !s.side) return "先に、出隅のどちら側を600スパンにするか決めろ。";
   if (s.phase === "dan") {
     return "段取りだ。まず割り付けどおりに根がらみ手摺を並べろ。そのあと内柱箇所の600手摺、最後にジャッキだ。内柱のぶんも忘れるな。";
   }
@@ -557,6 +672,11 @@ export function hint(s: Ch1State): string {
     const t = rest[0];
     if (!t) return "共通ステージは終わりだ。";
     if (!s.hanare.includes(t)) return `${POSTS[t].n}の離れを測れ。`;
+    const p6 = s.sk ? post600(s.side) : null;
+    const sp6 = s.sk ? span600(s.side) : null;
+    if (p6 === t && sp6 && !has(s, `R6S:${sp6}`)) {
+      return `${POSTS[t].n}は600スパンの先だ。踏板高さの600手摺で出隅とつなげ。`;
+    }
     if (!s.level.includes(t)) return `${POSTS[t].n}の水平を出せ。`;
     return s.inner.includes(t) ? `${POSTS[t].n}は内柱の箇所だ。内柱を立てろ。` : `${POSTS[t].n}にブラケットを掛けろ。`;
   }

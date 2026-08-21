@@ -53,11 +53,12 @@ export function isPass(skill: number): boolean {
   return skill >= PASS;
 }
 
-/** 同じ指摘をまとめて回数を付ける */
+/** 同じ指摘をまとめて回数を付ける。
+    分類が同じでも中身が違えば別に出す。「なぜ駄目か」を潰さないため。 */
 export function summarize(errs: Err[]): (Err & { n: number })[] {
   const u: (Err & { n: number })[] = [];
   for (const e of errs) {
-    const f = u.find((v) => v.tag === e.tag);
+    const f = u.find((v) => v.tag === e.tag && v.message === e.message);
     if (f) f.n++;
     else u.push({ ...e, n: 1 });
   }

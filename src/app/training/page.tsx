@@ -66,6 +66,23 @@ export default function TrainingPage() {
                     本番
                   </Link>
                 </div>
+                {/* 手摺先行工法。出隅の片側を600スパンにして、床を張る前に手摺を上げる */}
+                {c.id === "ch1" && (
+                  <div className="grid grid-cols-2 gap-2">
+                    <Link
+                      href="/training/ch1?sk=1"
+                      className="rounded-lg border border-line p-3 text-center text-[12.5px] font-bold text-yel no-underline"
+                    >
+                      ④ 先行手摺で組む
+                    </Link>
+                    <Link
+                      href="/training/ch1?mode=honban&sk=1"
+                      className="rounded-lg border border-line p-3 text-center text-[12.5px] font-bold text-dim no-underline"
+                    >
+                      先行手摺・本番
+                    </Link>
+                  </div>
+                )}
               </div>
             </div>
           ) : (
@@ -85,6 +102,8 @@ export default function TrainingPage() {
         組む手順を最後まで見て、それから自分で組みます。
         <br />
         チュートリアルは「親方に聞く」が使えます。本番は聞けず、設置箇所の目印も薄くなります。
+        <br />
+        ④ は手摺先行工法。出隅の片側を600スパンにして、床を張る前に先行手摺を上げる段取りです。
       </p>
     </main>
   );

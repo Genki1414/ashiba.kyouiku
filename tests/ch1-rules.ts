@@ -5,12 +5,18 @@
 import {
   JACK_TARGET,
   POSTS,
+  SPAN600,
   SPANS,
+  post600,
+  postsFor,
+  span600,
   type PostId,
   type SpanId,
 } from "../src/training/ch1/layout";
+import { buildFace } from "../src/training/ch1/queue";
 import {
   danDone,
+  inStageA,
   initialState,
   isComplete,
   progress,
@@ -215,6 +221,140 @@ s = step(s, { type: "tapSpan", tool: "deck", id: "E1-E2" }, "E1-E2 に踏板");
 const pg = progress(s);
 check(isComplete(s), "全工程を通せた", `進捗 ${pg.done}/${pg.total} / ヒント：${hint(s)}`);
 check(pg.done === pg.total, `工程の数が合う（${pg.done}/${pg.total}）`);
+
+/* ══════════════════════════════════════════
+   手摺先行工法（先行手摺を使う段取り）
+   出隅の片側を600スパンにして、床を張る前に手摺を上げる
+   ══════════════════════════════════════════ */
+console.log("── 手摺先行工法 ──");
+
+{
+  let k = initialState(true);
+  check(k.sk && k.side === null, "先行手摺で始めると、まだ600の側が決まっていない");
+  check(hint(k).includes("600スパン"), "まず600にする側を決めろと言う");
+
+  /* 出隅のどちら側を600にするか */
+  {
+    const v = judge(k, { type: "pickSide", side: "S" });
+    check(v.kind === "good" && v.state.side === "S", "南面側を600に決められる");
+    k = v.kind === "good" ? v.state : k;
+  }
+  check(judge(k, { type: "pickSide", side: "E" }).kind === "note", "決めたあとは変えない");
+  check(postsFor("S").S1.x === 3 - SPAN600, "南①が600スパンぶんだけ出隅寄りになる");
+  check(postsFor("S").S2.x === 3 - SPAN600 - 1, "その先は1スパンずつ離れる");
+  check(postsFor(null).S1.x === 2, "先行手摺を使わなければ位置は元のまま");
+  check(post600("S") === "S1" && span600("S") === "C-S1", "600スパンとその先の柱");
+  check(post600("E") === "E1" && span600("E") === "C-E1", "東面側を選んだときも同じ形");
+
+  /* 出隅にブラケットは掛けない。代わりに先行手摺の工程が入る */
+  const q = buildFace("S", ["S2", "S3"], true, "S");
+  check(!q.some((x) => x.k === "brk" && x.t === "C"), "先行手摺のときは出隅にブラケットを掛けない");
+  check(q[0].k === "sgake" && q[0].t === "C-S1", "踏板の前に先行手摺を上げる工程が入る");
+  check(q[1].k === "deck", "先行手摺のあとで踏板");
+  const q0 = buildFace("S", ["S2", "S3"], false, null);
+  check(q0[0].k === "brk" && q0[0].t === "C", "使わなければ出隅にブラケットを掛ける");
+  check(!q0.some((x) => x.k === "sgake"), "使わなければ先行手摺の工程は無い");
+
+  /* 段取りは同じ */
+  for (const sp of SPANS) k = step(k, { type: "tapSpan", tool: "ledger", id: sp.id }, `手摺 ${sp.id}`);
+  /* 中間の内柱は南②。南①は600スパンの先なので、ここではブラケットの箇所にする */
+  for (const id of ["S3", "E2", "S2"] as PostId[]) {
+    k = step(k, { type: "tapInner", tool: "rail6", id }, `内柱 ${id}`);
+  }
+  for (const id of Object.keys(POSTS) as PostId[]) {
+    k = step(k, { type: "tapPost", tool: "jack", id }, `ジャッキ ${id}`);
+  }
+  for (const id of k.inner) k = step(k, { type: "tapInner", tool: "jack", id }, `内柱ジャッキ ${id}`);
+  k = step(k, { type: "toTate" }, "建方へ");
+
+  /* 共通ステージ：出隅 → 2方向の根がらみ → 両隣の柱 */
+  k = step(k, { type: "tapPost", tool: "post", id: "C" }, "出隅を立てる");
+  k = step(k, { type: "tapSpan", tool: "ledger", id: "C-S1" }, "C-S1 の手摺");
+  k = step(k, { type: "tapSpan", tool: "ledger", id: "C-E1" }, "C-E1 の手摺");
+  k = step(k, { type: "tapPost", tool: "post", id: "S1" }, "南①を立てる");
+  k = step(k, { type: "tapPost", tool: "post", id: "E1" }, "東①を立てる");
+
+  /* 600スパンの側（南①）：離れ → 600手摺 → 水平 → ブラケット */
+  k = { ...k, at: "S1" };
+  expectFoul(k, { type: "tapSpan", tool: "rail6", id: "C-S1" }, "手順の飛ばし", "離れの前に600手摺");
+  k = step(k, { type: "useHanare" }, "南①の離れ");
+  expectFoul(k, { type: "useLevel" }, "手順の飛ばし", "600手摺の前に水平");
+  expectFoul(k, { type: "tapSpan", tool: "rail6", id: "S1-S2" }, "取付位置の誤り", "600手摺を別のスパンへ");
+  {
+    const v = judge(k, { type: "tapSpan", tool: "rail6", id: "C-S1" });
+    check(v.kind === "good" && v.scene?.type === "rail600", "600手摺で場面が開く");
+  }
+  k = step(k, { type: "tapSpan", tool: "rail6", id: "C-S1" }, "600スパンをつなぐ");
+  check(k.placed.includes("R6S:C-S1"), "600手摺が入った");
+  check(judge(k, { type: "tapSpan", tool: "rail6", id: "C-S1" }).kind === "note", "二度は入らない");
+  {
+    const v = judge(k, { type: "useLevel" });
+    check(v.kind === "good" && v.scene?.type === "level600", "600スパンの柱は縦で水平を見る");
+  }
+  k = step(k, { type: "useLevel" }, "南①の水平");
+  k = step(k, { type: "tapPost", tool: "brk", id: "S1" }, "南①のブラケット");
+
+  /* 反対側（東①）は600ではないので、いつもどおり */
+  k = { ...k, at: "E1" };
+  k = step(k, { type: "useHanare" }, "東①の離れ");
+  {
+    const v = judge(k, { type: "useLevel" });
+    check(v.kind === "good" && v.scene?.type === "level", "600でない側はいつもの水平");
+  }
+  k = step(k, { type: "useLevel" }, "東①の水平");
+  k = step(k, { type: "tapPost", tool: "brk", id: "E1" }, "東①のブラケット");
+  check(!inStageA(k), "共通ステージを抜けた");
+
+  /* 面ごと：出隅のブラケットは無く、先行手摺 → 踏板 */
+  expectFoul(k, { type: "tapPost", tool: "brk", id: "C" }, "手順の飛ばし", "先行手摺のときに出隅へブラケット");
+  expectFoul(k, { type: "tapSpan", tool: "deck", id: "C-S1" }, "手順の飛ばし", "先行手摺より先に踏板");
+  {
+    const v = judge(k, { type: "tapSpan", tool: "sgake", id: "C-S1" });
+    check(v.kind === "good" && v.scene?.type === "sgake", "先行手摺で場面が開く");
+  }
+  k = step(k, { type: "tapSpan", tool: "sgake", id: "C-S1" }, "南面の先行手摺");
+  check(k.placed.includes("SG:C-S1"), "先行手摺が上がった");
+  k = step(k, { type: "tapSpan", tool: "deck", id: "C-S1" }, "C-S1 に踏板");
+
+  /* 残りの南面 */
+  k = step(k, { type: "tapSpan", tool: "ledger", id: "S1-S2" }, "S1-S2 の手摺");
+  k = step(k, { type: "tapPost", tool: "post", id: "S2" }, "南②を立てる");
+  k = { ...k, at: "S2" };
+  k = step(k, { type: "useHanare" }, "南②の離れ");
+  k = step(k, { type: "useLevel" }, "南②の水平");
+  k = step(k, { type: "tapPost", tool: "inner", id: "S2" }, "南②の内柱");
+  k = step(k, { type: "tapSpan", tool: "deck", id: "S1-S2" }, "S1-S2 に踏板");
+  k = step(k, { type: "tapSpan", tool: "ledger", id: "S2-S3" }, "S2-S3 の手摺");
+  k = step(k, { type: "tapPost", tool: "post", id: "S3" }, "南端を立てる");
+  k = { ...k, at: "S3" };
+  k = step(k, { type: "useHanare" }, "南端の離れ");
+  k = step(k, { type: "useLevel" }, "南端の水平");
+  k = step(k, { type: "tapPost", tool: "inner", id: "S3" }, "南端の内柱");
+  k = step(k, { type: "tapSpan", tool: "deck", id: "S2-S3" }, "S2-S3 に踏板");
+
+  /* 東面。こちらも出隅のブラケットは無く、先行手摺から */
+  k = step(k, { type: "tapSpan", tool: "sgake", id: "C-E1" }, "東面の先行手摺");
+  k = step(k, { type: "tapSpan", tool: "deck", id: "C-E1" }, "C-E1 に踏板");
+  k = step(k, { type: "tapSpan", tool: "ledger", id: "E1-E2" }, "E1-E2 の手摺");
+  k = step(k, { type: "tapPost", tool: "post", id: "E2" }, "東端を立てる");
+  k = { ...k, at: "E2" };
+  k = step(k, { type: "useHanare" }, "東端の離れ");
+  k = step(k, { type: "useLevel" }, "東端の水平");
+  k = step(k, { type: "tapPost", tool: "inner", id: "E2" }, "東端の内柱");
+  k = step(k, { type: "tapSpan", tool: "deck", id: "E1-E2" }, "E1-E2 に踏板");
+
+  const kp = progress(k);
+  check(isComplete(k), "先行手摺でも最後まで通せた", `進捗 ${kp.done}/${kp.total} / ヒント：${hint(k)}`);
+  check(kp.done === kp.total, `工程の数が合う（${kp.done}/${kp.total}）`);
+  check(!k.placed.some((x) => x.startsWith("BRK:C:")), "出隅にはブラケットが1枚も付いていない");
+  check(k.placed.filter((x) => x.startsWith("SG:")).length === 2, "先行手摺は南面・東面で2枚");
+}
+
+/* 先行手摺を使わない現場では、先行手摺の道具は空振りする */
+{
+  const n = initialState(false);
+  check(judge(n, { type: "pickSide", side: "S" }).kind === "note", "使わない現場では600の側を決めない");
+}
 
 console.log("── まとめ ──");
 console.log(`${ok} 件通過 / ${ng} 件失敗`);

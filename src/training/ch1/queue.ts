@@ -5,7 +5,7 @@
    建方は 共通ステージ（出隅まわり）→ 面ごとのキュー の2段構え。
    南面と東面は独立して進められる。どちらから進めても自由。 */
 
-import { EAST, SOUTH, type Face, type PostId, type SpanId } from "./layout";
+import { EAST, SOUTH, type Face, type PostId, type Side, type SpanId } from "./layout";
 
 /** 共通ステージ：出隅 → 2方向の根がらみ → 両隣の柱 → 柱ごとに 離れ→水平→ブラケット
     （HANDOFF.md 3章 第1章 ルール4・5） */
@@ -34,20 +34,41 @@ export type FaceStep =
   | { k: "post"; t: PostId; face: Face; d: string }
   | { k: "hanare"; t: PostId; face: Face; d: string }
   | { k: "level"; a: PostId; b: PostId; face: Face; d: string }
-  | { k: "inner"; t: PostId; face: Face; d: string };
+  | { k: "inner"; t: PostId; face: Face; d: string }
+  /** 先行手摺。踏板を張る前に、下から手摺枠を上げる */
+  | { k: "sgake"; t: SpanId; face: Face; d: string };
 
 /**
  * 面ごとのキューを組み立てる。
  * 根がらみ手摺は「立っとる柱のコマへ先に入れる」（柱 → 手摺 → 次の柱）。
  * 柱ごとの順序は 離れ → 水平 → ブラケット で全箇所固定。
  * 内柱の箇所だけはブラケットの代わりに内柱を立てる。
+ *
+ * 先行手摺を使うとき（sk）は、出隅にブラケットを掛けない。
+ * 出隅の柱では、ブラケットの付くコマと先行手摺の付くコマが同じになるため。
+ * 代わりに、踏板を敷く前に先行手摺を上げる工程が入る。
  */
-export function buildFace(face: Face, inner: PostId[]): FaceStep[] {
+export function buildFace(
+  face: Face,
+  inner: PostId[],
+  sk = false,
+  side: Side | null = null,
+): FaceStep[] {
   const list = face === "S" ? SOUTH : EAST;
   const fn = face === "S" ? "南面" : "東面";
   const q: FaceStep[] = [];
+  /* 先行手摺を使う＝出隅の片側が600スパンになっている */
+  const use600 = !!(sk && side);
 
-  q.push({ k: "brk", t: "C", face, d: `出隅に${fn}の踏板を受けるブラケットを掛ける` });
+  if (!use600) q.push({ k: "brk", t: "C", face, d: `出隅に${fn}の踏板を受けるブラケットを掛ける` });
+  if (sk) {
+    q.push({
+      k: "sgake",
+      t: `${list[0]}-${list[1]}` as SpanId,
+      face,
+      d: "床を張る前に先行手摺を上げる",
+    });
+  }
   q.push({ k: "deck", t: `${list[0]}-${list[1]}` as SpanId, face, d: "踏板を敷く" });
 
   for (let i = 2; i < list.length; i++) {

@@ -63,6 +63,8 @@ type LevelZoomProps = {
   flip?: boolean;
   vertical?: boolean;
   miniInner?: boolean;
+  /** 見出しの「何を見るか」。省略すると縦向き＝内柱／横向き＝根がらみ */
+  what?: string;
   onClear: () => void;
   /** 基準側のジャッキを触ったとき */
   onFoul: () => void;
@@ -238,7 +240,7 @@ export function RailAnim({ flip, corner, onDone }: { flip?: boolean; corner?: bo
   );
 }
 
-export function LevelZoom({ baseN, tgtN, aId, bId, flip, vertical, miniInner, onClear, onFoul, onSpotFoul }: LevelZoomProps) {
+export function LevelZoom({ baseN, tgtN, aId, bId, flip, vertical, miniInner, what, onClear, onFoul, onSpotFoul }: LevelZoomProps) {
   const [o, setO] = useState(() => (Math.random() < .5 ? -1 : 1) * (2 + Math.floor(Math.random() * 2)));
   /* 根がらみのときは、まず水平器をどこに置くかを選ばせる */
   const [spot, setSpot] = useState<SpotKey | null>(vertical ? "in" : null);
@@ -262,14 +264,18 @@ export function LevelZoom({ baseN, tgtN, aId, bId, flip, vertical, miniInner, on
       ? "そこは手摺の端だ。差し込みの都合で凹んでいる。面が出ていないから、気泡が真ん中に来ても水平は出ていないぞ。"
       : "遠すぎる。ジャッキを回しながら気泡が見えないだろう。回しては見に行き、を繰り返す気か。");
   };
-  const B = { n: vertical ? "外柱" : baseN, adj: false }, T = { n: tgtN, adj: true };
+  /* 基準側の呼び名は呼び出し元が渡す。
+     内柱を見るときは「外柱」、600スパンを見るときは「出隅」。
+     （プロトタイプは縦向きのとき常に「外柱」と書いていたが、
+       600スパンでは基準が出隅なので、渡された名前をそのまま使う） */
+  const B = { n: baseN, adj: false }, T = { n: tgtN, adj: true };
   const sides = flip ? [T, B] : [B, T];
   const faceN = (POSTS[(vertical ? aId : bId) ?? aId] || {}).face === "E" ? "東面" : "南面";
   return (
     <div style={{ position: "fixed", inset: 0, background: "#0C1015", zIndex: 30, display: "flex", flexDirection: "column" }}>
       <div style={{ padding: "10px 16px", borderBottom: `1px solid ${C.line}`, display: "flex", gap: 8, flex: "0 0 auto", flexWrap: "wrap" }}>
         <span style={{ fontSize: 12, fontWeight: 800, color: C.yel }}>水平器</span>
-        <span style={{ fontSize: 11, color: C.dim }}>{vertical ? "内柱を見る" : "根がらみを見る"}</span>
+        <span style={{ fontSize: 11, color: C.dim }}>{what ?? (vertical ? "内柱を見る" : "根がらみを見る")}</span>
         <span style={{ fontSize: 10.5, color: C.cyan, border: `1px solid ${C.line}`, borderRadius: 4, padding: "2px 6px" }}>
           {faceN}／{flip ? "基準右・進行左" : "基準左・進行右"}
         </span>
@@ -291,7 +297,7 @@ export function LevelZoom({ baseN, tgtN, aId, bId, flip, vertical, miniInner, on
             <polygon points={flip ? "62,26 76,20 76,32" : "278,26 264,20 264,32"} fill={C.cyan} />
             <text x={flip ? 152 : 150} y="17" fontSize="11" fill={C.cyan} fontFamily={F} fontWeight="700">進行方向</text>
           </g>}
-          <text x={bx} y="52" textAnchor="middle" fontSize="11" fill={C.dim} fontFamily={F}>{vertical ? "外柱" : `基準 ${baseN}`}</text>
+          <text x={bx} y="52" textAnchor="middle" fontSize="11" fill={C.dim} fontFamily={F}>{vertical ? baseN : `基準 ${baseN}`}</text>
           <text x={tx} y="52" textAnchor="middle" fontSize="11" fill={C.yel} fontFamily={F} fontWeight="700">{tgtN}</text>
 
           <line x1={bx} y1="190" x2={bx} y2={by - 6} stroke={C.steel} strokeWidth="9" />
@@ -360,7 +366,7 @@ export function LevelZoom({ baseN, tgtN, aId, bId, flip, vertical, miniInner, on
           </div>
         )}
         {spot && <div style={{ fontSize: 12.5, color: o === 0 ? C.grn : C.dim, lineHeight: 1.6, marginBottom: 14 }}>
-          {o === 0 ? "水平が出た。" : o > 0 ? `気泡は高い側に寄る。いま ${tgtN} 側が高い。` : `気泡は高い側に寄る。${vertical ? "外柱" : "基準"}側が高い＝${tgtN} が低い。`}
+          {o === 0 ? "水平が出た。" : o > 0 ? `気泡は高い側に寄る。いま ${tgtN} 側が高い。` : `気泡は高い側に寄る。${vertical ? baseN : "基準"}側が高い＝${tgtN} が低い。`}
         </div>}
         {spot && <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
           {sides.map((s, i) => (
@@ -374,6 +380,143 @@ export function LevelZoom({ baseN, tgtN, aId, bId, flip, vertical, miniInner, on
           ))}
         </div>}
       </div>
+    </div>
+  );
+}
+/* ── 出隅のコマ干渉の図 ─────────────────
+   出隅の柱では、ブラケットの付くコマと先行手摺の付くコマが同じになる。
+   だから先行手摺を使うときは、出隅のどちらか片側を600スパンにして取り合いを外す。
+   （プロトタイプ handoff/ashiba-app-v16h.tsx の CornerArt をそのまま） */
+export function CornerArt() {
+  const X = 170, GY = 172, KY = 96;
+  const koma = [KY - 52, KY - 26, KY, KY + 26, KY + 52];
+  return (
+    <svg viewBox="0 0 340 200" style={{ width: "100%", display: "block" }}>
+      <rect y={GY} width="340" height="28" fill="#1A2027" />
+      <line x1={X} y1={GY} x2={X} y2="28" stroke={C.steel} strokeWidth="11" />
+      <ellipse cx={X} cy={GY - 2} rx="17" ry="6" fill={C.steelDk} />
+      {koma.map((y) => (
+        <polygon key={y} points={`${X - 9},${y} ${X},${y - 4.5} ${X + 9},${y} ${X},${y + 4.5}`}
+          fill={y === KY ? C.red : C.steelLt} />
+      ))}
+      <text x={X} y="22" textAnchor="middle" fontSize="11" fill={C.dim} fontFamily={F}>出隅の支柱</text>
+
+      <line x1="40" y1={KY} x2={X - 14} y2={KY} stroke={C.steelDk} strokeWidth="6" />
+      <text x="40" y={KY - 12} fontSize="11" fill={C.txt} fontFamily={F} fontWeight="700">ブラケット</text>
+      <line x1={X + 14} y1={KY} x2="300" y2={KY} stroke={C.yel} strokeWidth="6" />
+      <text x="300" y={KY - 12} textAnchor="end" fontSize="11" fill={C.yel} fontFamily={F} fontWeight="700">先行手摺</text>
+
+      <g>
+        <circle cx={X} cy={KY} r="19" fill="none" stroke={C.red} strokeWidth="2.5" />
+        <line x1={X - 11} y1={KY - 11} x2={X + 11} y2={KY + 11} stroke={C.red} strokeWidth="2.5" />
+        <line x1={X + 11} y1={KY - 11} x2={X - 11} y2={KY + 11} stroke={C.red} strokeWidth="2.5" />
+      </g>
+      <text x={X} y={KY + 44} textAnchor="middle" fontSize="11" fill={C.red} fontFamily={F} fontWeight="700">
+        同じコマの取り合いになる
+      </text>
+    </svg>
+  );
+}
+
+/* ── 先行手摺の取り付け ───────────────────
+   踏板を張る前に、下から手摺枠を上げてコマに打ち込む。
+   （プロトタイプの SgakeAnim。画面は3段組みにして、
+     どの端末でも下のボタンに手が届くようにしてある） */
+export function SgakeAnim({ onDone }: { onDone: () => void }) {
+  const [t, setT] = useState(0);
+  useEffect(() => {
+    const a = setTimeout(() => setT(1), 950);
+    const b = setTimeout(() => { setT(2); SFX.hammer(); }, 1800);
+    const c = setTimeout(() => setT(3), 2400);
+    return () => { [a, b, c].forEach(clearTimeout); };
+  }, []);
+  const L = 76, R = 264, GY = 188, DKY = 120, UP = 64, MID = 92;
+  return (
+    <div style={{
+      position: "fixed", inset: 0, background: "#0C1015", zIndex: 32,
+      display: "flex", flexDirection: "column", padding: 16, boxSizing: "border-box",
+    }}>
+      <div style={{ flex: "0 0 auto" }}>
+        <div style={{ fontSize: 11, color: C.yel, fontWeight: 800, letterSpacing: 1, marginBottom: 4 }}>
+          先行手摺（クロスタイプ）
+        </div>
+        <div style={{ fontSize: 15, fontWeight: 900, lineHeight: 1.5, marginBottom: 10 }}>
+          床を張る前に、下から手摺枠を上げる。
+        </div>
+      </div>
+
+      <div style={{ flex: "1 1 auto", minHeight: 0, overflowY: "auto" }}>
+        <div style={{ background: "#10151B", border: `1px solid ${C.line}`, borderRadius: 10, overflow: "hidden" }}>
+          <svg viewBox="0 0 340 210" style={{ width: "100%", display: "block" }}>
+            <rect y={GY} width="340" height="22" fill="#1A2027" />
+            {[L, R].map((x) => (
+              <g key={x}>
+                <line x1={x} y1={GY} x2={x} y2="34" stroke={C.steel} strokeWidth="9" />
+                <ellipse cx={x} cy={GY - 2} rx="15" ry="5" fill={C.steelDk} />
+                {[UP, MID, DKY, DKY + 30, GY - 18].map((y) => (
+                  <polygon key={y} points={`${x - 7},${y} ${x},${y - 3.5} ${x + 7},${y} ${x},${y + 3.5}`} fill={C.steelLt} />
+                ))}
+              </g>
+            ))}
+            {/* 根がらみ */}
+            <line x1={L} y1={GY - 18} x2={R} y2={GY - 18} stroke={C.yel} strokeWidth="5" opacity=".6" />
+            {/* 踏板が載る高さ */}
+            <line x1="20" y1={DKY} x2="320" y2={DKY} stroke={C.dim} strokeWidth="1" strokeDasharray="4 5" opacity=".5" />
+            <text x="24" y={DKY - 7} fontSize="10" fill={C.dim} fontFamily={F}>この高さに踏板が載る（まだ張らない）</text>
+
+            {/* 先行手摺 */}
+            <g style={{
+              transform: t >= 1 ? "translate(0px,0px)" : "translate(0px,86px)",
+              opacity: t >= 1 ? 1 : .85,
+              transition: "transform .75s cubic-bezier(.3,.75,.35,1.15), opacity .4s",
+            }}>
+              {/* 上さん */}
+              <line x1={L} y1={UP} x2={R} y2={UP} stroke={C.yel} strokeWidth="6.5" />
+              {/* クロス：下端は踏板と同じ高さ */}
+              <line x1={L} y1={DKY} x2={R} y2={UP} stroke={C.yel} strokeWidth="3.6" />
+              <line x1={R} y1={DKY} x2={L} y2={UP} stroke={C.yel} strokeWidth="3.6" />
+              <polygon points={`${L},${UP - 6} ${L + 6},${UP - 1} ${L},${UP + 5}`} fill={C.yel} />
+              <polygon points={`${R},${UP - 6} ${R - 6},${UP - 1} ${R},${UP + 5}`} fill={C.yel} />
+              <polygon points={`${L},${DKY - 5} ${L + 6},${DKY} ${L},${DKY + 5}`} fill={C.yel} />
+              <polygon points={`${R},${DKY - 5} ${R - 6},${DKY} ${R},${DKY + 5}`} fill={C.yel} />
+            </g>
+
+            {/* ハンマー */}
+            {t >= 1 && t < 3 && (
+              <g style={{
+                transform: t >= 2 ? "rotate(10deg)" : "rotate(-44deg)",
+                transformOrigin: `${R}px ${UP}px`, transition: "transform .16s ease-in",
+              }}>
+                <line x1={R} y1={UP - 8} x2={R - 52} y2={UP - 42} stroke="#8A6A45" strokeWidth="6" strokeLinecap="round" />
+                <rect x={R - 66} y={UP - 56} width="24" height="16" rx="3" fill={C.steelDk} stroke={C.steelLt} />
+              </g>
+            )}
+            {t === 2 && <circle cx={R} cy={UP} r="15" fill={C.yel} opacity=".55" className="flash" />}
+
+            {/* 下から上げる作業員 */}
+            <g transform={`translate(${(L + R) / 2},${GY})scale(.85)`}><WorkerSide /></g>
+
+            {t >= 3 && (
+              <text x={(L + R) / 2} y={UP - 22} textAnchor="middle" fontSize="11" fill={C.grn}
+                fontFamily={F} fontWeight="700" className="drop">
+                床に乗る前に、もう囲われている
+              </text>
+            )}
+          </svg>
+        </div>
+
+        <div style={{ fontSize: 12, color: C.dim, lineHeight: 1.7, marginTop: 10 }}>
+          床を先に張ると、手摺の無い床の上で手摺を取り付けることになる。
+          その数分が墜落の起きる時間。順番を逆にするだけで、その時間がゼロになる。
+        </div>
+      </div>
+
+      <button onClick={onDone} disabled={t < 3} data-testid="sgake-next" style={{
+        flex: "0 0 auto", marginTop: 12, width: "100%",
+        background: t >= 3 ? C.yel : C.panel2, color: t >= 3 ? "#14171B" : C.dim,
+        border: `1px solid ${t >= 3 ? C.yel : C.line}`, borderRadius: 9, padding: 13,
+        fontWeight: 800, fontSize: 14, fontFamily: F, cursor: t >= 3 ? "pointer" : "default",
+      }}>{t >= 3 ? "次へ" : "取り付け中…"}</button>
     </div>
   );
 }

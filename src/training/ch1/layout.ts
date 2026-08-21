@@ -29,6 +29,43 @@ export const POSTS: Record<PostId, Post> = {
   E2: { x: 3, y: 2, face: "E", end: true, n: "東端" },
 };
 
+/* ── 手摺先行工法（先行手摺を使うとき）──
+   出隅の柱では、ブラケットの付くコマと先行手摺の付くコマが同じになる。
+   そこで出隅のどちらか片側だけを600スパンにして、取り合いを外す。
+   600 / 1800 の縮尺どおり（HANDOFF.md 4章）。 */
+export type Side = "S" | "E";
+export const SPAN600 = 600 / 1800;
+
+/** 出隅のどちら側を600にしたかで、柱の位置が変わる */
+export function postsFor(side: Side | null): Record<PostId, Post> {
+  const p: Record<PostId, Post> = {
+    C: { ...POSTS.C },
+    S1: { ...POSTS.S1 },
+    S2: { ...POSTS.S2 },
+    S3: { ...POSTS.S3 },
+    E1: { ...POSTS.E1 },
+    E2: { ...POSTS.E2 },
+  };
+  if (side === "S") {
+    p.S1.x = 3 - SPAN600;
+    p.S2.x = p.S1.x - 1;
+    p.S3.x = p.S2.x - 1;
+  }
+  if (side === "E") {
+    p.E1.y = SPAN600;
+    p.E2.y = SPAN600 + 1;
+  }
+  return p;
+}
+
+/** 600スパンの先の柱 */
+export const post600 = (side: Side | null): PostId | null =>
+  side === "S" ? "S1" : side === "E" ? "E1" : null;
+
+/** 600スパン */
+export const span600 = (side: Side | null): SpanId | null =>
+  side === "S" ? "C-S1" : side === "E" ? "C-E1" : null;
+
 /** 面ごとの柱の並び。どちらも出隅から始まる */
 export const SOUTH: PostId[] = ["C", "S1", "S2", "S3"];
 export const EAST: PostId[] = ["C", "E1", "E2"];

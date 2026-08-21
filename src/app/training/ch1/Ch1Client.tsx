@@ -2,7 +2,14 @@
 
 import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
-import { POSTS, type PostId, type SpanId } from "@/training/ch1/layout";
+import {
+  POSTS,
+  post600,
+  postsFor,
+  span600,
+  type PostId,
+  type SpanId,
+} from "@/training/ch1/layout";
 import {
   danChecklist,
   danDone,
@@ -25,10 +32,12 @@ import { JackScene } from "@/components/training/scenes/JackScene";
 import { HanareScene } from "@/components/training/scenes/HanareScene";
 import {
   Choice,
+  CornerArt,
   InnerArt,
   LevelZoom,
   RailAnim,
   Scold,
+  SgakeAnim,
   type ChoiceOpt,
 } from "@/components/training/scenes/Prototype";
 import { flipOf, innerPos } from "@/components/training/geometry";
@@ -58,6 +67,12 @@ const TATE_TOOLS: { k: Tool; t: string }[] = [
   { k: "move", t: "移動" },
 ];
 
+/** 手摺先行工法のときだけ増える道具（プロトタイプと同じ並び） */
+const SK_TOOLS: { k: Tool; t: string }[] = [
+  { k: "rail6", t: "600手摺" },
+  { k: "sgake", t: "先行手摺" },
+];
+
 /** 置き場所を外したまま進めるとどうなるか（記録に残す一言） */
 const LEVEL_SPOT_RESULT: Record<"end" | "in" | "mid", string> = {
   end: "1本の狂いは小さくても、4面が一周すると積み上がって最後の根がらみが入らなくなる。",
@@ -65,8 +80,8 @@ const LEVEL_SPOT_RESULT: Record<"end" | "in" | "mid", string> = {
   mid: "回しては見に行き、を繰り返すことになる。ジャッキに手が届く場所で見る。",
 };
 
-export function Ch1Client({ tutorial }: { tutorial: boolean }) {
-  const [s, setS] = useState<Ch1State>(initialState);
+export function Ch1Client({ tutorial, sk = false }: { tutorial: boolean; sk?: boolean }) {
+  const [s, setS] = useState<Ch1State>(() => initialState(sk));
   const [tool, setTool] = useState<Tool>("ledger");
   const [msg, setMsg] = useState(
     "よし、段取りからいくぞ。まず割り付けどおりに根がらみ手摺を並べろ。",
@@ -80,12 +95,17 @@ export function Ch1Client({ tutorial }: { tutorial: boolean }) {
   const pg = progress(s);
   const done = isComplete(s);
 
+  /* 手摺先行工法では出隅の片側が600スパンになり、柱の位置がずれる */
+  const posts = useMemo(() => postsFor(s.side), [s.side]);
+  const p600 = s.sk ? post600(s.side) : null;
+  const sp600 = s.sk ? span600(s.side) : null;
+
   /* 作業員の位置 */
   const at = useMemo(() => {
     if (!s.at) return { x: 3, y: -0.6 };
-    const p = POSTS[s.at];
+    const p = posts[s.at];
     return { x: p.x, y: p.y - 0.6 };
-  }, [s.at]);
+  }, [s.at, posts]);
 
   const run = useCallback(
     (a: Action) => {
@@ -96,8 +116,10 @@ export function Ch1Client({ tutorial }: { tutorial: boolean }) {
         setMood("good");
         setTimeout(() => setMood("normal"), 800);
         setScold(null);
-        /* 段取りから建方への切り替えは作業ではないので点は付けない */
-        if (a.type !== "toTate") sc.good(s.phase === "dan" ? "place" : "hammer");
+        /* 段取りから建方への切り替えと、600にする側を決めるのは
+           作業ではないので点は付けない */
+        if (a.type === "pickSide") SFX.tick();
+        else if (a.type !== "toTate") sc.good(s.phase === "dan" ? "place" : "hammer");
         if (v.scene) setScene(v.scene);
         return;
       }
@@ -159,7 +181,15 @@ export function Ch1Client({ tutorial }: { tutorial: boolean }) {
     [s, sc],
   );
 
-  const tools = s.phase === "dan" ? DAN_TOOLS : TATE_TOOLS;
+  const tools =
+    s.phase === "dan"
+      ? DAN_TOOLS
+      : [
+          ...TATE_TOOLS.slice(0, 5),
+          ...(sp600 ? [SK_TOOLS[0]] : []),
+          ...(s.sk ? [SK_TOOLS[1]] : []),
+          TATE_TOOLS[5],
+        ];
   const ghost = tutorial ? 1 : 0.35; // 本番は設置箇所のゴーストを薄く
 
   if (done) {
@@ -308,7 +338,7 @@ export function Ch1Client({ tutorial }: { tutorial: boolean }) {
           tgtN={POSTS[scene.b].n}
           aId={scene.a}
           bId={scene.b}
-          flip={flipOf(POSTS[scene.a], POSTS[scene.b])}
+          flip={flipOf(posts[scene.a], posts[scene.b])}
           onClear={() => closeScene()}
           onFoul={() =>
             sceneFoul(
@@ -328,7 +358,7 @@ export function Ch1Client({ tutorial }: { tutorial: boolean }) {
         <Choice
           title="内柱を立てた"
           q="次にどうする？"
-          art={<InnerArt flip={flipOf(POSTS[scene.post], innerPos(scene.post))} ghost />}
+          art={<InnerArt flip={flipOf(posts[scene.post], innerPos(scene.post, posts))} ghost />}
           opts={[
             { t: "内柱に水平器を当てて水平を見る", ok: false },
             { t: "踏板高さの手摺を付ける", ok: true },
@@ -348,7 +378,7 @@ export function Ch1Client({ tutorial }: { tutorial: boolean }) {
 
       {scene?.type === "railAnim" && (
         <RailAnim
-          flip={flipOf(POSTS[scene.post], innerPos(scene.post))}
+          flip={flipOf(posts[scene.post], innerPos(scene.post, posts))}
           onDone={() => closeScene()}
         />
       )}
@@ -357,7 +387,7 @@ export function Ch1Client({ tutorial }: { tutorial: boolean }) {
         <Choice
           title="水平を見る"
           q="水平器はどこに当てる？"
-          art={<InnerArt flip={flipOf(POSTS[scene.post], innerPos(scene.post))} rail />}
+          art={<InnerArt flip={flipOf(posts[scene.post], innerPos(scene.post, posts))} rail />}
           opts={[
             { t: "支柱（内柱）に当てる", ok: true },
             { t: "取り付けた手摺に当てる", ok: false },
@@ -381,7 +411,7 @@ export function Ch1Client({ tutorial }: { tutorial: boolean }) {
           baseN="外柱"
           tgtN="内柱"
           aId={scene.post}
-          flip={flipOf(POSTS[scene.post], innerPos(scene.post))}
+          flip={flipOf(posts[scene.post], innerPos(scene.post, posts))}
           onClear={() => closeScene()}
           onFoul={() =>
             sceneFoul(
@@ -390,6 +420,52 @@ export function Ch1Client({ tutorial }: { tutorial: boolean }) {
               "外柱はもう決まっとる。動かせば、そこまでの離れも水平もやり直しだ。",
             )
           }
+        />
+      )}
+
+      {/* ── 手摺先行工法のときだけ出る場面 ── */}
+
+      {/* 600スパンを踏板高さの手摺でつなぐ */}
+      {scene?.type === "rail600" && (
+        <RailAnim corner flip={flipOf(posts.C, posts[scene.post])} onDone={() => closeScene()} />
+      )}
+
+      {/* 600スパンの柱の水平。出隅を基準に縦で見る */}
+      {scene?.type === "level600" && (
+        <LevelZoom
+          vertical
+          miniInner={false}
+          what="600スパンを見る"
+          baseN="出隅"
+          tgtN={POSTS[scene.post].n}
+          aId="C"
+          bId={scene.post}
+          flip={flipOf(posts.C, posts[scene.post])}
+          onClear={() => closeScene()}
+          onFoul={() =>
+            sceneFoul(
+              "基準柱のジャッキを操作",
+              "出隅を動かすな！　そこが基準じゃ！",
+              "出隅は2方向の基準だ。動かせば南面も東面も割り付けからやり直しになる。",
+            )
+          }
+        />
+      )}
+
+      {/* 先行手摺を下から上げる */}
+      {scene?.type === "sgake" && <SgakeAnim onDone={() => closeScene()} />}
+
+      {/* 出隅のどちら側を600スパンにするか。先行手摺を使うときだけ、はじめに決める */}
+      {s.sk && !s.side && (
+        <Choice
+          title="先行手摺を使う"
+          q="出隅のどちら側を600にする？"
+          art={<CornerArt />}
+          opts={[
+            { t: "南面側を600にする", v: "S" },
+            { t: "東面側を600にする", v: "E" },
+          ]}
+          onPick={(o: ChoiceOpt) => run({ type: "pickSide", side: o.v === "E" ? "E" : "S" })}
         />
       )}
 

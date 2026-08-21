@@ -4,7 +4,7 @@
    タップできるのは 柱 / 内柱 / スパン の3種。 */
 
 import { useMemo, useRef } from "react";
-import { POSTS, SPANS, type PostId, type SpanId } from "@/training/ch1/layout";
+import { POSTS as BASE_POSTS, SPANS, postsFor, type PostId, type SpanId } from "@/training/ch1/layout";
 import { has, type Ch1State } from "@/training/ch1/state";
 import {
   P,
@@ -42,7 +42,9 @@ export function Board({
   onTapSpan: (id: SpanId) => void;
 }) {
   const dan = s.phase === "dan";
-  const ids = Object.keys(POSTS) as PostId[];
+  /* 手摺先行工法では出隅の片側が600スパンになり、柱の位置がずれる */
+  const POSTS = useMemo(() => postsFor(s.side), [s.side]);
+  const ids = Object.keys(BASE_POSTS) as PostId[];
   const svgRef = useRef<SVGSVGElement>(null);
   const vb = (dan ? VB_DAN : VB_TATE).split(" ").map(Number);
 
@@ -52,18 +54,18 @@ export function Board({
     for (const id of ids) {
       const [sx, sy] = P(POSTS[id].x, POSTS[id].y, 0);
       out.push({ key: `post:${id}`, kind: "post", id, sx, sy });
-      const ip = innerPos(id);
+      const ip = innerPos(id, POSTS);
       const [ix, iy] = P(ip.x, ip.y, 0);
       out.push({ key: `inner:${id}`, kind: "inner", id, sx: ix, sy: iy });
     }
     for (const sp of SPANS) {
-      const m = spanMid(sp.a, sp.b);
+      const m = spanMid(sp.a, sp.b, POSTS);
       const [sx, sy] = P(m.x, m.y, 0);
       out.push({ key: `span:${sp.id}`, kind: "span", id: sp.id, sx, sy });
     }
     return out;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dan]);
+  }, [dan, POSTS]);
 
   /* 押した点にいちばん近い節点へ振り分ける */
   const onBoardClick = (e: React.MouseEvent<SVGRectElement>) => {
@@ -138,7 +140,7 @@ export function Board({
       {/* 段取り：内柱の箇所に置いた600手摺 */}
       {s.inner.map((id) => {
         if (!has(s, `R6:${id}`)) return null;
-        const ip = innerPos(id);
+        const ip = innerPos(id, POSTS);
         return (
           <Laid
             key={`r6-${id}`}
@@ -157,7 +159,7 @@ export function Board({
       )}
       {s.inner.map((id) => {
         if (!has(s, `J:in:${id}`)) return null;
-        const ip = innerPos(id);
+        const ip = innerPos(id, POSTS);
         return <Jack key={`ji-${id}`} x={ip.x} y={ip.y} />;
       })}
 
@@ -170,7 +172,7 @@ export function Board({
       {/* 建方：内柱 */}
       {s.inner.map((id) => {
         if (!has(s, `PI:${id}`)) return null;
-        const ip = innerPos(id);
+        const ip = innerPos(id, POSTS);
         return <Post key={`pi-${id}`} x={ip.x} y={ip.y} top={1} thin />;
       })}
 
@@ -188,8 +190,35 @@ export function Board({
 
       {/* 内柱をつなぐ踏板高さの600手摺 */}
       {s.innerTied.map((id) => (
-        <Ledger key={`tie-${id}`} p1={POSTS[id]} p2={innerPos(id)} z={1} color="var(--color-cyan)" w={3.5} />
+        <Ledger key={`tie-${id}`} p1={POSTS[id]} p2={innerPos(id, POSTS)} z={1} color="var(--color-cyan)" w={3.5} />
       ))}
+
+      {/* 出隅の600スパンをつなぐ踏板高さの手摺（手摺先行工法） */}
+      {SPANS.map((sp) =>
+        has(s, `R6S:${sp.id}`) ? (
+          <g key={`r6s-${sp.id}`} className="drop">
+            <Ledger p1={POSTS[sp.a]} p2={POSTS[sp.b]} z={1} color="var(--color-cyan)" w={5} />
+          </g>
+        ) : null,
+      )}
+
+      {/* 先行手摺（クロスタイプ）。踏板の高さから上さんまで、たすきに掛かる */}
+      {SPANS.map((sp) => {
+        if (!has(s, `SG:${sp.id}`)) return null;
+        const a = POSTS[sp.a];
+        const b = POSTS[sp.b];
+        const A1 = P(a.x, a.y, 1);
+        const A2 = P(a.x, a.y, 1.5);
+        const B1 = P(b.x, b.y, 1);
+        const B2 = P(b.x, b.y, 1.5);
+        return (
+          <g key={`sg-${sp.id}`} className="drop">
+            <line x1={A1[0]} y1={A1[1]} x2={B2[0]} y2={B2[1]} stroke="var(--color-yel)" strokeWidth="2.6" opacity=".9" />
+            <line x1={A2[0]} y1={A2[1]} x2={B1[0]} y2={B1[1]} stroke="var(--color-yel)" strokeWidth="2.6" opacity=".9" />
+            <Ledger p1={a} p2={b} z={1.5} />
+          </g>
+        );
+      })}
 
       {/* ブラケット */}
       {ids.flatMap((id) =>
