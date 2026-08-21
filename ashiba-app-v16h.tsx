@@ -1,0 +1,13725 @@
+import React, { useState, useEffect, useMemo, useRef } from "react";
+
+const TrainingApp = (() => {
+
+/* ═══════════════════════════════════════════
+   足場 実務トレーニング v28 ／ 第1章 段取りと根がらみ
+   ・主人公「ケンタ」／親方が常時ガイド
+   ・コンボ・スコア・ランク
+   ・離れ → 水平 の順、基準柱の2方向は順不同
+   ═══════════════════════════════════════════ */
+
+const C = {
+  bg: "#14171B", panel: "#1E232A", panel2: "#252C34", line: "#2E3640",
+  steel: "#93A0AD", steelLt: "#CBD6DF", steelDk: "#5F6B78",
+  yel: "#F5D400", red: "#E23B2E", grn: "#25B36B", cyan: "#4FC3D9",
+  navy: "#2F4A6B", skin: "#E2B48C", txt: "#E9EEF3", dim: "#8D98A4",
+};
+const F = `"Hiragino Kaku Gothic ProN","Noto Sans JP","Yu Gothic",sans-serif`;
+const MO = `ui-monospace,"SFMono-Regular",Menlo,monospace`;
+
+/* ── 割り付け ─────────────────────────── */
+const POSTS = {
+  C:  { x: 3, y: 0, corner: true, n: "出隅" },
+  S1: { x: 2, y: 0, face: "S", n: "南①" },
+  S2: { x: 1, y: 0, face: "S", n: "南②" },
+  S3: { x: 0, y: 0, face: "S", end: true, n: "南端" },
+  E1: { x: 3, y: 1, face: "E", n: "東①" },
+  E2: { x: 3, y: 2, face: "E", end: true, n: "東端" },
+};
+const SOUTH = ["C", "S1", "S2", "S3"], EAST = ["C", "E1", "E2"];
+const SPANS = [
+  { id: "C-S1", a: "C", b: "S1" }, { id: "S1-S2", a: "S1", b: "S2" }, { id: "S2-S3", a: "S2", b: "S3" },
+  { id: "C-E1", a: "C", b: "E1" }, { id: "E1-E2", a: "E1", b: "E2" },
+];
+/* 出隅のどちら側を600スパンにするか。先行手摺を使うときに必要。 */
+const BASE_XY = { C: [3, 0], S1: [2, 0], S2: [1, 0], S3: [0, 0], E1: [3, 1], E2: [3, 2] };
+const SPAN600 = 0.34;   // 600 / 1800
+const applyLayout = (side) => {
+  Object.entries(BASE_XY).forEach(([k, v]) => { POSTS[k].x = v[0]; POSTS[k].y = v[1]; });
+  if (side === "S") { POSTS.S1.x = 3 - SPAN600; POSTS.S2.x = POSTS.S1.x - 1; POSTS.S3.x = POSTS.S2.x - 1; }
+  if (side === "E") { POSTS.E1.y = SPAN600; POSTS.E2.y = SPAN600 + 1; }
+};
+const INO = 0.42;
+const inPos = (id) => (POSTS[id].face === "E" ? { x: POSTS[id].x - INO, y: POSTS[id].y } : { x: POSTS[id].x, y: POSTS[id].y + INO });
+/* 段取りで資材を寝かせる位置（足場の外側） */
+const outv = (sp) => ((POSTS[sp.a].face || POSTS[sp.b].face) === "E" ? { x: 0.34, y: 0 } : { x: 0, y: -0.34 });
+/* 踏板高さ(z=1)のブラケットと踏板 */
+const brkPts = (id, face) => {
+  const p = POSTS[id], o = face === "E" ? { x: 0.3, y: 0 } : { x: 0, y: -0.3 };
+  return [P(p.x, p.y, 1), P(p.x + o.x, p.y + o.y, 1), P(p.x, p.y, 0.78)].map((q) => q.join(",")).join(" ");
+};
+const deckPts = (sp) => {
+  const a = POSTS[sp.a], b = POSTS[sp.b];
+  const o = (POSTS[sp.a].face || POSTS[sp.b].face) === "E" ? { x: -INO, y: 0 } : { x: 0, y: INO };
+  return [P(a.x, a.y, 1), P(b.x, b.y, 1), P(b.x + o.x, b.y + o.y, 1), P(a.x + o.x, a.y + o.y, 1)].map((q) => q.join(",")).join(" ");
+};
+const END_INNER = ["S3", "E2"];
+const MID_OK = { S1: 1, S2: 1 };
+const MID_NEED = 1;
+const HANARE = 900;
+
+/* ── 効果音（WAVをその場で生成して <audio> で鳴らす） ── */
+const SFX = (() => {
+  const RATE = 22050;
+  let on = true, ok = false, err = "";
+  const cache = {};
+  const rnd = () => Math.random() * 2 - 1;
+  const sq = (x) => (Math.sin(x) >= 0 ? 1 : -1);
+
+  const DUR = { hammer: .3, place: .24, combo: .3, buzz: .2, shout: .72, tick: .05, chime: .6, fanfare: .78 };
+
+  const gen = (k, arg) => {
+    const n = Math.floor(RATE * (DUR[k] || .3));
+    const o = new Float32Array(n);
+    const T = (i) => i / RATE;
+    if (k === "hammer") {
+      for (let i = 0; i < n; i++) { const t = T(i);
+        o[i] = rnd() * Math.exp(-55 * t) * .55
+          + Math.sin(2 * Math.PI * 1900 * t) * Math.exp(-16 * t) * .2
+          + Math.sin(2 * Math.PI * 2840 * t) * Math.exp(-26 * t) * .09
+          + Math.sin(2 * Math.PI * 180 * t) * Math.exp(-42 * t) * .3; }
+    } else if (k === "place") {
+      for (let i = 0; i < n; i++) { const t = T(i);
+        o[i] = Math.sin(2 * Math.PI * (190 - 380 * t) * t) * Math.exp(-22 * t) * .45 + rnd() * Math.exp(-75 * t) * .18; }
+    } else if (k === "combo") {
+      const s = Math.min(arg || 3, 12), fs = [0, 4, 7].map((iv) => 440 * Math.pow(2, (s + iv) / 12));
+      for (let i = 0; i < n; i++) { const t = T(i); let v = 0;
+        fs.forEach((f, j) => { const st = j * .06; if (t > st) { const u = t - st; v += sq(2 * Math.PI * f * u) * Math.exp(-24 * u) * .07; } });
+        o[i] = v; }
+    } else if (k === "buzz") {
+      for (let i = 0; i < n; i++) { const t = T(i); o[i] = sq(2 * Math.PI * (190 - 180 * t) * t) * Math.exp(-13 * t) * .14; }
+    } else if (k === "shout") {
+      let lp = 0;
+      for (let i = 0; i < n; i++) { const t = T(i);
+        const f = 150 - 55 * t + 32 * Math.sin(2 * Math.PI * 24 * t);
+        let v = ((t * f) % 1) * 2 - 1;
+        v = v * .82 + rnd() * .22;
+        lp += (v - lp) * .24;
+        const e = t < .03 ? t / .03 : t < .16 ? 1 - (t - .03) * 4.2 : t < .22 ? .45 + (t - .16) * 9 : Math.max(0, 1 - (t - .22) / .44);
+        o[i] = lp * e * .55; }
+    } else if (k === "tick") {
+      for (let i = 0; i < n; i++) o[i] = rnd() * Math.exp(-260 * T(i)) * .45;
+    } else if (k === "chime") {
+      const fs = [880, 1320, 1760];
+      for (let i = 0; i < n; i++) { const t = T(i); let v = 0;
+        fs.forEach((f, j) => { const st = j * .07; if (t > st) { const u = t - st; v += Math.sin(2 * Math.PI * f * u) * Math.exp(-6 * u) * .13; } });
+        o[i] = v; }
+    } else if (k === "fanfare") {
+      const fs = [523, 659, 784, 1047];
+      for (let i = 0; i < n; i++) { const t = T(i); let v = 0;
+        fs.forEach((f, j) => { const st = j * .12; if (t > st) { const u = t - st; v += Math.sin(2 * Math.PI * f * u) * Math.exp(-5 * u) * .12 + Math.sin(4 * Math.PI * f * u) * Math.exp(-9 * u) * .04; } });
+        o[i] = v; }
+    }
+    return o;
+  };
+
+  const wav = (f) => {
+    const n = f.length, b = new ArrayBuffer(44 + n * 2), v = new DataView(b);
+    const W = (off, s) => { for (let i = 0; i < s.length; i++) v.setUint8(off + i, s.charCodeAt(i)); };
+    W(0, "RIFF"); v.setUint32(4, 36 + n * 2, true); W(8, "WAVEfmt ");
+    v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+    v.setUint32(24, RATE, true); v.setUint32(28, RATE * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+    W(36, "data"); v.setUint32(40, n * 2, true);
+    for (let i = 0; i < n; i++) { const s = Math.max(-1, Math.min(1, f[i])); v.setInt16(44 + i * 2, s < 0 ? s * 0x8000 : s * 0x7FFF, true); }
+    const u = new Uint8Array(b); let str = ""; const CH = 0x2000;
+    for (let i = 0; i < u.length; i += CH) str += String.fromCharCode.apply(null, u.subarray(i, i + CH));
+    return "data:audio/wav;base64," + btoa(str);
+  };
+
+  const uri = (k, arg) => { const key = k + (arg || ""); return cache[key] || (cache[key] = wav(gen(k, arg))); };
+  const play = (k, arg) => {
+    if (!on) return;
+    try {
+      const a = new Audio(uri(k, arg)); a.volume = .6;
+      const pr = a.play();
+      if (pr && pr.then) pr.then(() => { ok = true; err = ""; }).catch((e) => { err = String(e && e.name ? e.name : e); });
+      else ok = true;
+    } catch (e) { err = String(e && e.message ? e.message : e); }
+  };
+  const warm = () => { try { ["hammer", "place", "buzz", "tick", "chime", "shout", "fanfare"].forEach((k) => uri(k)); } catch (e) { err = String(e); } };
+  return {
+    warm, init: warm,
+    unlock: () => { warm(); play("tick"); },
+    state: () => (err ? "error:" + err : ok ? "running" : "none"),
+    hammer: () => play("hammer"), place: () => play("place"), combo: (n) => play("combo", n),
+    buzz: () => play("buzz"), shout: () => play("shout"), tick: () => play("tick"),
+    chime: () => play("chime"), fanfare: () => play("fanfare"),
+    setOn: (v) => { on = v; }, isOn: () => on,
+  };
+})();
+
+/* ── 幾何 ─────────────────────────────── */
+const SX = 62, SY = 31, DX = 44, DY = -22, LV = 74;
+const P = (x, y, z = 0) => [x * SX + y * DX, x * SY + y * DY - z * LV];
+const pts = (...a) => a.map((p) => p.join(",")).join(" ");
+const flipOf = (a, b) => (b.x - a.x) * SX + (b.y - a.y) * DX < 0;
+
+/* 作業員が立てる位置（柱・内柱・スパン中間）。割り付け変更に追従するため都度計算する。 */
+const nodesList = () => [
+  ...Object.keys(POSTS).map((id) => ({ id, kind: "post", x: POSTS[id].x, y: POSTS[id].y })),
+  ...Object.keys(POSTS).filter((id) => !POSTS[id].corner).map((id) => ({ id: "in:" + id, kind: "inner", ...inPos(id) })),
+  ...SPANS.map((sp) => ({ id: "sp:" + sp.id, kind: "span", x: (POSTS[sp.a].x + POSTS[sp.b].x) / 2, y: (POSTS[sp.a].y + POSTS[sp.b].y) / 2 })),
+];
+const nodeById = (id) => { const n = nodesList(); return n.find((x) => x.id === id) || n[0]; };
+
+/* テスト用：段取りを済ませた状態 */
+const PRESET_INNER = { S2: 1, S3: 1, E2: 1 };
+const PRESET = [
+  ...Object.keys(POSTS).map((id) => `J:${id}`),
+  ...SPANS.map((sp) => `L:${sp.id}`),
+  ...Object.keys(PRESET_INNER).map((id) => `R6:${id}`),
+  ...Object.keys(PRESET_INNER).map((id) => `J:in:${id}`),
+];
+const mkVB = (zTop) => {
+  const xs = [], ys = [];
+  for (const x of [-1.15, 4.15]) for (const y of [-1.15, 3.15]) for (const z of [0, zTop]) { const [a, b] = P(x, y, z); xs.push(a); ys.push(b); }
+  const x0 = Math.min(...xs), y0 = Math.min(...ys);
+  return `${x0} ${y0} ${Math.max(...xs) - x0} ${Math.max(...ys) - y0}`;
+};
+const VB = mkVB(2.5);        // 柱が立ったあと
+const VB_DAN = mkVB(0.75);   // 段取り中は地面だけなので寄せる
+
+/* ── キャラクター ─────────────────────── */
+/* ── 側面の作業員（断面図用。縮尺どおり：身長1,700mm＝コマ4つ弱） ── */
+function WorkerSide() {
+  return (
+    <g>
+      <ellipse cx="0" cy="0" rx="12" ry="3" fill="#000" opacity=".3" />
+      {/* 脚 */}
+      <path d="M-5 -2 L-6 -66 L2 -66 L2 -2 Z" fill={C.navy} />
+      <path d="M3 -2 L2 -66 L9 -66 L8 -2 Z" fill="#2B3A4C" />
+      <path d="M-8 -2 L-8 -7 L2 -7 L2 -2 Z" fill="#2B3138" />
+      {/* 胴（横向きなので薄い） */}
+      <path d="M-6 -64 L-8 -118 L8 -118 L7 -64 Z" fill="#5C7FA3" />
+      {/* 安全帯 */}
+      <rect x="-8" y="-98" width="16" height="4.5" fill="#2B3138" />
+      {/* 腕（内柱側へ伸ばす） */}
+      <path d="M-6 -113 L-23 -93 L-19 -88 L-2 -106 Z" fill="#5C7FA3" />
+      <circle cx="-22" cy="-89" r="3.6" fill={C.skin} />
+      {/* 首・頭（横顔） */}
+      <rect x="-3" y="-125" width="7" height="9" fill={C.skin} />
+      <circle cx="-1" cy="-134" r="11" fill={C.skin} />
+      <path d="M-11.5 -135 L-15 -132 L-11.5 -130 Z" fill={C.skin} />
+      <circle cx="-6" cy="-137" r="1.4" fill="#2A1D14" />
+      <line x1="-10" y1="-129" x2="-6" y2="-129" stroke="#2A1D14" strokeWidth="1.2" strokeLinecap="round" />
+      {/* ヘルメット */}
+      <path d="M-13 -140 A12 12 0 0 1 11 -140 Z" fill={C.yel} />
+      <rect x="-17" y="-142.5" width="30" height="3.4" rx="1.7" fill="#E0C200" />
+    </g>
+  );
+}
+
+function Kenta({ mood = "normal", walking }) {
+  const eye = mood === "bad" ? 1.2 : 2.2;
+  return (
+    <g className={walking ? "walk" : "idle"}>
+      <ellipse cx="0" cy="1" rx="11" ry="4" fill="#000" opacity=".35" />
+      {/* 脚 */}
+      <path d="M-7 -20 L-8 -3 L-3 -3 L-2 -20 Z" fill={C.navy} />
+      <path d="M7 -20 L8 -3 L3 -3 L2 -20 Z" fill={C.navy} />
+      <rect x="-9" y="-5" width="7" height="4" rx="1" fill="#2A2E33" />
+      <rect x="2" y="-5" width="7" height="4" rx="1" fill="#2A2E33" />
+      {/* 胴 */}
+      <path d="M-9 -40 L9 -40 L10 -19 L-10 -19 Z" fill="#5C7FA3" />
+      <path d="M-9 -40 L9 -40 L9 -34 L-9 -34 Z" fill="#7796B5" />
+      {/* 安全帯 */}
+      <rect x="-10.5" y="-24" width="21" height="4.5" rx="1" fill="#2B3138" />
+      <rect x="-11" y="-24" width="5" height="8" rx="1.5" fill="#6B5636" />
+      <rect x="6" y="-24" width="5" height="6" rx="1.5" fill="#6B5636" />
+      {/* 腕 */}
+      <path d="M-9 -38 L-14 -22 L-10 -21 L-6 -35 Z" fill="#5C7FA3" />
+      <path d="M9 -38 L14 -22 L10 -21 L6 -35 Z" fill="#5C7FA3" />
+      <circle cx="-12" cy="-20" r="2.6" fill={C.skin} />
+      <circle cx="12" cy="-20" r="2.6" fill={C.skin} />
+      {/* 頭 */}
+      <circle cx="0" cy="-47" r="8" fill={C.skin} />
+      <circle cx={-3} cy="-47" r={eye / 1.6} fill="#2A1D14" />
+      <circle cx={3} cy="-47" r={eye / 1.6} fill="#2A1D14" />
+      {mood === "good" ? <path d="M-3 -43 Q0 -40 3 -43" stroke="#2A1D14" strokeWidth="1.4" fill="none" strokeLinecap="round" />
+        : mood === "bad" ? <ellipse cx="0" cy="-42.5" rx="2.4" ry="1.8" fill="#2A1D14" />
+          : <line x1="-2.5" y1="-42.5" x2="2.5" y2="-42.5" stroke="#2A1D14" strokeWidth="1.3" strokeLinecap="round" />}
+      {/* ヘルメット */}
+      <path d="M-9.5 -51 A9.5 9.5 0 0 1 9.5 -51 Z" fill={C.yel} />
+      <rect x="-11.5" y="-52" width="23" height="3.4" rx="1.7" fill="#E0C200" />
+      <path d="M-8 -49 Q0 -44 8 -49" stroke="#C9AE00" strokeWidth="1" fill="none" />
+      {mood === "bad" && <text x="13" y="-52" fontSize="12" fill={C.yel} fontFamily={F}>💦</text>}
+    </g>
+  );
+}
+
+/* ── 親方の顔 ─────────────────────────── */
+function Boss({ size = 56, angry }) {
+  const s = size / 72;
+  return (
+    <svg width={size} height={size} viewBox="0 0 72 72" style={{ flexShrink: 0 }}>
+      <path d="M8 34 A28 24 0 0 1 64 34 Z" fill={angry ? "#E8B400" : C.yel} />
+      <rect x="4" y="33" width="64" height="6" rx="3" fill="#E0C200" />
+      <circle cx="36" cy="49" r="17" fill="#D9A97E" />
+      {angry
+        ? <path d="M24 43 L33 47 M48 43 L39 47" stroke="#2A1D14" strokeWidth="3.5" strokeLinecap="round" />
+        : <path d="M25 44 L33 43 M47 44 L39 43" stroke="#2A1D14" strokeWidth="3" strokeLinecap="round" />}
+      <circle cx="29" cy="51" r="2.4" fill="#2A1D14" /><circle cx="43" cy="51" r="2.4" fill="#2A1D14" />
+      {angry ? <ellipse cx="36" cy="60" rx="8" ry="5" fill="#5A1E17" /> : <path d="M30 60 Q36 63 42 60" stroke="#2A1D14" strokeWidth="2" fill="none" strokeLinecap="round" />}
+      <rect x="28" y="55" width="16" height="3" rx="1.5" fill="#2A1D14" />
+      <g transform={`scale(${s})`} />
+    </svg>
+  );
+}
+
+/* ── 描画部品 ─────────────────────────── */
+const Koma = ({ x, y, z }) => { const [a, b] = P(x, y, z); return <polygon points={`${a - 6},${b} ${a},${b - 3} ${a + 6},${b} ${a},${b + 3}`} fill={C.steelLt} />; };
+const Post = ({ x, y, top, thin }) => {
+  const a = P(x, y, 0.06), c = P(x, y, top), pin = P(x, y, top + 0.1), k = [];
+  for (let i = 0.25; i <= top + 0.001; i += 0.25) k.push(<Koma key={i} x={x} y={y} z={+i.toFixed(2)} />);
+  return <g className="drop"><line x1={a[0]} y1={a[1]} x2={c[0]} y2={c[1]} stroke={C.steel} strokeWidth={thin ? 4.5 : 5.5} />
+    <line x1={c[0]} y1={c[1]} x2={pin[0]} y2={pin[1]} stroke={C.steelDk} strokeWidth="2.5" />{k}</g>;
+};
+const Jack = ({ x, y }) => {
+  const b = P(x, y, 0), s = P(x, y, 0.06);
+  return <g className="drop"><polygon points={`${b[0] - 12},${b[1]} ${b[0]},${b[1] - 6} ${b[0] + 12},${b[1]} ${b[0]},${b[1] + 6}`} fill={C.steelDk} />
+    <line x1={b[0]} y1={b[1]} x2={s[0]} y2={s[1]} stroke={C.steelLt} strokeWidth="3.5" /><ellipse cx={b[0]} cy={b[1] - 9} rx="7.5" ry="3" fill={C.steel} /></g>;
+};
+const Ledger = ({ p1, p2, z, color = C.yel, w = 4.5 }) => {
+  const a = P(p1.x, p1.y, z), c = P(p2.x, p2.y, z), d = a[0] < c[0] ? 1 : -1;
+  const wd = (p, o) => `${p[0]},${p[1] - 5} ${p[0] + o * 5},${p[1] - 1} ${p[0]},${p[1] + 4}`;
+  return <g className="drop"><line x1={a[0]} y1={a[1]} x2={c[0]} y2={c[1]} stroke={color} strokeWidth={w} />
+    <polygon points={wd(a, d)} fill={color} /><polygon points={wd(c, -d)} fill={color} /></g>;
+};
+const Laid = ({ p1, p2, color }) => {
+  const a = P(p1.x, p1.y, 0.02), c = P(p2.x, p2.y, 0.02);
+  return <line className="drop" x1={a[0]} y1={a[1]} x2={c[0]} y2={c[1]} stroke={color} strokeWidth="5" opacity=".5" strokeLinecap="round" />;
+};
+
+/* ── ボタン ───────────────────────────── */
+function Btn({ children, onClick, tone, big }) {
+  const y = tone === "y";
+  return <button onClick={onClick} style={{
+    background: y ? C.yel : C.panel2, color: y ? "#14171B" : C.txt, border: `1px solid ${y ? C.yel : C.line}`,
+    borderRadius: 9, padding: big ? "15px 16px" : "13px 8px", fontSize: big ? 14 : 13.5, fontWeight: 800,
+    fontFamily: F, cursor: "pointer", width: "100%", textAlign: big ? "left" : "center", lineHeight: 1.5,
+  }}>{children}</button>;
+}
+const Tape = ({ h = 6 }) => <div style={{ height: h, background: `repeating-linear-gradient(115deg, ${C.yel} 0 12px, #14171B 12px 24px)` }} />;
+
+/* ── 親方の叱責 ───────────────────────── */
+function Scold({ line, onClose }) {
+  return (
+    <div onClick={onClose} style={{ position: "absolute", inset: 0, background: "#000b", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 30, padding: 20 }}>
+      <div className="shake" style={{ background: C.panel, border: `2px solid ${C.red}`, borderRadius: 14, padding: 18, maxWidth: 350, width: "100%" }}>
+        <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+          <Boss size={72} angry />
+          <div>
+            <div style={{ fontSize: 11, color: C.red, fontWeight: 800, letterSpacing: 1, marginBottom: 5 }}>ファール　技能 −10 ／ コンボ切れ</div>
+            <div style={{ fontSize: 15.5, fontWeight: 800, lineHeight: 1.6 }}>{line}</div>
+          </div>
+        </div>
+        <button onClick={onClose} style={{ marginTop: 14, width: "100%", background: C.red, color: "#fff", border: "none", borderRadius: 8, padding: 12, fontWeight: 800, fontFamily: F, fontSize: 14, cursor: "pointer" }}>すいません！</button>
+      </div>
+    </div>
+  );
+}
+
+/* ── 現在地ミニ平面（俯瞰と同じ向き） ── */
+function MiniPlan({ aId, bId, inner }) {
+  const ap = POSTS[aId];
+  const bp = inner ? inPos(aId) : POSTS[bId];
+  const A = P(ap.x, ap.y), B = P(bp.x, bp.y);
+  const dx = B[0] - A[0], dy = B[1] - A[1], len = Math.hypot(dx, dy) || 1;
+  const hx = B[0] - (dx / len) * 16, hy = B[1] - (dy / len) * 16;
+  const nx = -(dy / len) * 6, ny = (dx / len) * 6;
+  return (
+    <svg viewBox={VB} width="112" height="80" preserveAspectRatio="xMidYMid meet" style={{ display: "block" }}>
+      <polygon points={pts(P(-0.6, 0.95), P(2.55, 0.95), P(2.55, 2.9), P(-0.6, 2.9))} fill="#2A323A" />
+      {Object.values(POSTS).map((p, i) => { const q = P(p.x, p.y); return <circle key={i} cx={q[0]} cy={q[1]} r="7" fill="#49535D" />; })}
+      <line x1={A[0]} y1={A[1]} x2={hx} y2={hy} stroke={C.cyan} strokeWidth="7" />
+      <polygon points={`${B[0]},${B[1]} ${hx + nx},${hy + ny} ${hx - nx},${hy - ny}`} fill={C.cyan} />
+      <circle cx={A[0]} cy={A[1]} r="9" fill={C.steelLt} />
+      <circle cx={B[0]} cy={B[1]} r="9" fill={C.yel} />
+    </svg>
+  );
+}
+
+/* ── 水平器ズーム ───────────────────────
+   南面＝基準が右・進行方向が左／東面＝基準が左・進行方向が右。
+   俯瞰の向きに合わせる（flip=true で進行方向が画面左）。
+   ───────────────────────────────────── */
+function LevelZoom({ baseN, tgtN, aId, bId, flip, vertical, miniInner, onClear, onFoul }) {
+  const [o, setO] = useState(() => (Math.random() < .5 ? -1 : 1) * (2 + Math.floor(Math.random() * 2)));
+  /* 根がらみのときは、まず水平器をどこに置くかを選ばせる */
+  const [spot, setSpot] = useState(vertical ? "in" : null);
+  const [ng, setNg] = useState(null);
+  const bx = flip ? 258 : 82, tx = flip ? 82 : 258;
+  const by = 116, ty = 116 - o * 7;
+  const ang = (Math.atan2(ty - by, tx - bx) * 180) / Math.PI;
+  const mx = (bx + tx) / 2, my = (by + ty) / 2;
+  const hit = (d) => { SFX.tick(); const v = o + (d === "up" ? 1 : -1); setO(v); if (v === 0) setTimeout(onClear, 480); };
+  /* 手摺の上：端（凹み）／端から少し中（正解）／中ほど */
+  /* 手摺の描画は進行方向が左のとき180度回るので、回転後に進行方向側へ来る端を基準にする */
+  const vEnd = flip ? bx : tx, vOther = flip ? tx : bx;
+  const vDir = vEnd > vOther ? 1 : -1;
+  const SPOTX = { end: vEnd - vDir * 16, in: vEnd - vDir * 52, mid: vEnd - vDir * 104 };
+  const SPOTNM = { end: "手摺の端", in: "端から少し中", mid: "手摺の中ほど" };
+  const putLevel = (k) => {
+    if (k === "in") { SFX.tick(); setNg(null); setSpot("in"); return; }
+    SFX.buzz(); SFX.shout();
+    setNg(k === "end"
+      ? "そこは手摺の端だ。差し込みの都合で凹んでいる。面が出ていないから、気泡が真ん中に来ても水平は出ていないぞ。"
+      : "遠すぎる。ジャッキを回しながら気泡が見えないだろう。回しては見に行き、を繰り返す気か。");
+  };
+  const B = { n: vertical ? "外柱" : baseN, adj: false }, T = { n: tgtN, adj: true };
+  const sides = flip ? [T, B] : [B, T];
+  const faceN = (POSTS[vertical ? aId : bId] || {}).face === "E" ? "東面" : "南面";
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "#0C1015", zIndex: 30, display: "flex", flexDirection: "column" }}>
+      <div style={{ padding: "10px 16px", borderBottom: `1px solid ${C.line}`, display: "flex", gap: 8, flex: "0 0 auto", flexWrap: "wrap" }}>
+        <span style={{ fontSize: 12, fontWeight: 800, color: C.yel }}>水平器</span>
+        <span style={{ fontSize: 11, color: C.dim }}>{vertical ? "内柱を見る" : "根がらみを見る"}</span>
+        <span style={{ fontSize: 10.5, color: C.cyan, border: `1px solid ${C.line}`, borderRadius: 4, padding: "2px 6px" }}>
+          {faceN}／{flip ? "基準右・進行左" : "基準左・進行右"}
+        </span>
+        <span style={{ marginLeft: "auto", fontSize: 11, fontFamily: MO, color: o === 0 ? C.grn : C.dim }}>
+          {o === 0 ? "水平" : `${tgtN} が ${Math.abs(o) * 5}mm ${o > 0 ? "高い" : "低い"}`}
+        </span>
+      </div>
+
+      <div style={{ position: "relative", flex: 1, minHeight: 0 }}>
+        <div style={{ position: "absolute", right: 10, top: 8, background: "#161C22e6", border: `1px solid ${C.line}`, borderRadius: 8, padding: "4px 4px 2px", zIndex: 2 }}>
+          <MiniPlan aId={aId} bId={bId} inner={miniInner === undefined ? vertical : miniInner} />
+          <div style={{ fontSize: 9, color: C.dim, textAlign: "center", paddingBottom: 2 }}>現在地と向き</div>
+        </div>
+
+        <svg viewBox="0 0 340 220" preserveAspectRatio="xMidYMid meet" style={{ width: "100%", height: "100%", display: "block" }}>
+          <rect y="192" width="340" height="28" fill="#1A2027" />
+          {!vertical && <g>
+            <line x1={flip ? 190 : 150} y1="26" x2={flip ? 74 : 266} y2="26" stroke={C.cyan} strokeWidth="2" />
+            <polygon points={flip ? "62,26 76,20 76,32" : "278,26 264,20 264,32"} fill={C.cyan} />
+            <text x={flip ? 152 : 150} y="17" fontSize="11" fill={C.cyan} fontFamily={F} fontWeight="700">進行方向</text>
+          </g>}
+          <text x={bx} y="52" textAnchor="middle" fontSize="11" fill={C.dim} fontFamily={F}>{vertical ? "外柱" : `基準 ${baseN}`}</text>
+          <text x={tx} y="52" textAnchor="middle" fontSize="11" fill={C.yel} fontFamily={F} fontWeight="700">{tgtN}</text>
+
+          <line x1={bx} y1="190" x2={bx} y2={by - 6} stroke={C.steel} strokeWidth="9" />
+          <ellipse cx={bx} cy="187" rx="15" ry="5" fill={C.steelDk} />
+          <line x1={tx} y1="190" x2={tx} y2={vertical ? ty - 46 : ty - 6} stroke={C.steel} strokeWidth={vertical ? 7 : 9} />
+          <ellipse cx={tx} cy="187" rx="15" ry="5" fill={C.steelDk} />
+          <line x1={bx} y1={by} x2={tx} y2={ty} stroke={vertical ? C.cyan : C.yel} strokeWidth="7" strokeLinecap="round" />
+
+          {/* 作業員（身長1,700mm。根がらみは地面から450mm） */}
+          <g transform={`translate(${flip ? 34 : 306},190) scale(${flip ? -0.62 : 0.62},0.62)`}>
+            <WorkerSide />
+          </g>
+
+          {vertical ? (
+            <g>
+              <rect x={tx + (flip ? -34 : 12)} y={ty - 60} width="22" height="72" rx="4" fill="#3A444E" stroke={C.steelLt} />
+              <rect x={tx + (flip ? -30 : 16)} y={ty - 42} width="14" height="36" rx="7" fill="#0F1318" />
+              <line x1={tx + (flip ? -30 : 16)} y1={ty - 27} x2={tx + (flip ? -16 : 30)} y2={ty - 27} stroke={C.grn} strokeWidth="1" />
+              <line x1={tx + (flip ? -30 : 16)} y1={ty - 17} x2={tx + (flip ? -16 : 30)} y2={ty - 17} stroke={C.grn} strokeWidth="1" />
+              <circle cx={tx + (flip ? -23 : 23)} cy={ty - 22 - o * 5} r="5" fill={o === 0 ? C.grn : C.yel} />
+            </g>
+          ) : (
+            <g transform={`rotate(${ang} ${mx} ${my})`}>
+              {spot && (() => {
+                const px = SPOTX[spot];
+                return (
+                  <g>
+                    <rect x={px - 44} y={my - 32} width="88" height="24" rx="5" fill="#3A444E" stroke={C.steelLt} />
+                    <rect x={px - 24} y={my - 26} width="48" height="12" rx="6" fill="#0F1318" />
+                    <line x1={px - 7} y1={my - 28} x2={px - 7} y2={my - 12} stroke={C.grn} strokeWidth="1" />
+                    <line x1={px + 7} y1={my - 28} x2={px + 7} y2={my - 12} stroke={C.grn} strokeWidth="1" />
+                    <circle cx={px + (flip ? -1 : 1) * o * 7} cy={my - 20} r="5" fill={o === 0 ? C.grn : C.yel} />
+                  </g>
+                );
+              })()}
+              {!spot && Object.keys(SPOTX).map((k) => (
+                <g key={k} onClick={() => putLevel(k)} style={{ cursor: "pointer" }} className="tgt">
+                  <circle cx={SPOTX[k]} cy={my - 16} r="18" fill={C.yel} opacity=".1" />
+                  <circle cx={SPOTX[k]} cy={my - 16} r="18" fill="none" stroke={C.yel} strokeWidth="1.4" strokeDasharray="4 4" />
+                  <g transform={Math.abs(ang) > 90 ? `rotate(180 ${SPOTX[k]} ${my + (k === "in" ? 40 : 26)})` : ""}>
+                    <text x={SPOTX[k]} y={my + (k === "in" ? 40 : 26)} textAnchor="middle" fontSize="9.5" fill={C.dim} fontFamily={F}>{SPOTNM[k]}</text>
+                  </g>
+                </g>
+              ))}
+            </g>
+          )}
+        </svg>
+      </div>
+
+      <div style={{ padding: "12px 16px 16px", flex: "0 0 auto", maxHeight: "46vh", overflowY: "auto" }}>
+        {!spot && (
+          <div style={{ marginBottom: 12 }}>
+            <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 6 }}>水平器をどこに置く？</div>
+            <div style={{ fontSize: 12, color: C.dim, lineHeight: 1.8 }}>
+              ここで取った水平が、この先の全部の基準になる。ジャッキを回しながら気泡を見られる場所に置け。
+            </div>
+            {ng && (
+              <div style={{ display: "flex", gap: 10, alignItems: "flex-start", marginTop: 12 }}>
+                <div style={{ flex: "0 0 auto" }}><Boss size={54} angry /></div>
+                <div style={{
+                  flex: 1, background: "#2A1512", border: `1.5px solid ${C.red}`, borderRadius: 12,
+                  padding: "10px 12px", fontSize: 12.5, lineHeight: 1.8, color: "#F4B5AE",
+                }}>{ng}</div>
+              </div>
+            )}
+          </div>
+        )}
+        {spot && <div style={{ fontSize: 12.5, color: o === 0 ? C.grn : C.dim, lineHeight: 1.6, marginBottom: 14 }}>
+          {o === 0 ? "水平が出た。" : o > 0 ? `気泡は高い側に寄る。いま ${tgtN} 側が高い。` : `気泡は高い側に寄る。${vertical ? "外柱" : "基準"}側が高い＝${tgtN} が低い。`}
+        </div>}
+        {spot && <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+          {sides.map((s, i) => (
+            <div key={i}>
+              <div style={{ fontSize: 10.5, marginBottom: 6, color: s.adj ? C.yel : C.dim, fontWeight: 700, textAlign: "center" }}>{s.n}{s.adj ? "" : "（基準）"}</div>
+              <div style={{ display: "grid", gap: 6 }}>
+                <Btn tone={s.adj ? "y" : undefined} onClick={() => (s.adj ? hit("up") : onFoul())}>↑ 上げる</Btn>
+                <Btn tone={s.adj ? "y" : undefined} onClick={() => (s.adj ? hit("down") : onFoul())}>↓ 下げる</Btn>
+              </div>
+            </div>
+          ))}
+        </div>}
+      </div>
+    </div>
+  );
+}
+
+/* ── ジャッキ合わせズーム ─────────────────
+   足場の高さを計算してジャッキの出し高さを出し、
+   支柱を挿す手前で、その高さ付近にジャッキを合わせる。
+   ─────────────────────────────────────── */
+const JT = 150;          // この現場のジャッキ出し（高さ計算から出した値）
+const JTOL = 15;         // この範囲に入れば「付近に合った」
+function JackZoom({ label, val, onChange, onClear }) {
+  const d = val - JT;
+  const ok = Math.abs(d) <= JTOL;
+  const y = (mm) => 172 - mm * 0.52;
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "#0C1015", zIndex: 30, display: "flex", flexDirection: "column" }}>
+      <div style={{ padding: "12px 16px", borderBottom: `1px solid ${C.line}`, display: "flex", gap: 8, flex: "0 0 auto" }}>
+        <span style={{ fontSize: 12, fontWeight: 800, color: C.yel }}>ハンドルの高さ</span>
+        <span style={{ fontSize: 11, color: C.dim }}>{label}</span>
+        <span style={{ marginLeft: "auto", fontFamily: MO, fontSize: 12, color: ok ? C.grn : C.txt }}>
+          いま {val} / 目標 {JT} mm
+        </span>
+      </div>
+
+      <svg viewBox="0 0 340 200" preserveAspectRatio="xMidYMid meet" style={{ width: "100%", flex: 1, minHeight: 0, display: "block" }}>
+        <rect width="340" height="200" fill="#0C1015" />
+        <rect x="0" y={y(0)} width="340" height={200 - y(0)} fill="#1A2027" />
+        <line x1="0" y1={y(0)} x2="340" y2={y(0)} stroke="#39434D" strokeWidth="2" />
+
+        {/* 目標の帯 */}
+        <rect x="60" y={y(JT + JTOL)} width="230" height={y(JT - JTOL) - y(JT + JTOL)} fill={C.yel} opacity=".13" />
+        <line x1="60" y1={y(JT)} x2="290" y2={y(JT)} stroke={C.yel} strokeWidth="1.6" strokeDasharray="6 5" />
+        <text x="290" y={y(JT) - 8} textAnchor="end" fontSize="10.5" fill={C.yel} fontFamily={F}>計算で出した高さ {JT}</text>
+
+        {/* 目盛 */}
+        {[0, 50, 100, 150, 200, 250].map((mm) => (
+          <g key={mm}>
+            <line x1="52" y1={y(mm)} x2="60" y2={y(mm)} stroke={C.dim2} strokeWidth="1" />
+            <text x="48" y={y(mm) + 4} textAnchor="end" fontSize="9.5" fill={C.dim2} fontFamily={MO}>{mm}</text>
+          </g>
+        ))}
+
+        {/* ジャッキ本体。全長は変わらない。ハンドルだけが上下する */}
+        <rect x="134" y={y(0) - 4} width="72" height="11" rx="2" fill="#CBD6DF" />
+        <rect x="163" y={y(300)} width="14" height={y(0) - y(300)} fill="#93A0AD" />
+        {Array.from({ length: 20 }, (_, i) => (
+          <line key={i} x1="161" y1={y(0) - 8 - i * 7.3} x2="179" y2={y(0) - 8 - i * 7.3} stroke="#5F6B78" strokeWidth="2" />
+        ))}
+
+        {/* ハンドル（これだけが上下する） */}
+        <rect x="146" y={y(val) - 6} width="48" height="13" rx="3" fill={ok ? C.grn : "#7E8A96"} />
+        <line x1="196" y1={y(val)} x2="238" y2={y(val)} stroke={ok ? C.grn : C.txt} strokeWidth="1.2" />
+        <text x="242" y={y(val) + 4} fontSize="10.5" fill={ok ? C.grn : C.txt} fontFamily={F}>ハンドル</text>
+        <text x="242" y={y(val) + 18} fontSize="9.5" fill={C.dim2} fontFamily={F}>ここに支柱の後端</text>
+      </svg>
+
+      <div style={{ padding: "12px 16px 16px", flex: "0 0 auto" }}>
+        <div style={{ fontSize: 12.5, color: ok ? C.grn : C.dim, lineHeight: 1.7, marginBottom: 10 }}>
+          {ok ? "その高さでいい。柱を挿せ。"
+            : d > 0 ? "ハンドルが高い。少し下げろ。"
+              : "ハンドルが低い。もう少し上げろ。"}
+        </div>
+        <div style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: 8, padding: "10px 12px", fontSize: 11.5, color: C.dim, lineHeight: 1.85, marginBottom: 12 }}>
+          ジャッキの全長は変わらない。ネジ棒に沿ってハンドルだけが上下し、その高さに支柱の後端が乗る。足場の高さを計算して出した高さ付近へハンドルを合わせてから柱を挿す。<br />
+          高さの計算は積算アプリで出せる。
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>
+          <Btn onClick={() => onChange(-10)}>下げる（10）</Btn>
+          <Btn onClick={() => onChange(10)}>上げる（10）</Btn>
+        </div>
+        <Btn tone={ok ? "y" : undefined} onClick={onClear}>{ok ? "柱を挿す" : "まだ合っていない"}</Btn>
+      </div>
+    </div>
+  );
+}
+
+/* ── 離れズーム ───────────────────────── */
+function HanareZoom({ label, onClear }) {
+  const [v, setV] = useState(() => HANARE + (Math.random() < .5 ? -1 : 1) * (100 + Math.floor(Math.random() * 4) * 50));
+  const move = (d) => { SFX.tick(); const n = v + d; setV(n); if (n === HANARE) setTimeout(onClear, 480); };
+  const px = 62 + (v / 900) * 118;
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "#0C1015", zIndex: 30, display: "flex", flexDirection: "column" }}>
+      <div style={{ padding: "12px 16px", borderBottom: `1px solid ${C.line}`, display: "flex", gap: 8, flex: "0 0 auto" }}>
+        <span style={{ fontSize: 12, fontWeight: 800, color: C.yel }}>離れを測る</span>
+        <span style={{ fontSize: 11, color: C.dim }}>{label}</span>
+        <span style={{ marginLeft: "auto", fontFamily: MO, fontSize: 12, color: v === HANARE ? C.grn : C.txt }}>{v} mm</span>
+      </div>
+      <svg viewBox="0 0 340 200" preserveAspectRatio="xMidYMid meet" style={{ width: "100%", flex: 1, minHeight: 0, display: "block" }}>
+        <rect y="176" width="340" height="24" fill="#1A2027" />
+        <rect x="0" y="18" width="62" height="158" fill="#2A323A" stroke="#39434D" />
+        <text x="31" y="100" textAnchor="middle" fontSize="12" fill="#5A6570" fontFamily={F}>躯体</text>
+        <g style={{ transition: "transform .2s" }} transform={`translate(${px - 180},0)`}>
+          <line x1="180" y1="176" x2="180" y2="42" stroke={C.steel} strokeWidth="11" />
+          <ellipse cx="180" cy="174" rx="17" ry="6" fill={C.steelDk} />
+          {[0.25, 0.5, 0.75].map((k, i) => <polygon key={i} points={`172,${176 - k * 134} 180,${172 - k * 134} 188,${176 - k * 134} 180,${180 - k * 134}`} fill={C.steelLt} />)}
+        </g>
+        <line x1="62" y1="150" x2={px} y2="150" stroke={C.yel} strokeWidth="4" />
+        <line x1="62" y1="140" x2="62" y2="160" stroke={C.yel} strokeWidth="2" />
+        <line x1={px} y1="140" x2={px} y2="160" stroke={C.yel} strokeWidth="2" />
+        <rect x={(62 + px) / 2 - 28} y="120" width="56" height="20" rx="4" fill="#14171B" stroke={C.yel} />
+        <text x={(62 + px) / 2} y="134" textAnchor="middle" fontSize="12" fill={C.yel} fontFamily={MO}>{v}</text>
+      </svg>
+      <div style={{ padding: "12px 16px 16px", flex: "0 0 auto" }}>
+        <div style={{ fontSize: 13, marginBottom: 4 }}>指示された離れ <b style={{ fontFamily: MO, color: C.yel }}>{HANARE}mm</b></div>
+        <div style={{ fontSize: 12.5, color: v === HANARE ? C.grn : C.dim, lineHeight: 1.6, marginBottom: 14 }}>
+          {v === HANARE ? "離れが合った。この離れが全周に効く。" : v > HANARE ? "離れすぎ。躯体側へ押す。" : "近すぎ。外へ引く。"}
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+          <Btn tone="y" onClick={() => move(-50)}>← 押す（50）</Btn><Btn tone="y" onClick={() => move(50)}>引く（50）→</Btn>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── 内柱まわりの解説図 ──────────────────
+   外柱と内柱、踏板が載る高さ、そこへ入れる600手摺を図で示す。
+   ───────────────────────────────────── */
+function InnerArt({ flip, ghost, rail }) {
+  const ox = flip ? 250 : 92, ix = flip ? 92 : 250;   // 外柱 / 内柱
+  const GY = 176, TOP = 46, RY = 104;                  // 地面 / 柱頭 / 踏板高さ
+  const koma = [];
+  for (let y = GY - 18; y > TOP; y -= 26) koma.push(y);
+  return (
+    <svg viewBox="0 0 340 200" style={{ width: "100%", display: "block" }}>
+      <rect y={GY} width="340" height="24" fill="#1A2027" />
+      {[ox, ix].map((x, i) => (
+        <g key={i}>
+          <line x1={x} y1={GY} x2={x} y2={i ? RY - 6 : TOP} stroke={C.steel} strokeWidth={i ? 7 : 9} />
+          <ellipse cx={x} cy={GY - 2} rx="15" ry="5" fill={C.steelDk} />
+          {koma.filter((y) => (i ? y > RY - 8 : true)).map((y) => (
+            <polygon key={y} points={`${x - 7},${y} ${x},${y - 3.5} ${x + 7},${y} ${x},${y + 3.5}`} fill={C.steelLt} />
+          ))}
+        </g>
+      ))}
+      <text x={ox} y={TOP - 12} textAnchor="middle" fontSize="11" fill={C.dim} fontFamily={F}>外柱</text>
+      <text x={ix} y={RY - 22} textAnchor="middle" fontSize="11" fill={C.yel} fontFamily={F} fontWeight="700">内柱</text>
+      {/* 1コマ目の根がらみ手摺 */}
+      <g>
+        <line x1={ox} y1={GY - 18} x2={ix} y2={GY - 18} stroke={C.yel} strokeWidth="6" />
+        <text x={(ox + ix) / 2} y={GY - 26} textAnchor="middle" fontSize="10" fill={C.yel} fontFamily={F} opacity=".8">根がらみ手摺</text>
+      </g>
+      {rail && (
+        <g>
+          <line x1={ox} y1={RY} x2={ix} y2={RY} stroke={C.cyan} strokeWidth="6" />
+          <text x={(ox + ix) / 2} y={RY - 10} textAnchor="middle" fontSize="10" fill={C.cyan} fontFamily={F}>踏板用手摺（600）</text>
+        </g>
+      )}
+      <line x1="20" y1={RY} x2="320" y2={RY} stroke={C.dim} strokeWidth="1" strokeDasharray="4 5" opacity=".5" />
+      <text x={flip ? 300 : 24} y={RY - 8} textAnchor={flip ? "end" : "start"} fontSize="10" fill={C.dim} fontFamily={F}>この高さに踏板が載る</text>
+      {ghost && (
+        <g opacity=".35">
+          <line x1={ox} y1={RY} x2={ix} y2={RY} stroke={C.cyan} strokeWidth="6" strokeDasharray="7 6" />
+          <text x={(ox + ix) / 2} y={RY - 12} textAnchor="middle" fontSize="10.5" fill={C.cyan} fontFamily={F}>ここに入る材は？</text>
+        </g>
+      )}
+    </svg>
+  );
+}
+
+/* ── 600手摺の取付アニメーション ────────── */
+function RailAnim({ flip, corner, onDone }) {
+  const [t, setT] = useState(0);
+  useEffect(() => {
+    const a = setTimeout(() => setT(1), 850);
+    const b = setTimeout(() => { setT(2); SFX.hammer(); }, 1650);
+    const c = setTimeout(() => setT(3), 2250);
+    return () => { [a, b, c].forEach(clearTimeout); };
+  }, []);
+  const ox = flip ? 250 : 92, ix = flip ? 92 : 250;
+  const GY = 176, TOP = 46, RY = 104;
+  const mid = (ox + ix) / 2;
+  const wedgeX = ix;
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "#0C1015", zIndex: 32, display: "flex", flexDirection: "column", justifyContent: "center", padding: 16 }}>
+      <div style={{ fontSize: 11, color: C.cyan, fontWeight: 800, letterSpacing: 1, marginBottom: 4 }}>踏板用手摺（600手摺）</div>
+      <div style={{ fontSize: 15, fontWeight: 900, lineHeight: 1.5, marginBottom: 10 }}>
+        {corner ? <>踏板が載る高さのコマに入れて、<br />出隅と次の柱をつなぐ。</> : <>踏板が載る高さのコマに入れて、<br />外柱と内柱をつなぐ。</>}
+      </div>
+
+      <div style={{ background: "#10151B", border: `1px solid ${C.line}`, borderRadius: 10, overflow: "hidden" }}>
+        <svg viewBox="0 0 340 200" style={{ width: "100%", display: "block" }}>
+          <rect y={GY} width="340" height="24" fill="#1A2027" />
+          {[[ox, 9, TOP], [ix, 7, RY - 6]].map(([x, w, top], i) => (
+            <g key={i}>
+              <line x1={x} y1={GY} x2={x} y2={top} stroke={C.steel} strokeWidth={w} />
+              <ellipse cx={x} cy={GY - 2} rx="15" ry="5" fill={C.steelDk} />
+              <polygon points={`${x - 7},${RY} ${x},${RY - 3.5} ${x + 7},${RY} ${x},${RY + 3.5}`} fill={C.steelLt} />
+            </g>
+          ))}
+          <line x1={ox} y1={GY - 18} x2={ix} y2={GY - 18} stroke={C.yel} strokeWidth="6" />
+          <text x={(ox + ix) / 2} y={GY - 26} textAnchor="middle" fontSize="10" fill={C.yel} fontFamily={F} opacity=".8">根がらみ手摺</text>
+          <text x={ox} y={TOP - 12} textAnchor="middle" fontSize="11" fill={C.dim} fontFamily={F}>{corner ? "出隅" : "外柱"}</text>
+          <text x={ix} y={RY - 24} textAnchor="middle" fontSize="11" fill={C.yel} fontFamily={F} fontWeight="700">{corner ? "次の柱" : "内柱"}</text>
+
+          {/* 600手摺 */}
+          <g style={{
+            transform: t >= 1 ? "translate(0px,0px)" : `translate(${flip ? -26 : 26}px,-54px)`,
+            opacity: t >= 1 ? 1 : .8, transition: "transform .65s cubic-bezier(.3,.8,.4,1.2), opacity .4s",
+          }}>
+            <line x1={ox} y1={RY} x2={ix} y2={RY} stroke={C.cyan} strokeWidth="6.5" strokeLinecap="butt" />
+            <polygon points={`${ox},${RY - 6} ${ox + (flip ? -6 : 6)},${RY - 1} ${ox},${RY + 5}`} fill={C.cyan} />
+            <polygon points={`${ix},${RY - 6} ${ix + (flip ? 6 : -6)},${RY - 1} ${ix},${RY + 5}`} fill={C.cyan} />
+          </g>
+
+          {/* ハンマー */}
+          {t >= 1 && t < 3 && (
+            <g style={{ transform: t >= 2 ? "rotate(8deg)" : "rotate(-42deg)", transformOrigin: `${wedgeX}px ${RY - 4}px`, transition: "transform .16s ease-in" }}>
+              <line x1={wedgeX} y1={RY - 10} x2={wedgeX + (flip ? 54 : -54)} y2={RY - 44} stroke="#8A6A45" strokeWidth="6" strokeLinecap="round" />
+              <rect x={wedgeX + (flip ? 44 : -68)} y={RY - 58} width="24" height="16" rx="3" fill={C.steelDk} stroke={C.steelLt} />
+            </g>
+          )}
+          {t === 2 && <circle cx={wedgeX} cy={RY - 2} r="16" fill={C.yel} opacity=".55" className="flash" />}
+
+          {t >= 3 && (
+            <g className="drop">
+              <line x1={mid - 46} y1={RY - 30} x2={mid + 46} y2={RY - 30} stroke={C.grn} strokeWidth="2" strokeDasharray="5 4" />
+              <text x={mid} y={RY - 36} textAnchor="middle" fontSize="10.5" fill={C.grn} fontFamily={F}>これで内柱が固定される</text>
+            </g>
+          )}
+        </svg>
+      </div>
+
+      <div style={{ fontSize: 12, color: C.dim, lineHeight: 1.7, marginTop: 10 }}>
+        {corner
+          ? "足元は根がらみ手摺で留まっているが、上はまだ自由に動く。踏板高さでもつないで、初めて柱の位置が決まる。つないでから支柱に水平器を当てる。"
+          : "足元は根がらみ手摺で留まっているが、上はまだ自由に動く。踏板高さでもつないで、初めて内柱の位置が決まる。"}
+      </div>
+      <button onClick={onDone} disabled={t < 3} style={{
+        marginTop: 12, width: "100%", background: t >= 3 ? C.yel : C.panel2, color: t >= 3 ? "#14171B" : C.dim,
+        border: `1px solid ${t >= 3 ? C.yel : C.line}`, borderRadius: 9, padding: 13,
+        fontWeight: 800, fontSize: 14, fontFamily: F, cursor: t >= 3 ? "pointer" : "default",
+      }}>{t >= 3 ? "次へ" : "取り付け中…"}</button>
+    </div>
+  );
+}
+
+/* ── 出隅のコマ干渉の図 ─────────────────
+   出隅柱では、ブラケットの付くコマと先行手摺の付くコマが同じになる。
+   ───────────────────────────────────── */
+function CornerArt() {
+  const X = 170, GY = 172, KY = 96;
+  const koma = [KY - 52, KY - 26, KY, KY + 26, KY + 52];
+  return (
+    <svg viewBox="0 0 340 200" style={{ width: "100%", display: "block" }}>
+      <rect y={GY} width="340" height="28" fill="#1A2027" />
+      <line x1={X} y1={GY} x2={X} y2="28" stroke={C.steel} strokeWidth="11" />
+      <ellipse cx={X} cy={GY - 2} rx="17" ry="6" fill={C.steelDk} />
+      {koma.map((y) => (
+        <polygon key={y} points={`${X - 9},${y} ${X},${y - 4.5} ${X + 9},${y} ${X},${y + 4.5}`} fill={y === KY ? C.red : C.steelLt} />
+      ))}
+      <text x={X} y="22" textAnchor="middle" fontSize="11" fill={C.dim} fontFamily={F}>出隅の支柱</text>
+
+      <line x1="40" y1={KY} x2={X - 14} y2={KY} stroke={C.steelDk} strokeWidth="6" />
+      <text x="40" y={KY - 12} fontSize="11" fill={C.txt} fontFamily={F} fontWeight="700">ブラケット</text>
+      <line x1={X + 14} y1={KY} x2="300" y2={KY} stroke={C.yel} strokeWidth="6" />
+      <text x="300" y={KY - 12} textAnchor="end" fontSize="11" fill={C.yel} fontFamily={F} fontWeight="700">先行手摺</text>
+
+      <g>
+        <circle cx={X} cy={KY} r="19" fill="none" stroke={C.red} strokeWidth="2.5" />
+        <line x1={X - 11} y1={KY - 11} x2={X + 11} y2={KY + 11} stroke={C.red} strokeWidth="2.5" />
+        <line x1={X + 11} y1={KY - 11} x2={X - 11} y2={KY + 11} stroke={C.red} strokeWidth="2.5" />
+      </g>
+      <text x={X} y={KY + 44} textAnchor="middle" fontSize="11" fill={C.red} fontFamily={F} fontWeight="700">同じコマの取り合いになる</text>
+    </svg>
+  );
+}
+
+/* ── 先行手摺の取り付けアニメーション ────
+   踏板を張る前に、下から手摺を上げてコマに打ち込む。
+   ───────────────────────────────────── */
+function SgakeAnim({ onDone }) {
+  const [t, setT] = useState(0);
+  useEffect(() => {
+    const a = setTimeout(() => setT(1), 950);
+    const b = setTimeout(() => { setT(2); SFX.hammer(); }, 1800);
+    const c = setTimeout(() => setT(3), 2400);
+    return () => { [a, b, c].forEach(clearTimeout); };
+  }, []);
+  const L = 76, R = 264, GY = 188, DKY = 120, UP = 64, MID = 92;
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "#0C1015", zIndex: 32, display: "flex", flexDirection: "column", justifyContent: "center", padding: 16 }}>
+      <div style={{ fontSize: 11, color: C.yel, fontWeight: 800, letterSpacing: 1, marginBottom: 4 }}>先行手摺（クロスタイプ）</div>
+      <div style={{ fontSize: 15, fontWeight: 900, lineHeight: 1.5, marginBottom: 10 }}>
+        床を張る前に、下から手摺枠を上げる。
+      </div>
+
+      <div style={{ background: "#10151B", border: `1px solid ${C.line}`, borderRadius: 10, overflow: "hidden" }}>
+        <svg viewBox="0 0 340 210" style={{ width: "100%", display: "block" }}>
+          <rect y={GY} width="340" height="22" fill="#1A2027" />
+          {[L, R].map((x) => (
+            <g key={x}>
+              <line x1={x} y1={GY} x2={x} y2="34" stroke={C.steel} strokeWidth="9" />
+              <ellipse cx={x} cy={GY - 2} rx="15" ry="5" fill={C.steelDk} />
+              {[UP, MID, DKY, DKY + 30, GY - 18].map((y) => (
+                <polygon key={y} points={`${x - 7},${y} ${x},${y - 3.5} ${x + 7},${y} ${x},${y + 3.5}`} fill={C.steelLt} />
+              ))}
+            </g>
+          ))}
+          {/* 根がらみ */}
+          <line x1={L} y1={GY - 18} x2={R} y2={GY - 18} stroke={C.yel} strokeWidth="5" opacity=".6" />
+          {/* 踏板が載る高さ */}
+          <line x1="20" y1={DKY} x2="320" y2={DKY} stroke={C.dim} strokeWidth="1" strokeDasharray="4 5" opacity=".5" />
+          <text x="24" y={DKY - 7} fontSize="10" fill={C.dim} fontFamily={F}>この高さに踏板が載る（まだ張らない）</text>
+
+          {/* 先行手摺 */}
+          <g style={{
+            transform: t >= 1 ? "translate(0px,0px)" : "translate(0px,86px)",
+            opacity: t >= 1 ? 1 : .85, transition: "transform .75s cubic-bezier(.3,.75,.35,1.15), opacity .4s",
+          }}>
+            {/* 上さん */}
+            <line x1={L} y1={UP} x2={R} y2={UP} stroke={C.yel} strokeWidth="6.5" />
+            {/* クロス：下端は踏板と同じ高さ */}
+            <line x1={L} y1={DKY} x2={R} y2={UP} stroke={C.yel} strokeWidth="3.6" />
+            <line x1={R} y1={DKY} x2={L} y2={UP} stroke={C.yel} strokeWidth="3.6" />
+            <polygon points={`${L},${UP - 6} ${L + 6},${UP - 1} ${L},${UP + 5}`} fill={C.yel} />
+            <polygon points={`${R},${UP - 6} ${R - 6},${UP - 1} ${R},${UP + 5}`} fill={C.yel} />
+            <polygon points={`${L},${DKY - 5} ${L + 6},${DKY} ${L},${DKY + 5}`} fill={C.yel} />
+            <polygon points={`${R},${DKY - 5} ${R - 6},${DKY} ${R},${DKY + 5}`} fill={C.yel} />
+          </g>
+
+          {/* ハンマー */}
+          {t >= 1 && t < 3 && (
+            <g style={{ transform: t >= 2 ? "rotate(10deg)" : "rotate(-44deg)", transformOrigin: `${R}px ${UP}px`, transition: "transform .16s ease-in" }}>
+              <line x1={R} y1={UP - 8} x2={R - 52} y2={UP - 42} stroke="#8A6A45" strokeWidth="6" strokeLinecap="round" />
+              <rect x={R - 66} y={UP - 56} width="24" height="16" rx="3" fill={C.steelDk} stroke={C.steelLt} />
+            </g>
+          )}
+          {t === 2 && <circle cx={R} cy={UP} r="15" fill={C.yel} opacity=".55" className="flash" />}
+
+          {/* 下から上げる作業員 */}
+          <g transform={`translate(${(L + R) / 2},${GY})scale(.85)`}><Kenta mood={t >= 3 ? "good" : "normal"} /></g>
+
+          {t >= 3 && (
+            <text x={(L + R) / 2} y={UP - 22} textAnchor="middle" fontSize="11" fill={C.grn} fontFamily={F} fontWeight="700" className="drop">
+              床に乗る前に、もう囲われている
+            </text>
+          )}
+        </svg>
+      </div>
+
+      <div style={{ fontSize: 12, color: C.dim, lineHeight: 1.7, marginTop: 10 }}>
+        床を先に張ると、手摺の無い床の上で手摺を取り付けることになる。その数分が墜落の起きる時間。順番を逆にするだけで、その時間がゼロになる。
+      </div>
+      <button onClick={onDone} disabled={t < 3} style={{
+        marginTop: 12, width: "100%", background: t >= 3 ? C.yel : C.panel2, color: t >= 3 ? "#14171B" : C.dim,
+        border: `1px solid ${t >= 3 ? C.yel : C.line}`, borderRadius: 9, padding: 13,
+        fontWeight: 800, fontSize: 14, fontFamily: F, cursor: t >= 3 ? "pointer" : "default",
+      }}>{t >= 3 ? "次へ" : "取り付け中…"}</button>
+    </div>
+  );
+}
+
+/* ── 選択 ─────────────────────────────── */
+function Choice({ title, q, opts, art, onPick }) {
+  return (
+    <div style={{ position: "absolute", inset: 0, background: "#0C1015ee", zIndex: 20, display: "flex", alignItems: "center", padding: 20 }}>
+      <div style={{ width: "100%" }}>
+        <div style={{ fontSize: 11, color: C.yel, fontWeight: 800, letterSpacing: 1, marginBottom: 6 }}>{title}</div>
+        {art && <div style={{ background: "#10151B", border: `1px solid ${C.line}`, borderRadius: 10, overflow: "hidden", marginBottom: 12 }}>{art}</div>}
+        <div style={{ fontSize: 17, fontWeight: 900, marginBottom: 16, lineHeight: 1.5 }}>{q}</div>
+        <div style={{ display: "grid", gap: 8 }}>{opts.map((o, i) => <Btn key={i} big onClick={() => onPick(o)}>{o.t}</Btn>)}</div>
+      </div>
+    </div>
+  );
+}
+
+/* ── キュー ───────────────────────────── */
+/* 共通ステージ：出隅 → 2方向の根がらみ → 両隣の柱 → 柱ごとに 離れ→水平→ブラケット */
+const STAGE_A = [
+  { k: "post", t: "C", d: "基準となる1本目（出隅）を立てる" },
+  { k: "ledger2", ts: ["C-S1", "C-E1"], d: "基準柱の2方向のコマに根がらみ手摺を入れる（順不同）" },
+  { k: "post2", ts: ["S1", "E1"], d: "両側の柱を立てる（どちらからでもよい）" },
+  { k: "adjust", ts: ["S1", "E1"], d: "柱ごとに 離れ → 水平 → ブラケット" },
+];
+/* 面ごとの工程。南面・東面は独立して進められる（どちらから進めても自由） */
+function buildFace(face, inner, sk, side) {
+  const list = face === "S" ? SOUTH : EAST;
+  const fn = face === "S" ? "南面" : "東面";
+  const use600 = !!(sk && side);        // 先行手摺を使う＝出隅の片側が600
+  const q = [];
+  /* 先行手摺を使う場合、出隅にはブラケットを付けない（先行手摺と同じコマを取り合うため） */
+  if (!use600) q.push({ k: "brk", t: "C", face, d: `出隅に${fn}の踏板を受けるブラケットを掛ける` });
+  if (sk) q.push({ k: "sgake", t: `C-${list[1]}`, face, d: "床を張る前に先行手摺を上げる" });
+  q.push({ k: "deck", t: `C-${list[1]}`, face, d: "踏板を敷く" });
+  for (let i = 2; i < list.length; i++) {
+    const a = list[i - 1], b = list[i];
+    q.push({ k: "ledger", t: `${a}-${b}`, face, d: "立っとる柱のコマへ根がらみ手摺を入れる" });
+    q.push({ k: "post", t: b, face, d: "次の柱を立てる" });
+    q.push({ k: "hanare", t: b, face, d: "建物からの離れを測る" });
+    if (inner[b]) {
+      q.push({ k: "level", a, b, face, d: "外柱の水平を調整する" });
+      q.push({ k: "inner", t: b, face, d: "内柱の箇所。内柱を立てる" });
+    } else {
+      q.push({ k: "level", a, b, face, d: "水平を調整する" });
+      q.push({ k: "brk", t: b, face, d: "外柱にブラケットを掛ける" });
+    }
+    q.push({ k: "deck", t: `${a}-${b}`, face, d: "踏板を敷く" });
+  }
+  return q;
+}
+
+/* ── 本体 ─────────────────────────────── */
+function Game({ skipDan, sk, tut = true, onEnd, onHome }) {
+  const [phase, setPhase] = useState(skipDan ? "tate" : "dan");
+  const [S, setS] = useState(() => new Set(skipDan ? PRESET : []));
+  const [inner, setInner] = useState(skipDan ? { ...PRESET_INNER } : {});
+  const [ord, setOrd] = useState([]);       // 基準柱の両隣を立てた順
+  const [ia, setIa] = useState(0);          // 共通ステージの進行
+  const [ip, setIp] = useState({ S: 0, E: 0 });  // 面ごとの進行
+  const [aDone, setADone] = useState(() => new Set());
+  const [tool, setTool] = useState(skipDan ? "post" : "jack");
+  const [node, setNode] = useState("C");
+  const [w, setW] = useState({ x: 3, y: -0.6 });
+  const [walking, setWalking] = useState(false);
+  const [hSet, setHSet] = useState(() => new Set());   // 離れを見た柱
+  const [lSet, setLSet] = useState(() => new Set());   // 水平を出した柱
+  const [mood, setMood] = useState("normal");
+  const [skill, setSkill] = useState(100);
+  const [score, setScore] = useState(0);
+  const [combo, setCombo] = useState(0);
+  const [best, setBest] = useState(0);
+  const [pop, setPop] = useState(null);
+  const [errs, setErrs] = useState([]);
+  const [msg, setMsg] = useState(skipDan ? "段取りは済ませてある。基準になる1本目を立てろ。" : "よし、段取りからいくぞ。まず割り付けどおりに根がらみ手摺を並べろ。");
+  const [ov, setOv] = useState(null);
+  const [scold, setScold] = useState(null);
+  const [t0] = useState(() => Date.now());
+  const [sec, setSec] = useState(0);
+  const [hints, setHints] = useState(0);
+  const [asks, setAsks] = useState(0);
+  const [askable, setAskable] = useState(false);
+  const [side, setSide] = useState(null);   // 出隅の600を入れた側
+  const [hint, setHint] = useState(false);
+
+  useEffect(() => { const i = setInterval(() => setSec(Math.floor((Date.now() - t0) / 1000)), 1000); return () => clearInterval(i); }, [t0]);
+
+  const has = (k) => S.has(k);
+  const put = (k) => setS((p) => new Set(p).add(k));
+  const qF = useMemo(() => ({ S: buildFace("S", inner, sk, side), E: buildFace("E", inner, sk, side) }), [inner, sk, side]);
+  const inA = ia < STAGE_A.length;
+  const stA = inA ? STAGE_A[ia] : null;
+  const actives = inA ? [{ f: "A", st: stA }] : ["S", "E"].map((f) => ({ f, st: qF[f][ip[f]] })).filter((x) => x.st);
+  const findAct = (pred) => actives.find((x) => pred(x.st));
+  const advF = (f) => {
+    if (f === "A") return setIa((i) => i + 1);
+    if (f === "S" || f === "E") return setIp((v) => ({ ...v, [f]: v[f] + 1 }));
+    /* 面が不明なときは、いま該当する工程を持つ面を進める */
+    setIp((v) => {
+      const t = ["S", "E"].find((x) => qF[x][v[x]]);
+      return t ? { ...v, [t]: v[t] + 1 } : v;
+    });
+  };
+  const total = STAGE_A.length + qF.S.length + qF.E.length;
+  const doneN = (inA ? ia : STAGE_A.length) + ip.S + ip.E;
+  const mult = Math.min(1 + Math.floor(combo / 3), 5);
+
+  const good = (t, quiet) => {
+    if (!quiet) { if (phase === "dan") SFX.place(); else SFX.hammer(); }
+    if (combo + 1 >= 3 && (combo + 1) % 3 === 0) setTimeout(() => SFX.combo(combo + 1), 90);
+    const g = 100 * mult;
+    setScore((v) => v + g);
+    setCombo((c) => { const n = c + 1; setBest((b) => Math.max(b, n)); return n; });
+    setMood("good"); setTimeout(() => setMood("normal"), 900);
+    setPop({ id: Date.now(), t: `+${g}`, k: "g" });
+    setAskable(false); setMsg(t);
+  };
+  const bad = (t, p = 0, tag) => {
+    SFX.buzz(); setCombo(0); setMood("bad"); setTimeout(() => setMood("normal"), 900);
+    if (p) { setSkill((v) => Math.max(0, v - p)); setErrs((e) => [...e, { h: tag, t }]); setPop({ id: Date.now(), t: `−${p}`, k: "b" }); }
+    setAskable(true); setMsg(t);
+  };
+  const foul = (line, tag) => {
+    SFX.shout(); setScold(line); setCombo(0); setMood("bad"); setAskable(true);
+    setSkill((v) => Math.max(0, v - 10)); setErrs((e) => [...e, { h: tag, t: line }]);
+  };
+  const p600 = sk && side ? (side === "S" ? "S1" : "E1") : null;   // 600スパンの先の柱
+  const sp600 = p600 ? `C-${p600}` : null;
+  const markA = (id) => {
+    const n = new Set(aDone); n.add(id); setADone(n);
+    if (stA && stA.ts.every((x) => n.has(x))) advF("A");
+  };
+  const atPost = POSTS[node] ? node : null;
+  const goNode = (n) => { setNode(n.id); setWalking(true); setW({ x: n.x, y: n.y - 0.6 }); setTimeout(() => setWalking(false), 320); };
+  /* 段取り進捗 */
+  /* ジャッキのネジ出し */
+  const [jack, setJack] = useState({});        // 位置ごとのネジ出し
+  const [jz, setJz] = useState(null);          // ジャッキ合わせのズーム（{id, run}）
+  const [jSeen, setJSeen] = useState(0);       // この場面を出した回数（2回まで）
+  const jOK = (k) => Math.abs((jack[k] || 0) - JT) <= JTOL;
+
+  const nJ = Object.keys(POSTS).filter((p) => has(`J:${p}`)).length;
+  const innerList = Object.keys(inner);
+  const nJi = innerList.filter((p) => has(`J:in:${p}`)).length;
+  const nL = SPANS.filter((s) => has(`L:${s.id}`)).length;
+  const midN = innerList.filter((p) => !END_INNER.includes(p)).length;
+  const endN = END_INNER.filter((p) => inner[p]).length;
+  const danDone = nJ === 6 && nL === 5 && endN === 2 && midN === MID_NEED && nJi === innerList.length;
+
+  const valid = tool === "move"
+    ? { post: true, inner: true, span: true }
+    : phase === "dan"
+      ? { post: tool === "jack", inner: tool === "rail6" || tool === "jack", span: tool === "ledger" }
+      : { post: tool === "post" || tool === "inner" || tool === "brk", inner: false, span: tool === "ledger" || tool === "deck" || tool === "sgake" || tool === "rail6" };
+
+  /* ── タップ ── */
+  const tapPost = (id) => {
+    const p = POSTS[id]; goNode(nodeById(id));
+    if (tool === "move") return setMsg(`${p.n}の前に立った。`);
+    if (phase === "dan") {
+      if (tool !== "jack") return bad("柱の位置に置くのはジャッキだ。");
+      if (nL === 0) return bad("根がらみ手摺が無かったら、どこにジャッキを置くのか分からんだろう。まず手摺を並べろ。", 8, "段取りの順序");
+      if (has(`J:${id}`)) return bad("そこはもう置いてあるぞ。");
+      put(`J:${id}`); return good(`${p.n}の位置にジャッキを据えた。`);
+    }
+    if (tool === "post") {
+      if (has(`P:${id}`)) return bad("その柱はもう立っとる。");
+      const m = findAct((st) => (st.k === "post2" && st.ts.includes(id)) || (st.k === "post" && st.t === id));
+      if (!m) return bad("その柱の番じゃない。", 8, "建てる順序");
+      /* 柱を挿す手前で、そのジャッキの高さを合わせる（最初の2回だけ見せる） */
+      const stand = () => {
+        put(`P:${id}`);
+        if (m.st.k === "post2") {
+          const next = [...ord, id]; setOrd(next);
+          if (next.length >= 2) { advF(m.f); return good("両側とも立った。どちらから立てても構わん。"); }
+          return good(`${p.n}を立てた。もう片側も立てろ。`);
+        }
+        advF(m.f); return good(m.st.d + "。");
+      };
+      if (jSeen < 2 && !jOK(id)) {
+        setJSeen((v) => v + 1);
+        setJz({ id, run: stand });
+        setMsg("挿す前だ。計算で出した高さにハンドルを合わせろ。");
+        return;
+      }
+      return stand();
+    }
+    if (tool === "brk") {
+      if (inA && stA && stA.k === "adjust" && stA.ts.includes(id)) {
+        const f = POSTS[id].face;
+        if (has(`BRK:${id}:${f}`)) return bad("もう掛けてある。");
+        if (inner[id]) return bad("そこは内柱の箇所だ。ブラケットは要らん。", 8, "取付位置の誤り");
+        if (id === p600 && !has(`R6S:${sp600}`)) return bad("その柱は600スパン側だ。先に踏板高さの600手摺でつなげ。", 8, "手順の飛ばし");
+        if (!hSet.has(id)) return bad("先に離れを見ろ。", 8, "手順の飛ばし");
+        if (!lSet.has(id)) return bad("水平が先だ。水平を出してからブラケットを掛ける。", 8, "手順の飛ばし");
+        put(`BRK:${id}:${f}`); markA(id); return good("ブラケットを掛けた。この柱は仕上がりだ。");
+      }
+      const m = findAct((st) => st.k === "brk" && st.t === id && !has(`BRK:${id}:${st.face}`));
+      if (!m) return bad("いまブラケットを掛ける場面じゃない。", 8, "手順の飛ばし");
+      put(`BRK:${id}:${m.st.face}`); advF(m.f); return good(m.st.d + "。");
+    }
+    if (tool === "inner") {
+      if (!inner[id]) return bad("そこは内柱の箇所じゃない。");
+      if (has(`PI:${id}`)) return bad("もう立っとる。");
+      const inAdj = inA && stA && stA.k === "adjust" && stA.ts.includes(id) && lSet.has(id);
+      if (inA && stA && stA.k === "adjust" && stA.ts.includes(id) && !lSet.has(id))
+        return bad(hSet.has(id) ? "外柱の水平が先だ。それから内柱を立てろ。" : "先に外柱の離れを測れ。離れ → 水平 → 内柱の順だ。", 8, "手順の飛ばし");
+      const m = findAct((st) => st.k === "inner" && st.t === id);
+      if (!inAdj && !m) return bad("いま内柱を立てる場面じゃない。", 8, "手順の飛ばし");
+      put(`PI:${id}`); goNode(nodeById("in:" + id));
+      good("内柱を立てた。");
+      const f = m ? m.f : "A";
+      setTimeout(() => setOv({ type: "cA", post: id, f }), 350);
+      return;
+    }
+    return bad("その資材はそこには付かん。");
+  };
+
+  const tapInner = (id) => {
+    goNode(nodeById("in:" + id));
+    if (tool === "move") return setMsg(`${POSTS[id].n}の内柱側に立った。`);
+    if (phase !== "dan") return bad("内柱は柱の位置をタップして立てる。");
+    if (tool === "rail6") {
+      if (POSTS[id].corner) return bad("出隅は基準柱だ。内柱の箇所にはしない。", 8, "内柱の位置決め");
+      if (nL === 0) return bad("先は根がらみ手摺だ。並べてからでないと、どこが内柱になるか決まらん。", 8, "段取りの順序");
+      if (inner[id]) return bad("そこはもう内柱に決めてある。");
+      if (!END_INNER.includes(id)) {
+        if (!MID_OK[id]) return bad("その位置では間隔が空きすぎる。", 8, "内柱の位置決め");
+        if (midN >= MID_NEED) return bad("中間の内柱は足りとる。一側足場は2スパンに1本だ。", 8, "内柱の本数");
+      }
+      setInner((v) => ({ ...v, [id]: 1 })); put(`R6:${id}`);
+      return good(END_INNER.includes(id) ? "端部は必ず内柱だ。内側に600手摺を置いた。" : "中間の内柱を決めた。");
+    }
+    if (tool === "jack") {
+      if (nL === 0) return bad("根がらみ手摺が先だ。置く場所が決まらんだろう。", 8, "段取りの順序");
+      if (!inner[id]) return bad("先に内柱の箇所を決めろ。600手摺を内側に置く。");
+      if (has(`J:in:${id}`)) return bad("もう置いてある。");
+      put(`J:in:${id}`); return good("内柱にもジャッキが要る。");
+    }
+    return bad("内側に置くのは600手摺かジャッキだ。");
+  };
+
+  const tapSpan = (sp) => {
+    goNode(nodeById("sp:" + sp.id));
+    if (tool === "move") return setMsg("スパンの間に立った。");
+    if (phase === "dan") {
+      if (tool !== "ledger") return bad("スパンに並べるのは根がらみ手摺だ。");
+      if (has(`L:${sp.id}`)) return bad("そのスパンには並べてある。");
+      put(`L:${sp.id}`); return good("割り付けに合わせて根がらみ手摺を並べた。");
+    }
+    if (tool === "rail6") {
+      if (!sp600) return bad("いま600手摺を使う場面じゃない。", 8, "手順の飛ばし");
+      if (sp.id !== sp600) return bad("600手摺は出隅の600スパンに入れる。", 8, "取付位置の誤り");
+      if (has(`R6S:${sp.id}`)) return bad("もう入っとる。");
+      if (!(inA && stA && stA.k === "adjust")) return bad("いまその場面じゃない。", 8, "手順の飛ばし");
+      if (!hSet.has(p600)) return bad("先に離れを見ろ。", 8, "手順の飛ばし");
+      put(`R6S:${sp.id}`); setOv({ type: "anim600", post: p600 });
+      return;
+    }
+    if (tool === "sgake") {
+      if (has(`SG:${sp.id}`)) return bad("もう上がっとる。");
+      const m = findAct((st) => st.k === "sgake" && st.t === sp.id);
+      if (!m) return bad("いま先行手摺を上げる場面じゃない。水平が出てからだ。", 8, "手順の飛ばし");
+      put(`SG:${sp.id}`); setOv({ type: "sganim", f: m.f });
+      return;
+    }
+    if (tool === "deck") {
+      if (has(`DK:${sp.id}`)) return bad("もう敷いてある。");
+      const m = findAct((st) => st.k === "deck" && st.t === sp.id);
+      if (!m) return bad("いま踏板を敷く場面じゃない。両端の受け材が先だ。", 8, "手順の飛ばし");
+      put(`DK:${sp.id}`); advF(m.f); return good("踏板を敷いた。ここが作業床になる。");
+    }
+    if (tool !== "ledger") return bad("そこに付くのは根がらみ手摺だ。");
+    if (has(`LU:${sp.id}`)) return bad("もう入っとる。");
+    const m = findAct((st) => (st.k === "ledger2" && st.ts.includes(sp.id)) || (st.k === "ledger" && st.t === sp.id));
+    if (!m) return bad("そのスパンの番じゃない。手摺は立っとる柱のコマへ入れる。", 8, "根がらみの順序");
+    put(`LU:${sp.id}`);
+    if (m.st.k === "ledger2") {
+      const n = m.st.ts.filter((x) => x === sp.id || has(`LU:${x}`)).length;
+      if (n >= 2) { advF(m.f); return good("2方向とも入った。どちらから入れても構わん。"); }
+      return good("基準柱のコマに入れた。もう一方も入れろ。");
+    }
+    advF(m.f); return good(m.st.d + "。柱を立てる前に入れておく。");
+  };
+
+  /* ── 調整 ── */
+  const faceOf = (id) => (POSTS[id].face === "E" ? "東面" : POSTS[id].corner ? "出隅" : "南面");
+  const useLevel = () => {
+    if (phase !== "tate") return bad("まだ段取り中だ。");
+    if (inA && stA && stA.k === "adjust") {
+      if (!atPost || !stA.ts.includes(atPost)) return bad("水平は柱の前で見る。対象の柱まで移動しろ。");
+      if (!hSet.has(atPost)) return bad("先に離れを見ろ。離れが決まらんと水平を出しても動く。", 8, "手順の飛ばし");
+      if (atPost === p600) {
+        if (!has(`R6S:${sp600}`)) return bad("600スパンだ。先に踏板高さの600手摺でつなげ。", 8, "手順の飛ばし");
+        if (lSet.has(atPost)) return bad("その柱の水平はもう出した。");
+        return setOv({ type: "lv600", b: atPost, f: "A" });
+      }
+      if (lSet.has(atPost)) return bad("その柱の水平はもう出した。もう一方の柱へ行け。");
+      return setOv({ type: "lv", a: "C", b: atPost, f: "A" });
+    }
+    const m = findAct((st) => st.k === "level" && st.b === atPost);
+    if (m && !hSet.has(atPost)) return bad("先に離れを見ろ。離れが決まらんと水平を出しても動く。", 8, "手順の飛ばし");
+    if (!m) {
+      const any = findAct((st) => st.k === "level");
+      if (any) return bad(`${POSTS[any.st.b].n}の前まで移動しろ。`);
+      return bad("いま水平を見る場面じゃない。", 8, "手順の飛ばし");
+    }
+    setOv({ type: "lv", a: m.st.a, b: m.st.b, f: m.f });
+  };
+  const useHanare = () => {
+    if (phase !== "tate") return bad("まだ段取り中だ。");
+    if (inA && stA && stA.k === "adjust") {
+      if (!atPost || !stA.ts.includes(atPost)) return bad("離れは柱の前で見る。対象の柱まで移動しろ。");
+      if (hSet.has(atPost)) return bad("その柱の離れはもう見た。もう一方の柱へ行け。");
+      return setOv({ type: "hn", post: atPost, f: "A", label: `${faceOf(atPost)} ${POSTS[atPost].n}` });
+    }
+    const m = findAct((st) => st.k === "hanare" && st.t === atPost);
+    if (!m) {
+      const any = findAct((st) => st.k === "hanare");
+      if (any) return bad(`${POSTS[any.st.t].n}の前まで移動しろ。`);
+      return bad("いま離れを見る場面じゃない。", 8, "手順の飛ばし");
+    }
+    setOv({ type: "hn", post: atPost, f: m.f, label: `${faceOf(atPost)} ${POSTS[atPost].n}` });
+  };
+  const clearHanare = () => {
+    SFX.chime(); const pp = ov.post, f = ov.f; setOv(null);
+    setHSet((v) => new Set(v).add(pp));
+    if (f && f !== "A") advF(f);
+    good(`${POSTS[pp].n}の離れが合った。次は水平だ。`, true);
+  };
+  const clearLevel = () => {
+    SFX.chime(); const bb = ov.b, f = ov.f; setOv(null);
+    if (f === "A") {
+      setLSet((v) => new Set(v).add(bb));
+      if (inner[bb]) good("外柱の水平が出た。次は内柱を立てろ。", true);
+      else good("水平が出た。次はブラケットを掛けろ。", true);
+    }
+    else { advF(f); good("水平が出た。脚部の狂いは上段で拡大する。", true); }
+  };
+  const hintText = () => {
+    if (phase === "dan") return "段取りだ。まず割り付けどおりに根がらみ手摺を並べろ。そのあとジャッキと、内柱箇所の600手摺だ。";
+    if (inA && stA) {
+      if (stA.k !== "adjust") return stA.d + "。";
+      const rest = stA.ts.filter((x) => !aDone.has(x));
+      const pp = atPost && rest.includes(atPost) ? atPost : rest[0];
+      if (!pp) return "両方の柱は終わっとる。";
+      const nm = POSTS[pp].n;
+      if (!hSet.has(pp)) return `${nm}の前へ行って、離れを測れ。`;
+      if (pp === p600 && !has(`R6S:${sp600}`)) return `${nm}側は600スパンだ。踏板高さの600手摺でつなげ。`;
+      if (!lSet.has(pp)) return `${nm}の前で水平器を当てろ。${inner[pp] ? "まず外柱の水平だ。" : ""}`;
+      if (!inner[pp] && !has(`BRK:${pp}:${POSTS[pp].face}`)) return `${nm}にブラケットを掛けろ。`;
+      if (inner[pp]) return has(`PI:${pp}`) ? `${nm}の内柱の続きだ。` : `${nm}は内柱の箇所だ。内柱を立てろ。`;
+      return `${nm}は終わっとる。もう一方の柱へ行け。`;
+    }
+    const ls = actives.map((a) => `${a.f === "S" ? "南面" : "東面"}は「${a.st.d}」`);
+    return ls.length ? ls.join("。あるいは、") + "。" : "もう終いだ。";
+  };
+  const ask = () => {
+    SFX.tick(); setAsks((v) => v + 1); setAskable(false);
+    setMood("normal"); setMsg(hintText());
+  };
+  const toTate = () => {
+    if (!danDone) return bad("段取りが残っとる。下のチェックを全部埋めろ。");
+    setPhase("tate"); setTool("post"); setIa(0); setIp({ S: 0, E: 0 });
+    setMsg("よし建方だ。まず基準になる1本目を立てろ。挿す前に、計算で出した高さへハンドルを合わせろ。");
+  };
+
+  if (phase === "tate" && !inA && !qF.S[ip.S] && !qF.E[ip.E]) setTimeout(() => onEnd({ skill, score, best, errs, hints, asks, sec }), 350);
+
+  const tools = phase === "dan"
+    ? [["move", "移動"], ["jack", "ジャッキ"], ["ledger", "根がらみ手摺"], ["rail6", "600手摺"]]
+    : [["move", "移動"], ["post", "支柱"], ["ledger", "根がらみ手摺"], ["inner", "内柱"], ["brk", "ブラケット"],
+       ...(sp600 ? [["rail6", "600手摺"]] : []), ...(sk ? [["sgake", "先行手摺"]] : []), ["deck", "踏板"]];
+  const wp = P(w.x, w.y, 0);
+  const g = (v) => ({ opacity: v ? 1 : .1, pointerEvents: v ? "auto" : "none" });
+
+  return (
+    <div style={{ position: "relative", minHeight: "100vh" }}>
+      {/* HUD */}
+      <div style={{ display: "flex", gap: 10, alignItems: "center", padding: "8px 14px", background: C.panel, borderBottom: `1px solid ${C.line}` }}>
+        <div>
+          <div style={{ fontSize: 9, color: C.dim, letterSpacing: 1 }}>SCORE</div>
+          <div style={{ fontFamily: MO, fontSize: 16, fontWeight: 700, color: C.yel, lineHeight: 1 }}>{score}</div>
+        </div>
+        {combo >= 2 && <div className="combo" style={{ background: C.yel, color: "#14171B", borderRadius: 6, padding: "3px 8px", fontWeight: 900, fontSize: 13, fontFamily: MO }}>{combo} COMBO ×{mult}</div>}
+        <div style={{ marginLeft: "auto", textAlign: "right" }}>
+          <div style={{ fontSize: 9, color: C.dim, letterSpacing: 1 }}>技能</div>
+          <div style={{ fontFamily: MO, fontSize: 16, fontWeight: 700, lineHeight: 1, color: skill >= 80 ? C.grn : skill >= 60 ? C.yel : C.red }}>{skill}</div>
+        </div>
+        <div style={{ fontFamily: MO, fontSize: 12, color: C.dim }}>{String(Math.floor(sec / 60)).padStart(2, "0")}:{String(sec % 60).padStart(2, "0")}</div>
+      </div>
+
+      {/* 盤面 */}
+      <div style={{ background: "#0F1318", borderBottom: `1px solid ${C.line}`, position: "relative" }}>
+        {pop && <div key={pop.id} className="pop" style={{
+          position: "absolute", left: "50%", top: 14, transform: "translateX(-50%)", zIndex: 5,
+          fontFamily: MO, fontSize: 22, fontWeight: 800, color: pop.k === "g" ? C.grn : C.red, textShadow: "0 2px 8px #000",
+        }}>{pop.t}</div>}
+        <svg viewBox={phase === "dan" ? VB_DAN : VB} preserveAspectRatio="xMidYMid meet" style={{ width: "100%", display: "block" }}>
+          <polygon points={pts(P(-1, -1), P(4, -1), P(4, 3), P(-1, 3))} fill="#161C22" />
+          {[...Array(6)].map((_, i) => <g key={i}>
+            <line x1={P(i - 1, -1)[0]} y1={P(i - 1, -1)[1]} x2={P(i - 1, 3)[0]} y2={P(i - 1, 3)[1]} stroke="#1F262E" />
+            <line x1={P(-1, i - 1)[0]} y1={P(-1, i - 1)[1]} x2={P(4, i - 1)[0]} y2={P(4, i - 1)[1]} stroke="#1F262E" />
+          </g>)}
+          <polygon points={pts(P(-0.6, 0.95), P(2.55, 0.95), P(2.55, 2.9), P(-0.6, 2.9))} fill="#232A32" stroke="#2E3740" />
+          <text x={P(1, 2)[0]} y={P(1, 2)[1]} fill="#4A545F" fontSize="15" fontFamily={F} textAnchor="middle">建物</text>
+
+          {SPANS.map((s) => {
+            if (!has(`L:${s.id}`) || has(`LU:${s.id}`)) return null;
+            const v = outv(s);
+            return <Laid key={s.id}
+              p1={{ x: POSTS[s.a].x + v.x, y: POSTS[s.a].y + v.y }}
+              p2={{ x: POSTS[s.b].x + v.x, y: POSTS[s.b].y + v.y }} color={C.yel} />;
+          })}
+          {innerList.map((p) => has(`R6:${p}`) && !has(`R6u:${p}`) && <Laid key={p} p1={POSTS[p]} p2={inPos(p)} color={C.cyan} />)}
+          {Object.entries(POSTS).map(([id, p]) => has(`J:${id}`) && <Jack key={id} x={p.x} y={p.y} />)}
+          {innerList.map((id) => has(`J:in:${id}`) && <Jack key={"i" + id} {...inPos(id)} />)}
+          {SPANS.map((s) => has(`LU:${s.id}`) && <Ledger key={s.id} p1={POSTS[s.a]} p2={POSTS[s.b]} z={0.25} />)}
+          {innerList.map((id) => has(`R6u:${id}`) && <Ledger key={id} p1={POSTS[id]} p2={inPos(id)} z={1} color={C.cyan} w={5} />)}
+          {SPANS.map((sp) => has(`R6S:${sp.id}`) && (
+            <g key={"r6" + sp.id} className="drop"><Ledger p1={POSTS[sp.a]} p2={POSTS[sp.b]} z={1} color={C.cyan} w={5} /></g>
+          ))}
+          {SPANS.map((sp) => {
+            if (!has(`SG:${sp.id}`)) return null;
+            const a = POSTS[sp.a], b = POSTS[sp.b];
+            const A1 = P(a.x, a.y, 1), A2 = P(a.x, a.y, 1.5), B1 = P(b.x, b.y, 1), B2 = P(b.x, b.y, 1.5);
+            return (
+              <g key={"sg" + sp.id} className="drop">
+                <line x1={A1[0]} y1={A1[1]} x2={B2[0]} y2={B2[1]} stroke={C.yel} strokeWidth="2.6" opacity=".9" />
+                <line x1={A2[0]} y1={A2[1]} x2={B1[0]} y2={B1[1]} stroke={C.yel} strokeWidth="2.6" opacity=".9" />
+                <Ledger p1={a} p2={b} z={1.5} />
+              </g>
+            );
+          })}
+          {SPANS.map((sp) => has(`DK:${sp.id}`) && (
+            <polygon key={sp.id} className="drop" points={deckPts(sp)} fill="#71808D" stroke="#4A545E" strokeWidth="1.4" />
+          ))}
+          {[...S].filter((k) => k.startsWith("BRK:")).map((k) => {
+            const [, id, f] = k.split(":");
+            return <polygon key={k} className="drop" points={brkPts(id, f)} fill={C.steelDk} stroke={C.steel} strokeWidth="1" />;
+          })}
+          {Object.entries(POSTS).map(([id, p]) => has(`P:${id}`) && <Post key={id} x={p.x} y={p.y} top={2} />)}
+          {innerList.map((id) => has(`PI:${id}`) && <Post key={id} {...inPos(id)} top={1} thin />)}
+
+          <g style={g(valid.post)}>
+            {Object.entries(POSTS).map(([id, p]) => {
+              const a = P(p.x, p.y, 0);
+              return <g key={id} className="tgt" style={{ cursor: "pointer" }} onClick={() => tapPost(id)}>
+                <circle cx={a[0]} cy={a[1]} r="17" fill={C.yel} opacity=".1" />
+                <circle cx={a[0]} cy={a[1]} r="17" fill="none" stroke={C.yel} strokeWidth="1.5" strokeDasharray="4 4" />
+                <text x={a[0]} y={a[1] + 31} textAnchor="middle" fontSize="11" fill={C.dim} fontFamily={F}>{p.n}</text>
+              </g>;
+            })}
+          </g>
+          <g style={g(valid.inner)}>
+            {Object.keys(POSTS).filter((id) => !POSTS[id].corner).map((id) => {
+              const a = P(inPos(id).x, inPos(id).y, 0);
+              return <g key={id} style={{ cursor: "pointer" }} onClick={() => tapInner(id)}>
+                <circle cx={a[0]} cy={a[1]} r="14" fill={C.cyan} opacity={inner[id] ? ".2" : ".08"} />
+                <circle cx={a[0]} cy={a[1]} r="14" fill="none" stroke={C.cyan} strokeWidth="1.5" strokeDasharray="3 4" />
+                <text x={a[0]} y={a[1] + 4} textAnchor="middle" fontSize="11" fill={C.cyan} fontFamily={F} fontWeight="700">内</text>
+              </g>;
+            })}
+          </g>
+          <g style={g(valid.span)}>
+            {SPANS.map((s) => {
+              const a = P((POSTS[s.a].x + POSTS[s.b].x) / 2, (POSTS[s.a].y + POSTS[s.b].y) / 2, 0);
+              return <g key={s.id} style={{ cursor: "pointer" }} onClick={() => tapSpan(s)}>
+                <rect x={a[0] - 17} y={a[1] - 9} width="34" height="18" rx="5" fill={C.yel} opacity=".1" />
+                <rect x={a[0] - 17} y={a[1] - 9} width="34" height="18" rx="5" fill="none" stroke={C.yel} strokeWidth="1.5" strokeDasharray="4 4" />
+              </g>;
+            })}
+          </g>
+
+          <g style={{ transform: `translate(${wp[0]}px,${wp[1]}px)`, transition: "transform .32s ease" }}>
+            <Kenta mood={mood} walking={walking} />
+          </g>
+        </svg>
+      </div>
+
+      {/* 親方のセリフ */}
+      <div style={{ display: "flex", gap: 10, alignItems: "flex-start", margin: "10px 14px 0", background: C.panel, border: `1px solid ${C.line}`, borderRadius: 10, padding: "10px 12px" }}>
+        <Boss size={44} angry={mood === "bad"} />
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 12.5, lineHeight: 1.65, color: mood === "bad" ? "#F4B5AE" : C.txt, paddingTop: 2 }}>{msg}</div>
+          {askable && tut && (
+            <button onClick={ask} style={{
+              marginTop: 8, background: "transparent", color: C.yel, border: `1px solid ${C.yel}`,
+              borderRadius: 7, padding: "7px 12px", fontSize: 12, fontWeight: 800, fontFamily: F, cursor: "pointer",
+            }}>親方に聞く（次に何をするか）</button>
+          )}
+        </div>
+      </div>
+
+      <div style={{ padding: 14 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+          <span style={{ fontSize: 10, color: C.dim, letterSpacing: 2 }}>① 資材を選ぶ　→　② 光った場所をタップ</span>
+          <span style={{ marginLeft: "auto", fontSize: 10.5, color: C.cyan, whiteSpace: "nowrap" }}>
+            {POSTS[node] ? POSTS[node].n : node.startsWith("in:") ? `${POSTS[node.slice(3)].n} 内` : "スパン間"}
+          </span>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 6 }}>
+          {tools.map(([id, n]) => (
+            <button key={id} onClick={() => setTool(id)} style={{
+              background: tool === id ? C.yel : C.panel2, color: tool === id ? "#14171B" : C.txt,
+              border: `1px solid ${tool === id ? C.yel : C.line}`, borderRadius: 8, padding: "12px 3px",
+              fontSize: 12, fontWeight: 800, fontFamily: F, cursor: "pointer",
+            }}>{n}</button>
+          ))}
+        </div>
+
+        {phase === "dan" ? (
+          <>
+            <div style={{ marginTop: 14, background: C.panel, border: `1px solid ${C.line}`, borderRadius: 8, padding: "12px 14px", fontSize: 12.5, lineHeight: 2 }}>
+              {[["ジャッキ（外柱）", nJ, 6], ["根がらみ手摺を並べる", nL, 5], ["端部の内柱", endN, 2], ["中間の内柱", midN, MID_NEED], ["ジャッキ（内柱）", nJi, innerList.length || "-"]].map(([t, a, b], i) => (
+                <div key={i} style={{ display: "flex", gap: 8, color: a === b ? C.grn : C.dim }}>
+                  <span style={{ width: 14 }}>{a === b ? "✓" : "□"}</span><span style={{ flex: 1 }}>{t}</span><span style={{ fontFamily: MO }}>{a}/{b}</span>
+                </div>
+              ))}
+            </div>
+            <button onClick={toTate} style={{
+              marginTop: 12, width: "100%", background: danDone ? C.yel : C.panel2, color: danDone ? "#14171B" : C.dim,
+              border: `1px solid ${danDone ? C.yel : C.line}`, borderRadius: 8, padding: 13, fontWeight: 800, fontSize: 14, fontFamily: F, cursor: "pointer",
+            }}>段取り完了 → 建方へ</button>
+          </>
+        ) : (
+          <>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "14px 0 6px" }}>
+              <span style={{ fontSize: 10, color: C.dim, letterSpacing: 2 }}>調整・判断</span>
+              {atPost && (
+                <span style={{ marginLeft: "auto", fontSize: 11, color: C.cyan, border: `1px solid ${C.line}`, borderRadius: 4, padding: "2px 7px" }}>
+                  作業位置 {POSTS[atPost].n}（{faceOf(atPost)}）
+                </span>
+              )}
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+              <Btn onClick={useHanare}>離れを測る</Btn><Btn onClick={useLevel}>水平器を当てる</Btn>
+            </div>
+
+          </>
+        )}
+
+        {tut && <button onClick={() => { if (!hint) setHints((h) => h + 1); setHint(!hint); }} style={{
+          marginTop: 12, width: "100%", background: "none", border: `1px solid ${C.line}`, color: C.dim,
+          borderRadius: 8, padding: 11, fontSize: 12, fontFamily: F, cursor: "pointer",
+        }}>{hint ? "手順書を閉じる" : `手順書を見る（${hints}回）`}</button>}
+        {hint && <div style={{ marginTop: 8, background: C.panel, border: `1px solid ${C.line}`, borderRadius: 8, padding: "12px 14px", fontSize: 12, color: C.dim, lineHeight: 1.9 }}>
+          {phase === "dan"
+            ? <>1. 割り付けに合わせて根がらみ手摺を並べる<br />2. そのあとジャッキ、または内柱箇所の600手摺<br />※内柱は端部に必ず。中間は2スパンに1本<br />※ジャッキは柱の立つ位置すべてに置く</>
+            : <>1. 基準柱（出隅）を立てる<br />2. 2方向のコマに根がらみ手摺（順不同）<br />3. 両側の柱を立てる（順不同）<br />4. 柱ごとに 離れ → ブラケット → 水平<br />5. 出隅は南面・東面で2本ぶんブラケットが要る<br />※先行手摺を使う場合、出隅にはブラケットを付けない<br />※角の600スパンは 600手摺 → ブラケット → 支柱で水平<br />6. 踏板を敷く<br />7. 以降は面ごとに 手摺 → 柱 → ブラケット → 水平 →（先行手摺）→ 踏板<br />8. 内柱の箇所は 外柱の水平 → 内柱 → 踏板高さの手摺 → 離れ → 内柱に水平器<br />※南面・東面はどちらから進めても自由</>}
+        </div>}
+        <button onClick={onHome} style={{ marginTop: 10, width: "100%", background: "none", border: "none", color: C.dim, padding: 10, fontSize: 12, fontFamily: F, cursor: "pointer" }}>中断してホームへ</button>
+      </div>
+
+      {/* オーバーレイ */}
+      {jz && (
+        <JackZoom
+          label={POSTS[jz.id].n}
+          val={jack[jz.id] || 0}
+          onChange={(d) => { SFX.tick(); setJack((v) => ({ ...v, [jz.id]: Math.max(-60, Math.min(260, (v[jz.id] || 0) + d)) })); }}
+          onClear={() => {
+            if (!jOK(jz.id)) return;
+            SFX.place();
+            const run = jz.run; setJz(null);
+            setTimeout(() => run && run(), 60);
+          }}
+        />
+      )}
+
+      {ov?.type === "lv" && <LevelZoom baseN={POSTS[ov.a].n} tgtN={POSTS[ov.b].n} aId={ov.a} bId={ov.b} flip={flipOf(POSTS[ov.a], POSTS[ov.b])}
+        onClear={clearLevel}
+        onFoul={() => foul("そこは基準の柱じゃ！　基準を動かしたら全部狂うぞ！", "基準柱のジャッキを操作")} />}
+      {ov?.type === "hn" && <HanareZoom label={ov.label} onClear={clearHanare} />}
+      {ov?.type === "hnI" && <HanareZoom label={`内柱（${POSTS[ov.post].n}）`}
+        onClear={() => { SFX.chime(); setOv({ type: "cB", post: ov.post, f: ov.f }); good("内柱側の離れも合った。", true); }} />}
+      {ov?.type === "cA" && <Choice title="内柱を立てた" q="次にどうする？"
+        art={<InnerArt flip={flipOf(POSTS[ov.post], inPos(ov.post))} ghost />}
+        opts={[{ t: "内柱に水平器を当てて水平を見る", ok: false }, { t: "踏板高さの手摺を付ける", ok: true }]}
+        onPick={(o) => {
+          if (!o.ok) return foul("順番が逆じゃ！　手摺で外柱とつないでから見んかい！", "内柱の水平を先に見た");
+          setOv({ type: "anim", post: ov.post, f: ov.f });
+        }} />}
+      {ov?.type === "anim" && <RailAnim flip={flipOf(POSTS[ov.post], inPos(ov.post))}
+        onDone={() => { put(`R6u:${ov.post}`); setOv({ type: "hnI", post: ov.post, f: ov.f }); good("踏板高さの600手摺で外柱とつないだ。", true); }} />}
+      {ov?.type === "cB" && <Choice title="水平を見る" q="水平器はどこに当てる？"
+        art={<InnerArt flip={flipOf(POSTS[ov.post], inPos(ov.post))} rail />}
+        opts={[{ t: "支柱（内柱）に当てる", ok: true }, { t: "取り付けた手摺に当てる", ok: false }]}
+        onPick={(o) => {
+        if (!o.ok) return foul("手摺で見るな！　柱で見るんじゃ！", "水平器を当てる箇所の誤り");
+        setOv({ type: "lvI", post: ov.post, f: ov.f });
+      }} />}
+      {ov?.type === "lvI" && <LevelZoom vertical baseN="外柱" tgtN="内柱" aId={ov.post} flip={flipOf(POSTS[ov.post], inPos(ov.post))}
+        onClear={() => { SFX.chime(); const pp = ov.post, f = ov.f; setOv(null); if (f === "A") markA(pp); else advF(f); good("内柱の水平が出た。", true); }}
+        onFoul={() => foul("外柱を動かすな！　もう水平は出とるじゃろが！", "外柱のジャッキを操作")} />}
+      {ov?.type === "lv600" && <LevelZoom vertical miniInner={false} baseN="出隅" tgtN={POSTS[ov.b].n}
+        aId="C" bId={ov.b} flip={flipOf(POSTS.C, POSTS[ov.b])}
+        onClear={clearLevel}
+        onFoul={() => foul("出隅を動かすな！　そこが基準じゃ！", "基準柱のジャッキを操作")} />}
+      {ov?.type === "anim600" && <RailAnim corner flip={flipOf(POSTS.C, POSTS[ov.post])}
+        onDone={() => { setOv(null); good("600スパンを踏板高さの手摺でつないだ。次はブラケットだ。", true); }} />}
+      {ov?.type === "sganim" && <SgakeAnim onDone={() => { const f = ov.f; setOv(null); advF(f); good("先行手摺が上がった。ここまで来てから床を張る。", true); }} />}
+      {sk && !side && <Choice title="先行手摺を使う" q="出隅のどちら側を600にする？" art={<CornerArt />}
+        opts={[{ t: "南面側を600にする", v: "S" }, { t: "東面側を600にする", v: "E" }]}
+        onPick={(o) => { applyLayout(o.v); setSide(o.v); SFX.tick();
+          setMsg(`出隅の${o.v === "S" ? "南面" : "東面"}側を600にした。これでブラケットと先行手摺のコマが重ならん。`); }} />}
+      {scold && <Scold line={scold} onClose={() => { setScold(null); setMood("normal"); }} />}
+    </div>
+  );
+}
+
+/* ── 結果 ─────────────────────────────── */
+const RANKS = [
+  { min: 100, r: "S", t: "一人前" }, { min: 90, r: "A", t: "半人前の上" },
+  { min: 75, r: "B", t: "見習い" }, { min: 0, r: "C", t: "まだ現場に出せん" },
+];
+function Result({ r, onRetry, onHome }) {
+  useEffect(() => { SFX.fanfare(); }, []);
+  const rk = RANKS.find((x) => r.skill >= x.min);
+  const pass = r.skill >= 80, u = [];
+  r.errs.forEach((e) => { const f = u.find((v) => v.h === e.h); if (f) f.n++; else u.push({ ...e, n: 1 }); });
+  return (
+    <div style={{ padding: 20 }}>
+      <div style={{ border: `1px solid ${pass ? C.grn : C.red}`, borderRadius: 12, padding: 20, background: C.panel, textAlign: "center" }}>
+        <div style={{ fontSize: 11, color: C.dim, letterSpacing: 3 }}>第1章 段取りと根がらみ</div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 16, margin: "10px 0" }}>
+          <div className="rank" style={{ fontFamily: MO, fontSize: 62, fontWeight: 800, color: pass ? C.yel : C.red, lineHeight: 1 }}>{rk.r}</div>
+          <div style={{ textAlign: "left" }}>
+            <div style={{ fontSize: 15, fontWeight: 900 }}>{rk.t}</div>
+            <div style={{ fontSize: 11, color: C.dim, marginTop: 2 }}>{pass ? "合格" : "不合格 — 再受講"}</div>
+          </div>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginTop: 12 }}>
+          {[["SCORE", r.score], ["最大コンボ", r.best], ["技能", r.skill]].map(([t, v], i) => (
+            <div key={i} style={{ background: C.panel2, borderRadius: 8, padding: "9px 4px" }}>
+              <div style={{ fontSize: 9, color: C.dim, letterSpacing: 1 }}>{t}</div>
+              <div style={{ fontFamily: MO, fontSize: 17, fontWeight: 700, color: C.yel }}>{v}</div>
+            </div>
+          ))}
+        </div>
+        <div style={{ fontSize: 11, color: C.dim, marginTop: 10 }}>
+          タイム {String(Math.floor(r.sec / 60)).padStart(2, "0")}:{String(r.sec % 60).padStart(2, "0")}　／　手順書 {r.hints}回　／　親方に聞いた {r.asks || 0}回
+        </div>
+      </div>
+
+      {u.length > 0 ? <div style={{ marginTop: 18 }}>
+        <div style={{ fontSize: 11, color: C.yel, letterSpacing: 2, marginBottom: 8 }}>親方に言われたこと</div>
+        {u.map((e, k) => <div key={k} style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: 8, padding: "11px 13px", marginBottom: 8 }}>
+          <div style={{ fontSize: 12, fontWeight: 800, color: C.red, marginBottom: 3 }}>{e.h}{e.n > 1 && ` ×${e.n}`}</div>
+          <div style={{ fontSize: 12.5, color: C.dim, lineHeight: 1.6 }}>{e.t}</div>
+        </div>)}
+      </div> : <div style={{ marginTop: 18, display: "flex", gap: 10, alignItems: "center", background: C.panel, border: `1px solid ${C.grn}`, borderRadius: 10, padding: 14 }}>
+        <Boss size={44} /><div style={{ fontSize: 13, color: C.grn, lineHeight: 1.6 }}>一度も怒られんかったな。上出来じゃ。</div>
+      </div>}
+
+      <div style={{ display: "grid", gap: 8, marginTop: 20 }}>
+        <button onClick={onRetry} style={{ background: C.yel, color: "#14171B", border: "none", borderRadius: 8, padding: 14, fontWeight: 800, fontFamily: F, fontSize: 14, cursor: "pointer" }}>もう一度やる</button>
+        <button onClick={onHome} style={{ background: "none", color: C.dim, border: `1px solid ${C.line}`, borderRadius: 8, padding: 13, fontFamily: F, fontSize: 13, cursor: "pointer" }}>ホームへ</button>
+      </div>
+    </div>
+  );
+}
+
+/* ── ルート ───────────────────────────── */
+function App() {
+  const [v, setV] = useState("home"); const [r, setR] = useState(null); const [seed, setSeed] = useState(0);
+  const [snd, setSnd] = useState(true);
+  const [skip, setSkip] = useState(false);
+  const [sk, setSk] = useState(false);
+  const [tut, setTut] = useState(true);
+  const [aud, setAud] = useState("none");
+  useEffect(() => {
+    const h = () => { SFX.unlock(); setAud(SFX.state()); };
+    window.addEventListener("pointerdown", h);
+    return () => window.removeEventListener("pointerdown", h);
+  }, []);
+  const toggleSnd = () => {
+    const n = !snd; setSnd(n); SFX.setOn(n);
+    if (n) { SFX.unlock(); setTimeout(() => { SFX.hammer(); setAud(SFX.state()); }, 60); }
+  };
+  const css = `
+    @keyframes drop{from{opacity:0;transform:translateY(-14px)}to{opacity:1;transform:none}}
+    .drop{animation:drop .32s cubic-bezier(.2,.9,.3,1.4) both}
+    @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-2px)}}
+    .idle{animation:bob 2.4s ease-in-out infinite}
+    @keyframes wk{0%,100%{transform:translateY(0) rotate(0)}25%{transform:translateY(-3px) rotate(-3deg)}75%{transform:translateY(-3px) rotate(3deg)}}
+    .walk{animation:wk .32s ease-in-out}
+    @keyframes pulse{0%,100%{opacity:.55}50%{opacity:1}} .tgt{animation:pulse 1.9s ease-in-out infinite}
+    @keyframes shk{0%,100%{transform:translateX(0)}20%{transform:translateX(-7px)}40%{transform:translateX(7px)}60%{transform:translateX(-4px)}80%{transform:translateX(4px)}}
+    .shake{animation:shk .4s ease}
+    @keyframes pp{0%{opacity:0;transform:translate(-50%,10px) scale(.8)}25%{opacity:1;transform:translate(-50%,0) scale(1.1)}100%{opacity:0;transform:translate(-50%,-26px) scale(1)}}
+    .pop{animation:pp 1s ease both}
+    @keyframes cb{0%{transform:scale(1.35)}100%{transform:scale(1)}} .combo{animation:cb .3s ease}
+    @keyframes fl{0%{opacity:.8;transform:scale(.4)}100%{opacity:0;transform:scale(1.6)}}
+    .flash{animation:fl .45s ease-out both;transform-origin:center}
+    @keyframes rk{0%{opacity:0;transform:scale(2.2)}100%{opacity:1;transform:scale(1)}} .rank{animation:rk .5s cubic-bezier(.2,.9,.3,1.2) both}
+    @media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+  `;
+  return (
+    <div style={{
+      background: C.bg, color: C.txt, fontFamily: F, height: "100%", minHeight: "100%",
+      maxWidth: 480, margin: "0 auto", position: "relative", overflow: "hidden",
+      display: "flex", flexDirection: "column",
+    }}>
+      <style>{css}{`.honban .tgt { animation: none !important; opacity: .28 }`}</style>
+      <Tape />
+      <div style={{ padding: "12px 16px", borderBottom: `1px solid ${C.line}`, display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{ fontSize: 16, fontWeight: 900, letterSpacing: -0.5 }}>足場 実務トレーニング</div>
+        <div style={{ fontSize: 10, color: C.dim, border: `1px solid ${C.line}`, padding: "2px 6px", borderRadius: 4 }}>v28</div>
+        <button onClick={toggleSnd} style={{
+          marginLeft: "auto", background: "none", border: `1px solid ${C.line}`, color: snd ? C.yel : C.dim,
+          borderRadius: 6, padding: "5px 9px", fontSize: 12, fontFamily: F, cursor: "pointer",
+        }}>{snd ? "🔊 音 ON" : "🔇 音 OFF"}</button>
+      </div>
+      {v === "home" && (
+        <div style={{ padding: "18px 16px 24px", flex: 1, minHeight: 0, overflowY: "auto" }}>
+          <div style={{ fontSize: 11, color: C.yel, fontWeight: 800, letterSpacing: 2 }}>第1章</div>
+          <div style={{ fontSize: 24, fontWeight: 900, lineHeight: 1.35, marginTop: 8 }}>
+            足場は、<br />足元で決まる。
+          </div>
+          <div style={{ fontSize: 12.5, color: C.dim, lineHeight: 1.9, margin: "12px 0 16px" }}>
+            資材の段取りから、出隅を基準に根がらみを組み上げるまで。<br />
+            ここで取った水平と離れが、上まで全部の基準になります。
+          </div>
+
+          <div style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: 10, padding: "13px 15px", marginBottom: 16 }}>
+            <div style={{ fontSize: 11, color: C.yel, fontWeight: 800, letterSpacing: 1, marginBottom: 8 }}>この章の流れ</div>
+            <div style={{ fontSize: 12, color: C.dim, lineHeight: 2 }}>
+              段取り　根がらみ手摺を並べる　→　ジャッキ／内柱箇所の600手摺<br />
+              柱を挿す手前で、計算で出した高さへジャッキのハンドルを合わせる<br />
+              基準柱（出隅）を立てる　→　2方向に根がらみ手摺<br />
+              両側の柱を立てる<br />
+              柱ごとに　離れ　→　水平　→　ブラケット<br />
+              水平器は手摺の端から少し中に置く<br />
+              内柱の箇所は　内柱　→　踏板高さの手摺　→　離れ　→　水平<br />
+              踏板を敷く　→　面ごとに繰り返して一周
+            </div>
+          </div>
+
+          <div style={{ fontSize: 11, color: C.dim, marginBottom: 8 }}>モード</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }}>
+            {[[true, "チュートリアル", "親方が次の作業を教える", "手順書も見られる"],
+              [false, "本番", "指示は出ない", "間違えれば怒られる"]].map(([val, nm, d1, d2]) => (
+              <button key={nm} onClick={() => setTut(val)} style={{
+                textAlign: "left", background: tut === val ? "#241F05" : C.panel,
+                border: `1px solid ${tut === val ? C.yel : C.line}`, borderRadius: 10,
+                padding: "12px 13px", fontFamily: F, cursor: "pointer", color: C.txt,
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                  <span style={{
+                    width: 13, height: 13, borderRadius: "50%", flexShrink: 0,
+                    background: tut === val ? C.yel : "transparent", border: `1px solid ${tut === val ? C.yel : C.dim2}`,
+                  }} />
+                  <span style={{ fontSize: 14, fontWeight: 900 }}>{nm}</span>
+                </div>
+                <div style={{ fontSize: 10.5, color: C.dim, lineHeight: 1.7, marginTop: 6 }}>{d1}<br />{d2}</div>
+              </button>
+            ))}
+          </div>
+
+          <button onClick={() => setSk(!sk)} style={{
+            display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left", marginBottom: 16,
+            background: C.panel, color: C.txt, border: `1px solid ${sk ? C.yel : C.line}`, borderRadius: 10,
+            padding: "12px 14px", fontFamily: F, cursor: "pointer",
+          }}>
+            <span style={{
+              width: 20, height: 20, borderRadius: 5, flexShrink: 0, border: `1px solid ${sk ? C.yel : C.line}`,
+              background: sk ? C.yel : "transparent", color: "#14171B", fontSize: 13, fontWeight: 900,
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}>{sk ? "✓" : ""}</span>
+            <span>
+              <span style={{ fontSize: 13, fontWeight: 800 }}>先行手摺を使う</span>
+              <span style={{ display: "block", fontSize: 11, color: C.dim, marginTop: 2 }}>
+                戸建の一側足場では標準ではない。使う場合は出隅の片側に600が要る
+              </span>
+            </span>
+          </button>
+
+          <Btn tone="y" onClick={() => { SFX.unlock(); setTimeout(() => SFX.hammer(), 60); applyLayout(null); setSkip(false); setSeed((s) => s + 1); setV("game"); }}>
+            はじめる
+          </Btn>
+          <button onClick={() => { SFX.unlock(); applyLayout(null); setSkip(true); setSeed((s) => s + 1); setV("game"); }} style={{
+            display: "block", width: "100%", textAlign: "center", background: "none", color: C.dim,
+            border: `1px dashed ${C.line}`, borderRadius: 10, padding: "11px 16px", marginTop: 10,
+            fontSize: 12, fontFamily: F, cursor: "pointer",
+          }}>根がらみ組立から始める（テスト用）</button>
+
+          <div style={{ fontSize: 11, color: C.dim2, marginTop: 14, lineHeight: 1.8 }}>
+            くさび緊結式Aタイプ。戸建・一側足場／出隅から南面3スパン・東面2スパン。
+            {snd && <><br /><span style={{ color: aud.startsWith("error") ? C.red : C.dim2 }}>
+              音：{aud === "running" ? "鳴っています" : aud.startsWith("error") ? `ブロックされています（${aud.slice(6)}）` : "右上の「音 ON」を一度タップしてください"}
+            </span></>}
+          </div>
+        </div>
+      )}
+      {v === "game" && (
+        <div className={tut ? "" : "honban"} style={{ flex: 1, minHeight: 0, position: "relative", overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
+          <Game key={seed} skipDan={skip} sk={sk} tut={tut} onEnd={(x) => { setR(x); setV("res"); }} onHome={() => setV("home")} />
+        </div>
+      )}
+      {v === "res" && <Result r={r} onRetry={() => { setSeed((s) => s + 1); setV("game"); }}  onHome={() => setV("home")} />}
+      <Tape h={4} />
+    </div>
+  );
+}
+
+  return App;
+})();
+
+const Ch2App = (() => {
+
+/* ═══════════════════════════════════════════
+   足場 実務トレーニング ／ 第2章 高所作業
+   昇降階段で上がる → 1段目の手摺 → 支柱 → ブラケット（内柱は踏板手摺）
+   → 踏板 → 2段目の手摺 → 屋根へ → 転落防止手摺2本
+   ═══════════════════════════════════════════ */
+
+const C = {
+  bg: "#14171B", panel: "#1E232A", panel2: "#252C34", line: "#2E3640",
+  steel: "#93A0AD", steelLt: "#CBD6DF", steelDk: "#5F6B78",
+  yel: "#F5D400", red: "#E23B2E", grn: "#25B36B", cyan: "#4FC3D9", org: "#D98B2B",
+  navy: "#2F4A6B", skin: "#E2B48C", txt: "#E9EEF3", dim: "#8D98A4", dim2: "#5F6B78",
+};
+const F = `"Hiragino Kaku Gothic ProN","Noto Sans JP","Yu Gothic",sans-serif`;
+const MO = `ui-monospace,"SFMono-Regular",Menlo,monospace`;
+
+/* ── 現場：南面3スパン・4柱。内柱は南②と南端 ── */
+const POSTS = ["P0", "P1", "P2", "P3"];
+const PN = { P0: "出隅", P1: "南①", P2: "南②", P3: "南端" };
+const SPANS = [["P0", "P1"], ["P1", "P2"], ["P2", "P3"]];
+const SPID = SPANS.map(([a, b]) => `${a}-${b}`);
+const SPID_ALL = SPID;
+const INNER = { P2: 1, P3: 1 };
+const STAIR_SPAN = "P0-P1";      // 昇降階段のあるスパン
+/* ── 工程 ─────────────────────────────── */
+/* 荷揚げは出隅側。手摺は荷揚げ側から、支柱・受け材・踏板は奥側から。 */
+const FAR = [...POSTS].reverse();                 // 奥（南端）から手前へ
+const FARSP = [...SPANS].reverse();
+/* 転落防止手摺の高さ（2段目踏板から） */
+const FALL_M = 2250 / 1800;                        // 中さん
+const FALL_U = 2700 / 1800;                        // 上さん
+/* 筋交は1段につき1本。南端から出隅へ、段を上がるごとに1スパン寄せて一直線にする */
+const BR_AT = { 1: SPID_ALL[2], 2: SPID_ALL[1], 3: SPID_ALL[0] };   // 地上／1段目／2段目
+const spName = (id) => id.split("-").map((p) => PN[p]).join("〜");
+function buildSteps() {
+  const q = [];
+  /* 1段目は踏板が入っている前提。地上から筋交を入れる */
+  q.push({ k: "brace", t: `1:${BR_AT[1]}`, d: `地上から筋交を入れる（${spName(BR_AT[1])}）　南端から出隅へ一直線に上げていく` });
+  q.push({ k: "climb1", d: "昇降階段で1段目に上がる" });
+  SPANS.forEach(([a, b]) => q.push({ k: "rail1", t: `${a}-${b}`, d: `1段目の手摺を入れる（${PN[a]}〜${PN[b]}）　荷揚げ側から` }));
+  FAR.forEach((p) => {
+    q.push({ k: "post2", t: p, d: `${PN[p]}の支柱を継ぐ　奥から手前へ` });
+    if (INNER[p]) q.push({ k: "postI", t: p, d: `${PN[p]}の内柱も継ぐ` });
+  });
+  FAR.forEach((p) => {
+    if (INNER[p]) q.push({ k: "rail6", t: p, d: `${PN[p]}は内柱の箇所。踏板高さの手摺で内柱とつなぐ` });
+    else q.push({ k: "brk", t: p, d: `${PN[p]}にブラケットを掛ける` });
+  });
+  /* 踏板手摺が入ってから壁当てジャッキで建物へ突っ張る */
+  FAR.filter((p) => INNER[p]).forEach((p) => q.push({ k: "wjack", t: p, d: `${PN[p]}の内柱に壁当てジャッキを取り付ける（踏板手摺の下）` }));
+
+  FARSP.forEach(([a, b]) => q.push({ k: "deck2", t: `${a}-${b}`, d: `2段目の踏板を敷く（${PN[a]}〜${PN[b]}）　奥から` }));
+  /* 踏板が入ったスパンから筋交 */
+  q.push({ k: "brace", t: `2:${BR_AT[2]}`, d: `踏板が入ったので1段目から筋交を入れる（${spName(BR_AT[2])}）　1本目の続き` });
+  q.push({ k: "climb2", d: "昇降階段で2段目に上がる" });
+  SPANS.forEach(([a, b]) => q.push({ k: "rail2", t: `${a}-${b}`, d: `2段目の手摺を入れる（${PN[a]}〜${PN[b]}）　荷揚げ側から` }));
+  q.push({ k: "brace", t: `3:${BR_AT[3]}`, d: `2段目から最後の筋交を入れる（${spName(BR_AT[3])}）　これで一直線になる` });
+  q.push({ k: "roof", d: "屋根に上がる" });
+  SPANS.forEach(([a, b]) => {
+    q.push({ k: "fall", t: `M:${a}-${b}`, d: `転落防止手摺の中さん2,250を入れる（${PN[a]}〜${PN[b]}）` });
+    q.push({ k: "fall", t: `U:${a}-${b}`, d: `続けて上さん2,700を入れる（${PN[a]}〜${PN[b]}）` });
+  });
+  return q;
+}
+
+/* ── 効果音 ───────────────────────────── */
+const SFX = (() => {
+  const RATE = 22050; let on = true;
+  const wav = (f) => {
+    const n = f.length, b = new ArrayBuffer(44 + n * 2), v = new DataView(b);
+    const W = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+    W(0, "RIFF"); v.setUint32(4, 36 + n * 2, true); W(8, "WAVEfmt ");
+    v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+    v.setUint32(24, RATE, true); v.setUint32(28, RATE * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+    W(36, "data"); v.setUint32(40, n * 2, true);
+    for (let i = 0; i < n; i++) { const s = Math.max(-1, Math.min(1, f[i])); v.setInt16(44 + i * 2, s < 0 ? s * 0x8000 : s * 0x7FFF, true); }
+    const u = new Uint8Array(b); let str = "";
+    for (let i = 0; i < u.length; i += 0x2000) str += String.fromCharCode.apply(null, u.subarray(i, i + 0x2000));
+    return "data:audio/wav;base64," + btoa(str);
+  };
+  const gen = (k) => {
+    const dur = { ham: .3, buzz: .2, shout: .7, ok: .35, step: .12 }[k] || .3;
+    const n = Math.floor(RATE * dur), o = new Float32Array(n), R = () => Math.random() * 2 - 1;
+    for (let i = 0; i < n; i++) {
+      const t = i / RATE;
+      if (k === "ham") o[i] = R() * Math.exp(-55 * t) * .55 + Math.sin(2 * Math.PI * 1900 * t) * Math.exp(-16 * t) * .2 + Math.sin(2 * Math.PI * 180 * t) * Math.exp(-42 * t) * .3;
+      else if (k === "buzz") o[i] = (Math.sin(2 * Math.PI * (190 - 180 * t) * t) >= 0 ? 1 : -1) * Math.exp(-13 * t) * .14;
+      else if (k === "shout") { const f = 150 - 55 * t + 32 * Math.sin(2 * Math.PI * 24 * t); let v = ((t * f) % 1) * 2 - 1; v = v * .8 + R() * .22; const e = t < .03 ? t / .03 : t < .16 ? 1 - (t - .03) * 4.2 : t < .22 ? .45 + (t - .16) * 9 : Math.max(0, 1 - (t - .22) / .44); o[i] = v * e * .5; }
+      else if (k === "ok") { [880, 1320].forEach((fq, j) => { const st = j * .07; if (t > st) o[i] += Math.sin(2 * Math.PI * fq * (t - st)) * Math.exp(-7 * (t - st)) * .12; }); }
+      else o[i] = R() * Math.exp(-90 * t) * .3;
+    }
+    return o;
+  };
+  const cache = {};
+  const play = (k) => { if (!on) return; try { const u = cache[k] || (cache[k] = wav(gen(k))); const a = new Audio(u); a.volume = .55; a.play().catch(() => { }); } catch (e) { } };
+  return { ham: () => play("ham"), buzz: () => play("buzz"), shout: () => play("shout"), ok: () => play("ok"), step: () => play("step"), setOn: (v) => { on = v; }, warm: () => { ["ham", "buzz", "ok", "step"].forEach((k) => { try { cache[k] = cache[k] || wav(gen(k)); } catch (e) { } }); } };
+})();
+/* ═══════════════════════════════════════════
+   第2章 高所作業（戸建・一側足場）v2
+   ・安全帯は支柱に取り付ける（コマはファール）
+   ・1本目の手摺を入れたら手摺へ付け替え
+   ・コマは450mmピッチで支柱全長に描く
+   ・内柱を描写／建物は描かない
+   ・2段目の踏板が終わったら昇降階段で2段目へ
+   ═══════════════════════════════════════════ */
+
+/* ── 立面の座標 ── */
+const X0 = 56, SW = 72, GY = 428, LH = 88;    // 1段=1800mm相当
+const HOIST = 0;                               // 荷揚げ位置（出隅側）
+const KP = 0.25;                               // コマのピッチ（450mm）
+const px = (i) => X0 + i * SW;
+const py = (lv) => GY - lv * LH;
+const IN_DX = -22;                             // 内柱の見かけのずれ（奥行き表現）
+
+/* ── 支柱（コマを全長に描く） ── */
+function Post({ i, top, inner, joint }) {
+  const x = px(i) + (inner ? IN_DX : 0), yB = GY, yT = py(top);
+  const komas = [];
+  for (let v = KP; v <= top + 0.001; v += KP) komas.push(py(v));
+  return (
+    <g className="el">
+      <line x1={x} y1={yB} x2={x} y2={yT} stroke={inner ? "#7E8A96" : C.steel} strokeWidth={inner ? 6.5 : 8} />
+      <line x1={x} y1={yT} x2={x} y2={yT - 12} stroke={C.steelDk} strokeWidth={inner ? 3.5 : 4.5} />
+      {komas.map((y, j) => (
+        <polygon key={j} points={`${x - 6.5},${y} ${x},${y - 3.2} ${x + 6.5},${y} ${x},${y + 3.2}`} fill={C.steelLt} />
+      ))}
+      {joint && <rect x={x - 5} y={py(1) - 6} width="10" height="12" rx="2" fill="#6E7A87" stroke={C.steelDk} />}
+    </g>
+  );
+}
+
+/* ── 手摺（上さん・中さん） ── */
+function Rail({ a, b, lv, color = C.yel }) {
+  const x1 = px(a), x2 = px(b);
+  const yU = py(lv) - 0.5 * LH;   // 踏板から約900mm
+  const yM = py(lv) - 0.25 * LH;  // 中さん
+  const wedge = (x, d, y) => `${x},${y - 6} ${x + d * 7},${y - 1} ${x},${y + 5}`;
+  return (
+    <g className="el">
+      <line x1={x1} y1={yU} x2={x2} y2={yU} stroke={color} strokeWidth="5.5" />
+      <polygon points={wedge(x1, 1, yU)} fill={color} /><polygon points={wedge(x2, -1, yU)} fill={color} />
+      <line x1={x1} y1={yM} x2={x2} y2={yM} stroke={color} strokeWidth="4" opacity=".85" />
+      <polygon points={wedge(x1, 1, yM)} fill={color} opacity=".85" /><polygon points={wedge(x2, -1, yM)} fill={color} opacity=".85" />
+    </g>
+  );
+}
+
+/* ── 踏板 ── */
+function Deck({ a, b, lv, inner }) {
+  const x1 = px(a) + (inner ? IN_DX : 0), x2 = px(b) + (inner ? IN_DX : 0), y = py(lv);
+  return (
+    <g className="el">
+      <rect x={x1} y={y - 9} width={x2 - x1} height="10" fill="#7B8895" stroke="#4A545E" strokeWidth="1.4" />
+      {[...Array(Math.max(2, Math.floor((x2 - x1) / 14)))].map((_, i) => (
+        <line key={i} x1={x1 + 7 + i * 14} y1={y - 8} x2={x1 + 7 + i * 14} y2={y} stroke="#6B7884" strokeWidth="1" />
+      ))}
+    </g>
+  );
+}
+
+/* ── ブラケット（外柱から内側へ張り出す） ── */
+function Brk({ i, lv }) {
+  const x = px(i), y = py(lv);
+  return (
+    <g className="el">
+      <polygon points={`${x},${y} ${x + IN_DX - 4},${y} ${x},${y - 26}`} fill={C.steelDk} stroke={C.steel} strokeWidth="1.2" />
+      <line x1={x} y1={y} x2={x + IN_DX - 4} y2={y} stroke={C.steel} strokeWidth="4" />
+    </g>
+  );
+}
+
+/* ── 踏板高さの手摺（外柱⇔内柱） ── */
+function Rail6({ i, lv }) {
+  const x = px(i), y = py(lv), xi = x + IN_DX;
+  return (
+    <g className="el">
+      <line x1={x} y1={y} x2={xi} y2={y} stroke={C.cyan} strokeWidth="5" />
+      <polygon points={`${x},${y - 5.5} ${x - 6},${y - 1} ${x},${y + 4.5}`} fill={C.cyan} />
+      <polygon points={`${xi},${y - 5.5} ${xi + 6},${y - 1} ${xi},${y + 4.5}`} fill={C.cyan} />
+    </g>
+  );
+}
+
+/* ── 昇降階段（段ごと） ── */
+function Stair({ i, lv }) {
+  const x1 = px(i), x2 = px(i + 1), yB = py(lv - 1), yT = py(lv);
+  const st = [];
+  for (let k = 0; k < 7; k++) {
+    const t = k / 7, u = (k + 1) / 7;
+    st.push(<line key={k} x1={x1 + (x2 - x1) * t} y1={yB - (yB - yT) * t} x2={x1 + (x2 - x1) * u} y2={yB - (yB - yT) * t} stroke="#8A96A2" strokeWidth="3.5" />);
+  }
+  return (
+    <g>
+      <line x1={x1} y1={yB} x2={x2} y2={yT} stroke="#5F6B78" strokeWidth="5" />
+      <line x1={x1} y1={yB - 12} x2={x2} y2={yT - 12} stroke="#5F6B78" strokeWidth="5" />
+      {st}
+      <line x1={x1} y1={yB - 52} x2={x2} y2={yT - 52} stroke={C.yel} strokeWidth="3" opacity=".8" />
+      <line x1={x1} y1={yB} x2={x1} y2={yB - 52} stroke={C.yel} strokeWidth="3" opacity=".8" />
+      <line x1={x2} y1={yT} x2={x2} y2={yT - 52} stroke={C.yel} strokeWidth="3" opacity=".8" />
+    </g>
+  );
+}
+
+/* ── 屋根（足場の奥。棟が中央） ── */
+/* 家：南面が水下。軒の高さは全スパン一定（片流れを南から見た形） */
+const RF_L = () => px(0) + IN_DX + 4;                  // 家の左端
+const RF_R = () => px(3) + IN_DX - 4;                  // 家の右端
+/* 軒＝2段目踏板から1,800mm上。屋根に立つと転落防止手摺が
+   足元から450（中さん）・900（上さん）になる */
+const RF_EAVE = () => py(3);
+const RF_RIDGE = () => py(2) - 1.95 * LH;              // 奥の棟
+const ROOF_Y = () => RF_EAVE();
+/* 屋根面の高さ：南面から見るとどのスパンでも軒の高さで一定 */
+const roofYAt = () => RF_EAVE();
+function Roof() {
+  const L = RF_L(), R = RF_R(), yE = RF_EAVE(), yR = RF_RIDGE();
+  return (
+    <g>
+      {/* 外壁 */}
+      <rect x={L} y={yE} width={R - L} height={GY - yE} fill="#242B33" />
+      {/* 窓（1階・2階） */}
+      {[0.3, 0.7].map((t, i) => (
+        <g key={i}>
+          <rect x={L + (R - L) * t - 14} y={yE + 30} width="28" height="34" rx="2" fill="#1C232A" stroke="#333C46" />
+          <rect x={L + (R - L) * t - 14} y={yE + 118} width="28" height="34" rx="2" fill="#1C232A" stroke="#333C46" />
+        </g>
+      ))}
+      {/* 奥へ上がる屋根面（南から見ると平行四辺形） */}
+      <polygon points={`${L - 12},${yE + 4} ${R + 12},${yE + 4} ${R + 12 - 26},${yR} ${L - 12 - 26},${yR}`} fill="#3E4750" />
+      {/* 軒先（水下・全スパン同じ高さ） */}
+      <rect x={L - 12} y={yE - 4} width={R - L + 24} height="10" rx="2" fill="#5A6672" />
+      <line x1={L - 12} y1={yE - 4} x2={R + 12} y2={yE - 4} stroke="#6E7A87" strokeWidth="1.5" />
+      <text x={(L + R) / 2} y={yE + 92} fill="#4A545E" fontSize="11.5" fontFamily={F} textAnchor="middle">建物</text>
+      <text x={R + 4} y={yE + 22} fill="#5E6A76" fontSize="10" fontFamily={F} textAnchor="end">軒（水下）</text>
+    </g>
+  );
+}
+
+/* 作業員 */
+function Kenta({ mood = "normal", walking }) {
+  return (
+    <g className={walking ? "walk" : "idle"}>
+      <ellipse cx="0" cy="1" rx="10" ry="3.5" fill="#000" opacity=".35" />
+      <path d="M-6 -18 L-7 -3 L-3 -3 L-2 -18 Z" fill={C.navy} />
+      <path d="M6 -18 L7 -3 L3 -3 L2 -18 Z" fill={C.navy} />
+      <path d="M-8 -36 L8 -36 L9 -17 L-9 -17 Z" fill="#5C7FA3" />
+      <rect x="-9.5" y="-22" width="19" height="4" rx="1" fill="#2B3138" />
+      <rect x="-10" y="-22" width="4.5" height="7" rx="1.5" fill="#6B5636" />
+      <path d="M-8 -34 L-13 -20 L-9 -19 L-5 -31 Z" fill="#5C7FA3" />
+      <path d="M8 -34 L13 -20 L9 -19 L5 -31 Z" fill="#5C7FA3" />
+      <circle cx="-11" cy="-18" r="2.4" fill={C.skin} /><circle cx="11" cy="-18" r="2.4" fill={C.skin} />
+      <circle cx="0" cy="-42" r="7.5" fill={C.skin} />
+      <circle cx="-2.8" cy="-42" r="1.3" fill="#2A1D14" /><circle cx="2.8" cy="-42" r="1.3" fill="#2A1D14" />
+      {mood === "good" ? <path d="M-3 -38 Q0 -35 3 -38" stroke="#2A1D14" strokeWidth="1.3" fill="none" strokeLinecap="round" />
+        : mood === "bad" ? <ellipse cx="0" cy="-37.5" rx="2.2" ry="1.6" fill="#2A1D14" />
+          : <line x1="-2.4" y1="-37.6" x2="2.4" y2="-37.6" stroke="#2A1D14" strokeWidth="1.2" strokeLinecap="round" />}
+      <path d="M-9 -46 A9 9 0 0 1 9 -46 Z" fill={C.yel} />
+      <rect x="-11" y="-47" width="22" height="3.2" rx="1.6" fill="#E0C200" />
+    </g>
+  );
+}
+/* 荷揚げ役（地上） */
+function Hoister({ x, y, active }) {
+  return (
+    <g transform={`translate(${x},${y})`}>
+      <ellipse cx="0" cy="1" rx="9" ry="3" fill="#000" opacity=".3" />
+      <path d="M-5 -16 L-6 -3 L-2 -3 L-1 -16 Z" fill="#3A4A5C" />
+      <path d="M5 -16 L6 -3 L2 -3 L1 -16 Z" fill="#3A4A5C" />
+      <path d="M-7 -31 L7 -31 L8 -15 L-8 -15 Z" fill="#6B7F55" />
+      <path d="M-7 -29 L-13 -38 L-10 -40 L-4 -32 Z" fill="#6B7F55" />
+      <path d="M7 -29 L13 -38 L10 -40 L4 -32 Z" fill="#6B7F55" />
+      <circle cx="0" cy="-37" r="6.5" fill={C.skin} />
+      <path d="M-8 -40 A8 8 0 0 1 8 -40 Z" fill="#D98B2B" />
+      <rect x="-9.5" y="-41" width="19" height="2.8" rx="1.4" fill="#B8761F" />
+      {active && (
+        <g className="tgt">
+          <line x1="0" y1="-42" x2="0" y2="-64" stroke={C.org} strokeWidth="2" strokeDasharray="3 3" />
+          <polygon points="-5,-64 5,-64 0,-72" fill={C.org} />
+        </g>
+      )}
+      <text x="0" y="16" textAnchor="middle" fontSize="9.5" fill={C.dim} fontFamily={F}>荷揚げ</text>
+    </g>
+  );
+}
+
+/* 親方 */
+function Boss({ size = 38, angry }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 72 72" style={{ flexShrink: 0 }}>
+      {/* 顔（ヘルメットの内側に収まる大きさ） */}
+      <circle cx="36" cy="45" r="19" fill="#D9A97E" />
+      {/* 耳 */}
+      <circle cx="17" cy="45" r="3.4" fill="#C9976C" /><circle cx="55" cy="45" r="3.4" fill="#C9976C" />
+      {/* ヘルメット（顔の幅より少し大きく） */}
+      <path d="M13 34 A23 21 0 0 1 59 34 Z" fill={angry ? "#E8B400" : C.yel} />
+      <rect x="9" y="32" width="54" height="6" rx="3" fill="#E0C200" />
+      {angry ? <path d="M25 40 L33 44 M47 40 L39 44" stroke="#2A1D14" strokeWidth="3.2" strokeLinecap="round" />
+        : <path d="M26 41 L33 40 M46 41 L39 40" stroke="#2A1D14" strokeWidth="2.8" strokeLinecap="round" />}
+      <circle cx="29.5" cy="47" r="2.5" fill="#2A1D14" /><circle cx="42.5" cy="47" r="2.5" fill="#2A1D14" />
+      {angry ? <ellipse cx="36" cy="57" rx="7.5" ry="4.5" fill="#5A1E17" />
+        : <path d="M31 57 Q36 60 41 57" stroke="#2A1D14" strokeWidth="2" fill="none" strokeLinecap="round" />}
+      <rect x="29" y="52" width="14" height="2.8" rx="1.4" fill="#2A1D14" />
+    </svg>
+  );
+}
+
+const Tape = ({ h = 6 }) => <div style={{ height: h, background: `repeating-linear-gradient(115deg, ${C.yel} 0 12px, #14171B 12px 24px)` }} />;
+function Btn({ children, onClick, tone, dis, style }) {
+  const y = tone === "y";
+  return (
+    <button onClick={onClick} disabled={dis} style={{
+      background: dis ? C.panel2 : y ? C.yel : "none", color: dis ? C.dim2 : y ? "#14171B" : C.txt,
+      border: `1px solid ${dis ? C.line : y ? C.yel : C.line}`, borderRadius: 9, padding: 12,
+      fontWeight: 800, fontSize: 13, fontFamily: F, cursor: dis ? "default" : "pointer", width: "100%", ...style,
+    }}>{children}</button>
+  );
+}
+function Scold({ line, onClose }) {
+  return (
+    <div onClick={onClose} style={{ position: "absolute", inset: 0, background: "#000b", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 30, padding: 20 }}>
+      <div className="shake" style={{ background: C.panel, border: `2px solid ${C.red}`, borderRadius: 14, padding: 18, maxWidth: 350, width: "100%" }}>
+        <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+          <Boss size={68} angry />
+          <div>
+            <div style={{ fontSize: 11, color: C.red, fontWeight: 800, letterSpacing: 1, marginBottom: 5 }}>ファール　技能 −10</div>
+            <div style={{ fontSize: 15, fontWeight: 800, lineHeight: 1.6 }}>{line}</div>
+          </div>
+        </div>
+        <button onClick={onClose} style={{ marginTop: 14, width: "100%", background: C.red, color: "#fff", border: "none", borderRadius: 8, padding: 12, fontWeight: 800, fontFamily: F, fontSize: 14, cursor: "pointer" }}>すいません！</button>
+      </div>
+    </div>
+  );
+}
+/* ── ズーム共通の縮尺 ──
+   コマ450mm = 40px。作業員は身長1,600mm相当（Kentaを3倍）
+   ─────────────────────────────────────── */
+const ZP = 40;                      // 450mmあたりのピクセル
+const ZD = 268;                     // 踏板の高さ
+const ZX1 = 74, ZX2 = 266;          // 支柱2本
+const zk = (n) => ZD - n * ZP;      // n番目のコマ（1=450mm）
+
+function ZScaffold({ komaOn = [], rails = [], worker = true, mood }) {
+  return (
+    <>
+      <rect y={ZD} width="340" height="42" fill="#1A2027" />
+      {[ZX1, ZX2].map((cx) => (
+        <g key={cx}>
+          <line x1={cx} y1={ZD} x2={cx} y2="34" stroke={C.steel} strokeWidth="11" />
+          {[1, 2, 3, 4, 5].map((n) => (
+            <polygon key={n} points={`${cx - 8},${zk(n)} ${cx},${zk(n) - 4} ${cx + 8},${zk(n)} ${cx},${zk(n) + 4}`}
+              fill={komaOn.includes(n) ? C.yel : C.steelLt} />
+          ))}
+        </g>
+      ))}
+      <rect x={ZX1} y={ZD - 12} width={ZX2 - ZX1} height="13" fill="#7B8895" stroke="#4A545E" />
+      {rails.map((n, i) => (
+        <g key={i}>
+          <line x1={ZX1} y1={zk(n)} x2={ZX2} y2={zk(n)} stroke={C.yel} strokeWidth={n === 2 ? 6 : 4.5} />
+          <polygon points={`${ZX1},${zk(n) - 6} ${ZX1 + 7},${zk(n) - 1} ${ZX1},${zk(n) + 5}`} fill={C.yel} />
+          <polygon points={`${ZX2},${zk(n) - 6} ${ZX2 - 7},${zk(n) - 1} ${ZX2},${zk(n) + 5}`} fill={C.yel} />
+        </g>
+      ))}
+      {worker && (
+        <g transform={`translate(170,${ZD}) scale(3)`}>
+          <Kenta mood={mood} />
+        </g>
+      )}
+    </>
+  );
+}
+
+/* ── 手摺の取付位置ズーム（1段目の最初の手摺で表示） ── */
+function RailZoom({ onClear, onFoul }) {
+  const [step, setStep] = useState(0);      // 0=中さん 1=上さん
+  const [pick, setPick] = useState(null);
+  const [done, setDone] = useState([]);
+  const target = step === 0 ? 1 : 2;        // コマ番号（1=450 中さん / 2=900 上さん）
+  const fin = step >= 2;
+  const MM = { 1: "450", 2: "900", 3: "1,350", 4: "1,800", 5: "2,250" };
+
+  const tap = (n) => {
+    setPick(n);
+    if (n === target) {
+      setDone((d) => [...d, n]);
+      setTimeout(() => { if (step === 0) { setStep(1); setPick(null); } else setStep(2); }, 700);
+    } else {
+      onFoul(n > 2
+        ? "そこは高すぎる。手摺はその高さに入れる部材じゃない。"
+        : step === 0 ? "そっちは上さんの位置だ。低い方から入れる。" : "そこはもう中さんが入っている。");
+    }
+  };
+
+  return (
+    <div style={{ position: "absolute", inset: 0, background: "#0C1015", zIndex: 20, overflowY: "auto" }}>
+      <div style={{ padding: "12px 16px", borderBottom: `1px solid ${C.line}`, display: "flex", gap: 8, alignItems: "baseline" }}>
+        <span style={{ fontSize: 12.5, fontWeight: 800, color: C.yel }}>手摺を入れる</span>
+        <span style={{ fontSize: 11, color: C.dim }}>{step === 0 ? "1本目：中さん" : "2本目：上さん"}</span>
+      </div>
+
+      <svg viewBox="0 0 340 320" style={{ width: "100%", display: "block" }}>
+        <ZScaffold komaOn={done} rails={done} />
+        {/* 寸法線 */}
+        <line x1={ZX2 + 24} y1={ZD - 12} x2={ZX2 + 24} y2={zk(target)} stroke={C.cyan} strokeWidth="1.4" />
+        <line x1={ZX2 + 18} y1={ZD - 12} x2={ZX2 + 30} y2={ZD - 12} stroke={C.cyan} strokeWidth="1.4" />
+        <line x1={ZX2 + 18} y1={zk(target)} x2={ZX2 + 30} y2={zk(target)} stroke={C.cyan} strokeWidth="1.4" />
+        <text x={ZX2 + 36} y={(ZD - 12 + zk(target)) / 2 + 4} fontSize="12.5" fill={C.cyan} fontFamily={MO}>{MM[target]}</text>
+        <text x={ZX1 - 12} y={ZD + 6} textAnchor="end" fontSize="11" fill={C.dim} fontFamily={F}>踏板</text>
+        {/* タップ対象 */}
+        {!fin && [1, 2, 3, 4].map((n) => !done.includes(n) && (
+          <g key={n} onClick={() => tap(n)} style={{ cursor: "pointer" }} className="tgt">
+            <rect x={ZX1 - 8} y={zk(n) - 15} width={ZX2 - ZX1 + 16} height="30" rx="8"
+              fill={pick === n ? (n === target ? "#1B4030" : "#3A1C17") : C.yel} opacity={pick === n ? .8 : .07} />
+            <rect x={ZX1 - 8} y={zk(n) - 15} width={ZX2 - ZX1 + 16} height="30" rx="8" fill="none"
+              stroke={pick === n ? (n === target ? C.grn : C.red) : C.yel} strokeWidth="1.4" strokeDasharray="4 4" />
+          </g>
+        ))}
+      </svg>
+
+      <div style={{ padding: 16 }}>
+        <div style={{ fontSize: 14.5, fontWeight: 800, lineHeight: 1.6, marginBottom: 8 }}>
+          {step === 0 ? "中さんを入れるコマはどこ？" : step === 1 ? "上さんを入れるコマはどこ？" : "中さん・上さんが入った"}
+        </div>
+        <div style={{ fontSize: 12.5, color: C.dim, lineHeight: 1.85, marginBottom: 12 }}>
+          手摺は<b style={{ color: C.txt }}>低い方から</b>入れます。踏板から450mmが中さん、900mmが上さん。
+          コマは450mmピッチなので、踏板の1つ上が中さん、2つ上が上さんです。
+        </div>
+        <div style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: 9, padding: "11px 13px", fontSize: 12, color: C.dim, lineHeight: 1.9 }}>
+          上さんだけ先に入れると、その下が空いたままになります。<br />
+          体は隙間から抜けます。低い方から順に塞ぐこと。
+        </div>
+        {step >= 2 && <Btn tone="y" onClick={onClear} style={{ marginTop: 14 }}>次へ</Btn>}
+      </div>
+    </div>
+  );
+}
+
+/* ── 筋交の取付ズーム（指でスライドして入れる） ──
+   ① 中心を持って動かし、先端を上部コマへ
+   ② 上端を軸に振って、後端を下部コマへ
+   ─────────────────────────────────────── */
+function BraceZoom({ onClear, onFoul }) {
+  const [phase, setPhase] = useState(0);      // 0=先端を上へ 1=後端を下へ 2=完了
+  const [pos, setPos] = useState({ x: 190, y: 200 });       // 中心（phase0）
+  const [ang, setAng] = useState(0);          // phase1：上部コマ→後端 の向き
+  const [drag, setDrag] = useState(false);
+  const [warn, setWarn] = useState(null);
+  const swung = useRef(false);                // 実際に振り下ろしたか
+  const svgRef = useRef(null);
+
+  /* 向きは盤面と同じ。上端＝出隅側（左）／下端＝南端側（右） */
+  const TOP = { x: ZX1, y: zk(5) };           // 上部コマ（左柱＝出隅側）
+  const BOT = { x: ZX2, y: zk(1) };           // 下部コマ（右柱＝南端側）※4コマ分
+  const LEN = Math.hypot(TOP.x - BOT.x, TOP.y - BOT.y);
+  const AF = Math.atan2(BOT.y - TOP.y, BOT.x - TOP.x);   // 完成時：上部コマ→後端
+  const AH = AF - 0.42;                                  // 担いだ状態（後端を上げて持つ）
+
+  /* いまの筋交の両端。a=後端（下）／b=先端（上） */
+  const ends = () => {
+    if (phase === 0) {
+      const hx = Math.cos(AH) * LEN / 2, hy = Math.sin(AH) * LEN / 2;
+      return { a: { x: pos.x + hx, y: pos.y + hy }, b: { x: pos.x - hx, y: pos.y - hy } };
+    }
+    return { a: { x: TOP.x + Math.cos(ang) * LEN, y: TOP.y + Math.sin(ang) * LEN }, b: TOP };
+  };
+  const { a, b } = ends();
+
+  const toSvg = (e) => {
+    const r = svgRef.current.getBoundingClientRect();
+    const t = e.touches ? e.touches[0] : e;
+    return { x: (t.clientX - r.left) / r.width * 340, y: (t.clientY - r.top) / r.height * 340 };
+  };
+
+  const move = (e) => {
+    if (!drag || phase === 2) return;
+    e.preventDefault();
+    const p = toSvg(e);
+    if (phase === 0) {
+      setPos(p);
+      const hx = Math.cos(AH) * LEN / 2, hy = Math.sin(AH) * LEN / 2;
+      const tip = { x: p.x - hx, y: p.y - hy };
+      /* 先端が上部コマに入る。この時点で後端はまだ下部コマから離れている */
+      if (Math.hypot(tip.x - TOP.x, tip.y - TOP.y) < 20) {
+        SFX.ham(); setPhase(1); setAng(AH); swung.current = false;
+      }
+    } else {
+      const th = Math.atan2(p.y - TOP.y, p.x - TOP.x);
+      setAng(th);
+      /* 一定角度振らないと「入った」ことにしない */
+      if (Math.abs(th - AH) > 0.18) swung.current = true;
+      const tail = { x: TOP.x + Math.cos(th) * LEN, y: TOP.y + Math.sin(th) * LEN };
+      /* 後端が下部コマに十分近づいたときだけ入る */
+      if (swung.current && Math.hypot(tail.x - BOT.x, tail.y - BOT.y) < 18) {
+        SFX.ham(); setAng(AF); setPhase(2); setDrag(false);
+      }
+    }
+  };
+
+  /* 下端を先に入れようとした場合 */
+  const tapBottomFirst = () => {
+    if (phase !== 0) return;
+    setWarn("下からは入らん。筋交は上のコマに先端を差してから、振り下ろして後端を落とす。");
+    onFoul("筋交は上部のコマに先端を入れないと、下部のコマに入らない。");
+  };
+
+  return (
+    <div style={{ position: "absolute", inset: 0, background: "#0C1015", zIndex: 20, overflowY: "auto" }}>
+      <div style={{ padding: "12px 16px", borderBottom: `1px solid ${C.line}`, display: "flex", gap: 8, alignItems: "baseline" }}>
+        <span style={{ fontSize: 12.5, fontWeight: 800, color: C.yel }}>筋交を入れる</span>
+        <span style={{ fontSize: 11, color: C.dim }}>
+          {phase === 0 ? "① 先端を上部のコマへ" : phase === 1 ? "② 後端を下部のコマへ" : "入った"}
+        </span>
+      </div>
+
+      <svg ref={svgRef} viewBox="0 0 340 340" style={{ width: "100%", display: "block", touchAction: "none" }}
+        onMouseMove={move} onTouchMove={move}
+        onMouseUp={() => setDrag(false)} onTouchEnd={() => setDrag(false)}>
+        <ZScaffold worker={false} />
+        {/* 取付先の表示 */}
+        {phase === 0 && (
+          <g className="tgt">
+            <circle cx={TOP.x} cy={TOP.y} r="15" fill={C.grn} opacity=".18" />
+            <circle cx={TOP.x} cy={TOP.y} r="15" fill="none" stroke={C.grn} strokeWidth="2" strokeDasharray="4 4" />
+            <text x={TOP.x - 22} y={TOP.y - 20} textAnchor="end" fontSize="11" fill={C.grn} fontFamily={F}>ここへ先端</text>
+          </g>
+        )}
+        {phase === 1 && (
+          <g className="tgt">
+            <circle cx={BOT.x} cy={BOT.y} r="15" fill={C.grn} opacity=".18" />
+            <circle cx={BOT.x} cy={BOT.y} r="15" fill="none" stroke={C.grn} strokeWidth="2" strokeDasharray="4 4" />
+            <text x={BOT.x + 22} y={BOT.y + 22} fontSize="11" fill={C.grn} fontFamily={F}>ここへ後端</text>
+            <circle cx={TOP.x} cy={TOP.y} r="8" fill={C.grn} />
+          </g>
+        )}
+        {phase === 0 && (
+          <g onClick={tapBottomFirst} style={{ cursor: "pointer" }}>
+            <circle cx={BOT.x} cy={BOT.y} r="14" fill={C.dim2} opacity=".12" />
+          </g>
+        )}
+
+        {/* 筋交本体 */}
+        <g>
+          <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke={phase === 2 ? C.grn : "#B9C4CE"} strokeWidth="7" strokeLinecap="round" />
+          <circle cx={a.x} cy={a.y} r="6" fill="#8A96A2" />
+          <circle cx={b.x} cy={b.y} r="6" fill={phase >= 1 ? C.grn : "#8A96A2"} />
+          {/* つかむ場所（中心） */}
+          {phase < 2 && (
+            <g onMouseDown={() => setDrag(true)} onTouchStart={() => setDrag(true)} style={{ cursor: "grab" }}>
+              <circle cx={(a.x + b.x) / 2} cy={(a.y + b.y) / 2} r="20" fill={C.yel} opacity={drag ? ".5" : ".22"} />
+              <circle cx={(a.x + b.x) / 2} cy={(a.y + b.y) / 2} r="20" fill="none" stroke={C.yel} strokeWidth="2" />
+              <text x={(a.x + b.x) / 2} y={(a.y + b.y) / 2 + 4} textAnchor="middle" fontSize="10" fill={C.yel} fontFamily={F} fontWeight="700">持つ</text>
+            </g>
+          )}
+        </g>
+      </svg>
+
+      <div style={{ padding: 16 }}>
+        <div style={{ fontSize: 14.5, fontWeight: 800, lineHeight: 1.6, marginBottom: 8 }}>
+          {phase === 0 ? "筋交の中心を持って、先端を上のコマへ入れる"
+            : phase === 1 ? "上端を軸に振って、後端を下のコマへ落とす"
+              : "入った。これで面が動かなくなる"}
+        </div>
+        <div style={{ fontSize: 12.5, color: C.dim, lineHeight: 1.85, marginBottom: 12 }}>
+          筋交は4コマ分（約1,800mm）をまたぐ長さです。向きは<b style={{ color: C.txt }}>南端側が下、出隅側が上</b>の一方向。
+          <b style={{ color: C.txt }}>上部のコマに先端を入れないと、下部のコマに入りません</b>。
+          先に上へ差し込み、そこを軸に振り下ろして後端を落とす。材の長さと差し込み代が、その順でしか収まらないためです。
+        </div>
+        {warn && <div style={{ fontSize: 12.5, color: "#F4B5AE", lineHeight: 1.8, marginBottom: 10 }}>{warn}</div>}
+        <div style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: 9, padding: "11px 13px", fontSize: 12, color: C.dim, lineHeight: 1.9 }}>
+          筋交は、足場が平行四辺形につぶれるのを防ぐ材です。<br />
+          これが無いと、風や人の動きで面ごと揺れます。
+        </div>
+        {phase === 2 && <Btn tone="y" onClick={onClear} style={{ marginTop: 14 }}>次へ</Btn>}
+      </div>
+    </div>
+  );
+}
+
+/* ── 側面の作業員（断面図用。縮尺どおり：身長1,700mm＝コマ4つ弱） ── */
+function WorkerSide() {
+  return (
+    <g>
+      <ellipse cx="0" cy="0" rx="12" ry="3" fill="#000" opacity=".3" />
+      {/* 脚 */}
+      <path d="M-5 -2 L-6 -66 L2 -66 L2 -2 Z" fill={C.navy} />
+      <path d="M3 -2 L2 -66 L9 -66 L8 -2 Z" fill="#2B3A4C" />
+      <path d="M-8 -2 L-8 -7 L2 -7 L2 -2 Z" fill="#2B3138" />
+      {/* 胴（横向きなので薄い） */}
+      <path d="M-6 -64 L-8 -118 L8 -118 L7 -64 Z" fill="#5C7FA3" />
+      {/* 安全帯 */}
+      <rect x="-8" y="-98" width="16" height="4.5" fill="#2B3138" />
+      {/* 腕（内柱側へ伸ばす） */}
+      <path d="M-6 -113 L-23 -93 L-19 -88 L-2 -106 Z" fill="#5C7FA3" />
+      <circle cx="-22" cy="-89" r="3.6" fill={C.skin} />
+      {/* 首・頭（横顔） */}
+      <rect x="-3" y="-125" width="7" height="9" fill={C.skin} />
+      <circle cx="-1" cy="-134" r="11" fill={C.skin} />
+      <path d="M-11.5 -135 L-15 -132 L-11.5 -130 Z" fill={C.skin} />
+      <circle cx="-6" cy="-137" r="1.4" fill="#2A1D14" />
+      <line x1="-10" y1="-129" x2="-6" y2="-129" stroke="#2A1D14" strokeWidth="1.2" strokeLinecap="round" />
+      {/* ヘルメット */}
+      <path d="M-13 -140 A12 12 0 0 1 11 -140 Z" fill={C.yel} />
+      <rect x="-17" y="-142.5" width="30" height="3.4" rx="1.7" fill="#E0C200" />
+    </g>
+  );
+}
+
+/* ── 壁当てジャッキの取付ズーム ──
+   ① 踏板の下、どのコマに付けるかを選ぶ
+   ② ジャッキを回して垂直を出す
+   ─────────────────────────────────────── */
+function WJackZoom({ onClear, onFoul }) {
+  const [phase, setPhase] = useState(0);     // 0=高さ選択 1=垂直調整 2=完了
+  const [pick, setPick] = useState(null);
+  const [turn, setTurn] = useState(-64);     // -100〜100（0が垂直）。16刻み
+
+  /* 内柱・外柱・踏板手摺。1段目の踏板に立った目線 */
+  const XO = 243, XI = 190;                   // 内柱〜外柱＝600mm
+  const YD = ZD - 172;                        // 踏板手摺＝1段目の踏板の上面から1,800mm
+  const KO = [1, 2, 3];                       // 踏板手摺より下のコマ（1が直下）
+  const ky = (n) => YD + n * ZP;              // 450mmごと下へ
+  const STEP = 16;
+
+  const tap = (n) => {
+    setPick(n);
+    if (n === 1) { SFX.ham(); setTimeout(() => setPhase(1), 550); }
+    else onFoul(n === 3
+      ? "低すぎる。そこに突き出ていたら、踏板の上を歩く者の足に当たる。"
+      : "そこじゃない。踏板手摺のすぐ下のコマに付ける。低いと作業者に接触する。");
+  };
+
+  /* 回す＝根がらみのジャッキと同じ。左右のボタンで少しずつ */
+  const roll = (d) => {
+    if (phase !== 1) return;
+    const v = Math.max(-96, Math.min(96, turn + d * STEP));
+    setTurn(v);
+    if (v === 0) { SFX.ok(); setPhase(2); }
+  };
+
+  const lean = phase === 0 ? 0 : turn / 100 * 14;   // 柱の傾き（px）
+  const ok = phase === 2;
+
+  return (
+    <div style={{ position: "absolute", inset: 0, background: "#0C1015", zIndex: 20, overflowY: "auto" }}>
+      <div style={{ padding: "12px 16px", borderBottom: `1px solid ${C.line}`, display: "flex", gap: 8, alignItems: "baseline" }}>
+        <span style={{ fontSize: 12.5, fontWeight: 800, color: C.yel }}>壁当てジャッキ</span>
+        <span style={{ fontSize: 11, color: C.dim }}>
+          {phase === 0 ? "① 付ける高さを選ぶ" : phase === 1 ? "② 回して垂直を出す" : "垂直が出た"}
+        </span>
+      </div>
+
+      <svg viewBox="0 0 340 320" style={{ width: "100%", display: "block", touchAction: "none" }}>
+        <rect y={ZD} width="340" height="42" fill="#1A2027" />
+        {/* 建物の壁 */}
+        <rect x="0" y="20" width="146" height={ZD - 20} fill="#242B33" />
+        <text x="73" y={ZD - 16} textAnchor="middle" fontSize="11" fill="#4A545E" fontFamily={F}>建物</text>
+
+        {/* 作業員（1段目の踏板に立っている。柱より奥に描く） */}
+        <g transform={`translate(222,${ZD - 12})`}>
+          <WorkerSide />
+        </g>
+
+        {/* 支柱（内柱・外柱）。傾きを反映 */}
+        {[[XI, "内柱"], [XO, "外柱"]].map(([x, nm]) => (
+          <g key={nm}>
+            <line x1={x} y1={ZD} x2={x + lean} y2="30" stroke={C.steel} strokeWidth="10" />
+            {[0, 1, 2, 3, 4].map((n) => {
+              const y = ky(n);
+              const cx = x + lean * ((ZD - y) / (ZD - 30));
+              return <polygon key={n} points={`${cx - 8},${y} ${cx},${y - 4} ${cx + 8},${y} ${cx},${y + 4}`}
+                fill={pick === n && n === 1 ? C.yel : C.steelLt} />;
+            })}
+            <text x={x + 4} y={ZD + 22} textAnchor="middle" fontSize="10.5" fill={C.dim} fontFamily={F}>{nm}</text>
+          </g>
+        ))}
+
+        {/* 1段目の踏板（いま立っている床） */}
+        <rect x={XI - 10} y={ZD - 12} width={XO - XI + 20} height="13" fill="#7B8895" stroke="#4A545E" />
+
+        {/* 踏板手摺（内柱と外柱をつなぐ。踏板はまだ入っていない） */}
+        {(() => {
+          const cxI = XI + lean * ((ZD - YD) / (ZD - 30));
+          const cxO = XO + lean * ((ZD - YD) / (ZD - 30));
+          return (
+            <g>
+              <line x1={cxI} y1={YD} x2={cxO} y2={YD} stroke={C.cyan} strokeWidth="5.5" />
+              <polygon points={`${cxI},${YD - 6} ${cxI + 7},${YD - 1} ${cxI},${YD + 5}`} fill={C.cyan} />
+              <polygon points={`${cxO},${YD - 6} ${cxO - 7},${YD - 1} ${cxO},${YD + 5}`} fill={C.cyan} />
+              <text x={XO + 16} y={YD - 8} fontSize="10.5" fill={C.cyan} fontFamily={F}>踏板手摺</text>
+            </g>
+          );
+        })()}
+
+        {/* 壁当てジャッキ */}
+        {phase >= 1 && (() => {
+          const y = ky(1), cx = XI + lean * ((ZD - y) / (ZD - 30));
+          return (
+            <g>
+              <line x1={cx} y1={y} x2="150" y2={y} stroke={ok ? C.grn : C.org} strokeWidth="6" />
+              <rect x="140" y={y - 9} width="11" height="19" rx="2" fill={ok ? C.grn : C.org} />
+              <circle cx={cx} cy={y} r="5" fill={ok ? C.grn : C.org} />
+              {/* ねじ部 */}
+              {[0, 1, 2].map((i) => <line key={i} x1={156 + i * 9} y1={y - 6} x2={156 + i * 9} y2={y + 6} stroke="#0C1015" strokeWidth="1.6" opacity=".5" />)}
+            </g>
+          );
+        })()}
+
+        {/* 高さの選択 */}
+        {phase === 0 && KO.map((n) => (
+          <g key={n} onClick={() => tap(n)} style={{ cursor: "pointer" }} className="tgt">
+            <rect x={XI - 26} y={ky(n) - 15} width="52" height="30" rx="8"
+              fill={pick === n ? (n === 1 ? "#1B4030" : "#3A1C17") : C.yel} opacity={pick === n ? .85 : .1} />
+            <rect x={XI - 26} y={ky(n) - 15} width="52" height="30" rx="8" fill="none"
+              stroke={pick === n ? (n === 1 ? C.grn : C.red) : C.yel} strokeWidth="1.4" strokeDasharray="4 4" />
+          </g>
+        ))}
+
+        {/* 垂直の判定 */}
+        {phase >= 1 && (
+          <g>
+            <rect x="164" y="34" width="104" height="26" rx="7" fill="#101720" stroke={ok ? C.grn : C.line} strokeWidth="1.5" />
+            <line x1="204" y1="38" x2="204" y2="56" stroke={C.dim2} strokeWidth="1.2" />
+            <line x1="228" y1="38" x2="228" y2="56" stroke={C.dim2} strokeWidth="1.2" />
+            <circle cx={216 + turn * 0.3} cy="47" r="8" fill={ok ? C.grn : Math.abs(turn) < 20 ? C.yel : C.red} opacity=".9" />
+            <text x="216" y="26" textAnchor="middle" fontSize="10" fill={C.dim} fontFamily={F}>垂直</text>
+          </g>
+        )}
+      </svg>
+
+      <div style={{ padding: 16 }}>
+        <div style={{ fontSize: 14.5, fontWeight: 800, lineHeight: 1.6, marginBottom: 8 }}>
+          {phase === 0 ? "壁当てジャッキを付けるコマはどこ？"
+            : phase === 1 ? "ジャッキを回して、内柱の垂直を出す"
+              : "垂直が出た。これで内柱が建物へ突っ張った"}
+        </div>
+        <div style={{ fontSize: 12.5, color: C.dim, lineHeight: 1.85, marginBottom: 12 }}>
+          {phase === 0
+            ? "壁当てジャッキは踏板手摺のすぐ下に付けます。低い位置に付けると、踏板の上を歩く者の足に当たって危険です。"
+            : "締めると柱の頭が建物から離れ、緩めると建物側へ寄ります。泡が真ん中で止まったところが垂直です。"}
+        </div>
+
+        {/* 回す操作：根がらみのジャッキと同じ。柱の頭が動く側のボタンを押す */}
+        {phase === 1 && (
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }}>
+            <Btn onClick={() => roll(-1)}>◀　緩める</Btn>
+            <Btn onClick={() => roll(1)}>締める　▶</Btn>
+          </div>
+        )}
+
+        <div style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: 9, padding: "11px 13px", fontSize: 12, color: C.dim, lineHeight: 1.9 }}>
+          一側足場は建物に頼って立っています。<br />
+          壁当てジャッキが効いていないと、踏板に乗ったときに足場ごと動きます。
+        </div>
+        {phase === 2 && <Btn tone="y" onClick={onClear} style={{ marginTop: 14 }}>次へ</Btn>}
+      </div>
+    </div>
+  );
+}
+
+/* ── 安全帯（フックの掛け先を選ぶ） ── */
+function BeltZoom({ mode, onClear, onFoul }) {
+  const [pick, setPick] = useState(null);
+  const opts = mode === "post"
+    ? [
+      { t: "支柱に付ける", ok: true, fb: "正解。手摺がまだ無いうちは、支柱が一番確かな掛け先だ。" },
+      { t: "支柱のコマに掛ける", ok: false, fb: "コマは部材を差す緊結部だ。フックを掛ける場所じゃない。外れる。" },
+      { t: "足元の踏板の枠に掛ける", ok: false, fb: "低い位置に掛ければ、落ちたときに地面まで届く。" },
+    ]
+    : [
+      { t: "入れた手摺に掛け替える", ok: true, fb: "正解。手摺が入ったら、そこへ移す。移動しながら作業できる。" },
+      { t: "支柱のまま動かない", ok: false, fb: "支柱のままでは移動できん。手摺が入ったら掛け替える。" },
+      { t: "コマに掛け替える", ok: false, fb: "コマには掛けない。何度言わせるんじゃ。" },
+    ];
+  /* 掛け先の座標（支柱の高い位置／コマ／踏板／手摺） */
+  const P_POST = { x: ZX1, y: (zk(4) + zk(3)) / 2 };   // コマとコマの間＝支柱の胴
+  const P_KOMA = { x: ZX1, y: zk(3) };
+  const P_DECK = { x: 170, y: ZD - 8 };
+  const P_RAIL = { x: 130, y: zk(2) };
+  const tgt = mode === "post" ? [P_POST, P_KOMA, P_DECK] : [P_RAIL, P_POST, P_KOMA];
+
+  return (
+    <div style={{ position: "absolute", inset: 0, background: "#0C1015", zIndex: 20, overflowY: "auto" }}>
+      <div style={{ padding: "12px 16px", borderBottom: `1px solid ${C.line}`, display: "flex", gap: 8, alignItems: "baseline" }}>
+        <span style={{ fontSize: 12.5, fontWeight: 800, color: C.yel }}>安全帯</span>
+        <span style={{ fontSize: 11, color: C.dim }}>{mode === "post" ? "足場上に上がった" : "1本目の手摺が入った"}</span>
+      </div>
+
+      <svg viewBox="0 0 340 320" style={{ width: "100%", display: "block" }}>
+        <ZScaffold rails={mode === "rail" ? [1, 2] : []} komaOn={mode === "rail" ? [1, 2] : []} />
+        {/* ラベル */}
+        <text x={ZX1 - 12} y={(zk(4) + zk(3)) / 2 + 4} textAnchor="end" fontSize="11" fill={C.dim} fontFamily={F}>支柱</text>
+        <text x={ZX2 + 14} y={zk(3) + 4} fontSize="11" fill={C.dim} fontFamily={F}>コマ</text>
+        {mode === "rail" && <text x={ZX2 + 14} y={zk(2) + 4} fontSize="11" fill={C.yel} fontFamily={F}>手摺</text>}
+        <text x={ZX2 + 14} y={ZD + 4} fontSize="11" fill={C.dim} fontFamily={F}>踏板</text>
+        {/* フックの線 */}
+        {pick !== null && (
+          <g>
+            <line x1="170" y1={ZD - 96} x2={tgt[pick].x} y2={tgt[pick].y}
+              stroke={opts[pick].ok ? C.grn : C.red} strokeWidth="3.5" />
+            {(mode === "post" ? pick === 0 : pick === 1) ? (
+              <ellipse cx={tgt[pick].x} cy={tgt[pick].y} rx="11" ry="7" fill="none"
+                stroke={opts[pick].ok ? C.grn : C.red} strokeWidth="3" />
+            ) : (
+              <circle cx={tgt[pick].x} cy={tgt[pick].y} r="12" fill="none"
+                stroke={opts[pick].ok ? C.grn : C.red} strokeWidth="3" />
+            )}
+          </g>
+        )}
+      </svg>
+
+      <div style={{ padding: 16 }}>
+        <div style={{ fontSize: 14.5, fontWeight: 800, marginBottom: 10 }}>
+          {mode === "post" ? "安全帯をどこに取り付ける？" : "安全帯をどうする？"}
+        </div>
+        <div style={{ display: "grid", gap: 8 }}>
+          {opts.map((o, i) => (
+            <button key={i} onClick={() => { setPick(i); if (!o.ok) onFoul(o.fb); }} style={{
+              background: pick === i ? (o.ok ? "#12281D" : "#2C1815") : C.panel2,
+              color: pick === i ? (o.ok ? "#9FE3BE" : "#F4B5AE") : C.txt,
+              border: `1px solid ${pick === i ? (o.ok ? C.grn : C.red) : C.line}`,
+              borderRadius: 9, padding: "13px 14px", fontSize: 13, fontWeight: 700, fontFamily: F, cursor: "pointer", textAlign: "left",
+            }}>{o.t}</button>
+          ))}
+        </div>
+        {pick !== null && (
+          <div style={{ fontSize: 12.5, lineHeight: 1.8, marginTop: 11, color: opts[pick].ok ? C.grn : "#F4B5AE" }}>{opts[pick].fb}</div>
+        )}
+        {pick !== null && opts[pick].ok && <Btn tone="y" onClick={onClear} style={{ marginTop: 14 }}>次へ</Btn>}
+      </div>
+    </div>
+  );
+}
+
+
+/* ── 完成図（結果の前に振り返る） ── */
+function Complete({ svg, stats, onResult }) {
+  return (
+    <div style={{ padding: 16 }}>
+      <div style={{ textAlign: "center", marginBottom: 12 }}>
+        <div style={{ fontSize: 11, color: C.grn, fontWeight: 800, letterSpacing: 3 }}>第2章 高所作業</div>
+        <div style={{ fontSize: 20, fontWeight: 900, marginTop: 5 }}>足場組立完了</div>
+      </div>
+      <div style={{ background: "#0F1318", border: `1px solid ${C.line}`, borderRadius: 10, overflow: "hidden", marginBottom: 14 }}>
+        {svg}
+      </div>
+      <div style={{ fontSize: 10, color: C.dim, letterSpacing: 2, marginBottom: 8 }}>この現場で入れたもの</div>
+      <div style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: 10, padding: "12px 14px", marginBottom: 14 }}>
+        {stats.map(([k, v, c], i) => (
+          <div key={i} style={{ display: "flex", fontSize: 12.5, padding: "5px 0" }}>
+            <span style={{ width: 10, height: 10, borderRadius: 3, background: c, marginRight: 9, marginTop: 3, flexShrink: 0 }} />
+            <span style={{ flex: 1, color: C.dim }}>{k}</span>
+            <span style={{ fontFamily: MO, color: C.txt }}>{v}</span>
+          </div>
+        ))}
+      </div>
+      <div style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: 10, padding: "12px 14px", fontSize: 12, color: C.dim, lineHeight: 1.95, marginBottom: 16 }}>
+        床に乗る前に囲いを作る。手摺は低い方から。<br />
+        支柱・受け材・踏板は奥から手前へ。手摺は荷揚げ側から。<br />
+        この2つの向きが、材料を運ぶ距離を決めます。
+      </div>
+      <Btn tone="y" onClick={onResult}>結果を見る</Btn>
+    </div>
+  );
+}
+
+/* ── ゲーム本体 ───────────────────────── */
+function Game({ tuto, onEnd, onHome }) {
+  const [S, setS] = useState(() => new Set());
+  const [qi, setQi] = useState(0);
+  const [lv, setLv] = useState(0);          // 作業員の高さ 0/1/2(屋根)
+  const [at, setAt] = useState(0);          // 立っている柱の番号（0..3）
+  const [tool, setTool] = useState("move");
+  const [walking, setWalking] = useState(false);
+  const [mood, setMood] = useState("normal");
+  const [skill, setSkill] = useState(100);
+  const [score, setScore] = useState(0);
+  const [combo, setCombo] = useState(0);
+  const [best, setBest] = useState(0);
+  const [errs, setErrs] = useState([]);
+  const [msg, setMsg] = useState(tuto ? "まず地上から筋交を入れろ。南端から出隅へ向かって入れる。" : "筋交からだ。南端からだ。");
+  const [ov, setOv] = useState(null);
+  const [scold, setScold] = useState(null);
+  const [t0] = useState(() => Date.now());
+  const [sec, setSec] = useState(0);
+  const [belt, setBelt] = useState("none");   // none / post / rail
+
+  useEffect(() => { const i = setInterval(() => setSec(Math.floor((Date.now() - t0) / 1000)), 1000); return () => clearInterval(i); }, [t0]);
+
+  const steps = buildSteps();
+  const cur = steps[qi];
+  const has = (k) => S.has(k);
+  const put = (k) => setS((p) => new Set(p).add(k));
+  const adv = () => setQi((i) => i + 1);
+  const mult = Math.min(1 + Math.floor(combo / 3), 5);
+  const SCOLD = ["違う。", "何しとる。", "順番を考えろ。", "そこじゃない。"];
+
+  const good = (t, quiet) => {
+    if (!quiet) SFX.ham();
+    const g = 100 * mult; setScore((v) => v + g);
+    setCombo((c) => { const n = c + 1; setBest((b) => Math.max(b, n)); return n; });
+    setMood("good"); setTimeout(() => setMood("normal"), 800);
+    setMsg(tuto ? t : (t.length > 14 ? t.split("。")[0] + "。" : t));
+  };
+  const bad = (t, p = 0, tag) => {
+    SFX.buzz(); setCombo(0); setMood("bad"); setTimeout(() => setMood("normal"), 800);
+    if (p) { setSkill((v) => Math.max(0, v - p)); setErrs((e) => [...e, { h: tag, t }]); }
+    setMsg(tuto ? t : SCOLD[Math.floor(Math.random() * SCOLD.length)]);
+  };
+  const foul = (line, tag) => {
+    SFX.shout(); setScold(tuto ? line : "何をしとるんじゃ！");
+    setCombo(0); setMood("bad"); setSkill((v) => Math.max(0, v - 10));
+    setErrs((e) => [...e, { h: tag || "重大な誤り", t: line }]);
+  };
+  const walk = (i) => { setWalking(true); setAt(i); SFX.step(); setTimeout(() => setWalking(false), 300); };
+
+  /* 昇降 */
+  const climb = () => {
+    if (!cur) return;
+    if (cur.k === "climb1") {
+      setLv(1); walk(0); adv();
+      setOv({ type: "belt", mode: "post", next: () => { setBelt("post"); good("支柱に安全帯を取った。ここから2段目を組む。"); } });
+      return;
+    }
+    if (cur.k === "climb2") {
+      if (!SPID.every((id) => has(`D2:${id}`))) return bad("踏板が全部敷けていない。", 8, "手順の飛ばし");
+      setLv(2); walk(0); adv();
+      return good("昇降階段で2段目に上がった。手摺を入れろ。");
+    }
+    if (cur.k === "roof") {
+      if (!SPID.every((id) => has(`R2:${id}`))) return bad("2段目の手摺が全部入っていない。囲いの無い床には上がらない。", 10, "手摺の無い床に上がる");
+      setLv(3); adv();
+      return good("屋根に上がった。まず転落防止手摺を立てる。");
+    }
+    return bad("いま上がる場面じゃない。");
+  };
+
+  /* 柱をタップ */
+  const tapPost = (i) => {
+    const p = POSTS[i];
+    if (tool === "move") { if (lv === 0) return bad("まず1段目に上がれ。"); walk(i); return setMsg(`${PN[p]}の前に立った。`); }
+    if (lv === 0) return bad("足場の上でやる作業だ。まず上がれ。");
+    if (tool === "post") {
+      if (cur.k !== "post2" && cur.k !== "postI")
+        return bad(cur.k === "rail1" ? "先に1段目の手摺だ。囲いの無い床で作業するな。" : "いま支柱を継ぐ場面じゃない。", 8, "手順の飛ばし");
+      if (i !== at) return bad(`${PN[p]}の前まで移動しろ。`);
+      if (cur.t !== p) return bad("その柱の番じゃない。奥から手前へ順に継げ。", 8, "建てる順序");
+      if (cur.k === "postI") {
+        if (has(`PI:${p}`)) return bad("その内柱はもう継いである。");
+        put(`PI:${p}`); adv(); return good(`${PN[p]}の内柱も継いだ。踏板を受ける柱だ。`);
+      }
+      if (has(`P2:${p}`)) return bad("その柱はもう継いである。");
+      put(`P2:${p}`); adv(); return good(`${PN[p]}の支柱を継いだ。`);
+    }
+    if (tool === "brk") {
+      if (INNER[p]) return bad("そこは内柱の箇所だ。ブラケットではなく踏板高さの手摺でつなぐ。", 8, "取付位置の誤り");
+      if (has(`BRK:${p}`)) return bad("もう掛けてある。");
+      if (cur.k !== "brk") return bad("いまブラケットを掛ける場面じゃない。", 8, "手順の飛ばし");
+      if (cur.t !== p) return bad("その柱じゃない。", 8, "取付位置の誤り");
+      put(`BRK:${p}`); adv(); return good("ブラケットを掛けた。2段目の踏板を受ける材だ。");
+    }
+    if (tool === "wjack") {
+      if (!INNER[p]) return bad("壁当てジャッキは内柱の箇所に付ける。", 8, "取付位置の誤り");
+      if (has(`WJ:${p}`)) return bad("もう付いている。");
+      if (!cur || cur.k !== "wjack") return bad("いまその場面じゃない。", 8, "手順の飛ばし");
+      if (cur.t !== p) return bad("その柱じゃない。", 8, "取付位置の誤り");
+      if (!has(`R6:${p}`)) return bad("先に踏板手摺で内柱とつなげ。", 8, "手順の飛ばし");
+      return setOv({ type: "wjack", next: () => { put(`WJ:${p}`); adv(); good("壁当てジャッキで建物へ突っ張った。垂直も出ている。"); } });
+    }
+    if (tool === "rail6") {
+      if (!INNER[p]) return bad("そこは内柱の箇所じゃない。ブラケットで受ける。", 8, "取付位置の誤り");
+      if (has(`R6:${p}`)) return bad("もう入っている。");
+      if (cur.k !== "rail6") return bad("いまその場面じゃない。", 8, "手順の飛ばし");
+      if (cur.t !== p) return bad("その柱じゃない。", 8, "取付位置の誤り");
+      if (!has(`PI:${p}`)) return bad("内柱がまだ継がれていない。", 8, "手順の飛ばし");
+      put(`R6:${p}`); adv(); return good("踏板高さの手摺で内柱とつないだ。これが踏板を受ける。");
+    }
+    return bad("その資材はそこに付かん。");
+  };
+
+  /* スパンをタップ */
+  const tapSpan = (k) => {
+    const id = SPID[k];
+    if (tool === "move") {
+      if (lv === 0) return bad("地上では筋交を入れるだけだ。");
+      walk(k); return setMsg("スパンの間に立った。");
+    }
+    if (lv === 0 && tool !== "brace") return bad("それは足場の上でやる作業だ。まず筋交を入れて上がれ。");
+    if (tool === "rail") {
+      const lvl = cur.k === "rail1" ? 1 : cur.k === "rail2" ? 2 : null;
+      if (!lvl) return bad("いま手摺を入れる場面じゃない。", 8, "手順の飛ばし");
+      const key = lvl === 1 ? `R1:${id}` : `R2:${id}`;
+      if (has(key)) return bad("もう入っている。");
+      if (cur.t !== id) return bad("そのスパンの番じゃない。", 8, "取付順序");
+      if (lvl === 2 && !has(`D2:${id}`)) return bad("先に踏板を敷け。", 8, "手順の飛ばし");
+      /* 1本目の手摺は図解で入れ方を教える */
+      if (lvl === 1 && !S.has("TAUGHT")) {
+        return setOv({
+          type: "rail", next: () => {
+            put("TAUGHT"); put(key); adv();
+            setOv({ type: "belt", mode: "rail", next: () => { setBelt("rail"); good("手摺に掛け替えた。これで動ける。"); } });
+          },
+        });
+      }
+      put(key); adv();
+      if (lvl === 1 && belt === "post") {
+        setOv({ type: "belt", mode: "rail", next: () => { setBelt("rail"); good("手摺に掛け替えた。これで動ける。"); } });
+        return;
+      }
+      return good(lvl === 1 ? "1段目の手摺が入った。ここが自分の囲いになる。" : "2段目の手摺が入った。");
+    }
+    if (tool === "fall") {
+      if (lv !== 3) return bad("屋根に上がってから付ける。");
+      if (!cur || cur.k !== "fall") return bad("いまその場面じゃない。", 8, "手順の飛ばし");
+      const [kind] = cur.t.split(":");
+      const key = `FL:${cur.t}`;
+      if (has(key)) return bad("それはもう入っている。");
+      if (cur.t !== `${kind}:${id}`) return bad("そのスパンの番じゃない。", 8, "取付順序");
+      if (kind === "U" && !has(`FL:M:${id}`)) return bad("中さんが先だ。低い方から入れる。", 8, "取付順序");
+      put(key); adv();
+      const rest = SPID.filter((x) => !has(`FL:${kind}:${x}`) && x !== id).length;
+      return good(kind === "M"
+        ? (rest ? "中さんを入れた。次のスパンへ。" : "中さんが全部入った。次は上さんだ。")
+        : (rest ? "上さんを入れた。" : "上さんも全部入った。これで屋根側が囲われた。"));
+    }
+    if (tool === "brace") {
+      if (!cur || cur.k !== "brace") return bad("いま筋交を入れる場面じゃない。", 8, "手順の飛ばし");
+      const [lvl, sid] = cur.t.split(":");
+      if (sid !== id) return bad("そのスパンじゃない。", 8, "取付位置の誤り");
+      if (has(`BR:${cur.t}`)) return bad("もう入っている。");
+      if (lvl === "1" && lv !== 0) return bad("1本目の筋交は地上から入れる。降りろ。", 8, "作業位置の誤り");
+      if (lvl === "2" && lv !== 1) return bad("2本目の筋交は1段目から入れる。", 8, "作業位置の誤り");
+      if (lvl === "3" && lv !== 2) return bad("最後の筋交は2段目から入れる。", 8, "作業位置の誤り");
+      /* 1本目は図解で入れ方を教える */
+      if (!S.has("BR_TAUGHT")) {
+        return setOv({ type: "brace", next: () => { put("BR_TAUGHT"); put(`BR:${cur.t}`); adv(); good("筋交が入った。面が動かなくなる。"); } });
+      }
+      return setOv({ type: "brace", next: () => { put(`BR:${cur.t}`); adv(); good("筋交が入った。"); } });
+    }
+    if (tool === "deck") {
+      if (has(`D2:${id}`)) return bad("もう敷いてある。");
+      if (cur.k !== "deck2") return bad("いま踏板を敷く場面じゃない。受け材が先だ。", 8, "手順の飛ばし");
+      if (cur.t !== id) return bad("そのスパンじゃない。", 8, "取付位置の誤り");
+      put(`D2:${id}`); adv(); return good("2段目の踏板を敷いた。");
+    }
+    return bad("そこに付く資材じゃない。");
+  };
+
+  const finished = qi >= steps.length;
+
+
+
+  /* チュートリアルの案内と使える資材 */
+  const guide = tuto && cur ? cur.d : null;
+  const usable = () => {
+    if (!cur) return ["move"];
+    const m = { brace: "brace", rail1: "rail", rail2: "rail", post2: "post", postI: "post", wjack: "wjack", brk: "brk", rail6: "rail6", deck2: "deck", fall: "fall" }[cur.k];
+    return m ? ["move", m] : ["move"];
+  };
+  const ALLT = [["move", "移動"], ["brace", "筋交"], ["rail", "手摺"], ["post", "支柱"], ["wjack", "壁当てジャッキ"], ["brk", "ブラケット"], ["rail6", "踏板手摺"], ["deck", "踏板"], ["fall", "転落防止手摺"]];
+  const tools = tuto ? ALLT.filter(([id]) => usable().includes(id)) : ALLT;
+
+  /* 描画：柱の高さ */
+  const topOf = (p) => (has(`P2:${p}`) ? 2 + FALL_U + 0.2 : 2.0);
+  const topIn = (p) => (has(`PI:${p}`) ? 2.06 : 1.06);   // 踏板高さで止まる
+  const wx = lv >= 3 ? px(at) + IN_DX : px(at) + (lv >= 1 ? 13 : 0);
+  const wy = lv >= 3 ? roofYAt() + 2 : py(Math.min(lv, 2)) - 9;
+
+  const board = (
+        <svg viewBox="0 0 340 476" style={{ width: "100%", display: "block" }}>
+      <Roof />
+      <rect y={GY} width="340" height="46" fill="#1A2027" />
+      {/* 内柱（1段目まで既設） */}
+      {POSTS.map((p, i) => INNER[p] && <Post key={"in" + p} i={i} top={topIn(p)} inner joint={has(`PI:${p}`)} />)}
+      {/* 1段目：根がらみ・踏板 */}
+      <line x1={px(0)} y1={py(0.25)} x2={px(3)} y2={py(0.25)} stroke={C.steelDk} strokeWidth="4.5" />
+      {SPANS.map((_, i) => <Deck key={"d1" + i} a={i} b={i + 1} lv={1} />)}
+      {POSTS.map((p, i) => INNER[p] && <Rail6 key={"r6a" + p} i={i} lv={1} />)}
+      {/* 荷揚げ役 */}
+      <Hoister x={px(HOIST) - 30} y={GY} active={cur && /^(rail1|rail2|post2|postI|brk|rail6|deck2)$/.test(cur.k)} />
+      {/* 昇降階段 */}
+      <Stair i={0} lv={1} />
+      {lv >= 2 && <Stair i={0} lv={2} />}
+      {/* 外柱 */}
+      {POSTS.map((p, i) => <Post key={p} i={i} top={topOf(p)} joint={has(`P2:${p}`)} />)}
+      {/* 1段目の手摺 */}
+      {SPID.map((id, i) => has(`R1:${id}`) && <Rail key={"r1" + id} a={i} b={i + 1} lv={1} />)}
+      {/* 筋交 */}
+      {["1", "2", "3"].map((L) => SPID.map((id, i) => has(`BR:${L}:${id}`) && (() => {
+        /* 向きは一方向のみ。下端＝南端側（右）／上端＝出隅側（左） */
+        const xLo = px(i + 1), yLo = py(Number(L) - 1) - 6;   // 下端（南端側）
+        const xHi = px(i), yHi = py(Number(L)) - 6;           // 上端（出隅側）
+        return (
+          <g key={"br" + L + id} className="el">
+            <line x1={xLo} y1={yLo} x2={xHi} y2={yHi} stroke="#B9C4CE" strokeWidth="5" strokeLinecap="round" />
+            <circle cx={xLo} cy={yLo} r="4.5" fill="#8A96A2" /><circle cx={xHi} cy={yHi} r="4.5" fill="#8A96A2" />
+          </g>
+        );
+      })()))}
+      {/* 壁当てジャッキ（内柱→建物） */}
+      {POSTS.map((p, i) => has(`WJ:${p}`) && (() => {
+        const y = py(2) + 0.25 * LH;
+        const xp = px(i) + IN_DX;          // 内柱
+        /* 建物は奥。真横の一直線だと他の部材と見分けが付かないので、奥行き方向へ斜めに描く */
+        const ex = xp - 34, ey = y - 22;     // 外壁に当たる先端
+        const ux = (ex - xp) / Math.hypot(ex - xp, ey - y), uy = (ey - y) / Math.hypot(ex - xp, ey - y);
+        return (
+          <g key={"wj" + p} className="el">
+            {/* 支柱側の取付金具 */}
+            <rect x={xp - 6} y={y - 7} width="12" height="14" rx="2" fill="#7E8A96" stroke={C.steelDk} />
+            {/* ねじ軸（斜め） */}
+            <line x1={xp} y1={y} x2={ex} y2={ey} stroke="#9AA6B2" strokeWidth="4.5" strokeLinecap="round" />
+            {[1, 2, 3].map((k) => {
+              const cx = xp + ux * (k * 7 + 8), cy = y + uy * (k * 7 + 8);
+              return <line key={k} x1={cx - uy * 4} y1={cy + ux * 4} x2={cx + uy * 4} y2={cy - ux * 4} stroke="#6E7A87" strokeWidth="1.4" />;
+            })}
+            {/* 外壁に当たる座金 */}
+            <line x1={ex - uy * 7} y1={ey + ux * 7} x2={ex + uy * 7} y2={ey - ux * 7} stroke="#8A96A2" strokeWidth="5" strokeLinecap="round" />
+          </g>
+        );
+      })())}
+      {/* 受け材 */}
+      {POSTS.map((p, i) => has(`BRK:${p}`) && <Brk key={"b" + p} i={i} lv={2} />)}
+      {POSTS.map((p, i) => has(`R6:${p}`) && <Rail6 key={"r6" + p} i={i} lv={2} />)}
+      {/* 2段目 */}
+      {SPID.map((id, i) => has(`D2:${id}`) && <Deck key={"d2" + id} a={i} b={i + 1} lv={2} />)}
+      {SPID.map((id, i) => has(`R2:${id}`) && <Rail key={"r2" + id} a={i} b={i + 1} lv={2} />)}
+      {/* 転落防止手摺 */}
+      {[["M", FALL_M, 4], ["U", FALL_U, 5.5]].map(([k, h, w]) => SPID.map((id, i) => has(`FL:${k}:${id}`) && (() => {
+        const y = py(2) - h * LH, x1 = px(i), x2 = px(i + 1);
+        const wd = (x, d) => `${x},${y - 6} ${x + d * 7},${y - 1} ${x},${y + 5}`;
+        return (
+          <g key={k + id} className="el">
+            <line x1={x1} y1={y} x2={x2} y2={y} stroke={C.org} strokeWidth={w} />
+            <polygon points={wd(x1, 1)} fill={C.org} /><polygon points={wd(x2, -1)} fill={C.org} />
+          </g>
+        );
+      })()))}
+
+      {/* 取付ガイド：筋交 */}
+      {cur && cur.k === "brace" && (() => {
+        const [L, sid] = cur.t.split(":");
+        const i = SPID.indexOf(sid);
+        if (i < 0) return null;
+        /* 向きは一方向のみ。下端＝南端側（右）／上端＝出隅側（左） */
+        const xLo = px(i + 1), yLo = py(Number(L) - 1) - 6;
+        const xHi = px(i), yHi = py(Number(L)) - 6;
+        return (
+          <g className="tgt">
+            <line x1={xLo} y1={yLo} x2={xHi} y2={yHi} stroke="#B9C4CE" strokeWidth="7" opacity=".2" strokeLinecap="round" />
+            <line x1={xLo} y1={yLo} x2={xHi} y2={yHi} stroke="#B9C4CE" strokeWidth="2" strokeDasharray="6 5" />
+            <circle cx={xLo} cy={yLo} r="10" fill="none" stroke="#B9C4CE" strokeWidth="2" strokeDasharray="3 3" />
+            <circle cx={xHi} cy={yHi} r="10" fill="none" stroke="#B9C4CE" strokeWidth="2" strokeDasharray="3 3" />
+          </g>
+        );
+      })()}
+
+      {/* 取付ガイド：いま付ける位置を破線で示す */}
+      {cur && cur.k === "fall" && (() => {
+        const [kind, sid] = cur.t.split(":");
+        const i = SPID.indexOf(sid);
+        if (i < 0) return null;
+        const h = kind === "U" ? FALL_U : FALL_M;
+        const y = py(2) - h * LH, x1 = px(i), x2 = px(i + 1);
+        return (
+          <g className="tgt">
+            <line x1={x1} y1={y} x2={x2} y2={y} stroke={C.org} strokeWidth="7" opacity=".25" strokeLinecap="round" />
+            <line x1={x1} y1={y} x2={x2} y2={y} stroke={C.org} strokeWidth="2" strokeDasharray="6 5" />
+            {[x1, x2].map((x) => (
+              <circle key={x} cx={x} cy={y} r="11" fill="none" stroke={C.org} strokeWidth="2" strokeDasharray="3 3" />
+            ))}
+            {tuto && (
+              <>
+                <rect x={(x1 + x2) / 2 - 42} y={y - 30} width="84" height="19" rx="5" fill="#0F1318" stroke={C.org} strokeWidth="1.2" />
+                <text x={(x1 + x2) / 2} y={y - 16.5} textAnchor="middle" fontSize="11" fill={C.org} fontFamily={F} fontWeight="700">
+                  {kind === "U" ? "上さん 2,700" : "中さん 2,250"}
+                </text>
+                <line x1={x2 + 20} y1={py(2)} x2={x2 + 20} y2={y} stroke={C.org} strokeWidth="1.2" opacity=".7" />
+                <line x1={x2 + 15} y1={py(2)} x2={x2 + 25} y2={py(2)} stroke={C.org} strokeWidth="1.2" opacity=".7" />
+                <line x1={x2 + 15} y1={y} x2={x2 + 25} y2={y} stroke={C.org} strokeWidth="1.2" opacity=".7" />
+              </>
+            )}
+          </g>
+        );
+      })()}
+
+      {/* タップ位置：柱 */}
+      {POSTS.map((p, i) => (
+        <g key={"tp" + p} className="tgt" style={{ cursor: "pointer" }} onClick={() => tapPost(i)}>
+          <circle cx={px(i)} cy={py(Math.min(lv, 2)) - 34} r="18" fill={C.yel} opacity=".10" />
+          <circle cx={px(i)} cy={py(Math.min(lv, 2)) - 34} r="18" fill="none" stroke={C.yel} strokeWidth="1.4" strokeDasharray="4 4" />
+          <text x={px(i)} y={GY + 24} textAnchor="middle" fontSize="10.5" fill={C.dim} fontFamily={F}>{PN[p]}</text>
+        </g>
+      ))}
+      {/* タップ位置：スパン */}
+      {SPID.map((id, i) => {
+        const onRoof = lv >= 3;
+        const kind = cur && cur.k === "fall" ? cur.t.split(":")[0] : "M";
+        const onBrace = cur && cur.k === "brace";
+        const bl = onBrace ? Number(cur.t.split(":")[0]) : 1;
+        const yc = onRoof ? py(2) - (kind === "U" ? FALL_U : FALL_M) * LH
+          : onBrace ? (py(bl - 1) + py(bl)) / 2
+            : py(Math.min(lv, 2)) - 49;
+        const isTarget = (cur && cur.k === "fall" && cur.t.split(":")[1] === id)
+          || (onBrace && cur.t.split(":")[1] === id);
+        return (
+          <g key={"ts" + id} className="tgt" style={{ cursor: "pointer" }} onClick={() => tapSpan(i)}>
+            <rect x={px(i) + 14} y={yc - 15} width={SW - 28} height="30" rx="7"
+              fill={isTarget ? C.org : C.yel} opacity={isTarget ? ".14" : ".08"} />
+            <rect x={px(i) + 14} y={yc - 15} width={SW - 28} height="30" rx="7" fill="none"
+              stroke={isTarget ? C.org : C.yel} strokeWidth="1.4" strokeDasharray="4 4" />
+          </g>
+        );
+      })}
+
+      {/* 作業員 */}
+      <g style={{ transform: `translate(${wx}px,${wy}px)`, transition: "transform .3s ease" }}>
+        {belt !== "none" && lv >= 1 && lv < 3 && (
+          <line x1="-2" y1="-30" x2={belt === "post" ? px(at) - wx : -30} y2={belt === "post" ? -46 : -54} stroke={C.grn} strokeWidth="2.5" />
+        )}
+        <Kenta mood={mood} walking={walking} />
+      </g>
+    </svg>
+  );
+
+  return (
+    <div style={{ position: "relative" }}>
+      {/* HUD */}
+      <div style={{ display: "flex", gap: 10, alignItems: "center", padding: "8px 14px", background: C.panel, borderBottom: `1px solid ${C.line}` }}>
+        <div>
+          <div style={{ fontSize: 9, color: C.dim, letterSpacing: 1 }}>SCORE</div>
+          <div style={{ fontFamily: MO, fontSize: 16, fontWeight: 700, color: C.yel, lineHeight: 1 }}>{score}</div>
+        </div>
+        {combo >= 2 && <div style={{ background: C.yel, color: "#14171B", borderRadius: 6, padding: "3px 8px", fontWeight: 900, fontSize: 13, fontFamily: MO }}>{combo} COMBO ×{mult}</div>}
+        <div style={{ marginLeft: "auto", textAlign: "right" }}>
+          <div style={{ fontSize: 9, color: C.dim, letterSpacing: 1 }}>技能</div>
+          <div style={{ fontFamily: MO, fontSize: 16, fontWeight: 700, lineHeight: 1, color: skill >= 80 ? C.grn : skill >= 60 ? C.yel : C.red }}>{skill}</div>
+        </div>
+        <div style={{ fontFamily: MO, fontSize: 12, color: C.dim }}>{String(Math.floor(sec / 60)).padStart(2, "0")}:{String(sec % 60).padStart(2, "0")}</div>
+      </div>
+
+      {/* 盤面（立面） */}
+      {!finished && <div style={{ background: "#0F1318", borderBottom: `1px solid ${C.line}`, position: "relative" }}>
+        {guide && (
+          <div style={{ position: "absolute", left: 8, right: 8, top: 8, zIndex: 4, background: "#0F1318ee", border: `1px solid ${C.yel}`, borderRadius: 9, padding: "9px 12px", display: "flex", alignItems: "center", gap: 9 }}>
+            <span style={{ fontSize: 9, color: "#14171B", background: C.yel, borderRadius: 4, padding: "2px 6px", fontWeight: 900 }}>次</span>
+            <span style={{ fontSize: 12.5, fontWeight: 700, lineHeight: 1.5 }}>{guide}</span>
+          </div>
+        )}
+        {!guide && (
+          <div style={{ position: "absolute", left: 8, top: 8, zIndex: 4, background: "#0F1318cc", borderRadius: 7, padding: "5px 9px", fontSize: 10.5, color: C.dim }}>
+            {["地上", "1段目", "2段目", "屋根"][lv]}　<b style={{ color: C.cyan }}>{PN[POSTS[at]] || ""}</b>
+          </div>
+        )}
+
+        {board}
+      </div>}
+
+      {finished && (
+        <Complete
+          svg={board}
+          stats={[
+            ["1段目の手摺", `${SPID.length}スパン`, C.yel],
+            ["継いだ支柱", `${POSTS.length}本`, C.steel],
+            ["継いだ内柱", `${POSTS.filter((p) => INNER[p]).length}本`, "#7E8A96"],
+            ["ブラケット", `${POSTS.filter((p) => !INNER[p]).length}箇所`, C.steelDk],
+            ["踏板高さの手摺", `${POSTS.filter((p) => INNER[p]).length}箇所`, C.cyan],
+            ["2段目の踏板", `${SPID.length}枚`, "#7B8895"],
+            ["2段目の手摺", `${SPID.length}スパン`, C.yel],
+            ["筋交", `3本（南端から出隅へ一直線）`, "#B9C4CE"],
+            ["壁当てジャッキ", `${POSTS.filter((p) => INNER[p]).length}箇所`, C.org],
+            ["転落防止手摺", `${SPID.length}スパン × 2本`, C.org],
+          ]}
+          onResult={() => onEnd({ skill, score, best, errs, sec })} />
+      )}
+
+      {/* 親方 */}
+      {!finished &&
+      <div style={{ display: "flex", gap: 9, alignItems: "flex-start", margin: "8px 14px 0", background: C.panel, border: `1px solid ${mood === "bad" ? C.red : C.line}`, borderRadius: 10, padding: "9px 11px" }}>
+        <Boss size={38} angry={mood === "bad"} />
+        <div style={{ fontSize: 12.5, lineHeight: 1.65, color: mood === "bad" ? "#F4B5AE" : C.txt, paddingTop: 2 }}>{msg}</div>
+      </div>}
+
+      {/* 操作 */}
+      {!finished && <div style={{ padding: "10px 14px 14px" }}>
+        <div style={{ display: "flex", gap: 5, overflowX: "auto", paddingBottom: 2 }}>
+          {tools.map(([id, n]) => (
+            <button key={id} onClick={() => setTool(id)} style={{
+              flex: "0 0 auto", background: tool === id ? C.yel : C.panel2, color: tool === id ? "#14171B" : C.txt,
+              border: `1px solid ${tool === id ? C.yel : C.line}`, borderRadius: 7, padding: "9px 13px",
+              fontSize: 12, fontWeight: 800, fontFamily: F, cursor: "pointer", whiteSpace: "nowrap",
+            }}>{n}</button>
+          ))}
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginTop: 7 }}>
+          <Btn tone={cur && /^(climb1|climb2|roof)$/.test(cur.k) ? "y" : undefined} onClick={climb}>
+            {!cur ? "—" : cur.k === "climb1" ? "昇降階段で1段目へ" : cur.k === "climb2" ? "昇降階段で2段目へ" : cur.k === "roof" ? "屋根に上がる" : "上がる"}
+          </Btn>
+          <div style={{
+            display: "flex", alignItems: "center", justifyContent: "center", gap: 7,
+            background: belt === "none" ? C.panel2 : C.panel, border: `1px solid ${belt === "none" ? C.red : C.grn}`,
+            borderRadius: 9, padding: 12, fontSize: 12.5, fontWeight: 800,
+            color: belt === "none" ? "#F4B5AE" : C.grn,
+          }}>
+            <span style={{ width: 8, height: 8, borderRadius: 4, background: belt === "none" ? C.red : C.grn }} />
+            {belt === "none" ? "安全帯 未" : belt === "post" ? "安全帯 支柱" : "安全帯 手摺"}
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 6, marginTop: 9 }}>
+          <button onClick={onHome} style={{ flex: 1, background: "none", border: `1px solid ${C.line}`, color: C.dim, borderRadius: 8, padding: 9, fontSize: 11.5, fontFamily: F, cursor: "pointer" }}>中断</button>
+        </div>
+      </div>}
+
+      {ov && ov.type === "wjack" && (
+        <WJackZoom onClear={() => { const n = ov.next; setOv(null); n(); }}
+          onFoul={(fb) => foul(fb, "壁当てジャッキの取付位置の誤り")} />
+      )}
+      {ov && ov.type === "brace" && (
+        <BraceZoom onClear={() => { const n = ov.next; setOv(null); SFX.ok(); n(); }}
+          onFoul={(fb) => foul(fb, "筋交の入れ方の誤り")} />
+      )}
+      {ov && ov.type === "rail" && (
+        <RailZoom onClear={() => { const n = ov.next; setOv(null); SFX.ok(); n(); }}
+          onFoul={(fb) => { setOv(null); foul(fb, "手摺の取付位置の誤り"); }} />
+      )}
+      {ov && ov.type === "belt" && (
+        <BeltZoom mode={ov.mode} onClear={() => { const n = ov.next; setOv(null); SFX.ok(); n(); }}
+          onFoul={(fb) => { setOv(null); foul(fb, "安全帯の取り付け位置の誤り"); }} />
+      )}
+      {scold && <Scold line={scold} onClose={() => { setScold(null); setMood("normal"); }} />}
+    </div>
+  );
+}
+
+/* ── 結果 ─────────────────────────────── */
+const RANKS = [{ min: 100, r: "S", t: "一人前" }, { min: 90, r: "A", t: "半人前の上" }, { min: 75, r: "B", t: "見習い" }, { min: 0, r: "C", t: "まだ上に上げられん" }];
+function Result({ r, onRetry, onHome }) {
+  const rk = RANKS.find((x) => r.skill >= x.min), pass = r.skill >= 80, u = [];
+  r.errs.forEach((e) => { const f = u.find((v) => v.h === e.h); if (f) f.n++; else u.push({ ...e, n: 1 }); });
+  return (
+    <div style={{ padding: 20 }}>
+      <div style={{ border: `1px solid ${pass ? C.grn : C.red}`, borderRadius: 12, padding: 20, background: C.panel, textAlign: "center" }}>
+        <div style={{ fontSize: 11, color: C.dim, letterSpacing: 3 }}>第2章 高所作業</div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 16, margin: "10px 0" }}>
+          <div className="rank" style={{ fontFamily: MO, fontSize: 60, fontWeight: 800, color: pass ? C.yel : C.red, lineHeight: 1 }}>{rk.r}</div>
+          <div style={{ textAlign: "left" }}>
+            <div style={{ fontSize: 15, fontWeight: 900 }}>{rk.t}</div>
+            <div style={{ fontSize: 11, color: C.dim, marginTop: 2 }}>{pass ? "合格" : "不合格 — 再受講"}</div>
+          </div>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginTop: 12 }}>
+          {[["SCORE", r.score], ["最大コンボ", r.best], ["技能", r.skill]].map(([t, v], i) => (
+            <div key={i} style={{ background: C.panel2, borderRadius: 8, padding: "9px 4px" }}>
+              <div style={{ fontSize: 9, color: C.dim, letterSpacing: 1 }}>{t}</div>
+              <div style={{ fontFamily: MO, fontSize: 17, fontWeight: 700, color: C.yel }}>{v}</div>
+            </div>
+          ))}
+        </div>
+        <div style={{ fontSize: 11, color: C.dim, marginTop: 10 }}>タイム {String(Math.floor(r.sec / 60)).padStart(2, "0")}:{String(r.sec % 60).padStart(2, "0")}</div>
+      </div>
+      {u.length > 0 ? (
+        <div style={{ marginTop: 18 }}>
+          <div style={{ fontSize: 11, color: C.yel, letterSpacing: 2, marginBottom: 8 }}>親方に言われたこと</div>
+          {u.map((e, k) => (
+            <div key={k} style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: 8, padding: "11px 13px", marginBottom: 8 }}>
+              <div style={{ fontSize: 12, fontWeight: 800, color: C.red, marginBottom: 3 }}>{e.h}{e.n > 1 && ` ×${e.n}`}</div>
+              <div style={{ fontSize: 12.5, color: C.dim, lineHeight: 1.6 }}>{e.t}</div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div style={{ marginTop: 18, display: "flex", gap: 10, alignItems: "center", background: C.panel, border: `1px solid ${C.grn}`, borderRadius: 10, padding: 14 }}>
+          <Boss size={44} /><div style={{ fontSize: 13, color: C.grn, lineHeight: 1.6 }}>一度も怒られんかったな。上出来じゃ。</div>
+        </div>
+      )}
+      <div style={{ display: "grid", gap: 8, marginTop: 20 }}>
+        <Btn tone="y" onClick={onRetry}>もう一度やる</Btn>
+        <Btn onClick={onHome} style={{ color: C.dim, fontWeight: 400 }}>ホームへ</Btn>
+      </div>
+    </div>
+  );
+}
+
+/* ── ルート ───────────────────────────── */
+function App() {
+  const [v, setV] = useState("home");
+  const [r, setR] = useState(null);
+  const [seed, setSeed] = useState(0);
+  const [tuto, setTuto] = useState(true);
+  const [snd, setSnd] = useState(true);
+  const css = `
+    @keyframes rise{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:none}}
+    .el{animation:rise .3s cubic-bezier(.2,.9,.3,1.3) both}
+    @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-2px)}} .idle{animation:bob 2.4s ease-in-out infinite}
+    @keyframes wk{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}} .walk{animation:wk .3s ease-in-out}
+    @keyframes pulse{0%,100%{opacity:.5}50%{opacity:1}} .tgt{animation:pulse 1.9s ease-in-out infinite}
+    @keyframes shk{0%,100%{transform:translateX(0)}20%{transform:translateX(-7px)}40%{transform:translateX(7px)}60%{transform:translateX(-4px)}80%{transform:translateX(4px)}}
+    .shake{animation:shk .4s ease}
+    @keyframes rk{0%{opacity:0;transform:scale(2.2)}100%{opacity:1;transform:scale(1)}} .rank{animation:rk .5s cubic-bezier(.2,.9,.3,1.2) both}
+    @media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+  `;
+  return (
+    <div style={{
+      background: C.bg, color: C.txt, fontFamily: F, minHeight: "100%",
+      maxWidth: 480, margin: "0 auto", position: "relative",
+      display: "flex", flexDirection: "column",
+    }}>
+      <style>{css}</style>
+      <Tape />
+      <div style={{ padding: "12px 16px", borderBottom: `1px solid ${C.line}`, display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{ fontSize: 15, fontWeight: 900, letterSpacing: -0.5 }}>足場 実務トレーニング</div>
+        <div style={{ fontSize: 10, color: C.dim, border: `1px solid ${C.line}`, padding: "2px 6px", borderRadius: 4 }}>第2章</div>
+        <button onClick={() => { const n = !snd; setSnd(n); SFX.setOn(n); if (n) SFX.warm(); }} style={{
+          marginLeft: "auto", background: "none", border: `1px solid ${C.line}`, color: snd ? C.yel : C.dim,
+          borderRadius: 6, padding: "5px 9px", fontSize: 12, fontFamily: F, cursor: "pointer",
+        }}>{snd ? "🔊 音 ON" : "🔇 音 OFF"}</button>
+      </div>
+
+      {v === "home" && (
+        <div style={{ padding: 16, flex: 1, minHeight: 0, overflowY: "auto" }}>
+          <div style={{ fontSize: 22, fontWeight: 900, lineHeight: 1.45, margin: "6px 0" }}>床に乗る前に、<br />囲いを作る。</div>
+          <div style={{ fontSize: 13, color: C.dim, lineHeight: 1.85, marginBottom: 18 }}>
+            1段目に上がり、2段目を組み上げて、屋根の転落防止手摺まで。<br />
+            足場の墜落災害が最も多いのは、この工程です。
+          </div>
+
+          <div style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: 10, padding: "13px 15px", marginBottom: 14 }}>
+            <div style={{ fontSize: 10, color: C.yel, letterSpacing: 2, marginBottom: 8 }}>この章の流れ</div>
+            <div style={{ fontSize: 12, color: C.dim, lineHeight: 2 }}>
+              地上から筋交（南端〜南②）<br />
+              昇降階段で1段目へ　→　安全帯を支柱に<br />
+              1段目の手摺（荷揚げ側から）→　安全帯を手摺へ<br />
+              支柱・内柱を継ぐ（奥から）<br />
+              ブラケット／踏板手摺　→　壁当てジャッキ<br />
+              踏板　→　1段目から筋交（南①〜南②）<br />
+              昇降階段で2段目へ　→　2段目の手摺（荷揚げ側から）<br />
+              2段目から筋交（出隅〜南①）＝一直線に揃う<br />
+              屋根へ　→　転落防止手摺（中さん2,250→上さん2,700）
+            </div>
+          </div>
+
+          <div style={{ fontSize: 10, color: C.dim, letterSpacing: 2, marginBottom: 7 }}>モード</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7, marginBottom: 14 }}>
+            {[
+              { k: true, t: "チュートリアル", d: "次の作業を表示\n使える資材だけ出る" },
+              { k: false, t: "本番", d: "指示は出ない\n間違えれば怒られる" },
+            ].map((o) => (
+              <button key={String(o.k)} onClick={() => setTuto(o.k)} style={{
+                textAlign: "left", background: tuto === o.k ? C.panel : C.panel2,
+                border: `1px solid ${tuto === o.k ? C.yel : C.line}`, borderRadius: 10,
+                padding: "12px 13px", fontFamily: F, cursor: "pointer", color: C.txt,
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                  <span style={{ width: 14, height: 14, borderRadius: 7, flexShrink: 0, border: `1px solid ${tuto === o.k ? C.yel : C.line}`, background: tuto === o.k ? C.yel : "transparent" }} />
+                  <span style={{ fontSize: 13, fontWeight: 800 }}>{o.t}</span>
+                </div>
+                <div style={{ fontSize: 10.5, color: C.dim, lineHeight: 1.75, marginTop: 6, whiteSpace: "pre-line" }}>{o.d}</div>
+              </button>
+            ))}
+          </div>
+
+          <button onClick={() => { SFX.warm(); setSeed((s) => s + 1); setV("game"); }} style={{
+            display: "block", width: "100%", textAlign: "left", background: C.yel, color: "#14171B",
+            border: "none", borderRadius: 10, padding: 16, fontFamily: F, cursor: "pointer",
+          }}>
+            <div style={{ fontSize: 11, opacity: .65, marginBottom: 3 }}>第2章</div>
+            <div style={{ fontSize: 17, fontWeight: 900 }}>高所作業</div>
+            <div style={{ fontSize: 12, opacity: .7, marginTop: 3 }}>戸建・一側足場／南面3スパン　内柱＝南②・南端</div>
+          </button>
+
+          <div style={{ fontSize: 11, color: C.dim, marginTop: 14, lineHeight: 1.8 }}>
+            荷揚げは出隅側から。手摺は荷揚げ側から入れ、支柱・受け材・踏板は奥から手前へ戻りながら付けると、材料を運ぶ距離が短くて済みます。
+          </div>
+        </div>
+      )}
+
+      {v === "game" && <Game key={seed} tuto={tuto} onEnd={(x) => { setR(x); setV("res"); }} onHome={() => setV("home")} />}
+      {v === "res" && <Result r={r} onRetry={() => { setSeed((s) => s + 1); setV("game"); }} onHome={() => setV("home")} />}
+      <Tape h={4} />
+    </div>
+  );
+}
+
+return App;
+})();
+
+const Ch3App = (() => {
+
+/* ═══════════════════════════════════════════
+   足場 実務トレーニング ／ 第3章 火打とシート
+   前半：火打（4面組立済みの状態を平面図で展開）
+   出隅4箇所に、支柱と支柱を結ぶ二等辺三角形の火打を入れる
+   ═══════════════════════════════════════════ */
+
+const C = {
+  bg: "#14171B", panel: "#1E232A", panel2: "#252C34", line: "#2E3640",
+  steel: "#93A0AD", steelLt: "#CBD6DF", steelDk: "#5F6B78",
+  yel: "#F5D400", red: "#E23B2E", grn: "#25B36B", cyan: "#4FC3D9", org: "#D98B2B",
+  navy: "#2F4A6B", skin: "#E2B48C", txt: "#E9EEF3", dim: "#8D98A4", dim2: "#5F6B78",
+};
+const F = `"Hiragino Kaku Gothic ProN","Noto Sans JP","Yu Gothic",sans-serif`;
+const MO = `ui-monospace,"SFMono-Regular",Menlo,monospace`;
+
+const SFX = (() => {
+  const RATE = 22050; let on = true;
+  const wav = (f) => {
+    const n = f.length, b = new ArrayBuffer(44 + n * 2), v = new DataView(b);
+    const W = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+    W(0, "RIFF"); v.setUint32(4, 36 + n * 2, true); W(8, "WAVEfmt ");
+    v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+    v.setUint32(24, RATE, true); v.setUint32(28, RATE * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+    W(36, "data"); v.setUint32(40, n * 2, true);
+    for (let i = 0; i < n; i++) { const s = Math.max(-1, Math.min(1, f[i])); v.setInt16(44 + i * 2, s < 0 ? s * 0x8000 : s * 0x7FFF, true); }
+    const u = new Uint8Array(b); let str = "";
+    for (let i = 0; i < u.length; i += 0x2000) str += String.fromCharCode.apply(null, u.subarray(i, i + 0x2000));
+    return "data:audio/wav;base64," + btoa(str);
+  };
+  const gen = (k) => {
+    const dur = { ham: .3, buzz: .2, shout: .7, ok: .35, step: .12 }[k] || .3;
+    const n = Math.floor(RATE * dur), o = new Float32Array(n), R = () => Math.random() * 2 - 1;
+    for (let i = 0; i < n; i++) {
+      const t = i / RATE;
+      if (k === "ham") o[i] = R() * Math.exp(-55 * t) * .55 + Math.sin(2 * Math.PI * 1900 * t) * Math.exp(-16 * t) * .2 + Math.sin(2 * Math.PI * 180 * t) * Math.exp(-42 * t) * .3;
+      else if (k === "buzz") o[i] = (Math.sin(2 * Math.PI * (190 - 180 * t) * t) >= 0 ? 1 : -1) * Math.exp(-13 * t) * .14;
+      else if (k === "shout") { const f = 150 - 55 * t + 32 * Math.sin(2 * Math.PI * 24 * t); let v = ((t * f) % 1) * 2 - 1; v = v * .8 + R() * .22; const e = t < .03 ? t / .03 : t < .16 ? 1 - (t - .03) * 4.2 : t < .22 ? .45 + (t - .16) * 9 : Math.max(0, 1 - (t - .22) / .44); o[i] = v * e * .5; }
+      else if (k === "ok") { [880, 1320].forEach((fq, j) => { const st = j * .07; if (t > st) o[i] += Math.sin(2 * Math.PI * fq * (t - st)) * Math.exp(-7 * (t - st)) * .12; }); }
+      else o[i] = R() * Math.exp(-90 * t) * .3;
+    }
+    return o;
+  };
+  const cache = {};
+  const play = (k) => { if (!on) return; try { const u = cache[k] || (cache[k] = wav(gen(k))); const a = new Audio(u); a.volume = .55; a.play().catch(() => { }); } catch (e) { } };
+  return { ham: () => play("ham"), buzz: () => play("buzz"), shout: () => play("shout"), ok: () => play("ok"), step: () => play("step"), setOn: (v) => { on = v; }, warm: () => { ["ham", "buzz", "ok", "step"].forEach((k) => { try { cache[k] = cache[k] || wav(gen(k)); } catch (e) { } }); } };
+})();
+
+function Btn({ children, onClick, tone, dis, style }) {
+  const y = tone === "y";
+  return (
+    <button onClick={onClick} disabled={dis} style={{
+      background: dis ? C.panel2 : y ? C.yel : "none", color: dis ? C.dim2 : y ? "#14171B" : C.txt,
+      border: `1px solid ${dis ? C.line : y ? C.yel : C.line}`, borderRadius: 9, padding: 12,
+      fontWeight: 800, fontSize: 13, fontFamily: F, cursor: dis ? "default" : "pointer", width: "100%", ...style,
+    }}>{children}</button>
+  );
+}
+
+
+/* ── 平面図の寸法 ───────────────────────────
+   南面・北面＝3スパン、東面・西面＝2スパン。1スパン＝84px
+   ─────────────────────────────────────── */
+const SP = 84;
+const PX0 = 44, PX1 = PX0 + SP * 3;      // 44 → 296
+const PY1 = 250, PY0 = PY1 - SP * 2;     // 250 → 82（上が北）
+const BW = 26;                            // 足場の幅（600mm相当）
+
+/* 出隅4箇所。dx/dy＝その出隅から各面が伸びる向き */
+const CORNERS = [
+  { id: "SE", nm: "南東の出隅", fa: "南面", fb: "東面", dx: -1, dy: -1, x: PX1, y: PY1 },
+  { id: "SW", nm: "南西の出隅", fa: "南面", fb: "西面", dx: 1, dy: -1, x: PX0, y: PY1 },
+  { id: "NW", nm: "北西の出隅", fa: "北面", fb: "西面", dx: 1, dy: 1, x: PX0, y: PY0 },
+  { id: "NE", nm: "北東の出隅", fa: "北面", fb: "東面", dx: -1, dy: 1, x: PX1, y: PY0 },
+];
+
+const XS = [PX0, PX0 + SP, PX0 + SP * 2, PX1];
+const YS = [PY0, PY0 + SP, PY1];
+
+/* ══════════════ 平面図（盤面） ══════════════ */
+function Plan({ done, cur, onTap, skew = 0 }) {
+  const posts = [];
+  XS.forEach((x) => { posts.push([x, PY0]); posts.push([x, PY1]); });
+  YS.slice(1, -1).forEach((y) => { posts.push([PX0, y]); posts.push([PX1, y]); });
+
+  /* ひし形変形のデモ：上辺だけ横へずらす */
+  const sk = (x, y) => [x + skew * ((PY1 - y) / (PY1 - PY0)), y];
+
+  const L = (x1, y1, x2, y2, st, w = 3.5) => {
+    const a = sk(x1, y1), b = sk(x2, y2);
+    return <line x1={a[0]} y1={a[1]} x2={b[0]} y2={b[1]} stroke={st} strokeWidth={w} strokeLinecap="round" />;
+  };
+
+  return (
+    <svg viewBox="0 0 340 300" preserveAspectRatio="xMidYMid meet" style={{ width: "100%", height: "100%", display: "block" }}>
+      <rect width="340" height="300" fill="#0C1015" />
+
+      {/* 建物 */}
+      <rect x={PX0 + BW} y={PY0 + BW} width={PX1 - PX0 - BW * 2} height={PY1 - PY0 - BW * 2}
+        fill="#242B33" stroke="#2E3640" />
+      <text x={(PX0 + PX1) / 2} y={(PY0 + PY1) / 2 + 4} textAnchor="middle" fontSize="12" fill="#4A545E" fontFamily={F}>建物</text>
+
+      {/* 足場の外周（布材・手摺） */}
+      <g opacity={skew ? .9 : 1}>
+        {L(PX0, PY0, PX1, PY0, C.steel)}
+        {L(PX0, PY1, PX1, PY1, C.steel)}
+        {L(PX0, PY0, PX0, PY1, C.steel)}
+        {L(PX1, PY0, PX1, PY1, C.steel)}
+      </g>
+
+      {/* 支柱 */}
+      {posts.map(([x, y], i) => {
+        const p = sk(x, y);
+        return <circle key={i} cx={p[0]} cy={p[1]} r="4.5" fill={C.steelLt} />;
+      })}
+
+      {/* 入れた火打 */}
+      {CORNERS.filter((c) => done.includes(c.id)).map((c) => {
+        const a = sk(c.x + c.dx * SP, c.y), b = sk(c.x, c.y + c.dy * SP);
+        return (
+          <g key={c.id}>
+            <line x1={a[0]} y1={a[1]} x2={b[0]} y2={b[1]} stroke={C.org} strokeWidth="4" strokeLinecap="round" />
+            <circle cx={a[0]} cy={a[1]} r="3.4" fill={C.org} /><circle cx={b[0]} cy={b[1]} r="3.4" fill={C.org} />
+          </g>
+        );
+      })}
+
+      {/* いま入れる出隅 */}
+      {cur && (
+        <g onClick={onTap} style={{ cursor: "pointer" }} className="tgt">
+          <circle cx={cur.x} cy={cur.y} r="19" fill={C.yel} opacity=".12" />
+          <circle cx={cur.x} cy={cur.y} r="19" fill="none" stroke={C.yel} strokeWidth="2" strokeDasharray="5 4" />
+        </g>
+      )}
+
+      {/* 方位 */}
+      <text x={(PX0 + PX1) / 2} y={PY0 - 14} textAnchor="middle" fontSize="11" fill={C.dim} fontFamily={F}>北面</text>
+      <text x={(PX0 + PX1) / 2} y={PY1 + 24} textAnchor="middle" fontSize="11" fill={C.dim} fontFamily={F}>南面</text>
+      <text x={PX0 - 12} y={(PY0 + PY1) / 2} textAnchor="middle" fontSize="11" fill={C.dim} fontFamily={F}>西</text>
+      <text x={PX1 + 12} y={(PY0 + PY1) / 2} textAnchor="middle" fontSize="11" fill={C.dim} fontFamily={F}>東</text>
+      <text x="14" y="22" fontSize="10.5" fill={C.dim2} fontFamily={F}>平面図（最上段を上から見たところ）</text>
+    </svg>
+  );
+}
+
+/* ══════════════ 出隅のズーム ══════════════ */
+function HiuchiZoom({ corner, onClear, onFoul }) {
+  const [sel, setSel] = useState([]);       // 選んだ取付点
+  const [ng, setNg] = useState(null);
+  const D = 100;                            // ズーム上の1スパン
+  const cx = corner.dx > 0 ? 92 : 248;
+  const cy = corner.dy > 0 ? 78 : 222;
+
+  /* 取付点。f=面（a=南北面 b=東西面）、n=出隅から何本目、k=post/rail */
+  const pt = (f, k, n) => f === "a"
+    ? { x: cx + corner.dx * (k === "rail" ? D * (n - .5) : D * n), y: cy }
+    : { x: cx, y: cy + corner.dy * (k === "rail" ? D * (n - .5) : D * n) };
+  const TGT = [
+    { f: "a", k: "post", n: 1 }, { f: "a", k: "post", n: 2 }, { f: "a", k: "rail", n: 1 },
+    { f: "b", k: "post", n: 1 }, { f: "b", k: "post", n: 2 }, { f: "b", k: "rail", n: 1 },
+  ].map((t) => ({ ...t, ...pt(t.f, t.k, t.n) }));
+
+  const tap = (t) => {
+    if (sel.length >= 2) return;
+    const s = [...sel, t];
+    setSel(s);
+    SFX.step();
+    if (s.length < 2) return;
+    const [a, b] = s;
+    setTimeout(() => {
+      if (a.k === "rail" || b.k === "rail") {
+        setNg("rail");
+        onFoul("火打は支柱に付ける。どうしても手摺に付けるときは、その手摺に抜け止め措置をすること。");
+      } else if (a.f === b.f) {
+        setNg("face");
+        onFoul("同じ面の支柱どうしでは三角形にならない。出隅をまたいで、両方の面に振り分ける。");
+      } else if (a.n !== b.n) {
+        setNg("iso");
+        onFoul("二等辺になっていない。出隅から同じ距離の支柱に掛ける。");
+      } else {
+        SFX.ham(); SFX.ok();
+        setNg(null);
+      }
+    }, 260);
+  };
+
+  const okNow = sel.length === 2 && !ng && sel[0].k === "post" && sel[1].k === "post"
+    && sel[0].f !== sel[1].f && sel[0].n === sel[1].n;
+
+  const reset = () => { setSel([]); setNg(null); };
+
+  /* 建物側（内側）の向き */
+  const inX = cx + corner.dx * 60, inY = cy + corner.dy * 60;
+
+  return (
+    <div style={{ position: "absolute", inset: 0, background: "#0C1015", zIndex: 20, overflowY: "auto" }}>
+      <div style={{ padding: "12px 16px", borderBottom: `1px solid ${C.line}`, display: "flex", gap: 8, alignItems: "baseline" }}>
+        <span style={{ fontSize: 12.5, fontWeight: 800, color: C.yel }}>{corner.nm}</span>
+        <span style={{ fontSize: 11, color: C.dim }}>{okNow ? "入った" : `${sel.length} / 2 箇所`}</span>
+      </div>
+
+      <svg viewBox="0 0 340 300" style={{ width: "100%", display: "block" }}>
+        <rect width="340" height="300" fill="#0C1015" />
+
+        {/* 建物（内側の面） */}
+        <rect x={corner.dx > 0 ? cx + 26 : 0} y={corner.dy > 0 ? cy + 26 : 0}
+          width={corner.dx > 0 ? 340 - cx - 26 : cx - 26} height={corner.dy > 0 ? 300 - cy - 26 : cy - 26}
+          fill="#1B2129" />
+
+        {/* 布材・手摺（2面） */}
+        <line x1={cx} y1={cy} x2={cx + corner.dx * 230} y2={cy} stroke={C.steel} strokeWidth="6" strokeLinecap="round" />
+        <line x1={cx} y1={cy} x2={cx} y2={cy + corner.dy * 230} stroke={C.steel} strokeWidth="6" strokeLinecap="round" />
+        <text x={cx + corner.dx * 200} y={cy + (corner.dy > 0 ? -14 : 22)} textAnchor="middle" fontSize="11" fill={C.dim} fontFamily={F}>{corner.fa}</text>
+        <text x={cx + (corner.dx > 0 ? -22 : 26)} y={cy + corner.dy * 200} textAnchor="middle" fontSize="11" fill={C.dim} fontFamily={F}>{corner.fb}</text>
+
+        {/* 出隅の支柱 */}
+        <circle cx={cx} cy={cy} r="9" fill={C.steelLt} />
+        <text x={cx + corner.dx * -14} y={cy + corner.dy * -14} textAnchor="middle" fontSize="10" fill={C.dim} fontFamily={F}>出隅</text>
+
+        {/* 選んだ2点を結ぶ火打 */}
+        {sel.length === 2 && (
+          <g>
+            <line x1={sel[0].x} y1={sel[0].y} x2={sel[1].x} y2={sel[1].y}
+              stroke={ng ? C.red : C.org} strokeWidth="5" strokeLinecap="round" />
+            {okNow && (
+              <>
+                {/* 等辺の印 */}
+                {[sel[0], sel[1]].map((p, i) => (
+                  <g key={i}>
+                    <line x1={(p.x + cx) / 2 - 5} y1={(p.y + cy) / 2 - 5} x2={(p.x + cx) / 2 + 5} y2={(p.y + cy) / 2 + 5}
+                      stroke={C.grn} strokeWidth="2" />
+                  </g>
+                ))}
+                <polygon points={`${cx},${cy} ${sel[0].x},${sel[0].y} ${sel[1].x},${sel[1].y}`} fill={C.grn} opacity=".13" />
+              </>
+            )}
+          </g>
+        )}
+
+        {/* 取付点 */}
+        {TGT.map((t, i) => {
+          const on = sel.some((s) => s.x === t.x && s.y === t.y);
+          const isPost = t.k === "post";
+          return (
+            <g key={i} onClick={() => tap(t)} style={{ cursor: "pointer" }} className="tgt">
+              {isPost
+                ? <circle cx={t.x} cy={t.y} r="7" fill={on ? (ng ? C.red : C.org) : C.steelLt} />
+                : <rect x={t.x - 9} y={t.y - 5} width="18" height="10" rx="3" fill={on ? C.red : "#6E7A87"} />}
+              <circle cx={t.x} cy={t.y} r="16" fill={C.yel} opacity={on ? 0 : .09} />
+              <circle cx={t.x} cy={t.y} r="16" fill="none" stroke={on ? "none" : C.yel} strokeWidth="1.3" strokeDasharray="4 4" />
+              <text x={t.x} y={t.y + (t.f === "a" ? 32 : 0)} dx={t.f === "b" ? 30 : 0} textAnchor="middle"
+                fontSize="9.5" fill={C.dim2} fontFamily={F}>{isPost ? `支柱${t.n}本目` : "手摺"}</text>
+            </g>
+          );
+        })}
+      </svg>
+
+      <div style={{ padding: 16 }}>
+        <div style={{ fontSize: 14.5, fontWeight: 800, lineHeight: 1.6, marginBottom: 8 }}>
+          {okNow ? "二等辺三角形になった" : "火打を掛ける2箇所を選べ"}
+        </div>
+        <div style={{ fontSize: 12.5, color: C.dim, lineHeight: 1.85, marginBottom: 12 }}>
+          {okNow
+            ? "出隅から同じ距離の支柱どうしを結んだので、平面に三角形ができた。これで足場がひし形に崩れない。"
+            : "足場が平面内でひし形に変形するのを防ぐ補強だ。出隅をまたいで、火打と足場が二等辺三角形になるように掛ける。"}
+        </div>
+
+        {ng && <Btn onClick={reset} style={{ marginBottom: 10 }}>やり直す</Btn>}
+        {okNow && <Btn tone="y" onClick={onClear}>次へ</Btn>}
+
+        <div style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: 9, padding: "11px 13px", fontSize: 12, color: C.dim, lineHeight: 1.9, marginTop: 12 }}>
+          火打は圧縮材と併用することで引張効果が生じる。<br />
+          圧縮材は火打の近傍に設けること。
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── 側面の作業員（断面図用。縮尺どおり：身長1,700mm＝コマ4つ弱） ── */
+function WorkerSide() {
+  return (
+    <g>
+      <ellipse cx="0" cy="0" rx="12" ry="3" fill="#000" opacity=".3" />
+      {/* 脚 */}
+      <path d="M-5 -2 L-6 -66 L2 -66 L2 -2 Z" fill={C.navy} />
+      <path d="M3 -2 L2 -66 L9 -66 L8 -2 Z" fill="#2B3A4C" />
+      <path d="M-8 -2 L-8 -7 L2 -7 L2 -2 Z" fill="#2B3138" />
+      {/* 胴（横向きなので薄い） */}
+      <path d="M-6 -64 L-8 -118 L8 -118 L7 -64 Z" fill="#5C7FA3" />
+      {/* 安全帯 */}
+      <rect x="-8" y="-98" width="16" height="4.5" fill="#2B3138" />
+      {/* 腕（内柱側へ伸ばす） */}
+      <path d="M-6 -113 L-23 -93 L-19 -88 L-2 -106 Z" fill="#5C7FA3" />
+      <circle cx="-22" cy="-89" r="3.6" fill={C.skin} />
+      {/* 首・頭（横顔） */}
+      <rect x="-3" y="-125" width="7" height="9" fill={C.skin} />
+      <circle cx="-1" cy="-134" r="11" fill={C.skin} />
+      <path d="M-11.5 -135 L-15 -132 L-11.5 -130 Z" fill={C.skin} />
+      <circle cx="-6" cy="-137" r="1.4" fill="#2A1D14" />
+      <line x1="-10" y1="-129" x2="-6" y2="-129" stroke="#2A1D14" strokeWidth="1.2" strokeLinecap="round" />
+      {/* ヘルメット */}
+      <path d="M-13 -140 A12 12 0 0 1 11 -140 Z" fill={C.yel} />
+      <rect x="-17" y="-142.5" width="30" height="3.4" rx="1.7" fill="#E0C200" />
+    </g>
+  );
+}
+
+/* ══════════════ 親方 ══════════════ */
+function Oyakata({ show, text }) {
+  if (!show) return null;
+  return (
+    <div style={{
+      position: "absolute", left: 10, right: 10, top: 10, zIndex: 6,
+      display: "flex", gap: 10, alignItems: "flex-start",
+    }}>
+      <div style={{
+        background: "#2A1512", border: `2px solid ${C.red}`, borderRadius: 14, padding: 4,
+        animation: "shk .28s ease-in-out 3", flex: "0 0 auto",
+      }}>
+      <svg width="86" height="86" viewBox="0 0 100 100">
+        <ellipse cx="50" cy="94" rx="30" ry="7" fill="#000" opacity=".3" />
+        {/* 首・肩 */}
+        <rect x="38" y="70" width="24" height="14" fill={C.skin} />
+        <path d="M18 100 L24 82 Q50 74 76 82 L82 100 Z" fill="#3B4753" />
+        {/* 顔 */}
+        <circle cx="50" cy="52" r="26" fill={C.skin} />
+        {/* 怒り眉 */}
+        <path d="M30 42 L44 48" stroke="#2A1D14" strokeWidth="4.6" strokeLinecap="round" />
+        <path d="M70 42 L56 48" stroke="#2A1D14" strokeWidth="4.6" strokeLinecap="round" />
+        {/* 目 */}
+        <circle cx="39" cy="55" r="3.4" fill="#2A1D14" />
+        <circle cx="61" cy="55" r="3.4" fill="#2A1D14" />
+        {/* 怒鳴る口 */}
+        <ellipse cx="50" cy="68" rx="11" ry="8" fill="#5A2A26" />
+        <path d="M41 66 Q50 62 59 66" stroke="#F0F0F0" strokeWidth="2.6" fill="none" />
+        {/* ヘルメット */}
+        <path d="M22 40 A28 28 0 0 1 78 40 Z" fill={C.yel} />
+        <rect x="16" y="38" width="68" height="7" rx="3.5" fill="#E0C200" />
+        {/* 怒りマーク */}
+        <g stroke={C.red} strokeWidth="3" strokeLinecap="round">
+          <path d="M76 14 L92 14" /><path d="M78 22 L94 22" />
+          <path d="M82 10 L78 26" /><path d="M90 10 L86 26" />
+        </g>
+      </svg>
+      </div>
+      <div style={{
+        flex: 1, background: "#2A1512", border: `1.5px solid ${C.red}`, borderRadius: 12,
+        padding: "10px 12px", fontSize: 12.5, lineHeight: 1.75, color: "#F4B5AE", fontFamily: F,
+      }}>{text}</div>
+    </div>
+  );
+}
+
+/* ══════════════ シート ══════════════
+   ① 全スパンを最上段から下へ垂らす（足で挟んで落とさない）
+   ② 緊結ピッチ（450または900。戸建は900でよい）
+   ③ 支柱に結ぶ。2段目を全部結んでから1段目、地上へ下りる
+      出隅は南①・西①の両方を結んでから
+   ═══════════════════════════════════ */
+const FX = [44, 128, 212, 296];
+const FN = ["出隅", "南①", "南②", "南端"];
+const TOPY = 62, GY = 284;
+const SPANS3 = [0, 1, 2];
+
+const CX = 100, CY = 190, PS = 62;
+const PPOST = [
+  { k: "corner", x: CX, y: CY, nm: "出隅" },
+  { k: "s1", x: CX + PS, y: CY, nm: "南①" },
+  { k: "s2", x: CX + PS * 2, y: CY, nm: "南②" },
+  { k: "s3", x: CX + PS * 3, y: CY, nm: "南端" },
+  { k: "w1", x: CX, y: CY - PS, nm: "西①" },
+  { k: "w2", x: CX, y: CY - PS * 2, nm: "西②" },
+];
+const NEXT_TO_CORNER = ["s1", "w1"];
+const BANDS = [
+  { nm: "2段目", top: "最上段" },
+  { nm: "1段目", top: "2段目" },
+  { nm: "地上", top: "1段目" },
+];
+
+function SheetPart({ onDone, onFoul, say }) {
+  const [ph, setPh] = useState("hang");          // hang / pitch / tie / done
+  const [hung, setHung] = useState([]);
+  const [roll, setRoll] = useState({});
+  const [footOK, setFootOK] = useState(false);
+  const [ask, setAsk] = useState(null);
+  const [fall, setFall] = useState(null);
+  const [pitch, setPitch] = useState(null);
+  const [bi, setBi] = useState(0);               // いま結んでいる段
+  const [tied, setTied] = useState([]);          // その段で結び終えた支柱
+  const [sel, setSel] = useState(null);
+  const [dots, setDots] = useState([]);
+  const [gap, setGap] = useState(false);
+  const [angry, setAngry] = useState(false);
+  const [angryMsg, setAngryMsg] = useState("");
+
+  const scold = (t) => {
+    SFX.shout(); setAngry(true); setAngryMsg(t); onFoul(t);
+    setTimeout(() => setAngry(false), 4200);
+  };
+
+  /* ── ① 垂らす ── */
+  const hang = (i) => { if (!footOK) { setAsk(i); return; } drop(i); };
+  const drop = (i) => {
+    SFX.ham();
+    let t = 0;
+    const id = setInterval(() => {
+      t += 1; setRoll((r) => ({ ...r, [i]: t / 12 }));
+      if (t >= 12) {
+        clearInterval(id);
+        const h = [...hung, i]; setHung(h);
+        if (h.length === SPANS3.length) { SFX.ok(); setPh("pitch"); say("全部垂れた。ここから支柱に結んでいく。"); }
+        else say("次のスパンも垂らす。全部垂らしてから結ぶ。");
+      }
+    }, 40);
+  };
+  const spread = (foot) => {
+    const i = ask;
+    if (foot) { setFootOK(true); setAsk(null); drop(i); say("そのまま足で押さえておけ。"); }
+    else {
+      setAsk(null); setFall({ i, y: 0, done: false });
+      scold("オイ！　シートを落としたぞ。下に人が居たらどうする。広げるときは足で挟んで押さえながらだ。");
+      let t = 0;
+      const id = setInterval(() => {
+        t += 1; setFall({ i, y: t * 22, done: t >= 10 });
+        if (t >= 10) { clearInterval(id); setTimeout(() => setFall(null), 2600); }
+      }, 45);
+    }
+  };
+
+  /* ── ② ピッチ ── */
+  const pickPitch = (v) => {
+    setPitch(v);
+    if (v === 1800) { scold("粗すぎる。緊結ピッチは450か900だ。戸建なら900でよい。"); }
+    else { SFX.ham(); setPh("tie"); say("2段目から結んでいく。どの支柱からでもいいが、出隅は最後だ。"); }
+  };
+
+  /* ── ③ 支柱を選ぶ ── */
+  const tap = (k) => {
+    if (tied.includes(k) || sel) return;
+    if (k === "corner" && !NEXT_TO_CORNER.every((n) => tied.includes(n))) {
+      setGap(true);
+      const nokori = NEXT_TO_CORNER.filter((n) => !tied.includes(n)).map((n) => PPOST.find((p) => p.k === n).nm).join("と");
+      scold(`まだ${nokori}が結べていない。出隅を先に結ぶとシートが出隅側へ寄って、隣の支柱の側に隙間が空く。`);
+      setTimeout(() => setGap(false), 1800);
+      return;
+    }
+    SFX.ham(); setSel(k); setDots([]);
+  };
+
+  /* ── ④ 結ぶ位置。立っている踏板から上へ、下から順に ── */
+  const DOTN = 4;                                 // 1段＝1,800mm ÷ 450mm＝4コマ
+  /* 上（4コマ目）から下へ。900なら4コマ目・2コマ目 */
+  const OKDOT = [4, 3, 2, 1].filter((i) => pitch === 450 ? true : i % 2 === 0);
+  const hitDot = (i) => {
+    if (dots.includes(i)) return;
+    if (i === 0) {
+      scold("そこは自分が立っている踏板の高さだ。踏板高さは下の段に立って結んだ方が効率が良い。ここからは上を結べ。");
+      return;
+    }
+    const need = OKDOT[dots.length];
+    if (i !== need) {
+      scold(OKDOT.includes(i) ? "上から順に結んでいけ。" : `${pitch}mmで結ぶと決めただろう。その位置は間だ。`);
+      setDots([]);
+      return;
+    }
+    SFX.ham();
+    setDots([...dots, i]);
+  };
+
+  /* 次の支柱へ（結び終わっていなければファール） */
+  const goNext = () => {
+    if (dots.length < OKDOT.length) {
+      scold("まだ結び終わっていない。この支柱を終わらせてから次だ。");
+      return;
+    }
+    SFX.ok();
+    const nt = [...tied, sel];
+    setSel(null); setDots([]);
+    if (nt.length === PPOST.length) {
+      /* 1段目・地上は同じ繰り返しなので省略 */
+      setTied(nt); setPh("done");
+      say("2段目が全部結べた。あとは1段目、地上と同じことを繰り返すだけだ。");
+    } else { setTied(nt); say("結べた。次の支柱へ。"); }
+  };
+
+  const Strip = ({ i, h, drop: dy = 0, op = 1 }) => (
+    <g opacity={op}>
+      <rect x={FX[i] + 2} y={TOPY + dy} width={FX[i + 1] - FX[i] - 4} height={(GY - TOPY) * h} fill="#2C6B4A" opacity=".55" />
+      <rect x={FX[i] + 2} y={TOPY + dy} width={FX[i + 1] - FX[i] - 4} height={(GY - TOPY) * h} fill="url(#mesh)" opacity=".5" />
+      <rect x={FX[i] + 2} y={TOPY + dy} width={FX[i + 1] - FX[i] - 4} height={(GY - TOPY) * h} fill="none" stroke="#3E8F63" strokeWidth="1.5" />
+    </g>
+  );
+
+  /* ══ 全画面：結ぶ位置を選ぶ ══ */
+  const TieFull = () => {
+    const p = PPOST.find((q) => q.k === sel), B = BANDS[bi];
+    const Y0 = 96, Y1 = 470;                     // Y1＝いま立っている踏板
+    const dy = (i) => Y1 - ((Y1 - Y0) / DOTN) * i;
+    return (
+      <div style={{
+        position: "fixed", inset: 0, background: "#0C1015", zIndex: 30,
+        display: "flex", flexDirection: "column",
+      }}>
+        <div style={{ padding: "10px 16px", borderBottom: `1px solid ${C.line}`, display: "flex", gap: 8, alignItems: "baseline", flex: "0 0 auto" }}>
+          <span style={{ fontSize: 12.5, fontWeight: 800, color: C.yel }}>{p.nm}の支柱</span>
+          <span style={{ fontSize: 11, color: C.dim }}>{B.top}から{B.nm}まで　{dots.length} / {OKDOT.length}</span>
+        </div>
+
+        <svg viewBox="0 0 340 520" preserveAspectRatio="xMidYMid meet" style={{ flex: 1, minHeight: 0, width: "100%", display: "block" }}>
+          <defs>
+            <pattern id="mesh" width="6" height="6" patternUnits="userSpaceOnUse">
+              <path d="M0 0 L6 6 M6 0 L0 6" stroke="#5FBF8C" strokeWidth=".6" opacity=".7" />
+            </pattern>
+          </defs>
+          <rect width="340" height="520" fill="#0C1015" />
+          {/* 上下の段 */}
+          <line x1="40" y1={Y0} x2="300" y2={Y0} stroke={C.steel} strokeWidth="5" strokeLinecap="round" />
+          <line x1="40" y1={Y1} x2="300" y2={Y1} stroke={C.steel} strokeWidth="5" strokeLinecap="round" />
+          <text x="300" y={Y0 - 12} textAnchor="end" fontSize="11.5" fill={C.dim} fontFamily={F}>{B.top}（4コマ）</text>
+          <text x="300" y={Y1 + 22} textAnchor="end" fontSize="11.5" fill={C.dim} fontFamily={F}>{B.nm}　いま立っている踏板</text>
+
+          {/* 左右のシートの端 */}
+          <rect x="86" y={Y0} width="76" height={Y1 - Y0} fill="#2C6B4A" opacity=".5" />
+          <rect x="86" y={Y0} width="76" height={Y1 - Y0} fill="url(#mesh)" opacity=".4" />
+          <rect x="178" y={Y0} width="76" height={Y1 - Y0} fill="#2C6B4A" opacity=".5" />
+          <rect x="178" y={Y0} width="76" height={Y1 - Y0} fill="url(#mesh)" opacity=".4" />
+          <text x="124" y={Y0 + 26} textAnchor="middle" fontSize="10.5" fill="#9FD9B8" fontFamily={F}>シート</text>
+          <text x="216" y={Y0 + 26} textAnchor="middle" fontSize="10.5" fill="#9FD9B8" fontFamily={F}>シート</text>
+
+          {/* 踏板（上＝4コマ目の高さ、下＝いま立っている段） */}
+          <rect x="60" y={Y0 + 4} width="200" height="9" fill="#5F6B78" stroke="#4A545E" />
+          <rect x="60" y={Y1 + 4} width="200" height="11" fill="#7B8895" stroke="#4A545E" />
+
+          {/* 支柱とコマ（450mmごと） */}
+          <line x1="170" y1={Y0 - 16} x2="170" y2={Y1 + 16} stroke={C.steel} strokeWidth="16" />
+          {Array.from({ length: DOTN + 1 }, (_, i) => {
+            const y = Y0 + ((Y1 - Y0) / DOTN) * i;
+            return <polygon key={i} points={`160,${y} 170,${y - 7} 180,${y} 170,${y + 7}`} fill={C.steelLt} />;
+          })}
+          <text x="170" y={Y0 - 26} textAnchor="middle" fontSize="10.5" fill={C.dim} fontFamily={F}>{p.nm}</text>
+
+          {/* 作業員（下の段に立っている。身長1,700mm） */}
+          <g transform={`translate(276,${Y1}) scale(${(Y1 - Y0) / 1800 * 1700 / 151})`}>
+            <WorkerSide />
+          </g>
+          <text x="276" y={Y1 + 26} textAnchor="middle" fontSize="10" fill={C.dim2} fontFamily={F}>{B.nm}に立つ</text>
+
+          {/* 結ぶ位置の候補。0＝立っている踏板の高さ（ここは下の段から結ぶ） */}
+          {Array.from({ length: DOTN + 1 }, (_, i) => {
+            const y = dy(i), on = dots.includes(i);
+            return (
+              <g key={i} onClick={() => hitDot(i)} style={{ cursor: "pointer" }} className={on ? "" : "tgt"}>
+                {on ? (
+                  <g>
+                    <line x1="120" y1={y} x2="220" y2={y} stroke={C.yel} strokeWidth="5" strokeLinecap="round" />
+                    <circle cx="170" cy={y} r="9" fill={C.yel} />
+                  </g>
+                ) : (
+                  <g>
+                    <circle cx="170" cy={y} r="24" fill={C.yel} opacity=".08" />
+                    <circle cx="170" cy={y} r="24" fill="none" stroke={C.yel} strokeWidth="1.5" strokeDasharray="5 5" />
+                  </g>
+                )}
+                {i > 0 && (
+                  <text x="76" y={y + 4} textAnchor="end" fontSize="11" fill={on ? C.yel : C.dim2} fontFamily={F}>
+                    {i}コマ
+                  </text>
+                )}
+              </g>
+            );
+          })}
+        </svg>
+
+        <div style={{ padding: "8px 16px 16px", flex: "0 0 auto" }}>
+          <div style={{ fontSize: 14.5, fontWeight: 800, marginBottom: 6 }}>どこを結ぶ？</div>
+          <div style={{ fontSize: 12.5, color: C.dim, lineHeight: 1.85, marginBottom: 12 }}>
+            立っている踏板から上を、上から順に結んでいく。緊結ピッチ{pitch}mmなら{pitch === 450 ? "1コマごと" : "2コマごと"}だ。<br />
+            結び終えたら自分で「次の支柱へ」だ。
+          </div>
+          <div style={{ fontSize: 11.5, color: C.dim2, fontFamily: MO, marginBottom: 10 }}>
+            結んだ　{dots.length} / {OKDOT.length}
+          </div>
+          <Btn tone={dots.length === OKDOT.length ? "y" : undefined} onClick={goNext}>次の支柱へ</Btn>
+        </div>
+        <Oyakata show={angry} text={angryMsg} />
+      </div>
+    );
+  };
+
+  return (
+    <div style={{ position: "relative", flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
+      {ph === "tie" ? (
+        <svg viewBox="0 0 340 250" preserveAspectRatio="xMidYMid meet" style={{ width: "100%", height: "100%", minHeight: 0, display: "block" }}>
+          <rect width="340" height="250" fill="#0C1015" />
+          <text x="14" y="20" fontSize="10.5" fill={C.dim2} fontFamily={F}>平面図（南西の出隅まわり）　{BANDS[bi].nm}を結ぶ</text>
+          <rect x={CX + 14} y={CY - PS * 2 - 14} width="196" height={PS * 2} fill="#242B33" />
+          <text x={CX + 112} y={CY - PS + 4} textAnchor="middle" fontSize="11" fill="#4A545E" fontFamily={F}>建物</text>
+
+          <line x1={CX} y1={CY} x2={CX + PS * 3} y2={CY} stroke={C.steel} strokeWidth="5" strokeLinecap="round" />
+          <line x1={CX} y1={CY} x2={CX} y2={CY - PS * 2} stroke={C.steel} strokeWidth="5" strokeLinecap="round" />
+          <text x={CX + PS * 1.6} y={CY + 34} textAnchor="middle" fontSize="11" fill={C.dim} fontFamily={F}>南面</text>
+          <text x={CX - 34} y={CY - PS} textAnchor="middle" fontSize="11" fill={C.dim} fontFamily={F}>西面</text>
+
+          <line x1={CX - (gap ? 0 : 9)} y1={CY + 9} x2={CX + PS * 3} y2={CY + 9} stroke="#3E8F63" strokeWidth="6" strokeLinecap="round" />
+          <line x1={CX - 9} y1={CY + 9} x2={CX - 9} y2={CY - PS * 2} stroke="#3E8F63" strokeWidth="6" strokeLinecap="round" />
+
+          {gap && (
+            <g>
+              <line x1={CX + PS - 24} y1={CY + 9} x2={CX + PS + 24} y2={CY + 9} stroke={C.red} strokeWidth="7" strokeLinecap="round" opacity=".85" />
+              <text x={CX + PS} y={CY + 34} textAnchor="middle" fontSize="10.5" fill={C.red} fontFamily={F}>ここに隙間</text>
+            </g>
+          )}
+
+          {PPOST.map((p) => {
+            const on = tied.includes(p.k);
+            return (
+              <g key={p.k} onClick={() => tap(p.k)} style={{ cursor: "pointer" }} className={on ? "" : "tgt"}>
+                <circle cx={p.x} cy={p.y} r="7" fill={on ? C.yel : C.steelLt} />
+                {!on && <>
+                  <circle cx={p.x} cy={p.y} r="16" fill={C.yel} opacity=".1" />
+                  <circle cx={p.x} cy={p.y} r="16" fill="none" stroke={C.yel} strokeWidth="1.3" strokeDasharray="4 4" />
+                </>}
+                <text x={p.x + (p.k[0] === "w" ? -26 : 0)} y={p.y + (p.k[0] === "w" ? 4 : -24)} textAnchor="middle"
+                  fontSize="10" fill={on ? C.yel : C.dim} fontFamily={F}>{p.nm}</text>
+              </g>
+            );
+          })}
+        </svg>
+      ) : (
+        <svg viewBox="0 0 340 300" preserveAspectRatio="xMidYMid meet" style={{ width: "100%", height: "100%", minHeight: 0, display: "block" }}>
+          <defs>
+            <pattern id="mesh" width="6" height="6" patternUnits="userSpaceOnUse">
+              <path d="M0 0 L6 6 M6 0 L0 6" stroke="#5FBF8C" strokeWidth=".6" opacity=".7" />
+            </pattern>
+          </defs>
+          <rect width="340" height="300" fill="#0C1015" />
+          <rect y={GY} width="340" height="16" fill="#1A2027" />
+          {[TOPY, 142, 222, GY].map((y, i) => (
+            <line key={i} x1="44" y1={y} x2="296" y2={y} stroke={C.steel} strokeWidth="4" strokeLinecap="round" />
+          ))}
+          {FX.map((x, i) => (
+            <g key={i}>
+              <line x1={x} y1="52" x2={x} y2={GY} stroke={C.steel} strokeWidth="7" />
+              <text x={x} y="298" textAnchor="middle" fontSize="9.5" fill={i === 0 ? C.yel : C.dim2} fontFamily={F}>{FN[i]}</text>
+            </g>
+          ))}
+          {SPANS3.map((i) => (roll[i] ? <Strip key={i} i={i} h={Math.min(1, roll[i])} /> : null))}
+          {fall && !fall.done && <Strip i={fall.i} h={.5} drop={fall.y} op={.6} />}
+          {fall && fall.done && (
+            <g>
+              <ellipse cx={(FX[fall.i] + FX[fall.i + 1]) / 2} cy={GY + 6} rx="42" ry="11" fill="#2C6B4A" opacity=".85" />
+              <ellipse cx={(FX[fall.i] + FX[fall.i + 1]) / 2} cy={GY + 2} rx="34" ry="9" fill="#3E8F63" opacity=".8" />
+              <text x={(FX[fall.i] + FX[fall.i + 1]) / 2} y={GY - 14} textAnchor="middle" fontSize="11" fill={C.red} fontFamily={F} fontWeight="800">落とした</text>
+            </g>
+          )}
+          {ph === "hang" && SPANS3.filter((i) => !hung.includes(i) && !roll[i]).map((i) => (
+            <g key={i} onClick={() => hang(i)} style={{ cursor: "pointer" }} className="tgt">
+              <rect x={FX[i] + 4} y={TOPY} width={FX[i + 1] - FX[i] - 8} height={GY - TOPY} fill={C.yel} opacity=".07" />
+              <rect x={FX[i] + 4} y={TOPY} width={FX[i + 1] - FX[i] - 8} height={GY - TOPY} fill="none" stroke={C.yel} strokeWidth="1.4" strokeDasharray="5 4" />
+              <text x={(FX[i] + FX[i + 1]) / 2} y={TOPY + 26} textAnchor="middle" fontSize="11" fill={C.yel} fontFamily={F}>垂らす</text>
+            </g>
+          ))}
+        </svg>
+      )}
+
+      <Oyakata show={angry && !sel} text={angryMsg} />
+
+      <div style={{ padding: "6px 16px 14px", flex: "0 0 auto" }}>
+        <div style={{ fontSize: 14.5, fontWeight: 800, lineHeight: 1.6, marginBottom: 8 }}>
+          {ask !== null ? "シートを広げる。落とさないためには？"
+            : ph === "hang" ? "まず全スパンを垂らす"
+              : ph === "pitch" ? "緊結ピッチはどれで結ぶ？"
+                : ph === "tie" ? `${BANDS[bi].nm}を結ぶ　支柱 ${tied.length} / ${PPOST.length}`
+                  : "2段目が結べた"}
+        </div>
+        <div style={{ fontSize: 12.5, color: C.dim, lineHeight: 1.85, marginBottom: 12 }}>
+          {ask !== null ? "張り始めのシートを地上へ落とすのが、この作業で一番多い失敗だ。"
+            : ph === "hang" ? "シートは縦に張る。1スパンに1枚。先に全部、最上段から下へ垂らしてしまう。"
+              : ph === "pitch" ? "シートを支柱に結ぶ間隔だ。"
+                : ph === "tie" ? "この段の支柱を全部結んでから、下の段へ下りる。出隅は南①・西①の両方を結んでからだ。"
+                  : "この下は同じことの繰り返しだ。1段目、地上と下りて、他の面も同じ要領で張っていく。"}
+        </div>
+
+        {ask !== null && (
+          <div style={{ display: "grid", gap: 8 }}>
+            <Btn onClick={() => spread(true)}>足で挟んで押さえる</Btn>
+            <Btn onClick={() => spread(false)}>手で持つだけで広げる</Btn>
+          </div>
+        )}
+        {ph === "pitch" && (
+          <div style={{ display: "grid", gap: 8 }}>
+            <Btn onClick={() => pickPitch(450)}>450mm</Btn>
+            <Btn onClick={() => pickPitch(900)}>900mm（戸建）</Btn>
+            <Btn onClick={() => pickPitch(1800)}>1,800mm</Btn>
+          </div>
+        )}
+        {(ph === "tie" || ph === "done") && pitch && (
+          <div style={{ fontSize: 11.5, color: C.dim2, fontFamily: MO, marginBottom: 10 }}>緊結ピッチ {pitch}mm　／　{BANDS[bi].nm}</div>
+        )}
+        {ph === "done" && <Btn tone="y" onClick={onDone}>次へ</Btn>}
+      </div>
+
+      {sel && <TieFull />}
+    </div>
+  );
+}
+
+/* ══════════════ 本体 ══════════════ */
+function App() {
+  const [view, setView] = useState("home");   // home / play / done
+  const [done, setDone] = useState([]);
+  const [zoom, setZoom] = useState(null);
+  const [msg, setMsg] = useState("4面とも組み上がった。最上段の出隅に火打を入れる。");
+  const [fouls, setFouls] = useState([]);
+  const [sound, setSound] = useState(true);
+  const [skew, setSkew] = useState(0);
+
+  useEffect(() => { SFX.setOn(sound); }, [sound]);
+
+  const cur = CORNERS.find((c) => !done.includes(c.id));
+  const say = (t) => setMsg(t);
+
+  const clear = () => {
+    const c = cur;
+    setZoom(null);
+    const nd = [...done, c.id];
+    setDone(nd);
+    if (nd.length === CORNERS.length) { setMsg("4箇所とも入った。これで平面が固まった。次はシートだ。"); setView("hiuchiDone"); }
+    else setMsg(`${c.nm}に入った。次は${CORNERS.find((x) => !nd.includes(x.id)).nm}だ。`);
+  };
+  const foul = (t) => { SFX.shout(); setMsg(t); setFouls((f) => [...f, t]); };
+
+  /* ひし形変形のデモ */
+  const demo = () => {
+    let t = 0;
+    const id = setInterval(() => {
+      t += 1;
+      setSkew(Math.sin(t / 6) * 26);
+      if (t > 38) { clearInterval(id); setSkew(0); }
+    }, 45);
+  };
+
+  if (view === "home") {
+    return (
+      <div style={{ background: C.bg, color: C.txt, fontFamily: F, minHeight: "100%", padding: "22px 18px 40px", boxSizing: "border-box" }}>
+        <div style={{ height: 4, background: `repeating-linear-gradient(45deg,${C.yel} 0 10px,#14171B 10px 20px)`, marginBottom: 20 }} />
+        <div style={{ fontSize: 11, color: C.yel, fontWeight: 800, letterSpacing: 2 }}>第3章</div>
+        <div style={{ fontSize: 22, fontWeight: 900, marginTop: 6 }}>火打とシート</div>
+        <div style={{ fontSize: 12.5, color: C.dim, lineHeight: 1.9, margin: "12px 0 20px" }}>
+          第2章の現場の続き。4面とも組み上がった状態から始める。<br />
+          この章の前半は火打だ。平面図で、最上段の出隅4箇所に入れていく。
+        </div>
+        <div style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: 10, padding: "13px 15px", fontSize: 12, color: C.dim, lineHeight: 1.95, marginBottom: 20 }}>
+          火打は、足場が平面内でひし形に変形するのを防ぐための補強だ。<br />
+          最上段のコーナーで、直交する布材に単管を斜めに掛けて三角形をつくる。
+        </div>
+        <Btn tone="y" onClick={() => { SFX.warm(); setView("play"); }}>はじめる</Btn>
+        <Btn onClick={() => { SFX.warm(); setView("sheet"); setMsg("シートから始める。上から下へ、1スパンに1枚だ。"); }} style={{ marginTop: 10 }}>
+          シートから始める（テスト用）
+        </Btn>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{
+      background: C.bg, color: C.txt, fontFamily: F, height: "100%", position: "relative",
+      boxSizing: "border-box", display: "flex", flexDirection: "column", overflow: "hidden",
+    }}>
+      <div style={{ height: 4, background: `repeating-linear-gradient(45deg,${C.yel} 0 10px,#14171B 10px 20px)` }} />
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", borderBottom: `1px solid ${C.line}` }}>
+        <div style={{ fontSize: 13, fontWeight: 900 }}>
+          {view === "sheet" ? "シート" : "火打"}
+          <span style={{ fontSize: 11, color: C.dim, fontWeight: 400 }}>{view === "sheet" ? "" : `　${done.length} / 4`}</span>
+        </div>
+        <button onClick={() => setSound(!sound)} style={{
+          background: "none", border: `1px solid ${C.line}`, color: C.dim, borderRadius: 7,
+          padding: "5px 10px", fontSize: 11, fontFamily: F, cursor: "pointer",
+        }}>音 {sound ? "ON" : "OFF"}</button>
+      </div>
+
+      <div style={{ padding: "10px 14px", fontSize: 12.5, color: C.txt, lineHeight: 1.75, background: C.panel, borderBottom: `1px solid ${C.line}` }}>
+        {msg}
+      </div>
+
+      <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
+        {view === "sheet"
+          ? <SheetPart onDone={() => { setView("done"); setMsg("火打もシートも終わった。第3章はここまでだ。"); }} onFoul={foul} say={say} />
+          : <div style={{ flex: 1, minHeight: 0 }}>
+            <Plan done={done} cur={view === "play" ? cur : null} onTap={() => setZoom(cur)} skew={skew} />
+          </div>}
+      </div>
+
+      <div style={{ padding: "4px 16px 16px", flex: "0 0 auto", maxHeight: "42vh", overflowY: "auto" }}>
+        {view === "done" && (
+          <>
+            <div style={{ fontSize: 16, fontWeight: 900, marginTop: 10 }}>第3章 完了</div>
+            <div style={{ fontSize: 12.5, color: C.dim, lineHeight: 1.9, margin: "8px 0 14px" }}>
+              出隅4箇所の火打と、最上段のシート。<br />
+              指摘された回数　<span style={{ color: fouls.length ? C.red : C.grn, fontWeight: 800 }}>{fouls.length}回</span>
+            </div>
+          </>
+        )}
+        {view === "play" && cur && (
+          <div style={{ fontSize: 12, color: C.dim, lineHeight: 1.85 }}>
+            平面図の黄色い丸（{cur.nm}）をタップして寄る。
+            <button onClick={() => { setView("sheet"); setMsg("シートへ飛んだ。上から下へ、1スパンに1枚だ。"); }} style={{
+              display: "block", marginTop: 12, background: "none", border: `1px solid ${C.line}`,
+              color: C.dim2, borderRadius: 7, padding: "6px 11px", fontSize: 11, fontFamily: F, cursor: "pointer",
+            }}>火打を飛ばしてシートへ（テスト用）</button>
+          </div>
+        )}
+        {view === "hiuchiDone" && (
+          <>
+            <div style={{ fontSize: 16, fontWeight: 900, marginTop: 10 }}>火打が入った</div>
+            <div style={{ fontSize: 12.5, color: C.dim, lineHeight: 1.9, margin: "8px 0 14px" }}>
+              4つの出隅に三角形ができた。これで平面がねじれない。<br />
+              火打が無いと、足場は上から見てひし形に崩れていく。
+            </div>
+            <Btn onClick={demo} style={{ marginBottom: 10 }}>火打が無いとどうなるか見る</Btn>
+            <Btn tone="y" onClick={() => { setView("sheet"); setMsg("次はシートだ。上から下へ張っていく。"); }} style={{ marginBottom: 10 }}>シートへ進む</Btn>
+            <div style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: 9, padding: "12px 14px", fontSize: 12, color: C.dim, lineHeight: 1.9 }}>
+              この現場で入れた火打　<span style={{ color: C.txt, fontWeight: 800 }}>4箇所</span><br />
+              指摘された回数　<span style={{ color: fouls.length ? C.red : C.grn, fontWeight: 800 }}>{fouls.length}回</span>
+            </div>
+
+          </>
+        )}
+      </div>
+
+      {zoom && <HiuchiZoom corner={zoom} onClear={clear} onFoul={foul} />}
+
+      <style>{`
+        .tgt { animation: pulse 1.9s ease-in-out infinite; }
+        @keyframes pulse { 0%,100% { opacity: 1 } 50% { opacity: .55 } }
+        @keyframes shk { 0%,100% { transform: translateX(0) rotate(0) } 25% { transform: translateX(-3px) rotate(-2deg) } 75% { transform: translateX(3px) rotate(2deg) } }
+      `}</style>
+    </div>
+  );
+}
+
+return App;
+})();
+
+const GlossaryApp = (() => {
+
+/* ═══════════════════════════════════════════
+   足場 実務トレーニング ／ 資材と用語
+   ・第1章の前の導入パート（順に見て「第1章へ」）
+   ・章の中からいつでも開けるリファレンス
+   ═══════════════════════════════════════════ */
+
+const C = {
+  bg: "#14171B", panel: "#1E232A", panel2: "#252C34", line: "#2E3640",
+  steel: "#93A0AD", steelLt: "#CBD6DF", steelDk: "#5F6B78",
+  yel: "#F5D400", red: "#E23B2E", grn: "#25B36B", cyan: "#4FC3D9", org: "#D98B2B",
+  navy: "#2F4A6B", skin: "#E2B48C", txt: "#E9EEF3", dim: "#8D98A4", dim2: "#5F6B78",
+};
+const F = `"Hiragino Kaku Gothic ProN","Noto Sans JP","Yu Gothic",sans-serif`;
+
+const CATS = [
+  { k: "base", nm: "土台" },
+  { k: "post", nm: "柱" },
+  { k: "rail", nm: "手摺" },
+  { k: "floor", nm: "床" },
+  { k: "brace", nm: "補強" },
+  { k: "cover", nm: "養生" },
+];
+
+/* ── 資材 ───────────────────────────────── */
+const ITEMS = [
+  {
+    id: "jack", cat: "base", nm: "ジャッキ", yomi: "ジャッキベース",
+    use: "支柱の足元に敷き、高さを調整して水平を出す",
+    where: "支柱の一番下。敷板の上に置く",
+    note: "全長は変わらず、ネジ棒に沿ってハンドルだけが上下する。ハンドルの高さに支柱の後端が乗る。足場の高さを計算してジャッキの高さを出し、支柱を挿す手前でその高さ付近へハンドルを合わせる。合わせずに立てると、あとの水平調整が延々と続く。高さの計算は積算アプリで出せる",
+  },
+  {
+    id: "koma", cat: "post", nm: "コマ", yomi: "くさび受け（ポケット）",
+    use: "手摺や筋交のくさびを差し込む受け口",
+    where: "支柱に450mmごとに付いている",
+    note: "コマの数を数えれば高さが分かる。1コマ＝450mm、4コマ＝1,800mm＝1段",
+  },
+  {
+    id: "pole", cat: "post", nm: "支柱", yomi: "したばしら／建地",
+    use: "足場の縦の骨。荷重を地面へ伝える",
+    where: "割り付けに沿って1,800mm間隔で立てる",
+    note: "上へ継ぎ足して段を重ねる。継ぐときは差し込みが効いているか確かめる",
+  },
+  {
+    id: "inner", cat: "post", nm: "内柱", yomi: "うちばしら",
+    use: "建物側に立てる柱。踏板を受け、足場を建物側で支える",
+    where: "割り付けで決めた箇所。端部には必ず入れる",
+    note: "踏板高さで止める。水平は踏板用手摺を付けてから支柱に水平器を当てて見る",
+  },
+  {
+    id: "negarami", cat: "rail", nm: "根がらみ手摺", yomi: "ねがらみ",
+    use: "足元で柱どうしをつなぎ、足場が動かないようにする",
+    where: "支柱の一番下のコマ",
+    note: "次の柱を立てる前に、立っている柱のコマへ先に入れる。柱→手摺→次の柱の順",
+    same: true,
+  },
+  {
+    id: "fumiita_rail", cat: "rail", nm: "踏板用手摺", yomi: "ふみいたようてすり",
+    use: "内柱と外柱をつなぎ、踏板を受ける高さに渡す",
+    where: "踏板の高さ（1段＝1,800mm）",
+    note: "内柱の水平を見るときは、これを付けてから支柱に水平器を当てる",
+  },
+  {
+    id: "tesuri", cat: "rail", nm: "手摺", yomi: "うわさん・なかさん",
+    use: "作業床からの墜落を防ぐ",
+    where: "上さんは踏板から900mm前後、中さんはその間",
+    note: "設置は荷揚げする人がいる側から。中さん→上さんの順で入れる",
+    same: true,
+  },
+  {
+    id: "senko", cat: "rail", nm: "先行手摺", yomi: "せんこうてすり",
+    use: "上の段に登る前に、下から手摺を先に架けておく部材",
+    where: "水平調整が終わった支柱間",
+    note: "戸建では標準にしない。使う場合、出隅はどちらか片側に600スパンが必要",
+  },
+  {
+    id: "bracket", cat: "floor", nm: "ブラケット", yomi: "ブラケット（腕木）",
+    use: "支柱から張り出して踏板を受ける",
+    where: "外柱側。内柱が無い箇所で使う",
+    note: "取り付けは水平を調整した後。出隅は2面ぶん必要になる",
+  },
+  {
+    id: "fumiita", cat: "floor", nm: "踏板", yomi: "ふみいた／作業床",
+    use: "人が乗って作業する床",
+    where: "ブラケットや踏板用手摺の上",
+    note: "幅40cm以上、すき間3cm以下が基準。奥から手前へ入れていくと効率が良い",
+  },
+  {
+    id: "kaidan", cat: "floor", nm: "昇降階段", yomi: "しょうこうかいだん",
+    use: "段を上り下りするための階段",
+    where: "荷揚げの邪魔にならないスパン",
+    note: "登り口は手摺で塞がないこと",
+  },
+  {
+    id: "sujikai", cat: "brace", nm: "筋交", yomi: "すじかい",
+    use: "面のねじれを止める斜材",
+    where: "各段に1本。下端が南端側、上端が出隅側",
+    note: "上のコマに先端を入れてから、後端を下のコマへ落とす。逆はできない",
+  },
+  {
+    id: "wall_jack", cat: "brace", nm: "壁当てジャッキ", yomi: "かべあてジャッキ",
+    use: "内柱から建物へ突っ張り、足場を建物に頼らせる",
+    where: "内柱の、踏板手摺のすぐ下のコマ",
+    note: "低い位置に付けると踏板を歩く人の足に当たる。効いていないと乗ったときに足場が動く",
+  },
+  {
+    id: "hiuchi", cat: "brace", nm: "火打", yomi: "ひうち",
+    use: "平面がひし形に崩れるのを止める",
+    where: "最上段の出隅。直交する2面の支柱へ斜めに掛ける",
+    note: "足場と二等辺三角形になるように。支柱に付ける。圧縮材と併用して効く",
+  },
+  {
+    id: "sheet", cat: "cover", nm: "メッシュシート", yomi: "シート",
+    use: "塗料や粉じん、落下物の飛散を防ぐ",
+    where: "足場の外面。縦張りで1スパンに1枚",
+    note: "最上段から下へ垂らし、支柱へ結ぶ。緊結ピッチは450か900（戸建は900でよい）",
+  },
+  {
+    id: "habaki", cat: "cover", nm: "巾木", yomi: "はばき",
+    use: "踏板の上の物が下へ落ちるのを止める",
+    where: "踏板の外側の縁",
+    note: "高さ10cm以上が基準",
+  },
+];
+
+/* ── 絵 ───────────────────────────────── */
+function Pic({ id, big }) {
+  const s = big ? 1.55 : 1;
+  const P = (props) => <g transform={`scale(${s})`} {...props} />;
+  const V = (kids) => (
+    <svg viewBox={`0 0 ${86 * s} ${86 * s}`} width={big ? 132 : 68} height={big ? 132 : 68} style={{ display: "block" }}>
+      <P>{kids}</P>
+    </svg>
+  );
+  const post = (x) => <line x1={x} y1="8" x2={x} y2="78" stroke={C.steel} strokeWidth="7" />;
+  const koma = (x, y) => <polygon points={`${x - 6},${y} ${x},${y - 4} ${x + 6},${y} ${x},${y + 4}`} fill={C.steelLt} />;
+
+  switch (id) {
+    case "jack":
+      return V(<>
+        <rect x="38" y="26" width="10" height="52" fill={C.steel} />
+        {[0, 1, 2, 3, 4, 5].map((i) => <line key={i} x1="36" y1={70 - i * 7} x2="50" y2={70 - i * 7} stroke={C.steelDk} strokeWidth="2" />)}
+        <rect x="34" y="8" width="18" height="42" fill={C.steel} stroke={C.steelDk} />
+        <rect x="28" y="46" width="30" height="9" rx="3" fill="#7E8A96" />
+        <text x="62" y="54" fontSize="8" fill={C.dim} fontFamily={F}>ハンドル</text>
+        <rect x="22" y="78" width="42" height="6" rx="1" fill={C.steelLt} />
+      </>);
+    case "koma":
+      return V(<>
+        {post(43)}
+        {[22, 40, 58].map((y) => <g key={y}>{koma(43, y)}</g>)}
+        <line x1="60" y1="22" x2="60" y2="40" stroke={C.yel} strokeWidth="1.4" />
+        <text x="66" y="35" fontSize="9" fill={C.yel} fontFamily={F}>450</text>
+      </>);
+    case "pole":
+      return V(<>
+        {post(43)}
+        {[18, 30, 42, 54, 66].map((y) => <g key={y}>{koma(43, y)}</g>)}
+        <rect x="37" y="44" width="12" height="5" fill={C.steelDk} />
+      </>);
+    case "inner":
+      return V(<>
+        <rect x="4" y="8" width="16" height="70" fill="#242B33" />
+        {post(30)}{post(62)}
+        <line x1="30" y1="34" x2="62" y2="34" stroke={C.cyan} strokeWidth="5" />
+        {koma(30, 20)}{koma(62, 20)}
+        <text x="30" y="86" textAnchor="middle" fontSize="8.5" fill={C.dim} fontFamily={F}>内</text>
+        <text x="62" y="86" textAnchor="middle" fontSize="8.5" fill={C.dim} fontFamily={F}>外</text>
+      </>);
+    case "negarami":
+      return V(<>
+        {post(20)}{post(66)}
+        <line x1="20" y1="66" x2="66" y2="66" stroke={C.yel} strokeWidth="6" strokeLinecap="round" />
+        <polygon points="20,60 28,66 20,72" fill={C.yel} /><polygon points="66,60 58,66 66,72" fill={C.yel} />
+        <rect x="8" y="78" width="70" height="5" fill="#3A434E" />
+      </>);
+    case "fumiita_rail":
+      return V(<>
+        {post(20)}{post(66)}
+        <line x1="20" y1="40" x2="66" y2="40" stroke={C.cyan} strokeWidth="6" strokeLinecap="round" />
+        <polygon points="20,34 28,40 20,46" fill={C.cyan} /><polygon points="66,34 58,40 66,46" fill={C.cyan} />
+      </>);
+    case "tesuri":
+      return V(<>
+        {post(20)}{post(66)}
+        <line x1="20" y1="26" x2="66" y2="26" stroke={C.yel} strokeWidth="6" strokeLinecap="round" />
+        <line x1="20" y1="48" x2="66" y2="48" stroke={C.yel} strokeWidth="6" strokeLinecap="round" />
+        <text x="74" y="29" fontSize="8" fill={C.dim} fontFamily={F}>上</text>
+        <text x="74" y="51" fontSize="8" fill={C.dim} fontFamily={F}>中</text>
+      </>);
+    case "senko":
+      return V(<>
+        {post(20)}{post(66)}
+        <line x1="20" y1="22" x2="66" y2="22" stroke={C.yel} strokeWidth="6" strokeLinecap="round" />
+        <line x1="20" y1="22" x2="66" y2="60" stroke={C.yel} strokeWidth="3.4" />
+        <line x1="66" y1="22" x2="20" y2="60" stroke={C.yel} strokeWidth="3.4" />
+      </>);
+    case "bracket":
+      return V(<>
+        {post(24)}
+        <line x1="24" y1="40" x2="66" y2="40" stroke={C.steelLt} strokeWidth="6" strokeLinecap="round" />
+        <line x1="24" y1="62" x2="64" y2="42" stroke={C.steelLt} strokeWidth="4" />
+        <rect x="18" y="34" width="10" height="14" rx="2" fill={C.steelDk} />
+      </>);
+    case "fumiita":
+      return V(<>
+        <rect x="10" y="36" width="66" height="12" rx="2" fill="#7B8895" stroke={C.steelDk} />
+        {[20, 32, 44, 56, 68].map((x) => <line key={x} x1={x} y1="36" x2={x} y2="48" stroke={C.steelDk} strokeWidth="1" />)}
+        {post(14)}{post(72)}
+      </>);
+    case "kaidan":
+      return V(<>
+        {post(16)}{post(70)}
+        <line x1="18" y1="74" x2="68" y2="22" stroke={C.steelLt} strokeWidth="6" strokeLinecap="round" />
+        {[0, 1, 2, 3].map((i) => <line key={i} x1={26 + i * 11} y1={68 - i * 11} x2={34 + i * 11} y2={68 - i * 11} stroke={C.steelDk} strokeWidth="2.6" />)}
+      </>);
+    case "sujikai":
+      return V(<>
+        {post(18)}{post(68)}
+        {koma(18, 20)}{koma(68, 66)}
+        <line x1="68" y1="66" x2="18" y2="20" stroke="#B9C4CE" strokeWidth="5" strokeLinecap="round" />
+        <circle cx="18" cy="20" r="4" fill="#8A96A2" /><circle cx="68" cy="66" r="4" fill="#8A96A2" />
+      </>);
+    case "wall_jack":
+      return V(<>
+        <rect x="4" y="6" width="18" height="74" fill="#242B33" />
+        {post(58)}
+        <line x1="58" y1="44" x2="24" y2="26" stroke={C.org} strokeWidth="5" strokeLinecap="round" />
+        <line x1="20" y1="20" x2="28" y2="32" stroke="#8A96A2" strokeWidth="5" strokeLinecap="round" />
+        <circle cx="58" cy="44" r="4.5" fill={C.org} />
+      </>);
+    case "hiuchi":
+      return V(<>
+        <line x1="12" y1="62" x2="74" y2="62" stroke={C.steel} strokeWidth="5" strokeLinecap="round" />
+        <line x1="12" y1="62" x2="12" y2="10" stroke={C.steel} strokeWidth="5" strokeLinecap="round" />
+        <line x1="42" y1="62" x2="12" y2="32" stroke={C.org} strokeWidth="4.6" strokeLinecap="round" />
+        <circle cx="12" cy="62" r="4.5" fill={C.steelLt} />
+        <circle cx="42" cy="62" r="4" fill={C.org} /><circle cx="12" cy="32" r="4" fill={C.org} />
+      </>);
+    case "sheet":
+      return V(<>
+        {post(16)}{post(70)}
+        <rect x="20" y="12" width="46" height="64" fill="#2C6B4A" opacity=".65" />
+        <path d="M20 12 L66 58 M66 12 L20 58 M20 34 L44 76 M44 12 L66 34" stroke="#5FBF8C" strokeWidth="1" opacity=".7" />
+        {[22, 40, 58].map((y) => <circle key={y} cx="16" cy={y} r="3.4" fill={C.yel} />)}
+      </>);
+    case "habaki":
+      return V(<>
+        <rect x="10" y="42" width="66" height="10" rx="2" fill="#7B8895" stroke={C.steelDk} />
+        <rect x="10" y="30" width="8" height="14" fill={C.org} />
+        <circle cx="40" cy="26" r="5" fill={C.steelLt} />
+      </>);
+    default:
+      return V(<circle cx="43" cy="43" r="20" fill={C.panel2} />);
+  }
+}
+
+/* ── 本体 ───────────────────────────────── */
+function Glossary({ mode = "intro", onDone, onClose }) {
+  const [cat, setCat] = useState("all");
+  const [open, setOpen] = useState(null);
+  const [seen, setSeen] = useState([]);
+
+  const list = cat === "all" ? ITEMS : ITEMS.filter((i) => i.cat === cat);
+  const item = ITEMS.find((i) => i.id === open);
+  const intro = mode === "intro";
+
+  const tap = (i) => {
+    setOpen(i.id);
+    if (!seen.includes(i.id)) setSeen([...seen, i.id]);
+  };
+
+  return (
+    <div style={{
+      background: C.bg, color: C.txt, fontFamily: F, height: "100dvh",
+      display: "flex", flexDirection: "column", overflow: "hidden", position: "relative",
+    }}>
+      <div style={{ height: 4, background: `repeating-linear-gradient(45deg,${C.yel} 0 10px,#14171B 10px 20px)`, flex: "0 0 auto" }} />
+
+      <div style={{ padding: "12px 16px 8px", flex: "0 0 auto", borderBottom: `1px solid ${C.line}` }}>
+        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
+          <div>
+            <div style={{ fontSize: 11, color: C.yel, fontWeight: 800, letterSpacing: 2 }}>資材と用語</div>
+            <div style={{ fontSize: 17, fontWeight: 900, marginTop: 4 }}>
+              {intro ? "まず、道具の名前を覚える" : "資材図鑑"}
+            </div>
+          </div>
+          {!intro && onClose && (
+            <button onClick={onClose} style={{
+              background: "none", border: `1px solid ${C.line}`, color: C.dim, borderRadius: 7,
+              padding: "6px 12px", fontSize: 12, fontFamily: F, cursor: "pointer",
+            }}>閉じる</button>
+          )}
+        </div>
+        <div style={{ fontSize: 11.5, color: C.dim, lineHeight: 1.7, marginTop: 6 }}>
+          {intro
+            ? `名前と用途が分かっていれば、親方の指示が通る。${seen.length} / ${ITEMS.length} 見た`
+            : "章の途中でも、ここから何度でも確認できる"}
+        </div>
+      </div>
+
+      {/* 分類 */}
+      <div style={{ display: "flex", gap: 6, padding: "8px 12px", overflowX: "auto", flex: "0 0 auto" }}>
+        {[{ k: "all", nm: "すべて" }, ...CATS].map((c) => (
+          <button key={c.k} onClick={() => setCat(c.k)} style={{
+            background: cat === c.k ? C.yel : "none", color: cat === c.k ? "#14171B" : C.dim,
+            border: `1px solid ${cat === c.k ? C.yel : C.line}`, borderRadius: 20,
+            padding: "6px 13px", fontSize: 12, fontWeight: 800, fontFamily: F, cursor: "pointer", whiteSpace: "nowrap",
+          }}>{c.nm}</button>
+        ))}
+      </div>
+
+      {/* 一覧 */}
+      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 12px 12px" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+          {list.map((i) => (
+            <button key={i.id} onClick={() => tap(i)} style={{
+              background: C.panel, border: `1px solid ${seen.includes(i.id) ? C.steelDk : C.line}`,
+              borderRadius: 12, padding: "12px 10px", fontFamily: F, cursor: "pointer",
+              display: "flex", flexDirection: "column", alignItems: "center", gap: 6, position: "relative",
+            }}>
+              {seen.includes(i.id) && (
+                <span style={{ position: "absolute", top: 8, right: 9, fontSize: 10, color: C.grn }}>✓</span>
+              )}
+              <Pic id={i.id} />
+              <span style={{ fontSize: 13.5, fontWeight: 900, color: C.txt }}>{i.nm}</span>
+              <span style={{ fontSize: 10.5, color: C.dim2, lineHeight: 1.5, textAlign: "center" }}>{i.yomi}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {intro && (
+        <div style={{ padding: "10px 16px 16px", flex: "0 0 auto", borderTop: `1px solid ${C.line}` }}>
+          <button onClick={onDone} style={{
+            background: seen.length >= 6 ? C.yel : "none", color: seen.length >= 6 ? "#14171B" : C.dim,
+            border: `1px solid ${seen.length >= 6 ? C.yel : C.line}`, borderRadius: 9, padding: 13,
+            fontWeight: 800, fontSize: 13.5, fontFamily: F, cursor: "pointer", width: "100%",
+          }}>第1章へ進む</button>
+          <div style={{ fontSize: 11, color: C.dim2, textAlign: "center", marginTop: 8 }}>
+            章の中からも、いつでもここに戻れる
+          </div>
+        </div>
+      )}
+
+      {/* 詳細 */}
+      {item && (
+        <div style={{
+          position: "absolute", inset: 0, background: "rgba(8,10,13,.92)", zIndex: 20,
+          display: "flex", flexDirection: "column", justifyContent: "flex-end",
+        }} onClick={() => setOpen(null)}>
+          <div onClick={(e) => e.stopPropagation()} style={{
+            background: C.panel, borderTop: `2px solid ${C.yel}`, borderRadius: "16px 16px 0 0",
+            padding: "18px 18px 26px", maxHeight: "82%", overflowY: "auto",
+          }}>
+            <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
+              <div style={{ background: "#0C1015", borderRadius: 12, padding: 8, flex: "0 0 auto" }}>
+                <Pic id={item.id} big />
+              </div>
+              <div>
+                <div style={{ fontSize: 19, fontWeight: 900 }}>{item.nm}</div>
+                <div style={{ fontSize: 11.5, color: C.dim, marginTop: 4 }}>{item.yomi}</div>
+                <div style={{
+                  display: "inline-block", marginTop: 8, fontSize: 10.5, fontWeight: 800,
+                  color: C.yel, border: `1px solid ${C.line}`, borderRadius: 5, padding: "3px 8px",
+                }}>{CATS.find((c) => c.k === item.cat).nm}</div>
+              </div>
+            </div>
+
+            {item.same && (
+              <div style={{
+                marginTop: 16, background: "#1A2A22", border: `1px solid ${C.grn}`, borderRadius: 9,
+                padding: "10px 12px", fontSize: 12.5, color: "#A8E6C4", lineHeight: 1.8,
+              }}>
+                根がらみ手摺・落下防止手摺・上さん・中さんは、<b>同じ資材</b>。<br />
+                使う場所と高さで呼び名が変わるだけで、物は変わらない。
+              </div>
+            )}
+            {[["何のため", item.use], ["どこに", item.where], ["覚えておくこと", item.note]].map(([t, v]) => (
+              <div key={t} style={{ marginTop: 16 }}>
+                <div style={{ fontSize: 11, color: C.yel, fontWeight: 800, letterSpacing: 1 }}>{t}</div>
+                <div style={{ fontSize: 13, color: C.txt, lineHeight: 1.85, marginTop: 5 }}>{v}</div>
+              </div>
+            ))}
+
+            <button onClick={() => setOpen(null)} style={{
+              background: "none", color: C.txt, border: `1px solid ${C.line}`, borderRadius: 9,
+              padding: 12, fontWeight: 800, fontSize: 13, fontFamily: F, cursor: "pointer",
+              width: "100%", marginTop: 20,
+            }}>閉じる</button>
+          </div>
+        </div>
+      )}
+
+      
+    </div>
+  );
+}
+
+return Glossary;
+})();
+
+const DemoApp = (() => {
+
+/* ═══════════════════════════════════════════
+   実務トレーニングの前に見せる「通し見学」
+   資材カタログ → 資材配置 → 組立完了 まで、
+   タップで1手ずつ進む。操作はしない、見るだけ。
+   ═══════════════════════════════════════════ */
+
+const C = {
+  bg: "#14171B", panel: "#1E232A", panel2: "#252C34", line: "#2E3640",
+  steel: "#93A0AD", steelLt: "#CBD6DF", steelDk: "#5F6B78",
+  yel: "#F5D400", red: "#E23B2E", grn: "#25B36B", cyan: "#4FC3D9", org: "#D98B2B",
+  navy: "#2F4A6B", skin: "#E2B48C", txt: "#E9EEF3", dim: "#8D98A4", dim2: "#5F6B78",
+};
+const F = `"Hiragino Kaku Gothic ProN","Noto Sans JP","Yu Gothic",sans-serif`;
+const MO = `ui-monospace,"SFMono-Regular",Menlo,monospace`;
+
+/* ── 平面の割り付け（出隅／南面3スパン・東面2スパン） ── */
+const SP = 66;
+const CO = { x: 250, y: 214 };                       // 出隅
+const POSTS = [
+  { k: "S3", nm: "南端", x: CO.x - SP * 3, y: CO.y, f: "S" },
+  { k: "S2", nm: "南②", x: CO.x - SP * 2, y: CO.y, f: "S" },
+  { k: "S1", nm: "南①", x: CO.x - SP, y: CO.y, f: "S" },
+  { k: "CO", nm: "出隅", x: CO.x, y: CO.y, f: "C" },
+  { k: "E1", nm: "東①", x: CO.x, y: CO.y - SP, f: "E" },
+  { k: "E2", nm: "東端", x: CO.x, y: CO.y - SP * 2, f: "E" },
+];
+const P = (k) => POSTS.find((p) => p.k === k);
+const SPANS = [["S3", "S2"], ["S2", "S1"], ["S1", "CO"], ["CO", "E1"], ["E1", "E2"]];
+const INNER = ["S3", "S1", "E2"];                    // 端部＋中間の内柱
+/* 内柱は建物側へ600 */
+const inPos = (k) => {
+  const p = P(k);
+  return p.f === "E" ? { x: p.x - 30, y: p.y } : { x: p.x, y: p.y - 30 };
+};
+
+/* ── 親方（説明のとき） ── */
+function Boss({ size = 44 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 100 100" style={{ display: "block" }}>
+      <rect x="38" y="70" width="24" height="14" fill={C.skin} />
+      <path d="M18 100 L24 82 Q50 74 76 82 L82 100 Z" fill="#3B4753" />
+      <circle cx="50" cy="52" r="26" fill={C.skin} />
+      <path d="M32 44 L45 44" stroke="#2A1D14" strokeWidth="4.2" strokeLinecap="round" />
+      <path d="M68 44 L55 44" stroke="#2A1D14" strokeWidth="4.2" strokeLinecap="round" />
+      <circle cx="39" cy="55" r="3.4" fill="#2A1D14" />
+      <circle cx="61" cy="55" r="3.4" fill="#2A1D14" />
+      <path d="M42 68 Q50 72 58 68" stroke="#2A1D14" strokeWidth="2.6" fill="none" strokeLinecap="round" />
+      <path d="M22 40 A28 28 0 0 1 78 40 Z" fill={C.yel} />
+      <rect x="16" y="38" width="68" height="7" rx="3.5" fill="#E0C200" />
+    </svg>
+  );
+}
+
+/* ── 台本 ───────────────────────────────
+   show: この手で見えるようになるもの
+   ─────────────────────────────────────── */
+const STEPS = [
+  { t: "割り付けどおりに根がらみ手摺を並べる", d: "手摺が無いと、どこにジャッキを置くのか決まらない。だから最初はこれ。", show: { ledger: 5 }, spot: { spans: SPANS.map(([a, b]) => `${a}-${b}`) } , why: "図面で割り付けた通りに手摺を並べる。" },
+  { t: "内柱の箇所に手摺を置く", d: "端部は必ず内柱。中間は2スパンに1本。内側へ手摺を出して、内柱の位置を決めておく。", show: { inner6: 3 }, spot: { inner: INNER } , why: "端部を必ず内柱にするのは、端部に内柱が無いと足場が安定しないから。" },
+  { t: "ジャッキを配る（内柱の分も）", d: "並べた手摺が位置の目印になる。外柱だけでなく、内柱が立つところにも配る。", show: { jack: 6, jackIn: 3 }, spot: { posts: POSTS.map((p) => p.k), inner: INNER } , why: "配ってから立てれば、柱を担いだまま探し回らずに済む。内柱のジャッキを忘れると、内柱だけ後から地面に直置きになるぞ。" },
+  { t: "基準のジャッキの高さを合わせる", d: "出隅が基準。足場の高さを計算して出した高さへ、ハンドルを合わせる。", spot: { posts: ["CO"] }, art: "jack" , why: "1本目が現場全体の基準になる。ここが狂えば全部が狂う。計算した高さに合わせておけば、あとの水平調整が最小で済む。" },
+  { t: "基準の支柱を挿す", d: "高さを合わせたジャッキへ挿す。この1本が現場全部の基準になる。", show: { post: ["CO"] }, spot: { posts: ["CO"] } , why: "出隅は2つの面が交わる場所だ。ここを基準にすれば、南面と東面の割り付けが同時に決まる。" },
+  { t: "根がらみ手摺を付ける", d: "立っている柱のコマへ先に入れる。柱 → 手摺 → 次の柱、の順。", show: { ledgerFix: ["S1-CO", "CO-E1"] }, spot: { spans: ["S1-CO", "CO-E1"] } , why: "柱を2本立ててからでは効率が悪い。実際の現場では基準支柱は持ってて貰おう。名前は根がらみ手摺と呼んでるが、使う資材は手摺資材だ。" },
+  { t: "次の支柱を挿す", d: "手摺を入れてから隣を立てる。ここもジャッキの高さを合わせてから挿す。", show: { post: ["S1", "E1"] }, spot: { posts: ["S1", "E1"] } , why: "手摺で繋いでから隣を立てれば、柱が倒れず、間隔もスパンどおりに決まる。" },
+  { t: "離れを測る", d: "建物からの離れ。ここがずれると、上まで全部ずれる。", show: { hanare: ["S1"] }, spot: { posts: ["S1"] }, art: "hanare" , why: "離れが狂うと、壁つなぎもブラケットも合わなくなる。1段目の10mmが、上では手が付けられん狂いになる。" },
+  { t: "水平を見る", d: "水平器は根がらみ手摺の端から少し中。ジャッキを回しながら気泡が見える位置に置く。", show: { level: ["S1-CO"] }, spot: { spans: ["S1-CO"] }, art: "level" , why: "ここで取った水平が、上まで全部の基準になる。端の凹みでは面が出ないし、遠すぎるとジャッキを回しながら気泡が見えない。" },
+  { t: "ブラケットを掛ける", d: "外柱側。踏板を受ける腕木になる。", show: { brk: ["S1"] }, spot: { posts: ["S1"] }, art: "brk" , why: "ここに踏板を付ける。" },
+  { t: "内柱を立てる", d: "内柱の箇所は、外柱の離れと水平を決めてから立てる。", show: { postIn: ["S1"] }, spot: { inner: ["S1"] } , why: "外柱の離れと水平が決まってから立てる。基準が動いているうちに立てても、結局やり直しだ。" },
+  { t: "踏板高さの手摺でつなぐ", d: "内柱と外柱を、踏板が載る高さで結ぶ。", show: { rail6: ["S1"] }, spot: { inner: ["S1"] }, art: "inner" , why: "踏板を受けるためだけじゃない。この手摺を付けてはじめて、内柱の垂直を支柱で見られるようになる。" },
+  { t: "内柱の水平を見る", d: "こちらは支柱に水平器を当てて、垂直と高さを合わせる。", show: { levelIn: ["S1"] }, spot: { inner: ["S1"] }, art: "levelIn" , why: "支柱に当てないと本当の垂直は分からない。" },
+  { t: "同じことを面ごとに繰り返す", d: "離れ → 水平 → ブラケット → 内柱。1スパンずつ進めていく。", show: { all: true }, spot: { posts: ["S2", "S3", "E2"] } , why: "1スパンずつ確定させて進む。まとめて立ててから直そうとすると、狂いが全部に回って手が付けられなくなる。" },
+  { t: "踏板を敷いて一周", d: "根がらみが一周して繋がる。ここまでが第1章。", show: { deck: true }, spot: { spans: SPANS.map(([a, b]) => `${a}-${b}`) }, art: "deck" , why: "根がらみが一周して繋がると、面がひとつの箱になって動かなくなる。ここまでが土台だ。" },
+];
+
+/* ── 平面だけでは分かりにくい作業の拡大図（立面） ── */
+function Art({ kind }) {
+  const G = 168;                                     // 地面
+  const pole = (x, top = 40) => <rect x={x - 6} y={top} width="12" height={G - top} fill={C.steel} />;
+  const wall = <><rect x="0" y="24" width="58" height={G - 24} fill="#242B33" /><text x="29" y="100" textAnchor="middle" fontSize="11" fill="#4A545E" fontFamily={F}>建物</text></>;
+  const ground = <><rect y={G} width="340" height="34" fill="#1A2027" /><line x1="0" y1={G} x2="340" y2={G} stroke="#39434D" strokeWidth="2" /></>;
+
+  if (kind === "jack") return (
+    <>
+      {ground}
+      <rect x="128" y={G - 4} width="72" height="11" rx="2" fill="#CBD6DF" />
+      <rect x="157" y={G - 130} width="14" height="130" fill="#93A0AD" />
+      {Array.from({ length: 14 }, (_, i) => <line key={i} x1="155" y1={G - 10 - i * 8.6} x2="173" y2={G - 10 - i * 8.6} stroke="#5F6B78" strokeWidth="2" />)}
+      <line x1="70" y1={G - 78} x2="290" y2={G - 78} stroke={C.yel} strokeWidth="1.6" strokeDasharray="6 5" />
+      <text x="290" y={G - 84} textAnchor="end" fontSize="10.5" fill={C.yel} fontFamily={F}>計算で出した高さ</text>
+      <rect x="140" y={G - 84} width="48" height="13" rx="3" fill={C.grn} />
+      <text x="196" y={G - 74} fontSize="10.5" fill={C.grn} fontFamily={F}>ハンドルを合わせる</text>
+    </>
+  );
+  if (kind === "hanare") return (
+    <>
+      {ground}{wall}
+      {pole(190)}
+      <line x1="58" y1={G - 40} x2="184" y2={G - 40} stroke={C.org} strokeWidth="2" />
+      <line x1="58" y1={G - 46} x2="58" y2={G - 34} stroke={C.org} strokeWidth="2" />
+      <line x1="184" y1={G - 46} x2="184" y2={G - 34} stroke={C.org} strokeWidth="2" />
+      <text x="121" y={G - 48} textAnchor="middle" fontSize="11" fill={C.org} fontFamily={MO}>離れ</text>
+      <text x="190" y={G + 22} textAnchor="middle" fontSize="10" fill={C.dim} fontFamily={F}>外柱</text>
+    </>
+  );
+  if (kind === "brk") return (
+    <>
+      {ground}{wall}
+      {pole(210)}
+      <line x1="210" y1={G - 92} x2="140" y2={G - 92} stroke={C.steelLt} strokeWidth="6" strokeLinecap="round" />
+      <line x1="210" y1={G - 44} x2="146" y2={G - 88} stroke={C.steelLt} strokeWidth="4" />
+      <text x="150" y={G - 100} fontSize="10.5" fill={C.txt} fontFamily={F}>ブラケット</text>
+      <text x="150" y={G - 112} fontSize="9.5" fill={C.dim2} fontFamily={F}>ここに踏板が載る</text>
+      <text x="210" y={G + 22} textAnchor="middle" fontSize="10" fill={C.dim} fontFamily={F}>外柱</text>
+    </>
+  );
+  if (kind === "level") return (
+    <>
+      {ground}
+      {pole(96)}{pole(258)}
+      <line x1="96" y1={G - 34} x2="258" y2={G - 34} stroke={C.yel} strokeWidth="7" strokeLinecap="round" />
+      <rect x="112" y={G - 50} width="70" height="15" rx="4" fill="#3A444E" stroke={C.steelLt} />
+      <circle cx="147" cy={G - 42} r="4.6" fill={C.grn} />
+      <text x="147" y={G - 58} textAnchor="middle" fontSize="10.5" fill={C.txt} fontFamily={F}>端から少し中に置く</text>
+      <text x="96" y={G + 22} textAnchor="middle" fontSize="10" fill={C.dim2} fontFamily={F}>ここが端</text>
+    </>
+  );
+  if (kind === "inner") return (
+    <>
+      {ground}{wall}
+      {pole(240)}{pole(120, 96)}
+      <line x1="120" y1={G - 72} x2="240" y2={G - 72} stroke={C.cyan} strokeWidth="6" strokeLinecap="round" />
+      <text x="180" y={G - 80} textAnchor="middle" fontSize="10.5" fill={C.cyan} fontFamily={F}>踏板高さの600手摺</text>
+      <text x="120" y={G + 22} textAnchor="middle" fontSize="10" fill={C.dim} fontFamily={F}>内柱</text>
+      <text x="240" y={G + 22} textAnchor="middle" fontSize="10" fill={C.dim} fontFamily={F}>外柱</text>
+    </>
+  );
+  if (kind === "levelIn") return (
+    <>
+      {ground}{wall}
+      {pole(240)}{pole(120, 96)}
+      <line x1="120" y1={G - 72} x2="240" y2={G - 72} stroke={C.cyan} strokeWidth="6" strokeLinecap="round" />
+      <rect x="104" y={G - 130} width="15" height="60" rx="4" fill="#3A444E" stroke={C.steelLt} />
+      <circle cx="111" cy={G - 100} r="4.6" fill={C.grn} />
+      <text x="90" y={G - 136} fontSize="10.5" fill={C.txt} fontFamily={F}>内柱は支柱に当てる</text>
+    </>
+  );
+  if (kind === "deck") return (
+    <>
+      {ground}{wall}
+      {pole(240)}{pole(120, 96)}
+      <rect x="112" y={G - 84} width="136" height="12" rx="2" fill="#7B8895" stroke={C.steelDk} />
+      <text x="180" y={G - 92} textAnchor="middle" fontSize="10.5" fill={C.txt} fontFamily={F}>踏板</text>
+    </>
+  );
+  return null;
+}
+
+function App({ onDone }) {
+  const [view, setView] = useState("intro");   // intro / walk / end
+  const [i, setI] = useState(0);
+
+  /* いまの手までに見えているもの */
+  const upto = (n) => STEPS.slice(0, n + 1).reduce((a, s) => {
+    for (const [k, v] of Object.entries(s.show || {})) {
+      if (Array.isArray(v)) a[k] = [...(a[k] || []), ...v];
+      else a[k] = v;
+    }
+    return a;
+  }, {});
+  const sh = upto(i);
+  const st = STEPS[i];
+  const done = sh.all || sh.deck;
+
+  const next = () => { if (i < STEPS.length - 1) setI(i + 1); else setView("end"); };
+
+  const Post = ({ p, on }) => (
+    <circle cx={p.x} cy={p.y} r={on ? 7 : 4} fill={on ? C.steelLt : "#39434D"} />
+  );
+
+  return (
+    <div style={{
+      background: C.bg, color: C.txt, fontFamily: F, height: "100dvh",
+      display: "flex", flexDirection: "column", overflow: "hidden",
+    }}>
+      <div style={{ height: 4, background: `repeating-linear-gradient(45deg,${C.yel} 0 10px,#14171B 10px 20px)`, flex: "0 0 auto" }} />
+
+      {view === "intro" && (
+        <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "20px 18px 28px" }}>
+          <div style={{ fontSize: 11, color: C.yel, fontWeight: 800, letterSpacing: 2 }}>第1章のまえに</div>
+          <div style={{ fontSize: 23, fontWeight: 900, lineHeight: 1.4, marginTop: 8 }}>
+            まず、通しで<br />見てもらう。
+          </div>
+          <div style={{ fontSize: 12.5, color: C.dim, lineHeight: 1.95, margin: "12px 0 18px" }}>
+            資材を置くところから、根がらみが一周するまで。<br />
+            操作はしません。タップで1手ずつ進みます。<br />
+            全体の順番が頭に入ってから、チュートリアルへ進みます。
+          </div>
+
+          <div style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: 10, padding: "14px 15px", marginBottom: 18 }}>
+            <div style={{ fontSize: 11, color: C.yel, fontWeight: 800, letterSpacing: 1, marginBottom: 8 }}>この現場で使う資材</div>
+            <div style={{ fontSize: 12.5, color: C.dim, lineHeight: 2 }}>
+              ジャッキ　／　支柱　／　内柱<br />
+              根がらみ手摺　／　踏板高さの600手摺<br />
+              ブラケット　／　踏板<br />
+              <span style={{ color: C.dim2, fontSize: 11.5 }}>
+                根がらみ手摺・落下防止手摺・上さん・中さんは同じ資材。使う場所で呼び名が変わるだけ。
+              </span>
+            </div>
+          </div>
+
+          <button onClick={() => setView("walk")} style={{
+            width: "100%", background: C.yel, color: "#14171B", border: "none", borderRadius: 9,
+            padding: 14, fontSize: 14, fontWeight: 900, fontFamily: F, cursor: "pointer",
+          }}>通しで見る（15手）</button>
+          <div style={{ fontSize: 11, color: C.dim2, textAlign: "center", marginTop: 10 }}>
+            資材の詳しい説明は、資材カタログでいつでも見られます
+          </div>
+        </div>
+      )}
+
+      {view === "walk" && (
+        <>
+          <div style={{ padding: "10px 14px", borderBottom: `1px solid ${C.line}`, display: "flex", alignItems: "baseline", gap: 8, flex: "0 0 auto" }}>
+            <span style={{ fontSize: 12.5, fontWeight: 800, color: C.yel }}>組立の通し</span>
+            <span style={{ fontSize: 11, color: C.dim, fontFamily: MO }}>{i + 1} / {STEPS.length}</span>
+            <button onClick={() => setView("end")} style={{
+              marginLeft: "auto", background: "none", border: `1px solid ${C.line}`, color: C.dim,
+              borderRadius: 7, padding: "5px 10px", fontSize: 11, fontFamily: F, cursor: "pointer",
+            }}>とばす</button>
+          </div>
+
+          <div onClick={next} style={{ flex: 1, minHeight: 0, cursor: "pointer", position: "relative" }}>
+            {st.art && (
+              <svg viewBox="0 0 340 210" preserveAspectRatio="xMidYMid meet" style={{
+                width: "100%", height: "42%", display: "block", borderBottom: `1px solid ${C.line}`,
+              }}>
+                <rect width="340" height="210" fill="#0C1015" />
+                <text x="14" y="18" fontSize="10.5" fill={C.dim2} fontFamily={F}>近くで見ると</text>
+                <Art kind={st.art} />
+              </svg>
+            )}
+            <svg viewBox="0 0 340 260" preserveAspectRatio="xMidYMid meet" style={{ width: "100%", height: st.art ? "58%" : "100%", display: "block" }}>
+              <rect width="340" height="260" fill="#0C1015" />
+              <text x="14" y="20" fontSize="10.5" fill={C.dim2} fontFamily={F}>平面図（上から見たところ）</text>
+
+              {/* いまの作業箇所 */}
+              {(st.spot?.spans || []).map((id) => {
+                const [a, b] = id.split("-"), p = P(a), q = P(b);
+                return <line key={id} x1={p.x} y1={p.y} x2={q.x} y2={q.y} stroke={C.yel} strokeWidth="18"
+                  strokeLinecap="round" opacity=".16" className="spot" />;
+              })}
+              {(st.spot?.posts || []).map((k) => {
+                const p = P(k);
+                return <circle key={k} cx={p.x} cy={p.y} r="19" fill={C.yel} opacity=".16" className="spot" />;
+              })}
+              {(st.spot?.inner || []).map((k) => {
+                const q = inPos(k), p = P(k);
+                return <g key={k} className="spot">
+                  <circle cx={q.x} cy={q.y} r="17" fill={C.yel} opacity=".16" />
+                  <circle cx={p.x} cy={p.y} r="15" fill={C.yel} opacity=".12" />
+                </g>;
+              })}
+
+              {/* 建物 */}
+              <rect x="60" y="66" width="178" height="134" fill="#242B33" stroke="#2E3640" />
+              <text x="149" y="136" textAnchor="middle" fontSize="12" fill="#4A545E" fontFamily={F}>建物</text>
+
+              {/* 踏板 */}
+              {sh.deck && SPANS.map(([a, b], n) => {
+                const p = P(a), q = P(b);
+                const v = p.f === "E" || q.f === "E";
+                return <rect key={n} x={Math.min(p.x, q.x) - (v ? 9 : 0)} y={Math.min(p.y, q.y) - (v ? 0 : 9)}
+                  width={v ? 18 : Math.abs(q.x - p.x)} height={v ? Math.abs(q.y - p.y) : 18} fill="#4A5A63" opacity=".8" />;
+              })}
+
+              {/* 根がらみ手摺 */}
+              {SPANS.map(([a, b], n) => {
+                const p = P(a), q = P(b);
+                const laid = sh.ledger > n || (sh.ledgerFix || []).includes(`${a}-${b}`) || sh.all;
+                if (!laid) return null;
+                const fixed = (sh.ledgerFix || []).includes(`${a}-${b}`) || sh.all;
+                return <line key={n} x1={p.x} y1={p.y} x2={q.x} y2={q.y}
+                  stroke={fixed ? C.yel : "#8A7A22"} strokeWidth={fixed ? 5 : 4} strokeLinecap="round"
+                  strokeDasharray={fixed ? "" : "8 5"} />;
+              })}
+
+              {/* ジャッキ */}
+              {sh.jack && POSTS.map((p, n) => (
+                <rect key={p.k} x={p.x - 6} y={p.y - 6} width="12" height="12" rx="2" fill="#5F6B78" />
+              ))}
+              {sh.jackIn && INNER.map((k) => {
+                const q = inPos(k);
+                return <rect key={k} x={q.x - 5} y={q.y - 5} width="10" height="10" rx="2" fill="#5F6B78" />;
+              })}
+
+              {/* 内柱の600手摺 */}
+              {sh.inner6 && INNER.map((k) => {
+                const p = P(k), q = inPos(k);
+                return <line key={k} x1={p.x} y1={p.y} x2={q.x} y2={q.y} stroke={C.cyan} strokeWidth="3.4" strokeLinecap="round" />;
+              })}
+
+              {/* 支柱 */}
+              {POSTS.map((p) => <Post key={p.k} p={p} on={sh.all || (sh.post || []).includes(p.k)} />)}
+              {/* 内柱 */}
+              {INNER.map((k) => {
+                const q = inPos(k), on = sh.all || (sh.postIn || []).includes(k);
+                return <circle key={k} cx={q.x} cy={q.y} r={on ? 5.5 : 3} fill={on ? C.cyan : "#39434D"} />;
+              })}
+
+              {/* ブラケット */}
+              {(sh.all ? ["S2", "CO", "E1"] : sh.brk || []).map((k) => {
+                const p = P(k);
+                const d = p.f === "E" ? [-14, 0] : [0, -14];
+                return <line key={k} x1={p.x} y1={p.y} x2={p.x + d[0]} y2={p.y + d[1]} stroke={C.steelLt} strokeWidth="4" strokeLinecap="round" />;
+              })}
+
+              {/* 踏板高さの600手摺 */}
+              {(sh.all ? INNER : sh.rail6 || []).map((k) => {
+                const p = P(k), q = inPos(k);
+                return <line key={k} x1={p.x} y1={p.y} x2={q.x} y2={q.y} stroke={C.cyan} strokeWidth="5" strokeLinecap="round" />;
+              })}
+
+              {/* 離れ */}
+              {(sh.hanare || []).map((k) => {
+                const p = P(k);
+                return (
+                  <g key={k}>
+                    <line x1={p.x} y1={p.y} x2={p.x} y2={p.y - 14} stroke={C.org} strokeWidth="2" strokeDasharray="3 3" />
+                    <text x={p.x + 6} y={p.y - 18} fontSize="10" fill={C.org} fontFamily={MO}>離れ</text>
+                  </g>
+                );
+              })}
+
+              {/* 水平 */}
+              {(st.show?.level || []).map((id) => {
+                const [a, b] = id.split("-"), p = P(a), q = P(b);
+                const mx = (p.x + q.x) / 2 - 12, my = (p.y + q.y) / 2;
+                return (
+                  <g key={id}>
+                    <rect x={mx - 16} y={my - 20} width="40" height="12" rx="3" fill="#3A444E" stroke={C.steelLt} />
+                    <circle cx={mx + 4} cy={my - 14} r="3.4" fill={C.grn} />
+                  </g>
+                );
+              })}
+              {(st.show?.levelIn || []).map((k) => {
+                const q = inPos(k);
+                return <circle key={k} cx={q.x} cy={q.y} r="11" fill="none" stroke={C.grn} strokeWidth="1.6" strokeDasharray="3 3" />;
+              })}
+
+              {/* 名前 */}
+              {POSTS.map((p) => (
+                <text key={p.k} x={p.f === "E" ? p.x + 16 : p.x} y={p.f === "E" ? p.y + 4 : p.y + 22}
+                  textAnchor={p.f === "E" ? "start" : "middle"} fontSize="10" fill={C.dim2} fontFamily={F}>{p.nm}</text>
+              ))}
+            </svg>
+          </div>
+
+          <div onClick={next} style={{ padding: "12px 16px 18px", flex: "0 0 auto", borderTop: `1px solid ${C.line}`, cursor: "pointer" }}>
+            <div style={{ fontSize: 15, fontWeight: 900, lineHeight: 1.5, marginBottom: 7 }}>{st.t}</div>
+            <div style={{ fontSize: 12.5, color: C.dim, lineHeight: 1.85, marginBottom: 10 }}>{st.d}</div>
+            {st.why && (
+              <div style={{ display: "flex", gap: 10, alignItems: "flex-start", marginBottom: 12 }}>
+                <div style={{ flex: "0 0 auto", background: "#1D1B0B", border: `1px solid ${C.yel}`, borderRadius: 10, padding: 3 }}>
+                  <Boss />
+                </div>
+                <div style={{
+                  flex: 1, background: "#1D1B0B", border: `1px solid #4A430F`, borderRadius: 10,
+                  padding: "9px 12px", fontSize: 12, color: "#E8E0B0", lineHeight: 1.85,
+                }}>{st.why}</div>
+              </div>
+            )}
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <button onClick={(e) => { e.stopPropagation(); setI(Math.max(0, i - 1)); }} style={{
+                background: "none", border: `1px solid ${C.line}`, color: C.dim, borderRadius: 8,
+                padding: "10px 14px", fontSize: 12, fontFamily: F, cursor: "pointer",
+              }}>戻る</button>
+              <button onClick={next} style={{
+                flex: 1, background: C.yel, color: "#14171B", border: "none", borderRadius: 8,
+                padding: 12, fontSize: 13.5, fontWeight: 900, fontFamily: F, cursor: "pointer",
+              }}>{i === STEPS.length - 1 ? "見終わった" : "次の手"}</button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {view === "end" && (
+        <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "22px 18px 28px" }}>
+          <div style={{ fontSize: 11, color: C.yel, fontWeight: 800, letterSpacing: 2 }}>見学おわり</div>
+          <div style={{ fontSize: 22, fontWeight: 900, lineHeight: 1.4, marginTop: 8 }}>
+            順番は入ったか。<br />次は自分でやってみろ。
+          </div>
+          <div style={{ fontSize: 12.5, color: C.dim, lineHeight: 1.95, margin: "12px 0 20px" }}>
+            チュートリアルでは、次の作業を親方が教えます。<br />
+            資材や用語は、いつでも資材カタログで確認できます。
+          </div>
+          <button onClick={onDone} style={{
+            width: "100%", background: C.yel, color: "#14171B", border: "none", borderRadius: 9,
+            padding: 14, fontSize: 14, fontWeight: 900, fontFamily: F, cursor: "pointer",
+          }}>チュートリアルへ進む</button>
+          <button onClick={() => { setI(0); setView("walk"); }} style={{
+            width: "100%", background: "none", color: C.txt, border: `1px solid ${C.line}`, borderRadius: 9,
+            padding: 13, fontSize: 13, fontFamily: F, cursor: "pointer", marginTop: 10,
+          }}>もう一度見る</button>
+        </div>
+      )}
+
+      <style>{`
+        html, body, #root { background: ${C.bg}; margin: 0; }
+        .spot { animation: sp 1.7s ease-in-out infinite; }
+        @keyframes sp { 0%,100% { opacity: .18 } 50% { opacity: .42 } }
+      `}</style>
+    </div>
+  );
+}
+
+return App;
+})();
+
+const EduApp = (() => {
+
+/* ═══════════════════════════════════════════
+   足場の組立て等の業務に係る特別教育（学科・6時間）
+   安衛則第36条第39号／安全衛生特別教育規程 に対応した構成
+   ・視聴時間は再生中のみ加算
+   ・在席確認、質疑応答、修了試験、修了証、受講記録
+   ═══════════════════════════════════════════ */
+
+const C = {
+  bg: "#14171B", panel: "#1E232A", panel2: "#252C34", line: "#2E3640",
+  steel: "#93A0AD", steelLt: "#CBD6DF", steelDk: "#5F6B78",
+  yel: "#F5D400", red: "#E23B2E", grn: "#25B36B", cyan: "#4FC3D9", org: "#D98B2B",
+  txt: "#E9EEF3", dim: "#8D98A4", dim2: "#5F6B78",
+};
+const F = `"Hiragino Kaku Gothic ProN","Noto Sans JP","Yu Gothic",sans-serif`;
+const MO = `ui-monospace,"SFMono-Regular",Menlo,monospace`;
+const hm = (s) => `${Math.floor(s / 60)}分${s % 60 ? `${s % 60}秒` : ""}`;
+const hhmm = (s) => `${Math.floor(s / 3600)}時間${Math.floor((s % 3600) / 60)}分`;
+const now = () => new Date().toLocaleString("ja-JP", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
+
+/* ── 教材（科目・範囲・時間は特別教育規程の区分に対応） ── */
+const SUBJECTS = [
+  {
+    id: 1, n: "足場及び作業の方法に関する知識", need: 180,
+    lessons: [
+      { id: "1-1", t: "足場の種類、材料、構造及び組立図", han: "足場の種類、材料、構造及び組立図", min: 50, scene: "types",
+        script: [
+              "足場の組立て等の業務に係る特別教育、科目一、足場及び作業の方法に関する知識を始めます。",
+              "この科目は三時間あり、四つの単元に分かれています。",
+              "最初の単元では、足場の種類、材料、構造、そして組立図について学びます。",
+              "皆さんが毎日さわっている材料に、どんな決まりがあるのか。なぜその形をしているのか。",
+              "それを知っているかどうかで、現場での判断が変わります。",
+              "まずは、足場とは何か、というところから始めます。",
+              "足場の組立てとは、単体の仮設機材を複数組み合わせて、作業足場などの仮設構造物を完成させることをいいます。",
+              "組み合わせて構造物にする、というところが要点です。",
+              "ですから、うま足場や脚立足場も、複数の機材を組み合わせて作れば、足場に含まれます。",
+              "一方で、軽量作業台やアルミニウム合金製の可搬式作業台のように、単独の機材を置いて使う場合は、足場の組立てには含まれません。",
+              "この区別は、特別教育が必要かどうかにも関わってきます。",
+              "自分がこれから行う作業が、足場の組立てにあたるのかどうか。まずそこを意識してください。",
+              "そして足場は、そこで作業する人だけのものではありません。",
+              "後から塗装や左官、板金の職人が乗ります。近所の人がその下を歩きます。",
+              "自分が組んだ足場に、明日は誰が乗るのか。それを考えられるかどうかが、職人の分かれ目になります。",
+              "足場に求められる条件は、大きく三つあります。安全性、作業性、経済性です。",
+              "一つ目の安全性。これは二つの意味があります。",
+              "一つは、各種の荷重に対して壊れないこと。人の重さ、材料の重さ、風の力、地震の揺れに耐えることです。",
+              "もう一つは、墜落と飛来落下を防げること。手すりや幅木といった設備が備わっていることです。",
+              "強度があっても、囲いがなければ人は落ちます。両方そろって初めて安全といえます。",
+              "二つ目の作業性。作業をするうえで十分な床面積があること。",
+              "そして、現場での加工が要らず、設置と撤去が速いことです。",
+              "床が狭ければ、人は無理な姿勢をとります。無理な姿勢が墜落につながります。",
+              "作業性は、快適さの話ではなく、安全の話でもあるということです。",
+              "三つ目の経済性。耐用年数が長く、足場として必要十分な性能を持っていること。",
+              "安ければよい、というものではありません。傷んだ材料を使い続けることは、経済性ではなく危険です。",
+              "この三つの条件を、場所と目的と用途に合わせて満たすこと。それが足場を選ぶということです。",
+              "では、足場の種類を見ていきます。",
+              "足場は、使用形態から大きく二つに分かれます。屋内作業用と、屋外作業用です。",
+              "まず屋内作業用から。",
+              "脚立足場は、脚立を二台以上並べて、その上に足場板を渡したものです。",
+              "天井の内装工事や設備工事など、比較的低い高さの作業で使われます。",
+              "簡単に組めるぶん、事故も多い足場です。脚立の開き止めを確実にかけること。",
+              "足場板は、両端が十分にかかるようにし、跳ね上がらないよう固定すること。",
+              "そして、脚立の天板の上には乗らないこと。この三つは徹底してください。",
+              "うま足場も、考え方は同じです。うまと呼ぶ架台の上に足場板を渡します。",
+              "ローリングタワーは、脚にキャスターの付いた移動式の足場です。",
+              "高い位置での点検や設備工事に使われますが、移動できることが弱点にもなります。",
+              "作業中は必ずキャスターを固定すること。人を乗せたまま移動しないこと。",
+              "そして、アウトリガーを張り出して、転倒しないようにすることです。",
+              "可搬式作業台は、いわゆる立ち馬です。手すり付きのものも増えています。",
+              "単独で置いて使うぶんには足場の組立てにはあたりませんが、上で作業する危険は同じです。",
+              "天板の上で背伸びをする、体を大きく乗り出す。この二つが転落の原因になります。",
+              "次に、屋外作業用の足場です。代表的なものが三つあります。",
+              "わく組足場、くさび緊結式足場、そして単管足場です。",
+              "まず、わく組足場から見ていきます。",
+              "わく組足場を構成する部材を、一つずつ確認します。",
+              "建枠は、二本の脚柱を横架材でつないだ門型の部材です。これが柱と梁を兼ねています。",
+              "脚柱の上端にはジョイントがあり、上の建枠を差し込んで積み上げていきます。",
+              "抜け止めのため、アームロックや連結ピンで固定します。ここを忘れると、風で建枠が浮きます。",
+              "交差筋かいは、建枠と建枠のあいだに斜めに掛ける部材です。足場が平行四辺形に変形するのを防ぎます。",
+              "床付き布枠は、布材と作業床が一体になった部材です。掛けるだけで床と水平材の両方になります。",
+              "掛けたあとは、必ず外れ止めのロックを掛けてください。ロックを忘れた床は、端に乗った瞬間に跳ね上がります。",
+              "脚部にはジャッキ型ベース金具を使い、高さを調整します。その下には敷板を敷きます。",
+              "そして脚部どうしを根がらみでつなぎます。",
+              "わく組足場は部材が大きく、一つひとつが重い。だから二人以上での受け渡しが基本になります。",
+              "無理に一人で持ち上げようとして、バランスを崩す。これが組立て中の墜落で最も多い形です。",
+              "門型をした建枠と、交差筋かいを組み合わせて積み上げていく足場です。",
+              "部材の点数が少なく、強度が高いため、中高層の建築工事や、広い面での使用に向いています。",
+              "構成する材料は、建枠、交差筋かい、床付き布枠、脚部のジャッキベース、そして敷板です。",
+              "上に伸ばすときは建枠を継ぎ、ジョイントで固定します。",
+              "わく組足場の墜落防止は、交差筋かいだけでは足りません。",
+              "交差筋かいに加えて、高さ十五センチメートルから四十センチメートルの位置に、下さんを設けます。",
+              "さらに安全な措置として、上さんを追加することが望ましいとされています。",
+              "そして飛来落下を防ぐため、高さ十センチメートル以上の幅木を設けます。",
+              "現場でよく見る「筋かいがあるから大丈夫」という考えは、いまの基準では通りません。",
+              "次が、くさび緊結式足場です。皆さんが最もよく使う足場だと思います。",
+              "支柱に緊結部が取り付けられていて、そこに手すりや踏板のくさびを差し込み、ハンマーで打ち込んで固定します。",
+              "この緊結部を、現場ではコマと呼びます。",
+              "コマは、四百五十ミリメートルのピッチで支柱に付いています。",
+              "この四百五十という寸法が、手すりや踏板を取り付ける高さの基準になります。",
+              "支柱の長さも、この寸法を基準に決められています。",
+              "組立てと解体が速く、部材が軽い。だから戸建住宅の外部足場で最も多く使われています。",
+              "構成する材料は、支柱、手すり、踏板、ブラケット、ジャッキ、そして敷板です。",
+              "支柱の上端にはジョイントがあり、上の支柱を差し込んで継いでいきます。",
+              "くさび緊結式の弱点は、打ち込みが甘いと抜けることです。",
+              "くさびは、必ずハンマーで確実に打ち込みます。手で押し込んだだけでは緊結したことになりません。",
+              "解体のときも同じです。抜くときは下から叩き上げる。無理にこじると、部材もコマも傷みます。",
+              "くさび緊結式足場の各部を、もう少し細かく見ます。",
+              "支柱は、長さによって呼び名が変わります。三・六メートル、一・八メートル、〇・九メートルといった規格があります。",
+              "これを組み合わせて、必要な高さにします。継ぐ位置が一列に並ばないよう、ずらして配置するのが基本です。",
+              "手すりは、スパンの長さに合わせた寸法のものを使います。一・八メートル、一・二メートル、〇・六メートルなどです。",
+              "踏板は、両端のフックを布材や手すりに引っ掛けて使います。フックには外れ止めが付いています。",
+              "この外れ止めを掛けていない踏板は、端を踏んだときに跳ね上がります。必ず確認してください。",
+              "ブラケットは、支柱の外側に張り出して、踏板を受ける部材です。大ブラケット、小ブラケットがあります。",
+              "ジャッキは、脚部の高さを微調整する部材です。ねじを回して上下させます。",
+              "上げ幅には限度があります。伸ばしすぎたジャッキは、そこが弱点になります。",
+              "敷板は、地盤への力を分散させる板です。ジャッキを直接土の上に置いてはいけません。",
+              "地盤が悪ければ、敷板を重ねる、鉄板を敷くといった対応をとります。",
+              "近年は、次世代足場と呼ばれる規格の足場も普及しています。",
+              "従来のくさび緊結式を改良したもので、支柱の緊結部の間隔や、階の高さの取り方が見直されています。",
+              "階高が高くとられているため、頭がぶつかりにくく、姿勢が楽になります。",
+              "無理な姿勢が減れば、それだけ転落の危険も減ります。",
+              "また、手すりを先に上げる工法に対応した部材が、はじめから用意されています。",
+              "床と建地のすき間が小さくなるよう設計されたものもあります。",
+              "現場で扱う足場が、従来型なのか次世代型なのか。部材の互換性はどうか。",
+              "違う規格の部材を混ぜて使うことはできません。搬入された材料がどの規格なのか、必ず確認してください。",
+              "三つ目が、単管足場です。単管パイプをクランプで留めていきます。",
+              "自由度が高く、狭い場所や変形した敷地に対応できます。その一方で、締め付けの管理が難しくなります。",
+              "単管足場には、寸法の基準が細かく定められています。",
+              "建地の間隔は、けた行方向を一・八五メートル以下、はり間方向を一・五メートル以下とします。",
+              "建地の間の積載荷重は、四百キログラムを限度とします。",
+              "地上第一の布は、高さ二メートル以下の位置に設けます。",
+              "そして、建地の最高部から測って三十一メートルを超える部分の建地は、原則として鋼管を二本組とします。",
+              "ただし、建地の下端に作用する設計荷重が最大使用荷重を超えないときは、二本組としないことができるとされています。",
+              "接続部や交差部は、それに適合した金具を用いて緊結します。",
+              "筋かいで補強すること、脚部の滑動や沈下を防ぐためにベース金具と敷板を用い、根がらみを設けること。",
+              "これらは、どの足場にも共通する考え方です。",
+              "このほかにも、いくつかの足場があります。",
+              "つり足場は、上から吊り下げる足場です。橋りょうの下面や、天井裏の作業で使われます。",
+              "支えが下にないため、つり材が切れれば一気に落ちます。特に厳しい管理が求められます。",
+              "張出し足場は、建物から腕木を張り出して、その上に組む足場です。",
+              "移動昇降式足場は、動力で作業床が昇り降りするものです。",
+              "連層足場は、外壁面に沿って何層にもわたって設けられる足場です。",
+              "つり足場について、もう少し説明します。",
+              "つり足場は、上からチェーンやワイヤロープで吊り下げ、その下に作業床を作る足場です。",
+              "橋りょうの塗装や点検、大きな建物の天井裏の工事などで使われます。",
+              "下に支柱がありません。つり材が切れれば、足場ごと落ちます。",
+              "だからつり材の点検が厳しく求められ、作業主任者の選任も義務づけられています。",
+              "つり足場の上では、常に墜落制止用器具を使います。作業中だけでなく、待機しているあいだも同じです。",
+              "実際に、つり足場の上で待機していた作業者が、橋桁のフランジに乗ってチェーンを調整しようとして墜落した災害が起きています。",
+              "作業をしていないから大丈夫、という時間はありません。",
+              "張出し足場は、建物から腕木を張り出して、その上に組む足場です。",
+              "下から支柱で支えられないため、腕木の固定と、跳ね上がりを防ぐ控えが重要になります。",
+              "つり足場、張出し足場、そして高さ五メートル以上の構造の足場。",
+              "この三つの組立て、解体、変更の作業では、作業主任者を選任しなければなりません。",
+              "足場には、人が昇り降りするための設備も組み込まれます。",
+              "くさび式やわく組足場では、階段枠や昇降階段を組み込むのが一般的です。",
+              "はしごを使う場合は、上端を作業床から六十センチメートル以上突き出すなど、決められた設置の仕方があります。",
+              "昇降設備は、後から付けるものではなく、組立図の段階で位置が決められているものです。",
+              "階段があるのに、近道だからと支柱をよじ登る。これが、昇降中の墜落の典型です。",
+              "遠回りに見えても、決められた昇降路を使ってください。",
+              "つり足場、張出し足場、そして高さ五メートル以上の構造の足場。",
+              "この三つの組立て、解体、変更の作業では、作業主任者を選任しなければなりません。",
+              "特別教育を修了しただけでは、これらの作業は行えません。この点は科目四でもう一度確認します。",
+              "続いて、材料についてです。",
+              "足場に使う材料には、規格があります。強度、寸法、めっきの厚さなどが定められています。",
+              "現場で使うのは、その規格に適合したものだけです。自分で溶接して延ばした、というような材料は使えません。",
+              "鋼管の寸法にも規格があります。単管足場に使う鋼管は、外径が四十八・六ミリメートルのものが標準です。",
+              "この寸法だからこそ、どのメーカーのクランプでも留められます。",
+              "表面には、さびを防ぐためのめっきが施されています。",
+              "めっきがはがれ、地肌が出て赤さびが浮いている部材は、断面が減っている可能性があります。",
+              "また、仮設機材には、一般社団法人仮設工業会の認定を受けた製品があります。",
+              "認定品には表示があります。どこのメーカーの、いつの製品かが分かるようになっています。",
+              "表示が読めなくなるほど傷んだ部材は、素性の分からない部材です。使わないでください。",
+              "材料は、置き方でも傷みます。",
+              "泥の上に直接置く、雨ざらしにする、上に重い物を積む。こうした扱いが、変形とさびを進めます。",
+              "使い終わったら、種類ごとに分けて、枕木を敷いて整理して置く。",
+              "整理整頓は、見た目の問題ではなく、材料の寿命と安全の問題です。",
+              "そして、現場に持ち込む前に選別すること。上げてしまえば、誰も見分けられません。",
+              "材料を受け入れるときにも、やることがあります。",
+              "まず数量の確認です。図面どおりの本数がそろっているか。足りなければ、途中で組めなくなります。",
+              "足りないまま組み進めて、あるもので代用する。これが図面と違う足場を生みます。",
+              "次に、部材の呼び名をそろえることです。",
+              "同じ部材でも、地域や会社によって呼び方が違うことがあります。",
+              "呼び名が食い違ったまま指示を出すと、違う材料が上がってきます。",
+              "作業前の打ち合わせで、この現場ではこう呼ぶ、と決めておいてください。",
+              "そして返却のときにも選別します。傷んだ部材をそのまま倉庫へ戻せば、次の現場でまた誰かが手に取ります。",
+              "使えない材料をそこで止めることも、自分の仕事のうちです。",
+              "そして最も大切なのが、著しい損傷、変形、または腐食のある材料を使ってはならない、という原則です。",
+              "曲がった支柱。つぶれたコマ。ひび割れた踏板。さびの浮いたクランプ。",
+              "これらは、見た目には使えそうでも、設計どおりの強度が出ません。",
+              "現場に上がってしまえば、それを見分けるのは難しくなります。だから、上げる前に外すのです。",
+              "作業者は、搬入された部材に変形や腐食などの不良品を見つけたら、作業主任者または作業指揮者へ報告します。",
+              "自分で判断して脇へ置くだけでは足りません。報告して、確実に現場から除くところまでが仕事です。",
+              "「これくらいなら使える」という一本が、後から崩れる原因になります。",
+              "報告することは、手間ではなく、予防です。",
+              "次に、足場の構造と、各部の名称を確認します。",
+              "垂直に立つ柱を、建地といいます。くさび足場では支柱と呼ぶことが多い部材です。",
+              "建地をつなぐ水平材のうち、けた行方向に渡すものを布、はり間方向に渡すものを腕木といいます。",
+              "作業をする床が、作業床です。踏板、布板、床付き布枠などが使われます。",
+              "脚部には、沈下や滑動を防ぐために敷板を敷き、ベース金具やジャッキを据えます。",
+              "そして脚部どうしをつなぐ水平材が、根がらみです。",
+              "足場が水平方向に変形しないよう、斜めに入れる部材が筋かい、あるいは火打ちです。",
+              "足場を建物につなぎとめる部材が、壁つなぎです。",
+              "墜落を防ぐのが手すりと中さん、物の落下を防ぐのが幅木とメッシュシート。役割が違います。",
+              "この二つを混同しないでください。手すりがあるから物が落ちない、ということはありません。",
+              "足場にかかる荷重についても、考え方を知っておいてください。",
+              "足場には、四つの力がかかります。",
+              "一つ目は、足場そのものの重さ。これを自重といいます。",
+              "二つ目は、人と材料の重さ。これが積載荷重です。",
+              "三つ目は、風の力。四つ目は、雪の重さです。",
+              "このうち、現場で最も見落とされやすいのが風です。",
+              "足場は、隙間だらけのときは風が抜けます。しかしメッシュシートを張ると、面で風を受けるようになります。",
+              "同じ足場でも、シートを張った瞬間に、まったく違う力がかかるということです。",
+              "その力を建物に逃がすのが、壁つなぎの役目です。",
+              "壁つなぎが足りない足場にシートを張れば、倒れます。実際にそういう事故が起きています。",
+              "自重、積載、風、雪。この四つに耐えられる構造かどうかを決めているのが、組立図です。",
+              "作業床には、はっきりとした基準があります。",
+              "高さ二メートル以上の作業場所に設ける作業床は、幅を四十センチメートル以上とします。",
+              "床材の間のすき間は、三センチメートル以下とします。",
+              "そして、床材と建地とのすき間は、十二センチメートル未満とします。",
+              "この十二センチという数字は、平成二十七年の改正で加わったものです。",
+              "床と建地のあいだが空いていると、人はそこから落ちます。実際に、その隙間からの墜落が起きています。",
+              "床材は、ぐらつかないように、二か所以上で支持物に取り付けます。",
+              "跳ね上がりや、ずれにも注意が要ります。",
+              "手すりは、高さ八十五センチメートル以上のものを設けます。",
+              "中さんは、高さ三十五センチメートルから五十センチメートルの位置に設けます。",
+              "幅木は、高さ十センチメートル以上のものを設けます。",
+              "荷重についても、決まりがあります。",
+              "足場には、最大積載荷重が定められています。この重さを超える材料を載せてはいけません。",
+              "そして事業者は、その最大積載荷重を、作業者が見やすい場所に表示しなければなりません。",
+              "現場で表示を見かけたら、それが自分たちへの制限だと理解してください。",
+              "材料をまとめて一か所に積むと、その部分だけ荷重が集中します。",
+              "重い材料は、分散して置く。使う場所の近くに、必要なぶんだけ上げる。",
+              "これは効率の話ではなく、足場が壊れないための話です。",
+              "これらの数字は、覚えるためのものではなく、現場で確かめるためのものです。",
+              "組んだあと、自分の足場がこの基準を満たしているか。目で見て確かめてください。",
+              "最後に、組立図についてです。",
+              "組立図とは、使用する材料、寸法、そして使用する高さを示した図面のことです。",
+              "立面図と平面図があり、どこに壁つなぎを取るか、どこに階段を設けるかまで描かれています。",
+              "組立図の読み方を、少しだけ確認します。",
+              "立面図は、足場を横から見た図です。何段組むのか、各段の高さはいくつか、階段はどこに付くのかが分かります。",
+              "平面図は、上から見た図です。建物のまわりをどう囲むのか、スパンの割り付けはどうなっているのかが分かります。",
+              "図面には凡例があります。壁つなぎ、階段、朝顔などが記号で示されています。",
+              "寸法は、通り芯や建物の外面を基準に追っていきます。",
+              "自分が担当する面が、図面のどこにあたるのか。作業前に必ず確かめてください。",
+              "現場が図面どおりにいかないことは、実際にあります。",
+              "隣地が近い、電線がある、地盤が下がっている。そうしたときこそ、勝手に判断しないことです。",
+              "作業主任者や作業指揮者に報告し、どうするかを決めてもらう。それが正しい手順です。",
+              "足場は、この組立図に従って組みます。",
+              "現場の都合で、勝手に建地を抜いたり、壁つなぎを省いたりしてはいけません。",
+              "変更が必要になったときは、作業主任者や作業指揮者に報告し、組立図そのものを直します。",
+              "図面と違う足場は、誰も強度を保証できない足場になります。",
+              "組立図とあわせて、作業手順書があります。",
+              "どの順番で、誰が、何を、どう気をつけて行うか。それを書いたものです。",
+              "作業者は、作業主任者や作業指揮者から組立図と作業手順書の説明を受けます。",
+              "組立ての手順と、安全上の留意点を十分に理解したうえで作業にあたること。",
+              "分からないところは、その場で聞いてください。",
+              "分からないまま動くことが、不安全行動になります。",
+              "聞くのは恥ではありません。聞かずに事故を起こすほうが、はるかに大きな損失です。",
+              "この単元の最後に、現場でよく聞く言い分を三つ取り上げます。",
+              "一つ目、「交さ筋かいがあるから、下さんは要らない」。",
+              "交さ筋かいは、足場の変形を防ぐ部材です。人が体を預けても落ちない、という前提の設備ではありません。",
+              "だから、交さ筋かいに加えて下さんを設けることとされています。役割が違うのです。",
+              "二つ目、「少しのあいだだから、手すりを外したままでいい」。",
+              "その少しのあいだに落ちた人が、実際に何人もいます。",
+              "外したら、その作業が終わり次第、直ちに元に戻す。これは決まりであって、判断の余地はありません。",
+              "三つ目、「この材料、少し曲がっているけど、たぶん大丈夫」。",
+              "たぶん、で組んだ足場に、明日は他職の人が乗ります。自分だけの問題ではありません。",
+              "この三つは、どれも悪意から出た言葉ではありません。段取りを優先した結果、出てくる言葉です。",
+              "だからこそ、決まりを知っている人が、その場で止める必要があります。",
+              "なお、現場によっては組立図が用意されていないことがあります。",
+              "小規模な工事だから、いつもと同じだから、という理由で省かれることがある。",
+              "しかし、図面が無ければ、部材の数も壁つなぎの位置も、誰も確かめようがありません。",
+              "組立図が無いまま始めようとしたら、現場責任者に確認してください。それも作業者の役目です。",
+              "足場は仮設物です。しかし、仮設だから多少の狂いは許される、ということはありません。",
+              "そこに人が乗り、その上で人が働き、その下を人が歩きます。本設の建物と同じだけの責任があります。",
+              "その責任を果たすための知識が、この単元の内容です。",
+              "この単元のまとめです。",
+              "足場の組立てとは、複数の仮設機材を組み合わせて仮設構造物を作ること。うま足場や脚立足場も含まれます。",
+              "足場に求められるのは、安全性、作業性、経済性の三つ。",
+              "屋外の主な足場は、わく組足場、くさび緊結式足場、単管足場。それぞれに寸法の基準があります。",
+              "著しい損傷、変形、腐食のある材料は使わない。見つけたら報告する。",
+              "作業床は幅四十センチ以上、床材間のすき間は三センチ以下、床材と建地のすき間は十二センチ未満。",
+              "手すりは八十五センチ以上、中さんは三十五から五十センチ、幅木は十センチ以上。",
+              "そして、組立図と作業手順書に従って組むこと。",
+              "次の単元では、実際の組立て、解体、変更の作業の方法を学びます。"
+      ],
+        figures: [
+              {
+                      "id": "F1-1-1",
+                      "t": "足場の分類",
+                      "min": 1,
+                      "type": "tree",
+                      "lead": "足場は使用形態で二つに分かれます。それぞれの代表例を確認してください。",
+                      "content": {
+                              "屋内作業用": [
+                                      "脚立足場",
+                                      "うま足場",
+                                      "ローリングタワー",
+                                      "可搬式作業台"
+                              ],
+                              "屋外作業用": [
+                                      "わく組足場",
+                                      "くさび緊結式足場",
+                                      "単管足場",
+                                      "つり足場",
+                                      "張出し足場",
+                                      "移動昇降式足場",
+                                      "連層足場"
+                              ]
+                      },
+                      "task": {
+                              "q": "この中で、単独で設置しても『足場の組立て』にあたらないものは？",
+                              "a": [
+                                      "脚立足場",
+                                      "うま足場",
+                                      "可搬式作業台"
+                              ],
+                              "ok": 2
+                      }
+              },
+              {
+                      "id": "F1-1-2",
+                      "t": "くさび緊結式足場の各部名称",
+                      "min": 1,
+                      "type": "hotspot",
+                      "lead": "図の番号をタップして、部材の名前を確認してください。",
+                      "parts": [
+                              {
+                                      "n": "支柱（建地）",
+                                      "d": "垂直に立つ柱。450mmピッチの緊結部（コマ）が付く"
+                              },
+                              {
+                                      "n": "手すり",
+                                      "d": "コマに打ち込んで水平につなぐ。人の墜落を防ぐ"
+                              },
+                              {
+                                      "n": "踏板",
+                                      "d": "作業床。両端のフックと外れ止めで固定する"
+                              },
+                              {
+                                      "n": "ブラケット",
+                                      "d": "支柱の外側に張り出し、踏板を受ける"
+                              },
+                              {
+                                      "n": "ジャッキ",
+                                      "d": "脚部の高さを微調整する。ねじで上下させる"
+                              },
+                              {
+                                      "n": "敷板",
+                                      "d": "ジャッキの下に敷き、地盤への力を分散させる"
+                              },
+                              {
+                                      "n": "根がらみ",
+                                      "d": "脚部どうしをつなぎ、滑動と沈下を防ぐ"
+                              },
+                              {
+                                      "n": "壁つなぎ",
+                                      "d": "足場を建物につなぎとめ、倒壊を防ぐ"
+                              }
+                      ],
+                      "task": {
+                              "q": "踏板を受ける部材はどれか",
+                              "a": [
+                                      "根がらみ",
+                                      "ブラケット",
+                                      "壁つなぎ"
+                              ],
+                              "ok": 1
+                      }
+              },
+              {
+                      "id": "F1-1-3",
+                      "t": "わく組足場の各部名称",
+                      "min": 1,
+                      "type": "hotspot",
+                      "lead": "わく組足場の部材を確認します。くさび式との違いに注目してください。",
+                      "parts": [
+                              {
+                                      "n": "建枠",
+                                      "d": "門型の主部材。柱と梁を兼ねる"
+                              },
+                              {
+                                      "n": "交差筋かい",
+                                      "d": "斜めに掛けて変形を防ぐ。これだけでは墜落防止にならない"
+                              },
+                              {
+                                      "n": "床付き布枠",
+                                      "d": "布材と作業床が一体。掛けたら外れ止めのロックを掛ける"
+                              },
+                              {
+                                      "n": "下さん",
+                                      "d": "交差筋かいに加えて15〜40cmの位置に設ける"
+                              },
+                              {
+                                      "n": "ジャッキ型ベース金具",
+                                      "d": "脚部の高さ調整"
+                              },
+                              {
+                                      "n": "アームロック・連結ピン",
+                                      "d": "建枠の継ぎ目の抜け止め"
+                              }
+                      ],
+                      "task": {
+                              "q": "わく組足場で交差筋かいに加えて必要なものは",
+                              "a": [
+                                      "下さん",
+                                      "根がらみ",
+                                      "朝顔"
+                              ],
+                              "ok": 0
+                      }
+              },
+              {
+                      "id": "F1-1-4",
+                      "t": "作業床の寸法基準",
+                      "min": 1,
+                      "type": "dimension",
+                      "lead": "高さ2m以上の作業場所に設ける作業床の基準です。数値を確認してください。",
+                      "dims": [
+                              {
+                                      "label": "作業床の幅",
+                                      "v": "40cm以上"
+                              },
+                              {
+                                      "label": "床材間のすき間",
+                                      "v": "3cm以下"
+                              },
+                              {
+                                      "label": "床材と建地とのすき間",
+                                      "v": "12cm未満"
+                              }
+                      ],
+                      "task": {
+                              "q": "床材と建地とのすき間の基準は",
+                              "a": [
+                                      "3cm以下",
+                                      "12cm未満",
+                                      "40cm以上"
+                              ],
+                              "ok": 1
+                      }
+              },
+              {
+                      "id": "F1-1-5",
+                      "t": "手すり・中さん・幅木の高さ",
+                      "min": 1,
+                      "type": "dimension",
+                      "lead": "墜落を防ぐ設備と、物の落下を防ぐ設備。高さの基準が違います。",
+                      "dims": [
+                              {
+                                      "label": "手すり",
+                                      "v": "85cm以上"
+                              },
+                              {
+                                      "label": "中さん",
+                                      "v": "35〜50cm"
+                              },
+                              {
+                                      "label": "幅木",
+                                      "v": "10cm以上"
+                              },
+                              {
+                                      "label": "わく組足場の下さん",
+                                      "v": "15〜40cm"
+                              }
+                      ],
+                      "task": {
+                              "q": "物の落下を防ぐ設備はどれか",
+                              "a": [
+                                      "手すり",
+                                      "中さん",
+                                      "幅木"
+                              ],
+                              "ok": 2
+                      }
+              },
+              {
+                      "id": "F1-1-6",
+                      "t": "単管足場の寸法基準",
+                      "min": 1,
+                      "type": "dimension",
+                      "lead": "単管足場には細かい寸法の決まりがあります。図の寸法線を確認してください。",
+                      "dims": [
+                              {
+                                      "label": "建地の間隔（けた行方向）",
+                                      "v": "1.85m以下"
+                              },
+                              {
+                                      "label": "建地の間隔（はり間方向）",
+                                      "v": "1.5m以下"
+                              },
+                              {
+                                      "label": "建地間の積載荷重",
+                                      "v": "400kgを限度"
+                              },
+                              {
+                                      "label": "地上第一の布",
+                                      "v": "2m以下"
+                              },
+                              {
+                                      "label": "最高部から31mを超える部分",
+                                      "v": "原則として鋼管2本組"
+                              }
+                      ],
+                      "task": {
+                              "q": "けた行方向の建地間隔は",
+                              "a": [
+                                      "1.5m以下",
+                                      "1.85m以下",
+                                      "2.0m以下"
+                              ],
+                              "ok": 1
+                      }
+              },
+              {
+                      "id": "F1-1-7",
+                      "t": "不備を探す",
+                      "min": 1,
+                      "type": "findfault",
+                      "lead": "この足場には4か所の不備があります。危ないと思う箇所をタップしてください。",
+                      "faults": [
+                              {
+                                      "n": "手すりが外されたまま",
+                                      "d": "臨時に外したら、作業終了後に直ちに戻す"
+                              },
+                              {
+                                      "n": "踏板の外れ止めが掛かっていない",
+                                      "d": "端を踏むと跳ね上がる"
+                              },
+                              {
+                                      "n": "床材と建地のすき間が大きい",
+                                      "d": "12cm未満とする。人が落ちる隙間になる"
+                              },
+                              {
+                                      "n": "ジャッキが敷板なしで土の上",
+                                      "d": "沈下と滑動の原因。敷板を敷く"
+                              }
+                      ],
+                      "task": {
+                              "q": "不備を4か所すべて見つけてください",
+                              "type": "multi"
+                      }
+              },
+              {
+                      "id": "F1-1-8",
+                      "t": "組立図の読み方",
+                      "min": 1,
+                      "type": "drawing",
+                      "lead": "立面図と平面図、それぞれから何が読み取れるかを確認してください。",
+                      "points": [
+                              {
+                                      "n": "立面図",
+                                      "d": "段数、各段の高さ、階段の位置、朝顔の位置"
+                              },
+                              {
+                                      "n": "平面図",
+                                      "d": "建物のまわりの割り付け、スパンの寸法、壁つなぎの位置"
+                              },
+                              {
+                                      "n": "凡例",
+                                      "d": "壁つなぎ・階段・朝顔などの記号"
+                              },
+                              {
+                                      "n": "寸法の基準",
+                                      "d": "通り芯や建物外面から追う"
+                              }
+                      ],
+                      "task": {
+                              "q": "現場が図面どおりに組めないときは",
+                              "a": [
+                                      "現場の判断で変更する",
+                                      "作業主任者等に報告して決めてもらう",
+                                      "そのまま無理に組む"
+                              ],
+                              "ok": 1
+                      }
+              }
+      ],
+        cases: [
+              {
+                      "id": "C1-1-1",
+                      "t": "つり足場の組立て作業中、待機していた作業者が墜落",
+                      "min": 5,
+                      "meta": {
+                              "作業": "つり足場の組立て",
+                              "事故の型": "墜落・転落",
+                              "起因物": "つり足場",
+                              "結果": "死亡"
+                      },
+                      "situation": [
+                              "橋りょうの塗装工事のため、橋桁の下につり足場を組み立てる作業が行われていた。",
+                              "つり足場は、橋桁からつりチェーンを垂らして親パイプを吊り、そこに単管を直角に掛け渡す構造で、上下2段を設ける計画だった。",
+                              "墜落防止の措置としては、最終的に下段のつり足場の底面に安全ネットを張る計画になっていた。",
+                              "作業には高所作業車2台を使い、一定範囲が終わるたびに車両を移動させていた。",
+                              "災害当日、2回目の車両移動のため作業者3名が地上に降りたが、タイヤが河原の砂に埋まって動かなくなった。",
+                              "つり足場の上に残った5名は、足場板の上でつりチェーンに墜落制止用器具を取り付け、その様子を見ながら待機していた。",
+                              "待機して約15分が経ったころ、音がしたので振り返ると、被災者がつりチェーンにつかまろうとしながら落ちていった。",
+                              "被災者は一人でチェーンの調整を担当しており、待機中に橋桁の下フランジに乗って調整または移動していたものと推定された。"
+                      ],
+                      "ask": "この災害の、最も重大な原因は何だと思いますか。",
+                      "options": [
+                              {
+                                      "t": "高所作業車のタイヤが砂に埋まったこと",
+                                      "ok": false,
+                                      "fb": "車両が動かなくなったのは、きっかけではありますが直接の原因ではありません。落ちた理由は別のところにあります。"
+                              },
+                              {
+                                      "t": "待機中に、墜落制止用器具を掛けないまま足場の外へ移動したこと",
+                                      "ok": true,
+                                      "fb": "そのとおりです。作業をしていない待機時間に、フックを外して構造物の上を移動したことが直接の原因です。"
+                              },
+                              {
+                                      "t": "安全ネットがまだ張られていなかったこと",
+                                      "ok": false,
+                                      "fb": "これも要因の一つですが、最上位の原因は、本人が防護のない状態で移動したことです。"
+                              }
+                      ],
+                      "causes": [
+                              "待機中に、墜落制止用器具を掛けないまま橋桁のフランジ上へ移動した。",
+                              "つり足場の組立て途中で、墜落防止の措置（安全ネット等）が未完成の状態だった。",
+                              "一人でチェーン調整を担当し、単独行動になっていた。作業中断中の行動が誰にも管理されていなかった。"
+                      ],
+                      "prevention": [
+                              "つり足場上では、作業中も待機中も常に墜落制止用器具を使用し、掛け替えは二丁掛けで行う。",
+                              "墜落防止の措置が完成するまでは、決められた範囲から出ない。作業中断時の待機場所をあらかじめ定めておく。",
+                              "単独作業をつくらない。中断時も、作業指揮者が全員の位置を把握する。"
+                      ],
+                      "lesson": "作業をしていない時間は、安全な時間ではありません。手が空いたときこそ、人は無防備に動きます。"
+              },
+              {
+                      "id": "C1-1-2",
+                      "t": "緊結されていない足場板に飛び乗り、足場板ごと転落",
+                      "min": 5,
+                      "meta": {
+                              "作業": "屋根の葺き替えに伴う足場の点検",
+                              "事故の型": "墜落・転落",
+                              "起因物": "足場板",
+                              "結果": "死亡"
+                      },
+                      "situation": [
+                              "木造倉庫の屋根の葺き替え工事の現場だった。",
+                              "現場責任者からは、事前に「足場板は点検して使用するように」との指示が出ていた。",
+                              "被災者は、屋根の軒先から足場の上へ飛び移ろうとした。",
+                              "しかし、その足場は部材どうしが番線などで緊結されておらず、足場板も固定されていなかった。",
+                              "被災者は足場板もろとも、高さ約5.5メートルから転落した。",
+                              "現場では、足場に手すりが設けられておらず、屋根の軒先にも転落防止の措置がとられていなかった。",
+                              "被災者は、保護帽と墜落制止用器具を使用していなかった。"
+                      ],
+                      "ask": "この災害で、最も重大な原因はどれでしょうか。",
+                      "options": [
+                              {
+                                      "t": "足場板や部材が緊結・固定されていなかったこと",
+                                      "ok": true,
+                                      "fb": "そのとおりです。固定されていない床に人が乗れば、乗った瞬間に動きます。構造として成立していませんでした。"
+                              },
+                              {
+                                      "t": "屋根から足場へ飛び移ったこと",
+                                      "ok": false,
+                                      "fb": "危険な行動ではありますが、足場が正しく緊結されていれば、この結果にはなりませんでした。原因の順位としては下位です。"
+                              },
+                              {
+                                      "t": "保護帽を着けていなかったこと",
+                                      "ok": false,
+                                      "fb": "被害を大きくした要因ですが、落ちた原因ではありません。"
+                              }
+                      ],
+                      "causes": [
+                              "足場の部材どうしが緊結されておらず、足場板も固定されていなかった。構造として成立していなかった。",
+                              "足場に手すりが設けられておらず、屋根の軒先にも墜落防止の措置がなかった。",
+                              "点検するように、という指示はあったが、誰が、何を、どこまで見るのかが決まっていなかった。",
+                              "保護帽および墜落制止用器具を使用していなかった。"
+                      ],
+                      "prevention": [
+                              "足場板は両端を確実に固定し、部材どうしを緊結する。乗る前に、目で見て、手で揺すって確かめる。",
+                              "点検は、指名した者が、確認する箇所を決めて行い、氏名と結果を記録する。",
+                              "作業床の端には手すりを設ける。屋根の軒先にも墜落防止の措置をとる。",
+                              "保護帽はあごひもを締め、高所では墜落制止用器具を使用する。"
+                      ],
+                      "lesson": "「点検して使うように」という指示だけでは、点検は行われません。誰が何を見るかを決めて、記録するところまでが点検です。"
+              }
+      ],
+        quiz: [
+              {
+                      "q": "くさび緊結式の緊結部（コマ）のピッチは",
+                      "a": [
+                              "300mm",
+                              "450mm",
+                              "600mm"
+                      ],
+                      "ok": 1,
+                      "why": "450mmピッチのコマが、手すりや踏板を取り付ける高さの基準になります。"
+              },
+              {
+                      "q": "足場の組立てに含まれないのはどれか",
+                      "a": [
+                              "うま足場を組む",
+                              "脚立足場を組む",
+                              "可搬式作業台を単独で置く"
+                      ],
+                      "ok": 2,
+                      "why": "単独の機材を設置するだけの場合は、足場の組立てに含まれません。"
+              },
+              {
+                      "q": "高さ2m以上の作業床の幅は",
+                      "a": [
+                              "20cm以上",
+                              "30cm以上",
+                              "40cm以上"
+                      ],
+                      "ok": 2,
+                      "why": "作業床の幅は40cm以上とすることとされています。"
+              },
+              {
+                      "q": "床材と建地とのすき間は",
+                      "a": [
+                              "3cm以下",
+                              "12cm未満",
+                              "制限なし"
+                      ],
+                      "ok": 1,
+                      "why": "床材間のすき間は3cm以下、床材と建地とのすき間は12cm未満です。"
+              },
+              {
+                      "q": "単管足場の建地間隔（けた行方向）は",
+                      "a": [
+                              "1.5m以下",
+                              "1.85m以下",
+                              "2.0m以下"
+                      ],
+                      "ok": 1,
+                      "why": "けた行方向1.85m以下、はり間方向1.5m以下とされています。"
+              },
+              {
+                      "q": "組立図と違う組み方が必要になったときは",
+                      "a": [
+                              "現場の判断で変更する",
+                              "作業主任者等に報告し組立図を修正する",
+                              "そのまま組む"
+                      ],
+                      "ok": 1,
+                      "why": "図面と違う足場は、誰も強度を保証できない足場になります。"
+              }
+      ] },
+      { id: "1-2", t: "組立て、解体及び変更の作業の方法", han: "足場の組立て、解体及び変更の作業の方法", min: 60, scene: "order",
+        script: [
+              "ここでは、足場を組み立て、解体し、変更するときの作業の方法を学びます。",
+              "この単元では、足場を組み立て、解体し、変更するときの作業の方法を学びます。",
+              "科目一の中で最も長い、六十分の単元です。",
+              "皆さんが毎日やっていることの、根拠と順序を確認していきます。",
+              "最初に申し上げておきます。手順は、誰かが決めた面倒な決まりではありません。",
+              "過去に人が落ちて、人が死んで、その原因を潰してきた積み重ねが、いまの手順です。",
+              "だから、手順を飛ばすということは、同じ事故をもう一度やり直すということになります。",
+              "まず、どの足場にも共通する四つの場面があります。作業開始前、部材の点検、作業中、そして作業終了後です。",
+              "作業開始前には、安全に作業するための注意事項と遵守事項の説明を聞きます。",
+              "作業開始前に決まっていなければならないことが、いくつかあります。",
+              "一つ目は、その日の作業の範囲と、組立て等の時期です。いつ、どこまで組むのか。",
+              "これは、作業に従事する労働者に周知させなければならないとされています。",
+              "二つ目は、作業を行う区域内への、関係労働者以外の立入りを禁止することです。",
+              "他職が入ってくれば、上下作業になります。物を落とせば当たります。",
+              "三つ目は、悪天候のため作業の実施について危険が予想されるときは、作業を中止することです。",
+              "四つ目は、足場材の緊結、取り外し、受け渡しなどの作業を行うときの措置です。",
+              "幅四十センチメートル以上の作業床を設けること。ただし、作業床を設けることが困難なときは除かれます。",
+              "そして、墜落制止用器具を取り付ける設備を設け、それを使用させることです。",
+              "親綱や、手すりわく、親綱支柱がその設備にあたります。",
+              "五つ目は、材料や器具、工具を上げたり下ろしたりするときに、つり綱やつり袋を使わせることです。",
+              "この五つは、事業者が講じなければならない措置です。",
+              "作業者としては、これらが用意されているかを見て、なければ声を上げてください。",
+              "親綱が張られていない現場で、掛けるところが無いまま上がる。それが最も危ない状態です。",
+              "作業手順書に目を通して理解し、墜落制止用器具など保護具の正しい使い方の指導を受けます。",
+              "分からない点をそのままにしないでください。分からないまま動くことが、不安全行動になります。",
+              "次に部材の点検です。搬入された部材に変形や腐食などの不良品を見つけたら、作業主任者または作業指揮者へ報告します。",
+              "不良部材をそのまま使えば、それが災害の原因になります。報告することが予防になります。",
+              "作業中は、作業手順書に従って進めます。不具合が生じたら作業主任者に報告し、自分の判断で手順を変えないこと。",
+              "報告、連絡、相談を怠らないことです。",
+              "作業終了後は、部材を片付け、整理整頓をして、現場が不安全な状態になっていないか確認します。",
+              "片付けには、もう一つ意味があります。",
+              "その日の終わりに、足場が中途半端な状態で残っていないかを確かめることです。",
+              "手すりが付いていない段、踏板が一枚だけ抜けている箇所、まだ緊結していない部材。",
+              "自分たちは分かっていても、翌朝いちばんに来た人には分かりません。",
+              "危険な箇所には立入禁止の表示をするか、その日のうちに直しておく。",
+              "翌日の朝礼で言えばいい、という考えは通りません。夜間や早朝に、他の業者が入ることもあります。",
+              "ここからは、実際の組立ての順序です。",
+              "組立ては、現場に着いてから始まるわけではありません。",
+              "まず、敷地の状況を見ます。地盤は締まっているか、雨で緩んでいないか。",
+              "隣地との境界はどこか。道路にどれだけ出るのか。",
+              "そして、上を見ます。架空電線は通っていないか。木の枝は張り出していないか。",
+              "支柱を起こしたときに、その先が何に当たるのか。これは組む前にしか確認できません。",
+              "次に資材の割り付けです。組立図に合わせて、どこにどの部材を置くかを決めます。",
+              "手すりはスパンごとに並べる。内柱の入る箇所を決める。ジャッキは柱の立つ位置に置く。",
+              "段取りが整っていないと、作業の途中で人が資材を探しに降りることになります。",
+              "その往復が、時間を食い、集中を切らし、事故のもとになります。",
+              "段取り八分、という言葉は、安全の話でもあるということです。",
+              "組立ては脚部から始まります。敷板を敷き、その上にジャッキを据えます。",
+              "地盤が沈んだり滑ったりすると、上の段ほど大きな狂いになります。脚部の精度が全体を決めます。",
+              "次に、基準となる一本目の支柱を立てます。多くの場合、建物の出隅が基準になります。",
+              "基準の柱を立てたら、根がらみでつなぎます。根がらみは脚部の滑動と沈下を止める材です。",
+              "続いて、建物との離れを測ります。離れが決まらないうちに水平を出しても、後で動いてしまいます。",
+              "離れを合わせ、踏板を受ける材を取り付けてから、ジャッキで水平を出します。この順番を崩さないでください。",
+              "水平を出すときは、基準の柱を動かしてはいけません。基準を動かすと、そこから先が全部狂います。",
+              "くさび緊結式足場の、脚部の具体的な手順を追ってみます。",
+              "まず、基準となる一本目の柱を立てます。多くは建物の出隅です。",
+              "その柱の、二方向のコマに根がらみ手すりを入れます。片側だけでは自立しません。",
+              "続いて、両隣の柱を立てます。どちらから立てても構いません。",
+              "柱が立ったら、その柱ごとに、離れを測り、受け材を取り付け、それから水平を出します。",
+              "この順番には理由があります。離れが決まらないうちに水平を出しても、後で柱を動かせば狂います。",
+              "受け材を付ける前に水平を出しても、材が乗った時点で沈みます。",
+              "水平は、ジャッキを回して調整します。動かすのは、いま立てた柱のジャッキです。",
+              "基準の柱を動かしてはいけません。基準が動けば、そこから先の全部が狂います。",
+              "そして進行方向を決めて、その側のコマに根がらみ手すりを入れ、次の柱を立てていきます。",
+              "内柱が入る箇所では、内柱を立て、踏板の高さで手すりを入れて外柱とつなぎます。",
+              "つないでから、支柱に水平器を当てて調整する。つなぐ前に見ても、内柱はまだ動きます。",
+              "こうして脚部が一周すると、その上の段の精度が決まります。",
+              "脚部でついた一ミリの狂いは、上の段で十ミリになります。ここが一番大事な工程です。",
+              "次に、わく組足場の組立て手順を追います。",
+              "まず、地盤に敷板を敷き、その上にジャッキ型ベース金具を据えて高さをそろえます。",
+              "次に、建枠を立てます。建枠は一人では持ちにくいので、二人で受け渡すのが基本です。",
+              "建枠を立てたら、すぐに交差筋かいを掛けて、自立する形にします。",
+              "筋かいを掛けないまま次の建枠を立てると、風や接触で簡単に倒れます。",
+              "続いて、床付き布枠を掛けます。掛けたら必ず外れ止めのロックを掛けてください。",
+              "ロックの掛け忘れは、端に乗った瞬間の跳ね上がりにつながります。",
+              "そして、上さん、下さん、幅木を取り付けます。交差筋かいだけでは墜落防止になりません。",
+              "ここまでで一段です。上に伸ばすときは、下の段で手すりを先に上げてから、次の建枠を継ぎます。",
+              "建枠の継ぎ目には、アームロックや連結ピンで抜け止めをします。",
+              "所定の高さごとに、壁つなぎを取ります。組み上がってからまとめて取るのではありません。",
+              "一段ごとに壁つなぎを取りながら上げていく。これが基本です。",
+              "階段枠や昇降階段は、組立ての進行に合わせて設置します。",
+              "後回しにすると、その間ずっと支柱をよじ登ることになります。",
+              "単管足場の場合も、考え方は同じです。",
+              "敷板の上にベース金具を据え、建地を立てます。建地の間隔は決まった寸法を守ります。",
+              "建地を立てたら根がらみを回し、脚部を固めます。",
+              "次に布を渡します。地上第一の布は、高さ二メートル以下の位置に設けます。",
+              "布と直交する向きに腕木を掛け、その上に足場板を敷きます。",
+              "足場板は、両端を支持物に確実にかけ、跳ね上がらないように固定します。",
+              "単管足場で最も多い不具合が、クランプの締め忘れと締め不足です。",
+              "クランプは、規定のトルクまで確実に締めます。手応えで判断しないでください。",
+              "そして、直交クランプと自在クランプの使い分けです。",
+              "直角に交わる主要な部材には、直交クランプを使います。自在クランプは筋かいなど斜材に使います。",
+              "強度が違うので、間に合わせで使い分けを崩さないこと。",
+              "筋かいで補強し、所定の間隔で壁つなぎを取る。ここも他の足場と同じです。",
+              "作業床には要件があります。高さ二メートル以上の作業場所では、幅四十センチ以上とすること。",
+              "床材の間のすき間は三センチ以下、床材と建地とのすき間は十二センチ未満とすることとされています。",
+              "手摺は高さ八十五センチ以上、中さんは三十五センチから五十センチの位置に設けます。",
+              "わく組足場では、交さ筋かいに加えて、高さ十五センチから四十センチの位置に下さんを設けます。",
+              "物の落下を防ぐ幅木は、高さ十センチ以上のものを設けます。",
+              "床を張る前に、手摺を上げます。これが手すり先行工法の考え方です。",
+              "手すり先行工法には、いくつかの方式があります。",
+              "一つは、手すり先送り方式。下の段から、上の段の手すりを先に取り付けてから、その段に上がる方式です。",
+              "もう一つは、手すり据置き方式。作業床を取り外した後も、手すりをその段に残しておく方式です。",
+              "そして、手すり先行専用足場工法。あらかじめ手すりが組み込まれた部材を使う方式です。",
+              "方式は違っても、狙いは同じです。作業床に人が乗る前に、その床を囲っておくこと。",
+              "解体のときも同じ考え方です。手すりは、その段の作業がすべて終わってから、最後に外します。",
+              "床を先に抜いて、手すりだけが残っている状態。これは正しい姿です。",
+              "逆に、手すりを先に外して、床だけが残っている状態。これが最も危ない姿です。",
+              "現場で足場を見たとき、この二つを見分けられるようになってください。",
+              "なお、足場先行工法という言葉もあります。",
+              "これは、建物の躯体工事を始める前に、先に足場を組んでしまう考え方です。",
+              "後から必要になるたびに足場を継ぎ足すのではなく、はじめから安全な作業床を用意しておく。",
+              "手すり先行工法も足場先行工法も、国のガイドラインで示されている考え方です。",
+              "昇降設備についても、作業の方法として押さえておきます。",
+              "足場には、必ず昇り降りするための設備を設けます。階段枠、昇降階段、あるいは固定はしごです。",
+              "はしごを使う場合は、上端を作業床から六十センチメートル以上突き出させ、確実に固定します。",
+              "昇降するときは、手に物を持たないのが原則です。",
+              "工具は腰袋に、材料はつり袋や荷上げ設備で上げます。",
+              "両手が空いていないと、体を支えられません。足を滑らせた瞬間に落ちます。",
+              "そして、三点支持です。両手両足のうち、常に三点が足場に触れている状態を保ちます。",
+              "組立ての途中、まだ階段が付いていない段に上がることがあります。",
+              "そのときは、必ず墜落制止用器具を使い、掛けるところを確保してから上がってください。",
+              "近道は、事故への近道です。",
+              "床を先に張ると、手摺の無い床の上で手摺を取り付けることになります。その数分が、墜落の起きる時間です。",
+              "作業の必要上、臨時に墜落防止設備を取り外したときは、その作業が終わった後、直ちに元の状態に戻さなければなりません。",
+              "また、その箇所には関係労働者以外の立入りを禁止します。",
+              "解体は、組立ての逆順で行います。手摺はその段の作業が終わってから、最後に外します。",
+              "解体の手順を、もう少し具体的に見ます。",
+              "解体は上から順に行います。最上段のメッシュシートや幅木といった付帯物から外していきます。",
+              "シートは風の抵抗になるので、早い段階で外します。",
+              "次に、その段の踏板を外します。このとき、手すりはまだ残っています。",
+              "踏板を外したら、受け材、そして手すり、最後に支柱の順です。",
+              "壁つなぎは、その上の足場が無くなってから外します。",
+              "まだ上に足場が残っているのに壁つなぎを外せば、その瞬間に足場は自立できなくなります。",
+              "強風のなか、解体中の足場が崩れて道路をふさいだ事故が実際に起きています。",
+              "それから、大ばらしについてです。",
+              "大きな一区画をまとめて地上に降ろして解体する方法を、現場では大ばらしと呼びます。",
+              "手早く見えますが、つり上げた区画が不安定になり、途中で崩れる危険があります。",
+              "計画にない大ばらしは行わないでください。作業主任者の指示なしに判断してはいけません。",
+              "解体した部材は、つり綱やつり袋、荷下ろし設備で下ろします。",
+              "下には人を入れず、立入禁止の措置をとります。合図は確実に、できれば無線を使います。",
+              "実際に、上下の合図が伝わらないまま荷が降りてきて、手すりに引っかかり、手を挟まれた災害が起きています。",
+              "急いでいるときほど、合図が雑になります。そこが事故の入口です。",
+              "作業区域の話をします。",
+              "足場の組立て、解体、変更の作業を行う区域には、関係労働者以外を立ち入らせてはいけません。",
+              "これは規則で定められた措置です。",
+              "区域はロープやコーンで囲い、立入禁止の表示をします。口頭で伝えるだけでは足りません。",
+              "特に注意が要るのが、上下作業です。",
+              "上で組立てをしているとき、その真下で別の作業をしている。この状態を作らないことです。",
+              "上から物を落とせば、必ず当たります。落とさないようにする、では防げません。",
+              "そもそも下に人を入れない。それが対策です。",
+              "他職の職長と、作業の時間帯をずらす調整をしてください。",
+              "そして、道路や隣地に面する側では、通行人が第三者になります。",
+              "監視員を配置する、通行止めの時間を設ける、朝顔を先に設ける。現場に応じた措置が必要です。",
+              "材料の搬入と搬出についても触れておきます。",
+              "足場の高い位置へ材料を上げるときは、荷受けステージを設けることがあります。",
+              "荷受けステージは、材料を一時的に置く張り出した床です。",
+              "ここには大きな荷重がかかります。強度と、最大積載荷重の表示が必要です。",
+              "クレーンで荷を上げるときは、つり荷の下に入らないこと。",
+              "介錯ロープを使って荷を誘導し、荷に直接手を触れないこと。",
+              "上下の合図は、確実に伝わる方法で行います。無線を使うのが確実です。",
+              "実際に、上下の合図が伝わらないまま荷が降りてきて、足場の手すりに引っかかった災害があります。",
+              "引っかかった荷を手で外そうとして、手すりの建地とのあいだに手を挟まれました。",
+              "荷が引っかかったときは、まず無線で荷を一度上げてもらい、位置を直す。手で外さないことです。",
+              "壁つなぎは、上の足場が無くなってから外します。残っているうちに外すと、足場が倒れます。",
+              "材料や工具を上げ下ろしするときは、つり綱やつり袋を使います。投げ下ろしは禁止です。",
+              "作業区域には、関係者以外を立ち入らせないでください。",
+              "最後に、変更の作業について触れます。",
+              "変更とは、いったん完成した足場に手を加えることです。",
+              "たとえば、資材を搬入するために踏板や手すりを一時的に外す。",
+              "荷受けステージを設ける。開口部を作る。段を継ぎ足す。",
+              "こうした作業も、組立てや解体と同じく特別教育の対象であり、同じ注意が必要です。",
+              "むしろ変更のほうが危険なことがあります。",
+              "すでに他職が使っている足場だからです。自分が外した手すりの先で、別の職人が作業しています。",
+              "変更するときは、必ず作業主任者や作業指揮者に報告し、関係者に周知してから行います。",
+              "そして、作業が終わったら直ちに元の状態に戻す。これは規則にも明記されています。",
+              "外したままにして帰る。これが、翌日の墜落災害になります。",
+              "自分が最後に手を触れた足場が、そのまま人の乗る足場になる。",
+              "そう考えられるかどうかが、特別教育を受けた者と、そうでない者の違いです。",
+              "作業の方法を支えるのが、作業前の打ち合わせです。",
+              "その日の作業内容、手順、役割分担、そして危険なポイントを全員で確認します。",
+              "危険予知活動、いわゆるケーワイです。",
+              "今日の作業のどこに危険があるか。それをどう防ぐか。全員で出し合って、一つに絞ります。",
+              "形だけの唱和では意味がありません。今日この現場で、自分が落ちるとしたらどこか。",
+              "それを一人ひとりが具体的に思い浮かべられれば、KYは機能します。",
+              "作業中は、指差呼称を使います。",
+              "外れ止めよし、くさびよし、フックよし。声に出して指をさす。",
+              "手だけで確認したつもりになるのを防ぐためです。",
+              "そして、中断から再開するときが危ないということも覚えておいてください。",
+              "昼休みの後、雨で中断した後、他の応援に行った後。",
+              "自分がどこまでやったかの記憶と、実際の状態がずれます。",
+              "再開するときは、必ず現状を見てから手を出してください。",
+              "最後に、戸建住宅の足場について補足します。",
+              "戸建で多く使われるのが、一側足場と呼ばれる形式です。",
+              "本足場が外柱と内柱の二列で組むのに対し、一側足場は外柱一列を基本とします。",
+              "敷地に余裕がない住宅地では、二列ぶんの幅がとれないことが多いためです。",
+              "ただし、外柱だけでは踏板を受けられません。",
+              "そこで、内柱を二スパンに一本程度入れて、踏板の高さで手すりを渡し、床を受けます。",
+              "端部には必ず内柱を入れます。端は力の逃げ場がないからです。",
+              "本足場に比べて部材が少ないぶん、一本一本の役割が大きくなります。",
+              "内柱を一本省いた、壁つなぎを一つ飛ばした。その一つが、全体の安定を崩します。",
+              "戸建だから簡単、ということはありません。むしろ余裕が少ないぶん、精度が要ります。",
+              "ここからは、特別な形式の足場の作業方法に触れます。",
+              "まず、つり足場です。つり足場は、上からチェーンやワイヤロープで吊り下げて作業床を作ります。",
+              "組立ては、まずつり元の確認から始まります。何に、どうやって吊るのか。",
+              "つり材を取り付ける部材が、その荷重に耐えられるかどうかを確認します。",
+              "つりチェーンやワイヤロープは、使用前に必ず点検します。",
+              "素線が切れている、著しく変形している、著しく腐食しているものは使用できません。",
+              "作業床を組むときは、下に支えがないため、部材が落ちれば地上まで届きます。",
+              "下方は必ず立入禁止にし、必要に応じて防網を設けます。",
+              "そして、つり足場の上では、作業中も待機中も常に墜落制止用器具を使います。",
+              "解体のときは、つり材を最後まで残します。先に外せば、床ごと落ちます。",
+              "つり足場は、作業主任者を選任すべき作業です。必ず指揮のもとで行ってください。",
+              "張出し足場も同じ考え方です。建物から腕木を張り出し、その上に組みます。",
+              "腕木の固定と、跳ね上がりを防ぐ控えが要になります。",
+              "腕木が動けば、その上の全部が動きます。固定を確認してから乗ってください。",
+              "移動式の足場、ローリングタワーについても押さえておきます。",
+              "組み立てたら、まず脚部のアウトリガーを張り出します。",
+              "作業中は、必ずキャスターを固定します。ブレーキを掛けるだけでなく、ロックまで確認します。",
+              "そして、人を乗せたまま移動させないこと。これは絶対です。",
+              "移動するときは全員が降り、材料も降ろしてから、床の段差や障害物を見て動かします。",
+              "脚立足場やうま足場は、簡単に組めるぶん、事故も多い足場です。",
+              "脚立は開き止めを確実に掛け、水平な場所に据えます。",
+              "足場板は両端が十分にかかるようにし、跳ね上がらないよう固定します。",
+              "そして、脚立の天板の上には乗らないこと。",
+              "低いから大丈夫、という高さはありません。一メートルの高さから頭から落ちれば、人は死にます。",
+              "戸建住宅の現場特有の注意点にも触れておきます。",
+              "住宅地の現場は、とにかく余裕がありません。",
+              "隣地との境界が近く、部材を回す空間がない。道路にはみ出せば通行人が通る。",
+              "そういう場所では、部材を振り回さないこと。長い手すりを持って振り向くだけで、隣家の壁や窓に当たります。",
+              "持ち替えるときは、一度立ち止まり、周りを見てから動く。",
+              "屋根まわりの作業も戸建特有です。軒先から足場へ移る、屋根の上で作業する。",
+              "屋根からの転落を防ぐため、軒先の高さに手すりを設けます。",
+              "屋根に上がる前に、その手すりが取り付けられているかを必ず確認してください。",
+              "そして、屋根から足場へ飛び移らないこと。実際に、飛び移った先の足場板が固定されておらず、板ごと転落した死亡災害があります。",
+              "冬期や積雪期には、踏板の凍結にも注意が要ります。前日の雨が朝には凍っています。",
+              "最後に、人についての話をします。",
+              "災害事例を見ていくと、経験の浅い若い作業者の被災が目立ちます。",
+              "十八歳、経験ゼロ年の作業者が、下から持ち上げた足場材の端で顔を打った災害があります。",
+              "上の作業者が引き上げたときに手を放し、その材料の端が当たったものでした。",
+              "原因として挙げられたのは、危険予知が不十分だったこと、そして経験のない年少者であったことです。",
+              "経験の浅い者は、何が危ないかを知りません。だから避けられません。",
+              "ベテランは、そのことを前提に指示を出す必要があります。",
+              "どこに立つか、どこに立ってはいけないか。それを言葉にして伝えてください。",
+              "そして、部材の受け渡しは二人一組が基本です。",
+              "重い部材を一人で受け取ろうとして体勢を崩す。これが組立て中の墜落の典型です。",
+              "無理だと思ったら、無理だと言うこと。それが言える現場が、事故の少ない現場です。",
+              "最後にもう一つ、作業手順書について触れておきます。",
+              "作業手順書は、誰かが机の上で作る書類ではありません。実際に作業する人の動きから作ります。",
+              "作り方には順序があります。まず、単位作業を決めます。今日やる作業のまとまりを一つ決める。",
+              "たとえば、わく組足場の三層目の組立て作業、といった単位です。",
+              "次に、その作業の内容を分解します。何をして、次に何をするか。細かい動作に分けていきます。",
+              "分解したら、最も良い順番に並べ替えます。安全で、無駄がなく、手戻りのない順です。",
+              "そして、それぞれの手順に急所を決めます。急所とは、そこを外すと事故になる、という要点です。",
+              "親綱を建わくに掛けて、下の段から、十メートル以下の間隔で。こうした具体的な言葉にします。",
+              "最後に、誰がその手順を行うのかを書き、準備作業、本作業、後片付け作業に区分します。",
+              "できあがった手順書は、作業前に全員で読み合わせます。",
+              "読み合わせのときに、自分の担当する手順の急所を、自分の言葉で言えるかどうか。",
+              "言えなければ、まだ理解していないということです。その場で聞いてください。",
+              "そして、実際にやってみて手順が現場に合わなければ、手順書のほうを直します。",
+              "手順書に現場を無理に合わせると、必ずどこかで無理な動きが出ます。",
+              "手順書は、守らせるための書類ではなく、全員が同じ動きをするための道具です。",
+              "その日の作業を終えるときの、引き継ぎについても触れておきます。",
+              "現場は、翌日も同じ人が入るとは限りません。応援が入れ替わることもあります。",
+              "だから、その日どこまで進んだか、どこが未完成かを、形に残して引き継ぎます。",
+              "口頭だけでは伝わりません。ホワイトボードに書く、写真を撮って共有する。",
+              "特に伝えるべきは三つです。手すりを外した箇所。まだ緊結していない箇所。そして立入禁止にした箇所。",
+              "この三つを書き残すだけで、翌朝の事故はかなり減ります。",
+              "自分が知っていることは、他人は知らない。その前提で引き継いでください。",
+              "作業の方法について、最後に一つだけ。",
+              "手順を守ることは、遅くなることではありません。",
+              "手順どおりにやれば、迷わず、探さず、戻らずに進みます。結果として速くなります。",
+              "急いで飛ばした手順は、必ずどこかで手戻りになります。そして、その手戻りの途中で人が落ちます。",
+              "正しい手順が、いちばん速い手順です。",
+              "そしてもう一つ。作業手順は、会社の財産です。",
+              "誰かが工夫して見つけた、安全で速いやり方。それを手順書に落として、全員で共有する。",
+              "先輩の背中を見て覚えろ、では、その人が辞めたら消えてしまいます。",
+              "手順を言葉にして残すことが、次の世代を守ることになります。",
+              "この単元のまとめです。",
+              "作業開始前に、時期の周知、立入禁止、悪天候時の中止、作業床と墜落制止用器具の設備、つり綱の使用。",
+              "この五つが講じられているかを確認してから上がること。",
+              "組立ては脚部から。離れを測り、受け材を付けてから水平を出す。基準の柱は動かさない。",
+              "床を張る前に手すりを上げる。手すり先行工法には先送り、据置き、専用足場の三方式がある。",
+              "解体は上から順に。手すりは最後、壁つなぎは上の足場が無くなってから。",
+              "変更の作業は、他職が使っている足場に手を加える作業。外したら直ちに元に戻す。",
+              "作業区域には関係者以外を入れない。上下作業を作らない。",
+              "材料の上げ下ろしはつり綱やつり袋で。合図は確実に。",
+              "そして、中断から再開するときが最も危ない。必ず現状を見てから手を出すこと。",
+              "次の単元では、組み上がった足場の点検と補修について学びます。"
+      ],
+        figures: [
+              {
+                      "id": "F1-2-1",
+                      "t": "作業開始前に講じる5つの措置",
+                      "min": 1,
+                      "type": "list",
+                      "lead": "足場の組立て等の作業で、事業者が講じなければならない措置です。用意されているか確認してください。",
+                      "parts": [
+                              {
+                                      "n": "作業の時期・範囲・順序の周知",
+                                      "d": "いつ、どこまで、どの順で組むのかを作業者に周知させる"
+                              },
+                              {
+                                      "n": "作業区域への立入禁止",
+                                      "d": "関係労働者以外を立ち入らせない。ロープ・コーン・表示で示す"
+                              },
+                              {
+                                      "n": "悪天候時の作業中止",
+                                      "d": "強風・大雨・大雪で危険が予想されるときは作業を行わない"
+                              },
+                              {
+                                      "n": "幅40cm以上の作業床と墜落制止用器具の取付設備",
+                                      "d": "親綱、手すりわく、親綱支柱など。作業床が困難なときを除く"
+                              },
+                              {
+                                      "n": "つり綱・つり袋の使用",
+                                      "d": "材料や工具の上げ下ろしに使わせる。投げ下ろしは禁止"
+                              }
+                      ],
+                      "task": {
+                              "q": "これらの措置を講じる義務があるのは",
+                              "a": [
+                                      "作業者本人",
+                                      "事業者",
+                                      "元請のみ"
+                              ],
+                              "ok": 1
+                      }
+              },
+              {
+                      "id": "F1-2-2",
+                      "t": "くさび式・脚部の組立て順序",
+                      "min": 1,
+                      "type": "flow",
+                      "lead": "順序には理由があります。1つずつ開いて、なぜその順なのかを確認してください。",
+                      "parts": [
+                              {
+                                      "n": "① 敷板・ジャッキ",
+                                      "d": "地盤への力を分散。ジャッキを直接土の上に置かない"
+                              },
+                              {
+                                      "n": "② 基準となる1本目の柱",
+                                      "d": "多くは出隅。ここの精度が全体を決める"
+                              },
+                              {
+                                      "n": "③ 2方向のコマに根がらみ手すり",
+                                      "d": "片側だけでは自立しない。順不同でよい"
+                              },
+                              {
+                                      "n": "④ 両隣の柱を立てる",
+                                      "d": "どちらから立ててもよい"
+                              },
+                              {
+                                      "n": "⑤ 離れを測る",
+                                      "d": "離れが決まらないうちに水平を出しても、後で狂う"
+                              },
+                              {
+                                      "n": "⑥ 受け材（ブラケット等）を付ける",
+                                      "d": "受け材が乗る前に水平を出しても沈む"
+                              },
+                              {
+                                      "n": "⑦ 水平を出す",
+                                      "d": "動かすのは今立てた柱のジャッキ。基準の柱は動かさない"
+                              },
+                              {
+                                      "n": "⑧ 内柱の箇所は内柱→踏板高さの手すり→水平",
+                                      "d": "つないでから支柱に水平器を当てる"
+                              }
+                      ],
+                      "task": {
+                              "q": "水平を出すときに動かしてはいけないのは",
+                              "a": [
+                                      "いま立てた柱のジャッキ",
+                                      "基準となる柱のジャッキ",
+                                      "内柱のジャッキ"
+                              ],
+                              "ok": 1
+                      }
+              },
+              {
+                      "id": "F1-2-3",
+                      "t": "手すり先行工法の3方式",
+                      "min": 1,
+                      "type": "compare",
+                      "lead": "方式は違っても狙いは同じです。それぞれの特徴を確認してください。",
+                      "parts": [
+                              {
+                                      "n": "手すり先送り方式",
+                                      "d": "下の段から、上の段の手すりを先に取り付けてから上がる"
+                              },
+                              {
+                                      "n": "手すり据置き方式",
+                                      "d": "作業床を取り外した後も、手すりをその段に残しておく"
+                              },
+                              {
+                                      "n": "手すり先行専用足場工法",
+                                      "d": "あらかじめ手すりが組み込まれた部材を使う"
+                              },
+                              {
+                                      "n": "共通する狙い",
+                                      "d": "作業床に人が乗る前に、その床を囲っておくこと"
+                              },
+                              {
+                                      "n": "足場先行工法",
+                                      "d": "躯体工事の前に足場を組み、はじめから安全な作業床を用意する"
+                              }
+                      ],
+                      "task": {
+                              "q": "3方式に共通する狙いは",
+                              "a": [
+                                      "組立てを速くする",
+                                      "床に乗る前に囲いを作る",
+                                      "部材を減らす"
+                              ],
+                              "ok": 1
+                      }
+              },
+              {
+                      "id": "F1-2-4",
+                      "t": "わく組足場の組立て手順",
+                      "min": 1,
+                      "type": "flow",
+                      "lead": "建枠を立てたら、次に何をするか。順に開いてください。",
+                      "parts": [
+                              {
+                                      "n": "① 敷板・ジャッキ型ベース金具",
+                                      "d": "高さをそろえる"
+                              },
+                              {
+                                      "n": "② 建枠を立てる",
+                                      "d": "重いので二人で受け渡す"
+                              },
+                              {
+                                      "n": "③ 交差筋かいを掛ける",
+                                      "d": "掛けないまま次を立てると簡単に倒れる"
+                              },
+                              {
+                                      "n": "④ 床付き布枠を掛ける",
+                                      "d": "掛けたら必ず外れ止めのロックを掛ける"
+                              },
+                              {
+                                      "n": "⑤ 上さん・下さん・幅木",
+                                      "d": "交差筋かいだけでは墜落防止にならない"
+                              },
+                              {
+                                      "n": "⑥ 建枠を継ぐ",
+                                      "d": "アームロック・連結ピンで抜け止め。下の段で手すりを先に上げてから"
+                              },
+                              {
+                                      "n": "⑦ 壁つなぎ",
+                                      "d": "組み上がってからではなく、一段ごとに取りながら上げる"
+                              },
+                              {
+                                      "n": "⑧ 階段枠・昇降階段",
+                                      "d": "進行に合わせて設置。後回しにすると支柱をよじ登ることになる"
+                              }
+                      ],
+                      "task": {
+                              "q": "建枠を立てた直後にすることは",
+                              "a": [
+                                      "床付き布枠を掛ける",
+                                      "交差筋かいを掛ける",
+                                      "壁つなぎを取る"
+                              ],
+                              "ok": 1
+                      }
+              },
+              {
+                      "id": "F1-2-5",
+                      "t": "単管足場の組立てとクランプ",
+                      "min": 1,
+                      "type": "flow",
+                      "lead": "単管足場で最も多い不具合は、クランプの締め忘れと締め不足です。",
+                      "parts": [
+                              {
+                                      "n": "① ベース金具・敷板",
+                                      "d": "脚部の滑動と沈下を防ぐ"
+                              },
+                              {
+                                      "n": "② 建地を立てる",
+                                      "d": "けた行1.85m以下、はり間1.5m以下"
+                              },
+                              {
+                                      "n": "③ 根がらみ",
+                                      "d": "脚部を固める"
+                              },
+                              {
+                                      "n": "④ 布を渡す",
+                                      "d": "地上第一の布は2m以下の位置"
+                              },
+                              {
+                                      "n": "⑤ 腕木・足場板",
+                                      "d": "両端を確実にかけ、跳ね上がらないよう固定"
+                              },
+                              {
+                                      "n": "⑥ 筋かい・壁つなぎ",
+                                      "d": "変形と倒壊を防ぐ"
+                              },
+                              {
+                                      "n": "直交クランプ",
+                                      "d": "直角に交わる主要な部材に使う。強度が高い"
+                              },
+                              {
+                                      "n": "自在クランプ",
+                                      "d": "筋かいなど斜材に使う。主要部材には使わない"
+                              }
+                      ],
+                      "task": {
+                              "q": "建地と布の交点に使うクランプは",
+                              "a": [
+                                      "直交クランプ",
+                                      "自在クランプ",
+                                      "どちらでもよい"
+                              ],
+                              "ok": 0
+                      }
+              },
+              {
+                      "id": "F1-2-6",
+                      "t": "解体の順序",
+                      "min": 1,
+                      "type": "flow",
+                      "lead": "解体は上から順に。どこで手すりを外すかが最大の要点です。",
+                      "parts": [
+                              {
+                                      "n": "① メッシュシート・幅木",
+                                      "d": "シートは風の抵抗になるので早い段階で外す"
+                              },
+                              {
+                                      "n": "② 踏板",
+                                      "d": "このとき手すりはまだ残っている"
+                              },
+                              {
+                                      "n": "③ 受け材（ブラケット等）",
+                                      "d": "踏板が無くなってから"
+                              },
+                              {
+                                      "n": "④ 手すり",
+                                      "d": "その段の作業がすべて終わってから、最後に外す"
+                              },
+                              {
+                                      "n": "⑤ 支柱",
+                                      "d": "上から一段ずつ"
+                              },
+                              {
+                                      "n": "⑥ 壁つなぎ",
+                                      "d": "その上の足場が無くなってから外す。先に外せば自立できなくなる"
+                              },
+                              {
+                                      "n": "大ばらしは行わない",
+                                      "d": "計画にない大ばらしは、つり上げた区画が崩れる危険がある"
+                              }
+                      ],
+                      "task": {
+                              "q": "解体で手すりを外すのは",
+                              "a": [
+                                      "最初",
+                                      "踏板と同時",
+                                      "その段の作業が終わってから最後"
+                              ],
+                              "ok": 2
+                      }
+              },
+              {
+                      "id": "F1-2-7",
+                      "t": "変更の作業のルール",
+                      "min": 1,
+                      "type": "list",
+                      "lead": "変更は、すでに他職が使っている足場に手を加える作業です。",
+                      "parts": [
+                              {
+                                      "n": "変更にあたる作業",
+                                      "d": "踏板や手すりの一時撤去、荷受けステージの設置、開口部の設置、段の継ぎ足し"
+                              },
+                              {
+                                      "n": "事前に報告・周知",
+                                      "d": "作業主任者や作業指揮者に報告し、関係者に周知してから行う"
+                              },
+                              {
+                                      "n": "立入禁止",
+                                      "d": "設備を外した箇所には関係労働者以外を立ち入らせない"
+                              },
+                              {
+                                      "n": "直ちに元に戻す",
+                                      "d": "作業が終わった後、直ちに取り外した設備を元の状態に戻す"
+                              },
+                              {
+                                      "n": "外したまま帰らない",
+                                      "d": "それが翌日の墜落災害になる"
+                              }
+                      ],
+                      "task": {
+                              "q": "臨時に手すりを外して作業した後は",
+                              "a": [
+                                      "翌朝の朝礼で伝える",
+                                      "作業終了後、直ちに元に戻す",
+                                      "そのままでよい"
+                              ],
+                              "ok": 1
+                      }
+              },
+              {
+                      "id": "F1-2-8",
+                      "t": "作業区域と上下作業",
+                      "min": 1,
+                      "type": "list",
+                      "lead": "落とさないようにする、では防げません。そもそも下に人を入れないことです。",
+                      "parts": [
+                              {
+                                      "n": "区域の設定",
+                                      "d": "ロープやコーンで囲い、立入禁止の表示をする。口頭だけでは足りない"
+                              },
+                              {
+                                      "n": "上下作業を作らない",
+                                      "d": "上で組立て中、真下で別作業。この状態を作らない"
+                              },
+                              {
+                                      "n": "他職との調整",
+                                      "d": "職長どうしで作業の時間帯をずらす"
+                              },
+                              {
+                                      "n": "第三者への配慮",
+                                      "d": "道路・隣地側は監視員の配置、通行止めの時間設定、朝顔の先行設置"
+                              }
+                      ],
+                      "task": {
+                              "q": "上下作業への最も確実な対策は",
+                              "a": [
+                                      "物を落とさないよう注意する",
+                                      "下に人を入れない",
+                                      "ヘルメットを着ける"
+                              ],
+                              "ok": 1
+                      }
+              },
+              {
+                      "id": "F1-2-9",
+                      "t": "材料の上げ下ろしと合図",
+                      "min": 1,
+                      "type": "list",
+                      "lead": "荷が引っかかったときの対処まで、事前に決めておいてください。",
+                      "parts": [
+                              {
+                                      "n": "つり綱・つり袋・荷上げ設備",
+                                      "d": "投げ下ろしは禁止。手渡しでも下は立入禁止にする"
+                              },
+                              {
+                                      "n": "つり荷の下に入らない",
+                                      "d": "介錯ロープで誘導し、荷に直接手を触れない"
+                              },
+                              {
+                                      "n": "合図は確実に",
+                                      "d": "上下間は無線を使う。声や手振りが届かない距離では特に"
+                              },
+                              {
+                                      "n": "荷が引っかかったとき",
+                                      "d": "無線で一度荷を上げてもらい、位置を直す。手で外そうとしない"
+                              },
+                              {
+                                      "n": "荷受けステージ",
+                                      "d": "強度と最大積載荷重の表示が必要。まとめて積まない"
+                              }
+                      ],
+                      "task": {
+                              "q": "つり荷が手すりに引っかかったときは",
+                              "a": [
+                                      "手で外す",
+                                      "一度荷を上げてもらい位置を直す",
+                                      "引っ張って外す"
+                              ],
+                              "ok": 1
+                      }
+              },
+              {
+                      "id": "F1-2-10",
+                      "t": "不備を探す（解体中の足場）",
+                      "min": 1,
+                      "type": "findfault",
+                      "lead": "解体中の足場に5か所の不備があります。危ないと思う箇所を全部見つけてください。",
+                      "faults": [
+                              {
+                                      "n": "手すりを先に外し、踏板だけが残っている",
+                                      "d": "囲いの無い床。解体中の墜落はここで起きる"
+                              },
+                              {
+                                      "n": "上に足場が残っているのに壁つなぎを外した",
+                                      "d": "その瞬間に足場は自立できなくなる"
+                              },
+                              {
+                                      "n": "外した部材を足場上に積んでいる",
+                                      "d": "荷重が集中し、落下の危険もある。速やかに下ろす"
+                              },
+                              {
+                                      "n": "真下で別の職種が作業している",
+                                      "d": "上下作業。区域を分けるか時間帯をずらす"
+                              },
+                              {
+                                      "n": "立入禁止の表示がない",
+                                      "d": "口頭で伝えるだけでは足りない"
+                              }
+                      ],
+                      "task": {
+                              "q": "5か所すべて見つけてください",
+                              "type": "multi"
+                      }
+              }
+      ],
+        cases: [
+              {
+                      "id": "C1-2-1",
+                      "t": "枠組足場の組立て中、最上層から墜落",
+                      "min": 5,
+                      "meta": {
+                              "作業": "外部枠組足場の組立て（3段完了後の2段嵩上げ）",
+                              "事故の型": "墜落・転落",
+                              "起因物": "足場",
+                              "結果": "死亡"
+                      },
+                      "situation": [
+                              "建築工事現場で、外部の枠組足場を組み立てる作業が行われていた。",
+                              "すでに3段が完成しており、この日はさらに2段を嵩上げする計画だった。",
+                              "被災者は最上層で、下から手渡された建枠を受け取り、据え付ける作業を担当していた。",
+                              "最上層には、まだ手すりや交差筋かいが取り付けられていなかった。",
+                              "作業床は床付き布枠が敷かれていたが、その端は囲われていない状態だった。",
+                              "被災者は墜落制止用器具を着用していたが、フックを掛ける親綱や手すりわくが設けられておらず、掛けていなかった。",
+                              "建枠を受け取ろうとして体勢を崩し、床の端から墜落した。"
+                      ],
+                      "ask": "この災害の、最も重大な原因はどれでしょうか。",
+                      "options": [
+                              {
+                                      "t": "建枠が重く、一人で受け取ろうとしたこと",
+                                      "ok": false,
+                                      "fb": "きっかけの一つではありますが、囲いとフックの掛け先があれば墜落には至りませんでした。"
+                              },
+                              {
+                                      "t": "最上層に手すり等の墜落防止設備がなく、フックの掛け先もなかったこと",
+                                      "ok": true,
+                                      "fb": "そのとおりです。組立て中の最上層こそ、囲いもフックの掛け先もない状態になりがちです。ここが最も墜落の多い場所です。"
+                              },
+                              {
+                                      "t": "墜落制止用器具の点検をしていなかったこと",
+                                      "ok": false,
+                                      "fb": "点検も必要ですが、そもそも掛ける場所がありませんでした。原因の順位としては下位です。"
+                              }
+                      ],
+                      "causes": [
+                              "組立て中の最上層に、手すりや交差筋かい等の墜落防止設備が設けられていなかった。",
+                              "墜落制止用器具を取り付ける設備（親綱、手すりわく、親綱支柱）が設けられていなかった。",
+                              "手すり先行工法がとられておらず、囲いの無い床の上で建枠の据付け作業を行っていた。",
+                              "重量のある建枠を、一人で受け取る作業になっていた。"
+                      ],
+                      "prevention": [
+                              "手すり先行工法を用い、その段に上がる前に上の段の手すりを取り付ける。",
+                              "組立て中も墜落制止用器具を使用できるよう、親綱や手すりわくを先行して設ける。",
+                              "建枠など重量のある部材は、二人以上で受け渡す。無理な体勢で受け取らない。",
+                              "最上層の作業に入る前に、囲いとフックの掛け先があるかを全員で確認する。"
+                      ],
+                      "lesson": "足場の墜落災害が最も多く起きるのは、組立て中の最上層です。まだ何も囲いが無い場所で作業しているという自覚を持ってください。"
+              },
+              {
+                      "id": "C1-2-2",
+                      "t": "解体した足場の小払し作業中、足場と共に倒れる",
+                      "min": 5,
+                      "meta": {
+                              "作業": "外部足場の解体・小払し",
+                              "事故の型": "倒壊・崩壊",
+                              "起因物": "足場",
+                              "結果": "打撲",
+                              "経験": "14年"
+                      },
+                      "situation": [
+                              "外部足場の解体工事で、2段×6スパンの足場を地上の解体ヤードで小さくばらす作業が行われていた。",
+                              "3名で作業しており、足場材にラッチロックを使って4点で玉掛けをしていた。",
+                              "介錯ロープは足場の両側に1本ずつ取り付けていた。",
+                              "地上の作業者が玉掛けワイヤーを外し、片側の介錯ロープが介錯しきれていない状態だった。",
+                              "その状態で、クレーンのオペレーターがワイヤーを巻き上げ始めた。",
+                              "ワイヤー先端のラッチロックのフックが、仮置きした足場のクランプのねじ山に引っ掛かった。",
+                              "被災者は、玉掛けワイヤーを巻き上げる前に足場に登り、2段目で作業を行っていた。",
+                              "引っ掛かった足場が転倒し、被災者は足場と共に倒れて受傷した。保護帽、安全靴、フルハーネスは使用していた。"
+                      ],
+                      "ask": "この災害の、最も重大な原因はどれでしょうか。",
+                      "options": [
+                              {
+                                      "t": "玉掛けワイヤーを巻き上げる前に、足場に登って作業したこと",
+                                      "ok": true,
+                                      "fb": "そのとおりです。つり上げ作業が完全に終わっていない足場に人が乗っていたことが、被害の直接の原因です。"
+                              },
+                              {
+                                      "t": "介錯ロープが介錯しきれていなかったこと",
+                                      "ok": false,
+                                      "fb": "重大な要因ですが、そこに人が乗っていなければ、けが人は出ませんでした。"
+                              },
+                              {
+                                      "t": "ラッチロックを使用したこと",
+                                      "ok": false,
+                                      "fb": "器具そのものの問題ではありません。手順とタイミングの問題です。"
+                              }
+                      ],
+                      "causes": [
+                              "玉掛けワイヤーを巻き上げる前に、被災者が足場に登って作業していた。",
+                              "玉掛けワイヤーが足場から離れるまで介錯できておらず、転倒防止の措置もとられていなかった。",
+                              "作業を焦り、作業手順や作業ルールを守らずに進めていた。"
+                      ],
+                      "prevention": [
+                              "玉掛けワイヤーを巻き上げる前は、その足場に登らない。この手順を全員に教育する。",
+                              "玉掛けワイヤーには介錯ロープを付け、ワイヤーが足場から完全に離れるまで介錯する。",
+                              "仮置きした足場には転倒防止の措置を行う。",
+                              "急ぐ状況でも、作業手順と作業ルールを省略しない。人員と時間に無理があれば、その場で申し出る。"
+                      ],
+                      "lesson": "経験14年の職人でも被災します。慣れているから大丈夫ではなく、慣れているから省略してしまう。そこが危ないのです。"
+              },
+              {
+                      "id": "C1-2-3",
+                      "t": "上下の合図が伝わらず、つり荷と手すりに手を挟まれる",
+                      "min": 5,
+                      "meta": {
+                              "作業": "荷取りステージでの単管の荷降ろし",
+                              "事故の型": "挟まれ",
+                              "起因物": "資機材",
+                              "結果": "左手小指裂傷",
+                              "経験": "10年"
+                      },
+                      "situation": [
+                              "被災者は荷取りステージの上で、クレーンで単管の束を荷降ろししていた。",
+                              "上下間の合図に無線は使わず、声と手振りで行っていた。",
+                              "介錯ロープは使っていたが、上下の合図がうまく伝わっていなかった。",
+                              "介錯ロープで誘導する前に荷が降りてきてしまい、つり荷がステージの手すりに引っ掛かった。",
+                              "被災者は、引っ掛かった単管を外そうとして、荷の単管を直接手で引っ張った。",
+                              "引っ掛かっていた部位が外れた反動で、つり荷の単管と手すりの建地とのあいだに手を挟まれた。",
+                              "作業を急いでいたため、全体が雑な作業になっていた。保護帽と安全帯は着用していた。"
+                      ],
+                      "ask": "この災害の、最も重大な原因はどれでしょうか。",
+                      "options": [
+                              {
+                                      "t": "無線を使わず、上下間の合図が確実でなかったこと",
+                                      "ok": true,
+                                      "fb": "そのとおりです。合図が伝わらないまま荷が動いたことが、引っ掛かりと挟まれの両方を生みました。"
+                              },
+                              {
+                                      "t": "介錯ロープが短かったこと",
+                                      "ok": false,
+                                      "fb": "介錯ロープは使われていました。問題は、誘導する前に荷が降りてきたことです。"
+                              },
+                              {
+                                      "t": "手袋をしていなかったこと",
+                                      "ok": false,
+                                      "fb": "けがの程度に影響する可能性はありますが、挟まれた原因ではありません。"
+                              }
+                      ],
+                      "causes": [
+                              "無線を使用せずに作業していたため、上下間の合図が確実でなかった。",
+                              "引っ掛かったつり荷に、直接手を触れて外そうとした。",
+                              "介錯ロープで誘導する前に荷が降りてきたため、荷が手すりに引っ掛かった。",
+                              "作業を急いだため、全体が雑な作業になっていた。"
+                      ],
+                      "prevention": [
+                              "上下間の合図は必ず無線を使用する。作業前の危険予知で、無線の使用と荷に直接触れないことの2点を確認する。",
+                              "クレーンのオペレーターは、上下間の合図が伝わらないときは、確認できるまで荷の上げ下げをしない。",
+                              "荷が手すり等に引っ掛かった際は、無線で荷を一旦上げてもらい、荷の位置を修正する。",
+                              "作業員を増員し、無理のない人員で作業する。"
+                      ],
+                      "lesson": "急いでいるときほど、合図が雑になります。そして、引っ掛かった荷に手が伸びます。手を出す前に、まず声を掛けてください。"
+              }
+      ],
+        quiz: [
+              {
+                      "q": "高さ2m以上の作業床の幅は",
+                      "a": [
+                              "20cm以上",
+                              "30cm以上",
+                              "40cm以上"
+                      ],
+                      "ok": 2,
+                      "why": "作業床の幅は40cm以上とすることとされています。"
+              },
+              {
+                      "q": "床材間のすき間は",
+                      "a": [
+                              "3cm以下",
+                              "12cm以下",
+                              "制限なし"
+                      ],
+                      "ok": 0,
+                      "why": "床材間のすき間は3cm以下、床材と建地とのすき間は12cm未満です。"
+              },
+              {
+                      "q": "臨時に墜落防止設備を取り外したときは",
+                      "a": [
+                              "翌日戻す",
+                              "作業終了後、直ちに元に戻す",
+                              "戻さなくてよい"
+                      ],
+                      "ok": 1,
+                      "why": "取り外したままの引き継ぎが墜落につながります。"
+              }
+      ] },
+      { id: "1-3", t: "点検及び補修", han: "点検及び補修", min: 40, scene: "check",
+        script: [
+              "この単元では、点検と補修について学びます。",
+              "組み立てた足場は、そこで終わりではありません。使われているあいだ、ずっと変わり続けます。",
+              "人が乗り、材料が載り、風が吹き、雨が降り、他職が手を加えます。",
+              "組んだ日と同じ状態のまま、というほうがむしろ珍しいのです。",
+              "だから、使う前に見る。それが点検です。",
+              "点検は、書類を作るための作業ではありません。今日その足場に乗る人を守るための作業です。",
+              "足場は、組み立てて終わりではありません。使う前の点検が必要です。",
+              "点検が必要なのは、組み立てた後、一部を解体したり変更した後、そして悪天候の後です。",
+              "点検には、大きく三つの場面があります。",
+              "一つ目は、その日の作業を開始する前の点検です。毎日行います。",
+              "つり足場を含め、足場における作業を行うときは、その日の作業を開始する前に点検します。",
+              "二つ目は、足場を組み立てた後、一部を解体した後、または変更した後の点検です。",
+              "作業を開始する前に、足場の各部の状態を点検します。",
+              "三つ目は、強風、大雨、大雪などの悪天候の後、または中震以上の地震の後の点検です。",
+              "中震とは震度四のことです。地震の後は、緊結部が緩んでいることがあります。",
+              "この三つは、それぞれ別の規定に基づくものです。",
+              "毎日の始業前点検があるから、組立て後の点検は要らない、ということにはなりません。",
+              "そして、足場を使わせる注文者にも点検の義務があります。",
+              "元請が組んだ足場を下請が使う場合、注文者である元請も点検しなければなりません。",
+              "点検し、危険のおそれがあるときは、速やかに修理する。これが求められている流れです。",
+              "悪天候だけでなく、中震、震度四以上の地震の後も同じです。",
+              "いずれも、その足場での作業を開始する前に行います。",
+              "点検して、危険のおそれがあるときは、速やかに修理しなければなりません。",
+              "点検は、あらかじめ指名された者が行います。誰が行ってもよいわけではありません。",
+              "誰が点検するのかについて、もう少し説明します。",
+              "組立て、一部解体、変更の後の点検は、事業者があらかじめ指名した者が行います。",
+              "点検する者には、一定の知識と経験が求められます。",
+              "見るべきところを知らない人が見ても、それは点検になりません。",
+              "具体的には、足場の組立て等作業主任者の能力を持つ者、あるいは足場の設置や点検の実務経験を持つ者。",
+              "そうした者を指名して、責任を持って見てもらうという考え方です。",
+              "指名された者は、自分が指名されていることを自覚してください。",
+              "「たぶん大丈夫だと思う」で通した箇所が、その日の災害になります。",
+              "そして、点検する者だけが見ればよい、というものでもありません。",
+              "その日その足場に乗る全員が、自分の乗る床を自分の目で見る。それが最後の砦になります。",
+              "点検した者の氏名と、点検の結果を記録し、その足場を使用する期間中は保存します。",
+              "記録について、もう少し詳しく説明します。",
+              "組立て後、変更後の点検では、記録すべき事項が定められています。",
+              "一つ、点検を行った年月日。",
+              "二つ、点検の方法と箇所。",
+              "三つ、点検の結果。",
+              "四つ、点検の結果に基づいて補修などの措置を講じた場合は、その内容。",
+              "そして、点検を行った者の氏名です。",
+              "これらを記録し、その足場を使用する期間中は保存しなければなりません。",
+              "記録は、監督署に見せるためだけのものではありません。",
+              "いつ、誰が、どこを見たのかが残っていれば、次に見る人が前回との差を追えます。",
+              "先週は問題なかった箇所が今日は緩んでいる。それが分かるのは、記録があるからです。",
+              "点検表は、現場に合わせて作ってください。項目が多すぎると、形だけの丸付けになります。",
+              "その現場で本当に危ない箇所を、上のほうに書く。それだけで点検の質が変わります。",
+              "見るところは、脚部の沈下と滑動、緊結部のゆるみと脱落、床材の損傷と取付けのずれです。",
+              "あわせて、手摺などが取り外されたままになっていないか、壁つなぎに損傷が無いかを確認します。",
+              "作業開始前の点検で見る項目を、具体的に挙げます。",
+              "一つ目、床材の損傷、取付けの状態、そして掛渡しの状態。",
+              "割れていないか、ずれていないか、両端が確実にかかっているか。",
+              "二つ目、建地、布、腕木などの緊結部、接続部、取付部のゆるみ。",
+              "くさびが浮いていないか、クランプが緩んでいないか、ピンが抜けていないか。",
+              "三つ目、緊結材と緊結金具の損傷および腐食。",
+              "四つ目、手すり等の取り外しおよび脱落。",
+              "これは特に重要です。昨日誰かが外したまま帰っていないか。",
+              "五つ目、幅木等の取付状態および脱落。",
+              "六つ目、脚部の沈下および滑動。地盤が雨で緩んでいないか、ジャッキが傾いていないか。",
+              "この六つを、毎朝見ます。",
+              "全部を細かく見る必要はありません。歩きながら見て、気になったところで止まればいい。",
+              "大事なのは、見る項目が頭に入っていることです。知らないものは、目に入っても見えません。",
+              "組立て後、一部解体後、変更後の点検では、さらに広く見ます。",
+              "作業開始前点検の項目に加えて、筋かい、壁つなぎ、控えの取付状態と取り外しの有無を確認します。",
+              "壁つなぎは、決められた間隔で入っているか。組立図と照らして数えます。",
+              "変更の作業をした箇所は、特に念入りに見ます。",
+              "手を加えた場所こそ、元に戻し忘れが起きる場所だからです。",
+              "そして、部材の取り付け忘れがないか。組立図と実物を突き合わせます。",
+              "組み上がった足場は、遠目には完成して見えます。",
+              "しかし一本足りない、一箇所緩んでいる、というのは、近づかなければ分かりません。",
+              "全体を見て、それから一箇所ずつ近づいて見る。この二段構えで点検してください。",
+              "異常を見つけたら、直ちに補修します。直せないうちは、その足場を使わせてはいけません。",
+              "補修について説明します。",
+              "異常を見つけたときの流れは、決まっています。",
+              "まず、その箇所を使わせないこと。人が近づけないように、立入禁止の表示をします。",
+              "危険な箇所に赤い札を掛ける、テープを張る。現場で分かる形にしてください。",
+              "次に、作業主任者または作業指揮者に報告します。自分の判断で直し始めないこと。",
+              "足場の変更にあたる補修は、それ自体が特別教育の対象になる作業だからです。",
+              "そして、直します。緩んだくさびは打ち直す。外れた手すりは付け直す。",
+              "損傷した部材は、取り替えます。曲がった部材を叩いて伸ばして使う、ということはしません。",
+              "直したら、直したことを記録に残します。誰が、いつ、何を直したのか。",
+              "直せないときは、直せるまで使わせない。これが最後の判断です。",
+              "「今日だけだから」「上の人がいないから」で使わせた足場で、人が落ちます。",
+              "止める判断をした人が責められる現場にしてはいけません。止めたことを評価する現場にしてください。",
+              "点検の目のつけ方について、現場のコツをいくつか挙げます。",
+              "一つ目、遠くから全体を見ることです。",
+              "近づいて一箇所ずつ見る前に、道路の反対側まで下がって足場全体を眺めます。",
+              "傾いている、一段だけ手すりが無い、シートが破れている。全体の異常は、離れないと見えません。",
+              "二つ目、上から下へ見ることです。",
+              "上の段の異常は、下に物を落とします。順序を決めておくと、見落としが減ります。",
+              "三つ目、揺すってみることです。",
+              "手すりを握って軽く揺する。踏板の端を踏んでみる。目で見ただけでは緩みは分かりません。",
+              "四つ目、音を聞くことです。",
+              "緩んだくさびは、風でカタカタと鳴ります。歩いたときに動く踏板も、音でわかります。",
+              "五つ目、前回との差を見ることです。",
+              "昨日と違うところはないか。他職が入った後は、必ず何かが変わっています。",
+              "六つ目、雨の翌朝と、風の吹いた翌朝は、特に丁寧に見ることです。",
+              "地盤が緩み、シートが煽られ、緊結部に力がかかっています。",
+              "そして七つ目、自分が最後に触った箇所を覚えておくことです。",
+              "昨日、自分が手すりを外した。自分が踏板を動かした。その記憶が、翌朝の点検の起点になります。",
+              "後で直す、というつもりが、そのまま事故になります。",
+              "作業のために手摺を一時的に取り外したときは、作業が終わったら直ちに元に戻してください。",
+              "外したまま次の人へ引き継がないことです。",
+              "点検を習慣にするための工夫にも触れておきます。",
+              "点検表を、足場の昇降口に掛けておく現場があります。",
+              "上がる前に必ず目に入る場所に置くことで、点検が作業の一部になります。",
+              "また、点検の結果を朝礼で共有する現場もあります。",
+              "今日は南面の三段目の壁つなぎを直した、という一言があるだけで、全員の注意が向きます。",
+              "写真を撮って残す方法もあります。異常箇所と、直した後の状態を並べて残す。",
+              "後から見て、何をどう直したかが分かります。",
+              "大切なのは、点検を特別な行事にしないことです。",
+              "毎朝、当たり前にやる。当たり前になったとき、初めて災害が減ります。",
+              "部材ごとに、どこを見るのかを具体的に見ていきます。",
+              "まず支柱です。全体の曲がりを見ます。地面に寝かせて、目線を低くして端から見通すと分かります。",
+              "次に緊結部、コマです。ポケットが変形していないか。くさびを差したときに、がたつかないか。",
+              "コマが潰れていると、くさびが奥まで入りません。打っても効かない緊結になります。",
+              "支柱の上端のジョイントも見ます。曲がっていると、上の支柱が真っ直ぐ入りません。",
+              "手すりは、くさび部分を見ます。くさびが摩耗して痩せていると、打ち込んでも抜けやすくなります。",
+              "溶接部に亀裂がないかも確認します。特に、くさびと本体のつなぎ目です。",
+              "踏板は、フックと外れ止めを見ます。フックが開いていないか、外れ止めが動くか。",
+              "床面の腐食や穴あきも見ます。踏み抜きにつながります。",
+              "ブラケットは、根元の溶接部と、変形の有無です。荷重が集中する部材です。",
+              "ジャッキは、ねじ山を見ます。潰れていると回らなくなり、無理に回して壊します。",
+              "泥や砂を噛んだまま回すと、ねじ山が傷みます。使う前に拭く習慣をつけてください。",
+              "クランプは、ボルトとナット、そして開閉部です。さびて固着したものは締め付け力が出ません。",
+              "単管は、へこみと曲がりです。へこんだ単管は、そこから座屈します。",
+              "部材の点検は、現場だけの話ではありません。",
+              "現場から戻ってきた部材を、倉庫で選別することが、次の現場の安全を作ります。",
+              "返却時に、使えるものと使えないものを分ける。ここで止めておけば、現場に上がりません。",
+              "使えないものは、廃棄するか、修理に出します。",
+              "曲がった部材を現場で叩いて伸ばして使う、ということはしません。一度曲がった鋼材は、元の強度に戻りません。",
+              "整備できるものは、専門の業者に出します。溶接の補修は、資格と設備のある者が行うものです。",
+              "そして、部材には使用年数があります。何年も使い続けた部材は、見た目が良くても疲労しています。",
+              "リース品を使う場合も同じです。届いた部材が使える状態かどうかは、受け取った側が確認します。",
+              "リース会社が点検しているはずだ、で通してはいけません。使うのは自分たちです。",
+              "点検で異常を見つけたとき、直すのか、取り替えるのか。判断の目安を挙げます。",
+              "打ち直せば効くもの。緩んだくさび、外れかけた外れ止め、締め直せるクランプ。これは直します。",
+              "付け直せば済むもの。外れた手すり、ずれた踏板、脱落した幅木。これも直します。",
+              "締め直しても効かないもの、変形しているもの、亀裂のあるもの。これは取り替えます。",
+              "迷ったら取り替える。これが原則です。",
+              "部材一本の値段と、人ひとりの命を比べる話ではありません。",
+              "そして、その場で直せない大きな不具合を見つけたときは、作業を止めて報告します。",
+              "壁つなぎが何箇所も足りない、足場全体が傾いている、地盤が沈んでいる。",
+              "こうしたものは、一人で直せるものではありません。作業主任者と現場責任者の判断が要ります。",
+              "止めることを恐れないでください。止めた足場で人は死にません。",
+              "点検を仕組みにするために、点検表の作り方にも触れておきます。",
+              "点検表は、法令の条文をそのまま並べても使えません。",
+              "現場で歩く順番に並べること。これが一番の工夫です。",
+              "昇降階段から上がって、南面を東へ、角を回って東面を北へ。歩く順に項目を並べる。",
+              "そうすれば、見落としは自然に減ります。",
+              "項目は多すぎないこと。二十も三十もあると、丸を付けるだけの作業になります。",
+              "その現場で本当に危ない箇所を、五つか六つに絞る。それを毎日必ず見る。",
+              "そして、異常なしと書くだけでなく、直した箇所を書く欄を作ってください。",
+              "何もなかった記録より、何を直したかの記録のほうが、次に見る人の役に立ちます。",
+              "他職からの指摘の受け方についても、一言。",
+              "塗装屋さんや大工さんから、ここが揺れる、と言われることがあります。",
+              "自分たちが組んだ足場を指摘されると、つい言い返したくなります。",
+              "しかし、毎日その足場に乗っている人の感覚は正確です。",
+              "指摘は、ありがたい情報だと受け取ってください。見に行って、何ともなければそれでいい。",
+              "見に行かずに大丈夫だと答えることが、最も危ない対応です。",
+              "最後に、記録が会社を守るという話をします。",
+              "万が一、災害が起きたとき、まず問われるのは、必要な措置を講じていたかどうかです。",
+              "点検した記録があれば、いつ誰が何を見て、どう直したかを示せます。",
+              "記録がなければ、やっていなかったと同じに扱われます。",
+              "点検の記録は、面倒な事務作業ではなく、自分たちの仕事を証明するものです。",
+              "点検の話の締めくくりに、一つだけ付け加えます。",
+              "点検で最も見つけにくいのは、最初から無いものです。",
+              "壁つなぎが一箇所付いていない。中さんが一段だけ入っていない。",
+              "壊れているものは目立ちますが、最初から無いものは、風景として馴染んでしまいます。",
+              "だから、組立図と突き合わせるのです。図面と実物を数える。それでしか見つかりません。",
+              "そしてもう一つ、自分が組んだ足場を自分で点検すると、どうしても甘くなります。",
+              "できれば、組んだ人とは別の人が見る。それが難しければ、日を変えて見る。",
+              "見る目を変えるだけで、見えるものが変わります。",
+              "点検は、疑うことではありません。確かめることです。",
+              "大丈夫だと思っていることを、目と手で確かめる。それが点検です。",
+              "点検した結果を、現場で見える形にする工夫もあります。",
+              "点検済みのタグや札を、昇降口に掛ける方法です。",
+              "今日の点検が済んでいるかどうかが、上がる前に分かります。",
+              "逆に、使用禁止の箇所には赤い札を掛けます。誰が見ても分かる色と形にすること。",
+              "口頭で「あそこは使うな」と言っても、聞いていない人が必ずいます。",
+              "そして、元請や他職との連携です。",
+              "足場を組んだ会社が毎日現場にいるとは限りません。",
+              "その場合、日々の始業前点検は、その足場を使う会社が行うことになります。",
+              "誰が、いつ、何を見るのか。工事の始めに決めておいてください。曖昧なまま進めると、誰も見ない状態になります。",
+              "点検について、最後にもう一度確認します。",
+              "点検の目的は、異常を見つけることではありません。人を落とさないことです。",
+              "見つけても直さなければ意味がない。直しても記録がなければ次に伝わらない。",
+              "見る、直す、残す。この三つで一つの点検です。",
+              "そして、毎日続けること。続かない点検は、無いのと同じです。",
+              "難しいことは要りません。上がる前に、自分が乗る床を見る。それを毎日やるだけです。",
+              "点検は、一人でやるものではありません。",
+              "指名された点検者が見て、作業者一人ひとりが自分の乗る床を見て、他職からの指摘も受ける。",
+              "何重にも目が入るから、見落としが減ります。",
+              "誰かがやっているはずだ、と全員が思っている現場が、いちばん危ない現場です。",
+              "自分も見る。その一人になってください。",
+              "この単元のまとめです。",
+              "点検が必要なのは三つの場面。作業開始前、組立て・一部解体・変更の後、そして悪天候や中震以上の地震の後。",
+              "組立て後等の点検は、事業者が指名した、知識と経験のある者が行う。",
+              "見る項目は、床材、緊結部のゆるみ、緊結材の損傷腐食、手すり等の取り外しと脱落、幅木、脚部の沈下滑動。",
+              "組立て後の点検では、これに筋かい、壁つなぎ、控えの取付状態が加わる。",
+              "記録するのは、年月日、方法と箇所、結果、講じた措置、そして点検者の氏名。足場の使用期間中は保存する。",
+              "異常を見つけたら、使わせない、報告する、直す、記録する。",
+              "直せないうちは使わせない。止める判断をした人を、責めない現場にすること。",
+              "次の単元では、登り桟橋と朝顔について学びます。",
+              "点検を面倒だと思う日もあると思います。",
+              "しかし、その五分が、誰かの一生を変えます。",
+              "明日の朝も、上がる前に見てください。"
+      ],
+        figures: [
+              {
+                      "id": "F1-3-1",
+                      "t": "点検が必要な3つの場面",
+                      "min": 1,
+                      "type": "list",
+                      "lead": "それぞれ別の規定に基づくものです。一つあるから他が要らない、ということはありません。",
+                      "parts": [
+                              {
+                                      "n": "① その日の作業を開始する前",
+                                      "d": "毎日行う。足場における作業を行うときの始業前点検"
+                              },
+                              {
+                                      "n": "② 組立て・一部解体・変更の後",
+                                      "d": "作業を開始する前に各部を点検。指名された者が行い、記録を残す"
+                              },
+                              {
+                                      "n": "③ 悪天候の後・中震以上の地震の後",
+                                      "d": "中震＝震度4。強風・大雨・大雪の後も同じ"
+                              },
+                              {
+                                      "n": "注文者の点検義務",
+                                      "d": "足場を請負人の労働者に使用させる注文者にも点検義務がある"
+                              }
+                      ],
+                      "task": {
+                              "q": "毎日行う必要があるのは",
+                              "a": [
+                                      "組立て後の点検",
+                                      "作業開始前の点検",
+                                      "地震後の点検"
+                              ],
+                              "ok": 1
+                      }
+              },
+              {
+                      "id": "F1-3-2",
+                      "t": "作業開始前点検の6項目",
+                      "min": 1,
+                      "type": "list",
+                      "lead": "知らないものは、目に入っても見えません。項目を頭に入れてください。",
+                      "parts": [
+                              {
+                                      "n": "床材の損傷・取付け・掛渡しの状態",
+                                      "d": "割れ、ずれ、両端が確実にかかっているか"
+                              },
+                              {
+                                      "n": "建地・布・腕木の緊結部、接続部、取付部のゆるみ",
+                                      "d": "くさびの浮き、クランプの緩み、ピンの抜け"
+                              },
+                              {
+                                      "n": "緊結材・緊結金具の損傷および腐食",
+                                      "d": "変形、さび、亀裂"
+                              },
+                              {
+                                      "n": "手すり等の取り外しおよび脱落",
+                                      "d": "昨日誰かが外したまま帰っていないか"
+                              },
+                              {
+                                      "n": "幅木等の取付状態および脱落",
+                                      "d": "物の落下を止める設備"
+                              },
+                              {
+                                      "n": "脚部の沈下および滑動",
+                                      "d": "雨で地盤が緩んでいないか、ジャッキが傾いていないか"
+                              }
+                      ],
+                      "task": {
+                              "q": "始業前点検で最も見落とされやすいのは",
+                              "a": [
+                                      "手すり等の取り外し・脱落",
+                                      "足場の色",
+                                      "部材の製造年"
+                              ],
+                              "ok": 0
+                      }
+              },
+              {
+                      "id": "F1-3-3",
+                      "t": "組立て後・変更後の点検で加わる項目",
+                      "min": 1,
+                      "type": "list",
+                      "lead": "始業前点検の項目に加えて、構造にかかわる部分を見ます。",
+                      "parts": [
+                              {
+                                      "n": "筋かいの取付状態",
+                                      "d": "変形を防ぐ部材。外されていないか"
+                              },
+                              {
+                                      "n": "壁つなぎの取付状態と間隔",
+                                      "d": "組立図と照らして数える。倒壊を防ぐ要"
+                              },
+                              {
+                                      "n": "控えの取付状態",
+                                      "d": "取り外されていないか"
+                              },
+                              {
+                                      "n": "変更した箇所",
+                                      "d": "手を加えた場所こそ、元に戻し忘れが起きる"
+                              },
+                              {
+                                      "n": "組立図との突き合わせ",
+                                      "d": "部材の取り付け忘れがないか"
+                              }
+                      ],
+                      "task": {
+                              "q": "壁つなぎの点検で確認することは",
+                              "a": [
+                                      "色と製造年",
+                                      "取付状態と間隔",
+                                      "重さ"
+                              ],
+                              "ok": 1
+                      }
+              },
+              {
+                      "id": "F1-3-4",
+                      "t": "記録に残す5項目",
+                      "min": 1,
+                      "type": "list",
+                      "lead": "足場を使用する期間中、保存しなければなりません。",
+                      "parts": [
+                              {
+                                      "n": "① 点検を行った年月日",
+                                      "d": ""
+                              },
+                              {
+                                      "n": "② 点検の方法および箇所",
+                                      "d": ""
+                              },
+                              {
+                                      "n": "③ 点検の結果",
+                                      "d": ""
+                              },
+                              {
+                                      "n": "④ 講じた措置の内容",
+                                      "d": "補修等を行った場合"
+                              },
+                              {
+                                      "n": "⑤ 点検を行った者の氏名",
+                                      "d": "指名された者"
+                              },
+                              {
+                                      "n": "記録の使い道",
+                                      "d": "前回との差を追える。先週は問題なかった箇所が今日は緩んでいる、が分かる"
+                              }
+                      ],
+                      "task": {
+                              "q": "記録の保存期間は",
+                              "a": [
+                                      "1週間",
+                                      "その足場を使用する期間中",
+                                      "保存不要"
+                              ],
+                              "ok": 1
+                      }
+              },
+              {
+                      "id": "F1-3-5",
+                      "t": "点検の目のつけ方",
+                      "min": 1,
+                      "type": "flow",
+                      "lead": "見る順序を決めておくと、見落としが減ります。",
+                      "parts": [
+                              {
+                                      "n": "① 遠くから全体を見る",
+                                      "d": "傾き、手すりの欠け、シートの破れ。離れないと見えない"
+                              },
+                              {
+                                      "n": "② 上から下へ",
+                                      "d": "上の異常は下に物を落とす。順序を決める"
+                              },
+                              {
+                                      "n": "③ 揺すってみる",
+                                      "d": "手すりを握って揺する。踏板の端を踏む。目だけでは緩みは分からない"
+                              },
+                              {
+                                      "n": "④ 音を聞く",
+                                      "d": "緩んだくさびは風で鳴る。動く踏板は歩けば分かる"
+                              },
+                              {
+                                      "n": "⑤ 前回との差を見る",
+                                      "d": "他職が入った後は、必ず何かが変わっている"
+                              },
+                              {
+                                      "n": "⑥ 雨と風の翌朝は丁寧に",
+                                      "d": "地盤が緩み、緊結部に力がかかっている"
+                              },
+                              {
+                                      "n": "⑦ 自分が最後に触った箇所",
+                                      "d": "昨日外した手すり。その記憶が翌朝の起点になる"
+                              }
+                      ],
+                      "task": {
+                              "q": "緩みを見つけるのに有効なのは",
+                              "a": [
+                                      "遠くから眺める",
+                                      "握って揺すってみる",
+                                      "写真を撮る"
+                              ],
+                              "ok": 1
+                      }
+              },
+              {
+                      "id": "F1-3-6",
+                      "t": "不備を探す（始業前点検）",
+                      "min": 1,
+                      "type": "findfault",
+                      "lead": "朝いちばんの足場です。5か所の不備を全部見つけてください。",
+                      "faults": [
+                              {
+                                      "n": "手すりが1本外されたまま",
+                                      "d": "前日の作業で外され、戻されていない。最も多い不備"
+                              },
+                              {
+                                      "n": "踏板の端が支持物にかかっていない",
+                                      "d": "掛渡しの状態を見る。乗れば跳ね上がる"
+                              },
+                              {
+                                      "n": "くさびが浮いている",
+                                      "d": "打ち込み不足か、地震・風で緩んだ。打ち直す"
+                              },
+                              {
+                                      "n": "ジャッキが傾き、敷板が沈んでいる",
+                                      "d": "雨で地盤が緩んだ。脚部の沈下・滑動"
+                              },
+                              {
+                                      "n": "壁つなぎが1か所外されている",
+                                      "d": "他職が邪魔だからと外すことがある。組立図と照らす"
+                              }
+                      ],
+                      "task": {
+                              "q": "5か所すべて見つけてください",
+                              "type": "multi"
+                      }
+              }
+      ],
+        cases: [
+              {
+                      "id": "C1-3-1",
+                      "t": "前日に外した手すりが戻されず、翌朝の作業者が墜落",
+                      "min": 5,
+                      "meta": {
+                              "作業": "外壁工事（足場上での作業）",
+                              "事故の型": "墜落・転落",
+                              "起因物": "足場",
+                              "結果": "死亡"
+                      },
+                      "situation": [
+                              "マンションの外壁改修工事で、足場の上から外壁の補修作業が行われていた。",
+                              "前日、材料を足場の上へ搬入するため、2段目の手すりを一時的に取り外していた。",
+                              "搬入は夕方に終わったが、その日の作業が押していたため、手すりは外したまま作業を終えた。",
+                              "作業者は「明日の朝いちばんに戻せばいい」と考えていた。",
+                              "翌朝、別の業者の作業者が2段目に上がり、外壁の補修作業を始めた。",
+                              "その作業者は、前日に手すりが外されたことを知らなかった。",
+                              "始業前点検は行われたことになっていたが、実際には昇降階段付近を見ただけだった。",
+                              "作業中に後ずさりした際、手すりの無い箇所から墜落した。"
+                      ],
+                      "ask": "この災害の、最も重大な原因はどれでしょうか。",
+                      "options": [
+                              {
+                                      "t": "作業者が後ずさりしたこと",
+                                      "ok": false,
+                                      "fb": "作業中に後ずさりすること自体は珍しくありません。手すりがあれば止まっていました。"
+                              },
+                              {
+                                      "t": "臨時に取り外した手すりを、作業終了後に直ちに元に戻さなかったこと",
+                                      "ok": true,
+                                      "fb": "そのとおりです。規則でも、作業終了後は直ちに元の状態に戻すこととされています。ここが分かれ目でした。"
+                              },
+                              {
+                                      "t": "別業者への連絡がなかったこと",
+                                      "ok": false,
+                                      "fb": "重大な要因ですが、そもそも戻していれば連絡の必要すらありませんでした。"
+                              }
+                      ],
+                      "causes": [
+                              "臨時に取り外した墜落防止設備を、作業終了後に直ちに元の状態に戻さなかった。",
+                              "設備を取り外した箇所に、立入禁止の措置も表示もされていなかった。",
+                              "始業前点検が形だけになっており、手すりの取り外し・脱落が確認されていなかった。",
+                              "翌日その足場を使う他業者へ、状態の引き継ぎがなされていなかった。"
+                      ],
+                      "prevention": [
+                              "臨時に取り外した設備は、その作業が終わった後、直ちに元の状態に戻す。戻すまでが作業。",
+                              "どうしてもその日に戻せない場合は、立入禁止の表示と物理的な閉鎖を行い、朝礼で全員に周知する。",
+                              "始業前点検では、手すり等の取り外し・脱落を必ず確認する。点検経路をあらかじめ決めておく。",
+                              "足場を共用する他業者に、その日の変更点を引き継ぐ仕組みを作る。"
+                      ],
+                      "lesson": "「明日の朝いちばんに戻せばいい」。この一言が出たときが、危険の始まりです。戻すまでが、その日の作業です。"
+              },
+              {
+                      "id": "C1-3-2",
+                      "t": "強風の翌朝、点検せずに作業を開始し、緩んだ部材で被災",
+                      "min": 5,
+                      "meta": {
+                              "作業": "足場上での塗装作業",
+                              "事故の型": "墜落・転落",
+                              "起因物": "足場",
+                              "結果": "休業災害"
+                      },
+                      "situation": [
+                              "前日の夕方から夜にかけて、現場一帯に強風が吹いていた。",
+                              "その日は早い時間に作業を切り上げており、足場には異常がないと考えられていた。",
+                              "翌朝、作業者は現場に着くとすぐに足場に上がり、塗装作業を始めた。",
+                              "強風の後の点検は行われていなかった。前日に問題がなかったから、という判断だった。",
+                              "実際には、風でメッシュシートが煽られ、シートを留めていた箇所の緊結部に力がかかっていた。",
+                              "また、下段の踏板の一枚が、シートに引っ張られてわずかにずれていた。",
+                              "作業者がその踏板の端に足を掛けたところ、踏板が動き、バランスを崩して転落した。",
+                              "被災者は保護帽を着用しており、命は助かったが、休業を要する災害となった。"
+                      ],
+                      "ask": "この災害の、最も重大な原因はどれでしょうか。",
+                      "options": [
+                              {
+                                      "t": "強風の後に点検を行わなかったこと",
+                                      "ok": true,
+                                      "fb": "そのとおりです。悪天候の後は、作業を開始する前に足場の各部を点検し、危険のおそれがあれば速やかに修理することとされています。"
+                              },
+                              {
+                                      "t": "メッシュシートを張っていたこと",
+                                      "ok": false,
+                                      "fb": "シートは飛散防止に必要な設備です。問題は、風を受けた後に確認しなかったことです。"
+                              },
+                              {
+                                      "t": "踏板が古かったこと",
+                                      "ok": false,
+                                      "fb": "部材の劣化ではなく、風によってずれたことが原因です。"
+                              }
+                      ],
+                      "causes": [
+                              "強風という悪天候の後に、作業を開始する前の点検を行わなかった。",
+                              "前日に異常がなかったことをもって、当日も異常がないと判断した。",
+                              "メッシュシートが風を受けることによる、緊結部や踏板への影響が認識されていなかった。",
+                              "点検を行う者が指名されておらず、誰の責任で点検するのかが決まっていなかった。"
+                      ],
+                      "prevention": [
+                              "悪天候や中震以上の地震の後は、作業を開始する前に必ず点検し、結果を記録する。",
+                              "点検を行う者をあらかじめ指名し、誰が見るのかを明確にしておく。",
+                              "シートを張った足場は風の影響を大きく受けることを、全員が理解しておく。",
+                              "点検の結果は朝礼で共有し、直した箇所を全員に伝える。"
+                      ],
+                      "lesson": "昨日は問題なかった、は理由になりません。夜のあいだに、足場は変わっています。"
+              }
+      ],
+        quiz: [
+              {
+                      "q": "点検が必要なのはどれか",
+                      "a": [
+                              "組立て後のみ",
+                              "組立て後・変更後・悪天候後・中震以上の地震後",
+                              "解体前のみ"
+                      ],
+                      "ok": 1,
+                      "why": "組立て後、一部解体・変更後、悪天候後、中震以上の地震の後に点検が必要です。"
+              },
+              {
+                      "q": "点検について正しいのは",
+                      "a": [
+                              "誰が行ってもよい",
+                              "指名された者が行い、氏名と結果を記録する",
+                              "記録は不要"
+                      ],
+                      "ok": 1,
+                      "why": "点検者の指名と記録の保存が求められます。"
+              }
+      ] },
+      { id: "1-4", t: "登り桟橋、朝顔等の構造と作業の方法", han: "登り桟橋、朝顔等の構造並びにこれらの組立て、解体及び変更の作業の方法", min: 30, scene: "ramp",
+        script: [
+              "この単元では、登り桟橋と朝顔について学びます。科目一の最後の単元です。",
+              "どちらも足場そのものではなく、足場に付随する設備です。",
+              "しかし、どちらも人の命に直結します。",
+              "登り桟橋は、人が昇り降りするための通路。ここで落ちれば人が死にます。",
+              "朝顔は、落ちてきた物を受け止める設備。ここが無ければ、下を歩く人に当たります。",
+              "自分たちを守るのが登り桟橋、他人を守るのが朝顔。そう覚えてください。",
+              "ここでは、登り桟橋と朝顔について学びます。どちらも足場に付随する設備です。",
+              "登り桟橋は、人が昇り降りするための通路です。勾配をゆるくし、踏面にすべり止めを設けます。",
+              "まず、登り桟橋の構造から見ていきます。",
+              "登り桟橋は、架設通路の一種です。安衛則には、架設通路についての基準が定められています。",
+              "一つ目、丈夫な構造とすること。当然のことですが、これが基本です。",
+              "二つ目、勾配は三十度以下とすること。ただし、階段を設けたものや、高さが二メートル未満で丈夫な手掛を設けたものは除かれます。",
+              "三十度というのは、かなりの急坂です。実際には、もっとゆるく作るのが望ましい。",
+              "三つ目、勾配が十五度を超えるものには、踏さんその他の滑止めを設けること。",
+              "十五度というのは、思ったよりゆるい傾きです。少しでも傾いていれば、滑止めが要ると考えてください。",
+              "四つ目、墜落の危険のある箇所には、高さ八十五センチメートル以上の手すり等を設けること。",
+              "そして、中さんなどの、より安全な措置を加えます。",
+              "五つ目、建設工事に使用する高さ八メートル以上の登り桟橋には、七メートル以内ごとに踊場を設けること。",
+              "この踊場には二つの意味があります。",
+              "一つは、休むため。荷を持って長い斜路を昇るのは、想像以上に体力を使います。",
+              "もう一つは、落下距離を切るためです。八メートルを一気に転げ落ちるのと、七メートルごとに止まるのとでは、結果が違います。",
+              "床面には、すき間ができないようにします。つまずきと踏み外しの原因になるからです。",
+              "そして、通路の幅です。人がすれ違い、荷を持って歩ける幅を確保します。",
+              "狭い通路で人がすれ違おうとして、体をよじった瞬間に落ちる。これが実際に起きています。",
+              "登り桟橋の組立て、解体、変更の作業について説明します。",
+              "登り桟橋も、足場と同じく組立図に基づいて組みます。",
+              "どこから上がって、どこへつながるのか。踊場をどの高さに設けるのか。",
+              "組立ての手順としては、まず支持する構造を作ります。足場側の受けと、地上側の据付けです。",
+              "斜路の部材を掛けたら、動かないよう確実に固定します。",
+              "掛けただけで固定していない斜路は、荷重がかかった瞬間にずれます。",
+              "続いて、手すりと中さんを取り付けます。ここでも、床より先に手すりを付ける考え方が有効です。",
+              "そして、踏さんや滑止めの状態を確認します。",
+              "解体は逆順です。手すりは最後まで残します。",
+              "変更の作業、たとえば段の追加や位置の変更も、必ず作業主任者や作業指揮者に報告してから行います。",
+              "登り桟橋は、全員が毎日使う設備です。一時的に外すときは、必ず代わりの昇降路を用意してください。",
+              "昇降路が無い状態で、支柱をよじ登る人が出ます。それが墜落につながります。",
+              "そして、登り桟橋も点検の対象です。組立て後、変更後、悪天候の後に見ます。",
+              "毎日大勢が昇り降りするため、緩みや摩耗が進みやすい設備でもあります。",
+              "はしご道についても触れておきます。",
+              "現場では、狭い箇所や短い高さで、はしごを使うことがあります。",
+              "はしご道にも基準があります。",
+              "丈夫な構造とすること。著しい損傷、腐食などがないものを使うこと。",
+              "踏さんを等間隔に設けること。そして、はしごの転位を防止するための措置を講じること。",
+              "転位の防止とは、上端を縛る、下端を固定する、押さえの人をつけるといった措置です。",
+              "そして、はしごの上端を、床から六十センチメートル以上突出させること。",
+              "これは、昇り切るときと降り始めるときに、つかまるところを確保するためです。",
+              "上端が床と同じ高さのはしごは、乗り移る瞬間に手が離れます。そこで落ちます。",
+              "はしごを昇るときは、手に物を持たないこと。三点支持を保つこと。",
+              "そして、はしごは移動と昇降のための設備であって、作業のための設備ではありません。",
+              "はしごの上に立って作業をしない。これは徹底してください。",
+              "墜落のおそれのある側には手すりを設けます。荷を持って昇ることもあるため、手すりは特に重要です。",
+              "高い登り桟橋では、途中に踊り場を設けます。休むためだけでなく、転落したときの落下距離を切る意味があります。",
+              "朝顔は、防護棚とも呼ばれます。足場から斜めに張り出した棚で、落ちてきた物を受け止めます。",
+              "道路や隣地に面する側に設けます。住宅街では、隣家や通行人を守るための設備になります。",
+              "次に、朝顔について説明します。防護棚とも呼ばれます。",
+              "朝顔は、足場から斜めに張り出した棚で、上から落ちてきた物を受け止めます。",
+              "守る相手は、下を歩く通行人と、隣接する敷地の人、そして下で作業する人です。",
+              "自分たちを守る設備ではなく、他人を守る設備。ここが登り桟橋と違うところです。",
+              "設置の考え方は、建設工事公衆災害防止対策要綱などに示されています。",
+              "一般的には、道路や隣地に面する側で、地上から一定の高さに一段目を設けます。",
+              "そして、上へ向かって一定の間隔ごとに、繰り返し設けます。",
+              "水平面となす角度は、二十度から三十度程度。",
+              "水平距離で二メートル以上を突出させ、しっかりと支持します。",
+              "角度が浅すぎると、落ちてきた物が跳ねて外へ飛び出します。",
+              "逆に立てすぎると、受けた物が滑り落ちてしまいます。この角度には意味があるということです。",
+              "朝顔の下側には、隙間を作らないようにします。板と板のあいだから物が抜ければ、意味がありません。",
+              "そして、朝顔の上に落ちた物を、そのままにしないこと。",
+              "溜まった物は荷重になり、次に落ちてきた物で跳ねて飛び出します。定期的に片付けます。",
+              "現場によっては、朝顔の代わりに、または併せて、防護シートや防音パネルを設けることもあります。",
+              "いずれも、目的は同じです。外に出さないこと。",
+              "朝顔の組立て、解体の作業について説明します。",
+              "朝顔は、足場から外側へ張り出す作業になります。",
+              "つまり、作業する人は、足場の外側へ体を出すことになります。",
+              "ここが最も危険な点です。手が届かないところへ手を伸ばし、体が外へ出る。",
+              "だから、朝顔の取付け作業では、必ず墜落制止用器具を使います。掛ける先も先に確保します。",
+              "そして、二人以上で行います。一人が支え、一人が留める。",
+              "一人で長い部材を支えながら留めようとすると、必ず体が外へ出ます。",
+              "作業する真下は、立入禁止にします。部材を落とせば、そこは道路かもしれません。",
+              "取り付けたら、支持部の固定を全員で確認します。跳ね上がり止めも忘れずに。",
+              "解体のときは、上に溜まった物を先に片付けてから外します。",
+              "溜まった物ごと外せば、それが全部落ちます。",
+              "朝顔も、組立て後と悪天候の後には点検します。風で煽られやすい設備です。",
+              "登り桟橋も朝顔も、足場と同じく、組み立てた後や変更した後に点検します。",
+              "そして、昇り降りは必ず昇降設備を使ってください。支柱や筋かいをよじ登らないことです。",
+              "登り桟橋と朝顔について、現場での実際にも触れておきます。",
+              "戸建住宅の現場では、登り桟橋を組むほどの規模にならないことが多い。",
+              "そのぶん、昇降階段や、足場に組み込んだ階段枠が昇降路になります。",
+              "小さい現場ほど、昇降設備を省いてしまいがちです。二段だけだから、少しの高さだから、と。",
+              "しかし、二メートルの高さから落ちても人は死にます。高さの問題ではありません。",
+              "朝顔についても同じです。住宅街では、隣家との距離が一メートルということもあります。",
+              "工具を一本落とせば、隣家の屋根に穴が開きます。人が歩いていれば当たります。",
+              "大きな現場だけの設備ではなく、狭い現場ほど必要になる設備だと考えてください。",
+              "それから、養生の話をします。",
+              "朝顔やシートは、物を止めるだけでなく、近隣との関係も守っています。",
+              "塗料が飛んだ、粉が舞った、という苦情は、工事を止めることがあります。",
+              "近隣に迷惑をかけない現場は、結果として安全な現場でもあります。",
+              "急かされない、見られても恥ずかしくない。その状態が、事故を減らします。",
+              "設備を一つ省いて早く終わらせた現場と、きちんと養生して進めた現場。",
+              "半年後に、どちらの会社に次の仕事が来ているか。それを考えてみてください。",
+              "科目一で学んだことは、すべてつながっています。",
+              "足場の種類と材料を知り、正しい手順で組み、点検して直し、昇降設備と防護棚を備える。",
+              "そのどれか一つが欠けても、足場は安全な作業床になりません。",
+              "落下物を防ぐ設備は、朝顔だけではありません。",
+              "メッシュシートは、足場の外面を覆って、細かい物の飛散を防ぎます。",
+              "ただしシートは、大きな部材の落下を止める強度はありません。あくまで飛散防止です。",
+              "防音パネルは、音と粉じんを抑える設備です。重量があるため、足場への負担も大きくなります。",
+              "パネルを張る現場では、壁つなぎの数を増やすなど、構造側の対応が必要になります。",
+              "水平養生ネットを、足場の内側に張ることもあります。躯体と足場のすき間から物が落ちるのを防ぎます。",
+              "このすき間は、意外と見落とされます。外側ばかり気にして、内側が空いている現場は多い。",
+              "落下物の防止は、外側と内側の両方で考えてください。",
+              "また、道路に面する現場では、歩行者用の仮設通路を設けることがあります。",
+              "上部を屋根で覆い、側面を仕切って、通行人が安全に通れるようにするものです。",
+              "この通路も、足場と同じく組み立てるものであり、点検の対象になります。",
+              "登り桟橋についても、もう少し補足します。",
+              "踏面には、雨や霜で滑らないよう、滑止めの措置をとります。",
+              "冬場の朝は、金属の踏面が凍ります。前日の雨が、朝には氷になっています。",
+              "そして、荷を持って昇り降りしないこと。両手が空いていない状態は、転落の入口です。",
+              "資材は荷上げ設備で上げ、人は身軽に昇る。これを分けることが基本です。",
+              "登り桟橋の下も、通路になっていることがあります。",
+              "上から物を落とせば、下を歩く人に当たります。下部の養生も忘れないでください。",
+              "最後に、これらの設備は足場と一体で計画されるものだということを覚えておいてください。",
+              "後から付け足そうとすると、取り付ける場所が無い、壁つなぎと干渉する、といったことが起きます。",
+              "組立図の段階で、昇降路と防護棚の位置を決めておく。それが、後の手戻りを防ぎます。",
+              "設備の話の最後に、現場での優先順位についてお話しします。",
+              "工期が押してくると、真っ先に省かれるのが、これらの付随設備です。",
+              "昇降階段は後回し、朝顔は必要になってから、養生は最後にまとめて。",
+              "しかし、後回しにされた期間こそが、危険な期間になります。",
+              "昇降階段が無い数日のあいだ、人は支柱をよじ登ります。",
+              "朝顔が無い数日のあいだ、道路には何も落ちてこない保証がありません。",
+              "設備は、必要になってから付けるのでは遅い。必要になる前に付けるものです。",
+              "そして、これらは全部、組立図に書かれています。",
+              "図面どおりに組めば、必要なときには必ずそこにある。それが計画の意味です。",
+              "現場の判断で順序を変えるときは、必ず作業主任者に相談してください。",
+              "自分の判断で省いた一つが、誰かの命に直結します。",
+              "科目一は、ここまでです。",
+              "足場の種類と材料、正しい組立ての手順、点検と補修、そして昇降設備と防護棚。",
+              "この四つを頭に入れて、明日からの現場を見てみてください。見えるものが変わっているはずです。",
+              "登り桟橋と朝顔について、寸法をもう一度確認しておきます。",
+              "登り桟橋の勾配は三十度以下。十五度を超えるものには、踏さんその他の滑止め。",
+              "墜落の危険のある箇所には、高さ八十五センチメートル以上の手すり等。",
+              "建設工事に使用する高さ八メートル以上の登り桟橋には、七メートル以内ごとに踊場。",
+              "はしご道は、転位の防止措置をとり、上端を床から六十センチメートル以上突出させる。",
+              "朝顔は、水平面となす角度を二十度から三十度程度とし、水平距離で二メートル以上突出させる。",
+              "これらの数字は、試験のために覚えるものではありません。",
+              "現場で、これは基準を満たしているか、と自分で判断するための物差しです。",
+              "判断できる人が一人いれば、その現場は変わります。",
+              "皆さんに、その一人になってもらいたいと思っています。",
+              "この単元のまとめです。",
+              "登り桟橋は自分たちを守る設備、朝顔は他人を守る設備。",
+              "登り桟橋は、勾配三十度以下、十五度を超えるものには滑止め、墜落の危険がある箇所には八十五センチメートル以上の手すり等。",
+              "建設工事用で高さ八メートル以上のものには、七メートル以内ごとに踊場を設ける。",
+              "はしご道は、転位の防止措置をとり、上端を床から六十センチメートル以上突出させる。はしごの上で作業しない。",
+              "朝顔は、二十度から三十度の角度をつけ、二メートル以上突出させる。上に溜まった物は片付ける。",
+              "朝顔の取付けは、体が足場の外へ出る作業。墜落制止用器具を使い、二人以上で、下は立入禁止にする。",
+              "これで科目一、足場及び作業の方法に関する知識は終わりです。",
+              "次の科目では、工事用設備、機械、器具、作業環境について学びます。",
+              "それでは、科目一を終わります。",
+              "次の科目二では、工事用設備、機械、器具、作業環境について学びます。",
+              "クレーンや運搬機械、そして悪天候時の判断が中心になります。"
+      ],
+        figures: [
+              {
+                      "id": "F1-4-1",
+                      "t": "登り桟橋の基準",
+                      "min": 1,
+                      "type": "dimension",
+                      "lead": "架設通路の基準です。数値には意味があります。",
+                      "parts": [
+                              {
+                                      "n": "丈夫な構造",
+                                      "d": "当然のことだが、これが基本"
+                              },
+                              {
+                                      "n": "勾配 30度以下",
+                                      "d": "階段を設けたもの、高さ2m未満で丈夫な手掛を設けたものを除く"
+                              },
+                              {
+                                      "n": "勾配 15度を超える場合",
+                                      "d": "踏さんその他の滑止めを設ける。思ったよりゆるい傾きから必要"
+                              },
+                              {
+                                      "n": "手すり等 85cm以上",
+                                      "d": "墜落の危険のある箇所。中さん等も加える"
+                              },
+                              {
+                                      "n": "高さ8m以上の登り桟橋",
+                                      "d": "建設工事用は7m以内ごとに踊場を設ける"
+                              },
+                              {
+                                      "n": "踊場の意味",
+                                      "d": "休むためと、落下距離を切るため"
+                              }
+                      ],
+                      "task": {
+                              "q": "滑止めが必要になる勾配は",
+                              "a": [
+                                      "15度を超えるもの",
+                                      "30度を超えるもの",
+                                      "45度を超えるもの"
+                              ],
+                              "ok": 0
+                      }
+              },
+              {
+                      "id": "F1-4-2",
+                      "t": "はしご道の基準",
+                      "min": 1,
+                      "type": "dimension",
+                      "lead": "はしごは移動のための設備であって、作業のための設備ではありません。",
+                      "parts": [
+                              {
+                                      "n": "丈夫な構造",
+                                      "d": "著しい損傷、腐食等がないもの"
+                              },
+                              {
+                                      "n": "踏さんを等間隔に",
+                                      "d": ""
+                              },
+                              {
+                                      "n": "転位の防止措置",
+                                      "d": "上端を縛る、下端を固定する、押さえの人をつける"
+                              },
+                              {
+                                      "n": "上端は床から60cm以上突出",
+                                      "d": "乗り移る瞬間につかまるところを確保するため"
+                              },
+                              {
+                                      "n": "昇降時は手に物を持たない",
+                                      "d": "三点支持を保つ"
+                              },
+                              {
+                                      "n": "はしごの上で作業しない",
+                                      "d": "作業のための設備ではない"
+                              }
+                      ],
+                      "task": {
+                              "q": "はしごの上端を床から突出させる長さは",
+                              "a": [
+                                      "30cm以上",
+                                      "60cm以上",
+                                      "1m以上"
+                              ],
+                              "ok": 1
+                      }
+              },
+              {
+                      "id": "F1-4-3",
+                      "t": "朝顔（防護棚）の構造",
+                      "min": 1,
+                      "type": "dimension",
+                      "lead": "角度にも突出長さにも意味があります。",
+                      "parts": [
+                              {
+                                      "n": "水平面となす角度 20〜30度程度",
+                                      "d": "浅すぎると跳ねて外へ飛ぶ。立てすぎると滑り落ちる"
+                              },
+                              {
+                                      "n": "水平距離 2m以上突出",
+                                      "d": "落下物の軌跡を受け止める幅"
+                              },
+                              {
+                                      "n": "設置する高さと間隔",
+                                      "d": "地上から一定の高さに一段目、上へ一定間隔ごとに設ける"
+                              },
+                              {
+                                      "n": "隙間を作らない",
+                                      "d": "板と板のあいだから物が抜ければ意味がない"
+                              },
+                              {
+                                      "n": "上に溜まった物を片付ける",
+                                      "d": "荷重になり、次の落下物で跳ねて飛び出す"
+                              },
+                              {
+                                      "n": "守る相手",
+                                      "d": "通行人、隣接地の人、下で作業する人。他人を守る設備"
+                              }
+                      ],
+                      "task": {
+                              "q": "朝顔の角度が浅すぎるとどうなるか",
+                              "a": [
+                                      "物が跳ねて外へ飛び出す",
+                                      "物が滑り落ちる",
+                                      "変わらない"
+                              ],
+                              "ok": 0
+                      }
+              },
+              {
+                      "id": "F1-4-4",
+                      "t": "朝顔の取付け作業の注意",
+                      "min": 1,
+                      "type": "list",
+                      "lead": "体が足場の外へ出る作業です。ここが最も危険な点です。",
+                      "parts": [
+                              {
+                                      "n": "墜落制止用器具を使う",
+                                      "d": "掛ける先を先に確保してから作業に入る"
+                              },
+                              {
+                                      "n": "二人以上で行う",
+                                      "d": "一人が支え、一人が留める。一人だと体が外へ出る"
+                              },
+                              {
+                                      "n": "真下を立入禁止にする",
+                                      "d": "部材を落とせば、そこは道路かもしれない"
+                              },
+                              {
+                                      "n": "支持部の固定を全員で確認",
+                                      "d": "跳ね上がり止めも忘れない"
+                              },
+                              {
+                                      "n": "解体前に上の物を片付ける",
+                                      "d": "溜まった物ごと外せば、全部落ちる"
+                              },
+                              {
+                                      "n": "組立て後・悪天候後に点検",
+                                      "d": "風で煽られやすい設備"
+                              }
+                      ],
+                      "task": {
+                              "q": "朝顔の取付け作業を一人で行うと",
+                              "a": [
+                                      "効率がよい",
+                                      "体が足場の外へ出て墜落の危険がある",
+                                      "問題ない"
+                              ],
+                              "ok": 1
+                      }
+              },
+              {
+                      "id": "F1-4-5",
+                      "t": "不備を探す（昇降設備・朝顔）",
+                      "min": 1,
+                      "type": "findfault",
+                      "lead": "5か所の不備があります。全部見つけてください。",
+                      "faults": [
+                              {
+                                      "n": "はしごの上端が床と同じ高さ",
+                                      "d": "60cm以上突出させる。乗り移る瞬間に手が離れる"
+                              },
+                              {
+                                      "n": "はしごの下端が固定されていない",
+                                      "d": "転位防止の措置がない。踏み込んだ瞬間にずれる"
+                              },
+                              {
+                                      "n": "登り桟橋に滑止めがない",
+                                      "d": "勾配15度を超えるものには踏さん等の滑止めが必要"
+                              },
+                              {
+                                      "n": "朝顔の上に部材や工具が溜まっている",
+                                      "d": "荷重になり、次の落下物で跳ねて飛び出す"
+                              },
+                              {
+                                      "n": "昇降路が塞がれ、支柱をよじ登っている",
+                                      "d": "一時的に外すときは代わりの昇降路を用意する"
+                              }
+                      ],
+                      "task": {
+                              "q": "5か所すべて見つけてください",
+                              "type": "multi"
+                      }
+              }
+      ],
+        cases: [
+              {
+                      "id": "C1-4-1",
+                      "t": "防護棚（朝顔）の取付け作業中、足場の外側へ体を出して墜落",
+                      "min": 5,
+                      "meta": {
+                              "作業": "外部足場への防護棚の取付け",
+                              "事故の型": "墜落・転落",
+                              "起因物": "足場",
+                              "結果": "死亡"
+                      },
+                      "situation": [
+                              "市街地のビル改修工事で、道路に面する側に防護棚を取り付ける作業が行われていた。",
+                              "作業は足場の3段目から行い、外側へ張り出す形で棚の受け材を取り付ける計画だった。",
+                              "本来は二人で行う作業だったが、当日は人手が足りず、被災者が一人で作業していた。",
+                              "被災者は、長い受け材を片手で支えながら、もう一方の手で固定用の金具を留めようとした。",
+                              "手が届かないため、手すりの外側へ身を乗り出す姿勢になった。",
+                              "被災者はフルハーネス型の墜落制止用器具を着用していたが、掛ける先が近くになく、フックを掛けていなかった。",
+                              "受け材のバランスが崩れた際に体勢を崩し、手すりを越えて墜落した。",
+                              "真下の道路は通行止めにされておらず、通行人が通る状態だった。"
+                      ],
+                      "ask": "この災害の、最も重大な原因はどれでしょうか。",
+                      "options": [
+                              {
+                                      "t": "受け材が長く、重かったこと",
+                                      "ok": false,
+                                      "fb": "部材の大きさは前提条件です。二人で扱えば体を乗り出す必要はありませんでした。"
+                              },
+                              {
+                                      "t": "外側へ身を乗り出す作業を、フックを掛けずに一人で行ったこと",
+                                      "ok": true,
+                                      "fb": "そのとおりです。朝顔の取付けは体が足場の外へ出る作業です。掛ける先の確保と二人作業が前提になります。"
+                              },
+                              {
+                                      "t": "道路を通行止めにしていなかったこと",
+                                      "ok": false,
+                                      "fb": "第三者災害につながる重大な不備ですが、被災者が落ちた原因はフックと人員です。"
+                              }
+                      ],
+                      "causes": [
+                              "足場の外側へ身を乗り出す作業を、墜落制止用器具のフックを掛けずに行った。",
+                              "フックを掛けるための親綱や取付け設備が、作業箇所の近くに設けられていなかった。",
+                              "本来二人で行う作業を、人手不足を理由に一人で行った。",
+                              "真下の道路に立入禁止・通行止めの措置がとられていなかった。"
+                      ],
+                      "prevention": [
+                              "外側へ張り出す作業の前に、フックを掛ける親綱や取付け設備を先に設ける。",
+                              "防護棚の取付けは二人以上で行う。人員が足りないときは、その日は着手しない。",
+                              "作業計画の段階で、手が届く範囲かどうかを確認し、届かなければ足場の側を先に組む。",
+                              "道路や隣地に面する作業では、真下を立入禁止とし、必要に応じて監視員を配置する。"
+                      ],
+                      "lesson": "人手が足りないから一人でやる。この判断が最も多くの人を殺しています。着手しない、という判断も仕事のうちです。"
+              }
+      ],
+        quiz: [
+              {
+                      "q": "朝顔（防護棚）の目的は",
+                      "a": [
+                              "足場の補強",
+                              "飛来落下から下を守る",
+                              "作業床を広げる"
+                      ],
+                      "ok": 1,
+                      "why": "朝顔は落下物から下の通行者等を守る設備です。"
+              },
+              {
+                      "q": "登り桟橋に必要なものは",
+                      "a": [
+                              "すべり止めと手すり",
+                              "シートの張付け",
+                              "壁つなぎ"
+                      ],
+                      "ok": 0,
+                      "why": "昇降時の転落を防ぐため、すべり止めと手すりが要ります。"
+              }
+      ] },
+    ],
+  },
+  {
+    id: 2, n: "工事用設備、機械、器具、作業環境等に関する知識", need: 30,
+    lessons: [
+      { id: "2-1", t: "工事用設備及び機械の取扱い", han: "工事用設備及び機械の取扱い", min: 10, scene: "lift",
+        script: [
+              "この科目では、足場の作業で使う設備、機械、器具、そして作業環境について学びます。",
+              "三十分の短い科目ですが、ここで扱う内容は毎日使うものばかりです。",
+              "まず、工事用設備と機械の取扱いから始めます。",
+              "足場の作業では、さまざまな揚重機と運搬機械を使います。",
+              "移動式クレーン、荷上げ用のウインチ、電動ホイスト、フォークリフト、そして荷受けステージ。",
+              "このうち使用頻度が高く、災害の危険も高いのが、クレーンなどの揚重機です。",
+              "揚重機を使う者だけでなく、補助をする者、周囲で作業する者、全員が注意しなければなりません。",
+              "まず、資格の区分を確認します。移動式クレーンの運転は、有資格者が行います。",
+              "つり上げ荷重が五トン以上のものは、免許を取得した者。",
+              "一トン以上五トン未満のものは、技能講習を修了した者。",
+              "一トン未満のものは、特別教育を修了した者が運転できます。",
+              "そして、玉掛けの作業も有資格者が行います。荷を掛けるのは、誰でもよいわけではありません。",
+              "クレーン作業の安全のポイントを挙げます。",
+              "一つ目、アウトリガーは最大に張り出すこと。地盤が弱ければ、敷鉄板で補強します。",
+              "二つ目、定格荷重を守ること。少しくらい、で吊れば、車体が浮きます。",
+              "三つ目、正しい玉掛けをすること。バラ荷は番線やワイヤで確実に固縛します。",
+              "四つ目、急なつり上げや旋回をしないこと。荷が振れれば、周りの物や人に当たります。",
+              "五つ目、つり荷の下には入らないこと。これは絶対です。",
+              "六つ目、作業範囲は立入禁止とし、安全標識で明示すること。",
+              "七つ目、合図ははっきり行うこと。合図者を定め、その合図だけに従います。",
+              "八つ目、クレーンや玉掛け用のワイヤ等は、作業開始前に点検すること。",
+              "次に、フォークリフトです。足場の作業では、資機材の移動に頻繁に使われます。",
+              "積み荷で前方が見えないまま走る。旋回時に爪の後ろ側が振れる。この二つが事故のもとです。",
+              "フォークリフトが動いている範囲には、みだりに立ち入らないでください。",
+              "運転者からは、思ったより見えていません。目が合ったと思っても、見えていないことがあります。",
+              "続いて、電動ホイストです。クレーンが入れない場所で、資機材の搬出入に使います。",
+              "縦づりの資材には、抜け止めの措置をとります。抜ければ、そのまま下まで落ちます。",
+              "荷は介錯ロープで引き込みます。直接手で引き寄せないこと。",
+              "そして、荷を入れるために手すりを外した場合は、作業後すぐに元に戻します。",
+              "外したままにして次の荷を待つ。その待ち時間に人が落ちます。",
+              "最後に、荷受けステージです。材料を一時的に置くために、足場から張り出した床です。",
+              "ここには大きな荷重がかかります。最大積載荷重を表示し、それを超えて積まないこと。",
+              "重い材料を一か所にまとめると、そこだけに力が集中します。分散して置いてください。",
+              "足場の作業では、揚重機や運搬機械を使います。使用頻度が高く、災害の危険も高い部分です。",
+              "移動式クレーンの運転には資格が要ります。つり上げ荷重五トン以上は免許、一トン以上五トン未満は技能講習の修了者です。",
+              "一トン未満であれば特別教育の修了者が運転できます。玉掛けも有資格者が行います。",
+              "作業では、つり荷の下に絶対に入らないこと。合図ははっきり行い、作業範囲は立入禁止にします。",
+              "アウトリガーは最大に張り出します。急なつり上げや旋回はしません。",
+              "フォークリフトも資機材の移動で頻繁に使われます。周囲の作業者は、その動きを常に意識してください。",
+              "クレーンが使えない場所では、電動ホイストで資機材を上げ下ろしします。",
+              "縦づりの資材には抜け止めの措置をとり、介錯ロープで引き込みます。手すりを外したときは、作業後すぐに戻します。",
+              "足場の最大積載荷重は、見やすい位置に表示します。能力を超える荷は載せません。",
+              "設備と機械の話の最後に、合図についてもう一度触れます。",
+              "クレーンの作業では、合図者を一人に定めます。複数の人が同時に合図を出せば、運転者は混乱します。",
+              "合図は、大きく、はっきりと。距離があるときや、見通しが悪いときは無線を使ってください。",
+              "そして、合図が伝わっていないと感じたら、荷を動かさない。これは運転者側の鉄則です。",
+              "作業者の側も、自分が合図者でないなら、勝手に手を挙げないこと。"
+      ],
+        figures: [
+              {
+                      "id": "F2-1-1",
+                      "t": "移動式クレーンの資格区分",
+                      "min": 1,
+                      "type": "list",
+                      "lead": "つり上げ荷重によって、必要な資格が変わります。",
+                      "parts": [
+                              {
+                                      "n": "つり上げ荷重 5t以上",
+                                      "d": "免許を取得した者"
+                              },
+                              {
+                                      "n": "1t以上 5t未満",
+                                      "d": "技能講習を修了した者"
+                              },
+                              {
+                                      "n": "1t未満",
+                                      "d": "特別教育を修了した者"
+                              },
+                              {
+                                      "n": "玉掛けの作業",
+                                      "d": "有資格者が行う。荷を掛けるのは誰でもよいわけではない"
+                              }
+                      ],
+                      "task": {
+                              "q": "つり上げ荷重2tの移動式クレーンを運転できるのは",
+                              "a": [
+                                      "免許取得者のみ",
+                                      "技能講習修了者",
+                                      "誰でもよい"
+                              ],
+                              "ok": 1
+                      }
+              },
+              {
+                      "id": "F2-1-2",
+                      "t": "クレーン作業の安全ポイント",
+                      "min": 1,
+                      "type": "list",
+                      "lead": "8つのポイントを開いて確認してください。",
+                      "parts": [
+                              {
+                                      "n": "アウトリガーを最大に張り出す",
+                                      "d": "地盤が弱ければ敷鉄板で補強する"
+                              },
+                              {
+                                      "n": "定格荷重を守る",
+                                      "d": "少しくらい、で吊れば車体が浮く"
+                              },
+                              {
+                                      "n": "正しい玉掛けをする",
+                                      "d": "バラ荷は番線やワイヤで確実に固縛する"
+                              },
+                              {
+                                      "n": "急なつり上げ・旋回をしない",
+                                      "d": "荷が振れれば周りの物や人に当たる"
+                              },
+                              {
+                                      "n": "つり荷の下に入らない",
+                                      "d": "これは絶対"
+                              },
+                              {
+                                      "n": "作業範囲を立入禁止にする",
+                                      "d": "安全標識で明示する"
+                              },
+                              {
+                                      "n": "合図をはっきり行う",
+                                      "d": "合図者を定め、その合図だけに従う"
+                              },
+                              {
+                                      "n": "作業開始前点検",
+                                      "d": "クレーン、玉掛け用ワイヤ等を点検する"
+                              }
+                      ],
+                      "task": {
+                              "q": "つり荷の下に入ってよいのは",
+                              "a": [
+                                      "短時間なら可",
+                                      "合図者がいれば可",
+                                      "入ってはならない"
+                              ],
+                              "ok": 2
+                      }
+              },
+              {
+                      "id": "F2-1-3",
+                      "t": "電動ホイストと荷受けステージ",
+                      "min": 1,
+                      "type": "list",
+                      "lead": "クレーンが使えない場所での搬出入と、材料の一時置き場です。",
+                      "parts": [
+                              {
+                                      "n": "縦づり資材の抜け止め",
+                                      "d": "抜ければそのまま下まで落ちる"
+                              },
+                              {
+                                      "n": "介錯ロープで引き込む",
+                                      "d": "直接手で引き寄せない"
+                              },
+                              {
+                                      "n": "外した手すりはすぐ戻す",
+                                      "d": "次の荷を待つあいだに人が落ちる"
+                              },
+                              {
+                                      "n": "荷受けステージの最大積載荷重",
+                                      "d": "表示し、超えて積まない"
+                              },
+                              {
+                                      "n": "重い材料は分散して置く",
+                                      "d": "一か所にまとめると力が集中する"
+                              },
+                              {
+                                      "n": "作業中は墜落制止用器具を使用",
+                                      "d": "荷を扱うとき、体勢は必ず崩れる"
+                              }
+                      ],
+                      "task": {
+                              "q": "荷を入れるため手すりを外した場合は",
+                              "a": [
+                                      "作業後すぐに元に戻す",
+                                      "1日の終わりに戻す",
+                                      "戻さなくてよい"
+                              ],
+                              "ok": 0
+                      }
+              }
+      ],
+        cases: [
+              {
+                      "id": "C2-1-1",
+                      "t": "玉掛けした足場材が落下し、下で待機していた作業者に激突",
+                      "min": 5,
+                      "meta": {
+                              "作業": "移動式クレーンによる足場材の荷揚げ",
+                              "事故の型": "飛来・落下",
+                              "起因物": "資機材",
+                              "結果": "死亡"
+                      },
+                      "situation": [
+                              "改修工事の現場で、移動式クレーンを使って足場材を屋上へ荷揚げする作業が行われていた。",
+                              "上げる材料は、長さの違う支柱を数十本まとめた束だった。",
+                              "玉掛けは有資格者が行ったが、束の固縛が甘く、番線が一箇所だけの状態だった。",
+                              "急いでいたため、二箇所目の固縛は省かれていた。",
+                              "地上では、次に上げる材料を整理する作業者が、つり荷の経路の近くで待機していた。",
+                              "作業範囲の立入禁止措置はとられておらず、標識も出ていなかった。",
+                              "クレーンが荷を巻き上げ、旋回に入ったところで荷が振れた。",
+                              "その拍子に束がずれ、下側の支柱が数本抜け落ちた。",
+                              "落下した支柱が、下にいた作業者に激突した。"
+                      ],
+                      "ask": "この災害の、最も重大な原因はどれでしょうか。",
+                      "options": [
+                              {
+                                      "t": "クレーンの旋回が急だったこと",
+                                      "ok": false,
+                                      "fb": "急旋回も要因の一つですが、束が確実に固縛され、下に人がいなければ被害は出ませんでした。"
+                              },
+                              {
+                                      "t": "バラ荷の固縛が不十分なまま吊り上げ、つり荷の下方に人がいたこと",
+                                      "ok": true,
+                                      "fb": "そのとおりです。バラ荷は番線やワイヤで確実に固縛すること、そして作業範囲を立入禁止にすること。この二つが守られていませんでした。"
+                              },
+                              {
+                                      "t": "支柱の長さが揃っていなかったこと",
+                                      "ok": false,
+                                      "fb": "長さの違う材料をまとめること自体は珍しくありません。だからこそ固縛が重要になります。"
+                              }
+                      ],
+                      "causes": [
+                              "バラ荷の固縛が一箇所のみで、吊り上げ時のずれ・抜け落ちを防げなかった。",
+                              "つり荷の経路の下方に人がいた。作業範囲の立入禁止措置がとられていなかった。",
+                              "急旋回により荷が振れ、束のずれを誘発した。",
+                              "作業を急いでおり、手順の一部が省略されていた。"
+                      ],
+                      "prevention": [
+                              "バラ荷は番線またはワイヤで複数箇所を確実に固縛する。一箇所での固縛は行わない。",
+                              "作業範囲を立入禁止とし、安全標識で明示する。つり荷の下には絶対に入らない。",
+                              "急なつり上げ・旋回はしない。合図者を定め、その合図だけに従う。",
+                              "急ぐ状況でも固縛と立入禁止は省略しない。省略が必要になる工程は、計画のほうを見直す。"
+                      ],
+                      "lesson": "落ちたのは材料ですが、当たったのは人です。つり荷の下は、いつでも人が死ぬ場所だと考えてください。"
+              }
+      ],
+        quiz: [
+              {
+                      "q": "つり上げ荷重1t以上5t未満の移動式クレーンを運転できるのは",
+                      "a": [
+                              "免許取得者のみ",
+                              "技能講習修了者",
+                              "誰でもよい"
+                      ],
+                      "ok": 1,
+                      "why": "5t以上は免許、1t以上5t未満は技能講習、1t未満は特別教育の修了者です。"
+              },
+              {
+                      "q": "最大積載荷重の扱いとして正しいのは",
+                      "a": [
+                              "口頭で伝える",
+                              "見やすい位置に表示する",
+                              "表示は不要"
+                      ],
+                      "ok": 1,
+                      "why": "最大積載荷重は表示することとされています。"
+              },
+              {
+                      "q": "つり上げ荷重5t以上の移動式クレーンを運転できるのは",
+                      "a": [
+                              "特別教育修了者",
+                              "技能講習修了者",
+                              "免許取得者"
+                      ],
+                      "ok": 2,
+                      "why": "5t以上は免許、1t以上5t未満は技能講習、1t未満は特別教育の修了者です。"
+              },
+              {
+                      "q": "電動ホイストで荷を入れるため手すりを外した場合",
+                      "a": [
+                              "作業後すぐに元に戻す",
+                              "その日の終わりに戻す",
+                              "戻さなくてよい"
+                      ],
+                      "ok": 0,
+                      "why": "外したままの待ち時間に人が落ちます。"
+              }
+      ] },
+      { id: "2-2", t: "器具及び工具", han: "器具及び工具", min: 10, scene: "tools",
+        script: [
+              "次に、器具と工具について学びます。",
+              "足場の作業で使う道具は多くありませんが、どれも高所で使うものです。",
+              "落とせば凶器になる。この前提で扱ってください。",
+              "まず、ハンマーです。くさびを打ち込む、抜くための道具で、最も使用頻度が高い工具です。",
+              "使う前に、柄の抜け止めを確認します。頭が緩んでいれば、振った瞬間に飛びます。",
+              "木の柄は、乾燥すると痩せて緩みます。季節の変わり目には特に注意してください。",
+              "打つときは、体勢を安定させてから。片手で体を支え、無理な姿勢で振らないこと。",
+              "そして、ハンマーには落下防止のひもを付けます。腰袋から落ちれば、下は直撃です。",
+              "次に、ラチェットレンチとシノです。クランプの締め付けや、部材の位置合わせに使います。",
+              "シノを差し込んで無理にこじると、部材を傷めるだけでなく、シノが折れて体勢を崩します。",
+              "ラチェットレンチは、締め付けのトルクを手応えで判断しがちですが、緩みは目で見て確かめてください。",
+              "腰袋の使い方にも決まりを作ってください。",
+              "入れる物を決めておくこと。何でも突っ込むと、かがんだときに落ちます。",
+              "特に、小物の落下は防ぎにくい。ボルト一本でも、高所から落ちれば人に当たります。",
+              "電動工具を使うこともあります。インパクトドライバや切断工具です。",
+              "屋外で使う場合、感電に注意します。コードの被覆が破れていないか、使う前に見ます。",
+              "濡れた手で扱わない。雨の日はできるだけ使わない。漏電遮断器のある電源から取ること。",
+              "コードを足場に引き回すときは、通路を横切らせないでください。つまずきの原因になります。",
+              "次に、玉掛け用具です。ワイヤロープ、ナイロンスリング、シャックル、ラッチロックなど。",
+              "これらには、使用してはならない基準がはっきり決まっています。",
+              "ワイヤロープは、一よりのあいだで素線の数の十パーセント以上が切断しているもの。",
+              "直径の減少が公称径の七パーセントを超えるもの。",
+              "キンクしたもの、著しい形くずれや腐食があるもの。これらは使えません。",
+              "ナイロンスリングは、縫製部のほつれ、切れ、著しい摩耗があれば使いません。",
+              "フックは、外れ止めが確実に働くこと。開いているフックは使えません。",
+              "これらの点検は、作業開始前に行います。前回使ったときは大丈夫だった、では通りません。",
+              "そして、器具の保管です。",
+              "泥のついたまま、濡れたまま置けば、次に使うときには傷んでいます。",
+              "使い終わったら拭いて、決まった場所に戻す。それが次の現場の安全になります。",
+              "工具は、自分の命を預ける道具です。他人から借りた工具でも、使う前に自分の目で見てください。",
+              "最後に、保護具も器具の一つです。保護帽、安全靴、手袋。",
+              "保護帽は、あごひもを締める。安全靴は、かかとを踏まない。",
+              "当たり前のことですが、当たり前が守られていない現場で災害が起きています。",
+              "高所で使う工具は、落とさない工夫が要ります。",
+              "ハンマーは、柄の抜け止めを毎回確認してください。頭が抜けて落ちれば、下は直撃です。",
+              "工具には落下防止のひもを付けます。腰袋から落ちやすい物は、そもそも上に持ち上げないことです。",
+              "部材も同じです。使う前に変形、亀裂、さびを見て、不良品は現場に上げないでください。",
+              "工具については、もう一つ大事なことがあります。",
+              "それは、自分の道具を人に貸すとき、人から借りるときの扱いです。",
+              "借りた工具は、使う前に必ず自分の目で見てください。柄の緩み、刃こぼれ、外れ止めの動き。",
+              "貸すときも同じです。傷んだ工具を渡せば、その人が事故に遭います。",
+              "そして、現場に置きっぱなしにしないこと。",
+              "足場の上に工具を置いたまま降りれば、風で落ちます。他職が蹴って落とすこともあります。",
+              "作業が終わったら、必ず腰袋に戻すか、地上へ降ろす。これを習慣にしてください。",
+              "最後に、器具の管理は会社の仕事でもあります。",
+              "何本あるのか、いつ買ったのか、誰が使っているのか。",
+              "数を把握していない現場では、傷んだ工具がいつまでも回り続けます。",
+              "定期的に全部を集めて、点検して、傷んだものを抜く。年に一度でも構いません。",
+              "それだけで、現場に出る工具の質が変わります。",
+              "そして、道具を大切にする人は、仕事も丁寧です。",
+              "工具の手入れができていない人は、足場の組み方も雑になります。",
+              "逆に、道具がきれいに揃っている人の足場は、見れば分かります。",
+              "道具の扱いは、その人の仕事そのものを表します。",
+              "明日、自分の腰袋を一度空けて、中身を見直してみてください。",
+              "器具と工具の管理について、会社としての取り組みにも触れておきます。",
+              "工具の支給と交換の基準を決めておくと、現場での判断が楽になります。",
+              "ハンマーは何年で交換する、玉掛け用具は何か月ごとに点検する、といった基準です。",
+              "基準があれば、まだ使えるかどうかを一人で悩まなくて済みます。",
+              "傷んだ道具を使い続けさせる会社は、結果として高くつきます。"
+      ],
+        figures: [
+              {
+                      "id": "F2-2-1",
+                      "t": "工具の落下防止と使用前点検",
+                      "min": 1,
+                      "type": "list",
+                      "lead": "落とせば凶器になる。この前提で扱ってください。",
+                      "parts": [
+                              {
+                                      "n": "ハンマーの柄の抜け止め",
+                                      "d": "木の柄は乾燥すると痩せて緩む。季節の変わり目は特に注意"
+                              },
+                              {
+                                      "n": "落下防止のひも",
+                                      "d": "腰袋から落ちれば下は直撃"
+                              },
+                              {
+                                      "n": "腰袋に入れる物を決める",
+                                      "d": "何でも突っ込むと、かがんだときに落ちる"
+                              },
+                              {
+                                      "n": "電動工具は感電に注意",
+                                      "d": "コードの被覆、濡れた手、漏電遮断器のある電源"
+                              },
+                              {
+                                      "n": "コードは通路を横切らせない",
+                                      "d": "つまずきの原因になる"
+                              },
+                              {
+                                      "n": "使い終わったら拭いて戻す",
+                                      "d": "泥や水がついたままだと次に使うときに傷んでいる"
+                              }
+                      ],
+                      "task": {
+                              "q": "ハンマーで最初に確認することは",
+                              "a": [
+                                      "重さ",
+                                      "柄の抜け止め",
+                                      "色"
+                              ],
+                              "ok": 1
+                      }
+              },
+              {
+                      "id": "F2-2-2",
+                      "t": "玉掛け用具の使用禁止基準",
+                      "min": 1,
+                      "type": "list",
+                      "lead": "基準は明確に決まっています。迷ったら使わないでください。",
+                      "parts": [
+                              {
+                                      "n": "ワイヤロープ：素線の切断",
+                                      "d": "1よりのあいだで素線数の10%以上が切断しているもの"
+                              },
+                              {
+                                      "n": "ワイヤロープ：直径の減少",
+                                      "d": "公称径の7%を超えて減少しているもの"
+                              },
+                              {
+                                      "n": "ワイヤロープ：キンク・形くずれ・腐食",
+                                      "d": "キンクしたもの、著しい形くずれ・腐食があるもの"
+                              },
+                              {
+                                      "n": "ナイロンスリング",
+                                      "d": "縫製部のほつれ、切れ、著しい摩耗があるもの"
+                              },
+                              {
+                                      "n": "フックの外れ止め",
+                                      "d": "確実に働くこと。開いているフックは使えない"
+                              },
+                              {
+                                      "n": "点検の時期",
+                                      "d": "作業開始前。前回大丈夫だった、は通らない"
+                              }
+                      ],
+                      "task": {
+                              "q": "ワイヤロープの直径がどれだけ減ると使用できないか",
+                              "a": [
+                                      "公称径の3%超",
+                                      "公称径の7%超",
+                                      "公称径の15%超"
+                              ],
+                              "ok": 1
+                      }
+              }
+      ],
+        cases: [
+              {
+                      "id": "C2-2-1",
+                      "t": "ハンマーの頭が抜けて落下し、下の作業者に当たる",
+                      "min": 5,
+                      "meta": {
+                              "作業": "くさび式足場の組立て",
+                              "事故の型": "飛来・落下",
+                              "起因物": "工具",
+                              "結果": "頭部打撲・休業"
+                      },
+                      "situation": [
+                              "住宅の外部足場を組み立てる作業が行われていた。",
+                              "被災者以外の作業者が、足場の3段目で手すりのくさびを打ち込んでいた。",
+                              "使っていたハンマーは、木の柄のもので、しばらく前から頭が少し緩んでいた。",
+                              "本人も気づいていたが、まだ使えると考えて交換していなかった。",
+                              "落下防止のひもは付けていなかった。",
+                              "強く打ち込んだ拍子に、頭が柄から抜けて飛び出した。",
+                              "真下では、別の作業者が資材を並べる段取り作業をしていた。",
+                              "抜けたハンマーの頭が、その作業者の保護帽に当たり、頭部を打撲した。",
+                              "保護帽を着用していたため、大事には至らなかった。"
+                      ],
+                      "ask": "この災害の、最も重大な原因はどれでしょうか。",
+                      "options": [
+                              {
+                                      "t": "柄の緩んだハンマーを、そのまま使い続けたこと",
+                                      "ok": true,
+                                      "fb": "そのとおりです。緩みに気づいていながら交換しなかった。使用前点検が機能していませんでした。"
+                              },
+                              {
+                                      "t": "保護帽を着けていたこと",
+                                      "ok": false,
+                                      "fb": "保護帽は被害を小さくした要因です。これが無ければ、結果はもっと重かったでしょう。"
+                              },
+                              {
+                                      "t": "打ち込む力が強すぎたこと",
+                                      "ok": false,
+                                      "fb": "くさびは確実に打ち込むものです。力の問題ではなく、道具の状態の問題です。"
+                              }
+                      ],
+                      "causes": [
+                              "柄の抜け止めが緩んだハンマーを、点検・交換せずに使用し続けた。",
+                              "工具に落下防止のひもを付けていなかった。",
+                              "上下で同時に作業していた。上の作業の真下で段取り作業をしていた。",
+                              "「まだ使える」という自己判断で、不良工具を現場に上げていた。"
+                      ],
+                      "prevention": [
+                              "使用前にハンマーの柄の抜け止めを確認する。緩みがあれば、その場で交換する。",
+                              "高所で使う工具には落下防止のひもを付ける。腰袋に入れる物も決めておく。",
+                              "上下作業を作らない。上で作業しているあいだは、真下を立入禁止にする。",
+                              "不良工具は現場に上げない。返却時に選別し、傷んだものを次の現場へ回さない。"
+                      ],
+                      "lesson": "保護帽があったから助かった、ではありません。保護帽が無ければ死んでいた、と考えてください。"
+              }
+      ],
+        quiz: [
+              {
+                      "q": "高所へ工具を持ち上げるときの措置は",
+                      "a": [
+                              "落下防止のひもを付ける",
+                              "ポケットに入れる",
+                              "手に持って登る"
+                      ],
+                      "ok": 0,
+                      "why": "工具の落下は下の作業者への直撃につながります。"
+              },
+              {
+                      "q": "ワイヤロープが使用できなくなる素線の切断は",
+                      "a": [
+                              "1よりの間で素線数の5%以上",
+                              "1よりの間で素線数の10%以上",
+                              "本数に関係なく使用可"
+                      ],
+                      "ok": 1,
+                      "why": "1よりのあいだで素線数の10%以上が切断しているものは使用できません。"
+              },
+              {
+                      "q": "借りた工具を使うときは",
+                      "a": [
+                              "そのまま使う",
+                              "使う前に自分の目で点検する",
+                              "貸した人に任せる"
+                      ],
+                      "ok": 1,
+                      "why": "自分の命を預ける道具です。借り物でも自分で確かめてください。"
+              }
+      ] },
+      { id: "2-3", t: "悪天候時における作業の方法", han: "悪天候時における作業の方法", min: 10, scene: "weather",
+        script: [
+              "この単元では、悪天候時における作業の方法を学びます。",
+              "強風、大雨、大雪などの悪天候のとき、足場の上での作業は非常に危険です。",
+              "そのため、悪天候が予想されるときの高さ二メートル以上の場所での作業は、禁止されています。",
+              "具体的な悪天候の目安は、次のように示されています。",
+              "強風は、十分間の平均風速が毎秒十メートル以上の風。",
+              "大雨は、一回の降雨量が五十ミリメートル以上の雨。",
+              "大雪は、一回の降雪量が二十五センチメートル以上の降雪です。",
+              "この数字を覚えておいてください。判断に迷ったときの基準になります。",
+              "特に風は、足場に大きな影響を与えます。",
+              "メッシュシートを張った足場は、面で風を受けます。同じ足場でも、シートの有無で受ける力がまったく違います。",
+              "作業する人にとっても、風は危険です。部材を持っているときに煽られれば、体ごと持っていかれます。",
+              "そして、風は急に強くなります。朝は穏やかでも、昼過ぎから吹き始めることがあります。",
+              "前日の天気予報を見ること。当日も、風の予報を確認すること。",
+              "現場に風速計を置いている会社もあります。数字で判断できるようにするのは、良い方法です。",
+              "台風が近づいているときは、事前の養生が必要になります。",
+              "メッシュシートを畳む、あるいは外す。足場の上に置いた材料を降ろす。",
+              "シートを畳んでおけば、風を受ける面積が減り、倒壊の危険が下がります。",
+              "ただし、この養生作業そのものが高所作業です。",
+              "風が強くなってから慌ててシートを畳もうとして、そこで災害が起きています。",
+              "余裕を持って、風が強くなる前に済ませてください。",
+              "そして、悪天候の後です。",
+              "強風、大雨、大雪などの悪天候の後、または中震、震度四以上の地震の後は、作業を開始する前に点検します。",
+              "足場の各部を点検し、危険のおそれがあるときは、速やかに修理しなければなりません。",
+              "最後に、中止の判断についてお話しします。",
+              "作業を中止する判断は、簡単ではありません。工期があり、段取りがあり、他職との調整があります。",
+              "しかし、判断に迷ったら止める。これを原則にしてください。",
+              "止めた判断が責められることはありません。責められるとしたら、それは会社のほうに問題があります。",
+              "そして作業者の側も、危ないと感じたら声を上げてください。",
+              "現場で最初に危険に気づくのは、そこにいる人です。上の人ではありません。",
+              "悪天候のため危険が予想されるときは、高さ二メートル以上の場所での作業は禁止されています。",
+              "悪天候の目安は決まっています。強風は、十分間の平均風速が毎秒十メートル以上の風です。",
+              "大雨は、一回の降雨量が五十ミリ以上。大雪は、一回の降雪量が二十五センチ以上とされています。",
+              "特に風は、シートを張った足場に大きな力をかけます。作業中の姿勢も崩されます。",
+              "悪天候や中震以上の地震の後は、作業を開始する前に足場の各部を点検します。",
+              "危険のおそれがあるときは、速やかに修理してから使います。",
+              "判断に迷ったら、止める。止めた判断が責められることはありません。",
+              "悪天候の話の締めくくりに、猛暑と寒さについても触れておきます。",
+              "夏の高温多湿の炎天下では、熱中症の危険があります。",
+              "水分と塩分は、作業を始める前からこまめにとってください。",
+              "冬は、踏板や手すりが凍ります。前日の雨が、朝には氷になっています。",
+              "手袋が滑る、体がこわばる。冬場の朝は、動き始めが最も危ない時間帯です。",
+              "気温も作業環境の一つです。天候は、風と雨だけではありません。"
+      ],
+        figures: [
+              {
+                      "id": "F2-3-1",
+                      "t": "作業中止の判断基準",
+                      "min": 1,
+                      "type": "dimension",
+                      "lead": "判断に迷ったときの物差しです。数字で覚えてください。",
+                      "parts": [
+                              {
+                                      "n": "強風",
+                                      "d": "10分間の平均風速が10m/s以上の風"
+                              },
+                              {
+                                      "n": "大雨",
+                                      "d": "1回の降雨量が50mm以上の雨"
+                              },
+                              {
+                                      "n": "大雪",
+                                      "d": "1回の降雪量が25cm以上の降雪"
+                              },
+                              {
+                                      "n": "対象となる作業",
+                                      "d": "悪天候が予想されるときの、高さ2m以上の場所での作業"
+                              },
+                              {
+                                      "n": "悪天候の後",
+                                      "d": "作業開始前に点検し、危険のおそれがあれば速やかに修理する"
+                              },
+                              {
+                                      "n": "地震の後",
+                                      "d": "中震（震度4）以上の地震の後も、作業開始前に点検する"
+                              }
+                      ],
+                      "task": {
+                              "q": "作業中止の目安となる強風は",
+                              "a": [
+                                      "瞬間風速5m/s以上",
+                                      "10分間平均風速10m/s以上",
+                                      "風速20m/s以上"
+                              ],
+                              "ok": 1
+                      }
+              },
+              {
+                      "id": "F2-3-2",
+                      "t": "台風・強風前の養生手順",
+                      "min": 1,
+                      "type": "flow",
+                      "lead": "養生は、風が来る前にやるから養生です。順に開いてください。",
+                      "parts": [
+                              {
+                                      "n": "① 前日までに予報を確認",
+                                      "d": "台風の進路と、風が強くなる時間帯を把握する"
+                              },
+                              {
+                                      "n": "② 着手時刻を決めて周知",
+                                      "d": "当日の作業より養生を優先する。後回しにしない"
+                              },
+                              {
+                                      "n": "③ メッシュシートを畳む・外す",
+                                      "d": "風を受ける面積を減らす。倒壊の危険が下がる"
+                              },
+                              {
+                                      "n": "④ 足場上の材料を降ろす",
+                                      "d": "飛散する物を残さない。工具も回収する"
+                              },
+                              {
+                                      "n": "⑤ 壁つなぎ・緊結部を確認",
+                                      "d": "風で最も力がかかる部分"
+                              },
+                              {
+                                      "n": "⑥ 周辺の片付けと近隣への声かけ",
+                                      "d": "飛散したときの被害を最小にする"
+                              },
+                              {
+                                      "n": "養生作業も高所作業",
+                                      "d": "墜落制止用器具を使用する。フックを外さない"
+                              }
+                      ],
+                      "task": {
+                              "q": "メッシュシートを畳むのはいつか",
+                              "a": [
+                                      "風が強くなってから",
+                                      "風が強くなる前、できれば前日まで",
+                                      "台風が過ぎた後"
+                              ],
+                              "ok": 1
+                      }
+              }
+      ],
+        cases: [
+              {
+                      "id": "C2-3-1",
+                      "t": "強風が吹き始めた中でシートを畳もうとして墜落",
+                      "min": 5,
+                      "meta": {
+                              "作業": "台風接近に伴うメッシュシートの養生",
+                              "事故の型": "墜落・転落",
+                              "起因物": "足場",
+                              "結果": "死亡"
+                      },
+                      "situation": [
+                              "台風の接近が予報されており、翌日は現場を休業とする予定だった。",
+                              "足場にはメッシュシートが全面に張られており、風を受ける前に畳んでおく計画だった。",
+                              "しかし当日の作業が押しており、シートを畳む作業は夕方からの着手となった。",
+                              "着手した時点で、すでに風はかなり強くなっていた。",
+                              "作業者2名が足場の最上段に上がり、シートの結束を解いて畳む作業を始めた。",
+                              "被災者は、シートを押さえながら結束バンドを切っていた。",
+                              "そのとき突風が吹き、外れたシートが大きく煽られた。",
+                              "煽られたシートに体を持っていかれ、被災者は手すりを越えて墜落した。",
+                              "被災者は墜落制止用器具を着用していたが、作業しやすいようフックを外していた。"
+                      ],
+                      "ask": "この災害の、最も重大な原因はどれでしょうか。",
+                      "options": [
+                              {
+                                      "t": "台風が接近していたこと",
+                                      "ok": false,
+                                      "fb": "天候は前提条件です。予報が出ていたのですから、対応する時間はありました。"
+                              },
+                              {
+                                      "t": "風が強くなってから養生作業に着手し、フックも外していたこと",
+                                      "ok": true,
+                                      "fb": "そのとおりです。養生作業そのものが高所作業です。風が強くなる前に済ませておくべきものでした。"
+                              },
+                              {
+                                      "t": "メッシュシートを全面に張っていたこと",
+                                      "ok": false,
+                                      "fb": "シートは飛散防止に必要な設備です。問題は畳むタイミングでした。"
+                              }
+                      ],
+                      "causes": [
+                              "強風が吹き始めてから、高所でのシートの養生作業に着手した。",
+                              "作業しやすさを優先して、墜落制止用器具のフックを外していた。",
+                              "当日の作業を優先し、養生作業を後回しにした。台風接近は前日から予報されていた。",
+                              "作業を中止する判断の基準と、判断する者が決められていなかった。"
+                      ],
+                      "prevention": [
+                              "台風等が予報された場合、養生作業は風が強くなる前、できれば前日までに行う。",
+                              "養生作業も高所作業であることを認識し、墜落制止用器具を必ず使用する。フックを外さない。",
+                              "風速の基準（10分間平均風速10m/s以上）を定め、達したら作業を中止する。現場に風速計を置く。",
+                              "中止の判断をする者をあらかじめ決めておく。判断を現場任せにしない。"
+                      ],
+                      "lesson": "養生は、風が来る前にやるから養生です。来てからやるのは、危険な作業でしかありません。"
+              }
+      ],
+        quiz: [
+              {
+                      "q": "作業中止の目安となる強風は",
+                      "a": [
+                              "10分間平均風速10m/s以上",
+                              "瞬間風速5m/s以上",
+                              "風速20m/s以上"
+                      ],
+                      "ok": 0,
+                      "why": "10分間の平均風速が10m/s以上の風が強風の目安です。"
+              },
+              {
+                      "q": "作業中止の目安となる大雨は",
+                      "a": [
+                              "1回20mm以上",
+                              "1回50mm以上",
+                              "1回100mm以上"
+                      ],
+                      "ok": 1,
+                      "why": "1回の降雨量50mm以上が大雨、降雪量25cm以上が大雪の目安です。"
+              },
+              {
+                      "q": "悪天候の後に必要なことは",
+                      "a": [
+                              "そのまま作業を続ける",
+                              "作業開始前の点検と、必要な修理",
+                              "翌日まで待つ"
+                      ],
+                      "ok": 1,
+                      "why": "点検し、危険のおそれがあるときは速やかに修理しなければなりません。"
+              }
+      ] },
+    ],
+  },
+  {
+    id: 3, n: "労働災害の防止に関する知識", need: 90,
+    lessons: [
+      { id: "3-1", t: "墜落による危険の防止", han: "墜落防止のための設備", min: 35, scene: "fall",
+        script: [
+              "この科目では、労働災害の防止について学びます。四つの単元があり、九十分です。",
+              "最初の単元は、墜落による危険の防止です。足場の作業で最も多い災害です。",
+              "まず、数字を見てください。",
+              "建設業の労働災害による死亡者数のうち、墜落と転落によるものは、毎年およそ四割を占めています。",
+              "労働災害の死亡者数は年々減っていますが、墜落の割合はほとんど変わっていません。",
+              "つまり、他の災害が減っても、墜落だけが減っていないということです。",
+              "次に、足場からの墜落で亡くなった人が、そのとき何をしていたかを見ます。",
+              "最も多いのは、すでに組み上がった足場の上での作業中、または移動中で、およそ五十七パーセント。",
+              "次いで、足場の組立てまたは解体の作業中が、およそ三十五パーセントです。",
+              "組んでいるときだけが危ないのではありません。できあがった足場を使っているときにも、同じだけ人が落ちています。",
+              "さらに、足場からの墜落災害を分析した資料があります。",
+              "そこでは、安衛則に基づく墜落防止措置が無い状態での被災が、九割を超えていました。",
+              "手すりがあれば、中さんがあれば、フックの掛け先があれば防げた。そういう災害が九割ということです。",
+              "この単元で学ぶのは、その九割をどう潰すか、という話です。",
+              "では、どこで落ちるのかを具体的に見ていきます。",
+              "一つ目は、組立て中の最上層です。",
+              "まだ手すりも交差筋かいも付いていない床の上で、次の部材を受け取る。ここが最も危険な場所です。",
+              "床はあるが、囲いがない。フックを掛ける先もない。この状態が、組立ての途中には必ず生まれます。",
+              "二つ目は、解体中の最上層です。",
+              "手すりを先に外してしまえば、組立て中と同じ状態になります。しかも解体は、上から順に不安定になっていきます。",
+              "三つ目は、完成した足場の上での通常作業中です。",
+              "塗装、左官、板金。足場を使う職種の人が、作業に集中して端に寄る。後ずさりする。",
+              "そのとき手すりが外れていれば、落ちます。",
+              "四つ目は、移動中です。",
+              "床のすき間、段差、材料をまたぐ動き。歩いているときは、手が塞がっていることが多い。",
+              "五つ目は、昇降中です。階段を使わず、建地を伝って降りようとする。",
+              "近道をした一回で、人は落ちます。",
+              "この五つの場面を頭に入れておいてください。自分がいまどの場面にいるかが分かれば、身構えられます。",
+              "建設業の死亡災害のうち、墜落と転落による死亡は毎年およそ四割を占めています。",
+              "足場からの死亡者について、被災したときの行動を分析した資料があります。",
+              "最も多いのは、すでに組み上がった足場の上での作業中または移動中で、およそ五十七パーセント。",
+              "次いで、足場の組立てまたは解体の作業中が、およそ三十五パーセントです。",
+              "つまり、組んでいるときだけでなく、できあがった足場を使っているときにも、同じくらい人が落ちています。",
+              "さらに、足場からの墜落災害を分析すると、安衛則に基づく墜落防止措置が無い状態での被災が九割を超えていました。",
+              "次に、墜落を防ぐ設備について確認します。",
+              "まず、作業床です。高さ二メートル以上の作業場所には、作業床を設けます。",
+              "幅は四十センチメートル以上。床材の間のすき間は三センチメートル以下。",
+              "そして、床材と建地とのすき間は十二センチメートル未満とします。",
+              "この十二センチという数字が加わったのは、そのすき間から人が落ちる災害が実際に起きたからです。",
+              "床材は、ぐらつかないよう二か所以上で支持物に取り付けます。",
+              "次に、囲いです。墜落のおそれのある箇所には、手すりと中さん等を設けます。",
+              "手すりは、高さ八十五センチメートル以上。",
+              "中さんは、高さ三十五センチメートルから五十センチメートルの位置。",
+              "わく組足場では、交差筋かいに加えて、高さ十五センチメートルから四十センチメートルの位置に下さんを設けます。",
+              "交差筋かいだけでは、体を預ければすり抜けます。あれは変形を防ぐ部材であって、囲いではありません。",
+              "そして、物の落下を防ぐ幅木は、高さ十センチメートル以上のものを設けます。",
+              "これらの設備は、作業の必要上、臨時に取り外すことがあります。",
+              "そのときは、その箇所への関係労働者以外の立入りを禁止すること。",
+              "そして、作業が終わった後、直ちに取り外した設備を元の状態に戻すこと。",
+              "この二つが、規則で明確に定められています。",
+              "外したまま帰る。外したまま昼休みに入る。それが、次の人の墜落になります。",
+              "設備を「いつ」設けるか。ここが手すり先行工法の考え方です。",
+              "床を張ってから手すりを付ける手順だと、そのあいだ、作業者は囲いの無い床の上にいます。",
+              "その時間は数分かもしれません。しかし、墜落はその数分に集中して起きています。",
+              "床を張る前に手すりを上げておけば、床に乗った時点で、もう囲われています。",
+              "方式は三つあります。先送り方式、据置き方式、そして手すり先行専用足場工法。",
+              "どれを使っても構いません。狙いは同じです。",
+              "解体のときは、逆に考えます。手すりは、その段の作業がすべて終わってから最後に外す。",
+              "床を先に抜いて手すりが残っている状態は、正しい姿です。",
+              "手すりを先に外して床だけが残っている状態は、最も危ない姿です。",
+              "現場で足場を見たとき、この二つを見分けられるようになってください。",
+              "設備で防ぎきれない場面のために、墜落制止用器具があります。",
+              "高さ二メートル以上で、足場の組立て解体中や、手すりを一時的に取り外した場合。",
+              "開口部の近くで作業する場合など、墜落のおそれがある箇所では、これを使用します。",
+              "会社によっては、高さや状態に関係なく、足場の上では常に使用するという決まりを設けています。",
+              "決まりがあるなら、それに従ってください。",
+              "器具は、原則としてフルハーネス型を使用します。",
+              "フルハーネスは、落ちたときに体を面で支えます。胴ベルト型は、腹部の一点に力が集中します。",
+              "胴ベルト型を使える範囲は限られています。原則はフルハーネス型だと覚えてください。",
+              "使い方の要点を挙げます。",
+              "一つ目、二丁掛けを基本とすること。掛け替えのときも、常にどちらかが掛かっている状態を保ちます。",
+              "外して、移動して、また掛ける。この一瞬が無防備になります。二丁掛けは、その一瞬を無くすためのものです。",
+              "二つ目、なるべく高い位置に掛けること。",
+              "掛ける位置が低いほど、落ちたときの距離が伸びます。腰より下に掛けるのは危険です。",
+              "三つ目、落下時の衝撃に耐えられる堅固なものに掛けること。",
+              "メッシュシートの支持点、手すりの弱い部分、細い配管。こういうものには掛けません。",
+              "四つ目、一本の親綱を複数の人が同時に使わないこと。二人が同時に落ちれば、衝撃は倍になります。",
+              "五つ目、使用前に点検すること。ベルトの傷、縫製のほつれ、フックの変形と外れ止めの動き。",
+              "そして、落下距離という考え方を知っておいてください。",
+              "ランヤードの長さ、ショックアブソーバの伸び、自分の身長。これを足したぶんだけ落ちます。",
+              "その先に地面や下の段があれば、器具を着けていても助かりません。",
+              "掛ける位置を高くするのは、この落下距離を短くするためです。",
+              "設備を設けていれば防げたはずの災害が、それだけ多いということです。",
+              "墜落は、囲いの無い床の上で作業しているときに集中して起きます。",
+              "床を張る前に手摺を上げておけば、床に乗った時点で、もう囲われています。これが手すり先行工法です。",
+              "作業床の端で墜落のおそれがある箇所には、手摺と中さんなどを設けます。",
+              "作業の都合で一時的に取り外したときは、その作業が終わり次第、直ちに元に戻してください。",
+              "高さ二メートル以上で、組立て解体中や、手すりを一時的に外した場合、開口部の近くで作業する場合は、墜落制止用器具を使用します。",
+              "使い方にも要点があります。二丁掛けを基本として、掛け替えのときも常にどちらかが掛かっている状態にすること。",
+              "フックは、なるべく高い位置に掛けます。低い位置に掛けると、落ちたときの距離が伸びます。",
+              "落下の衝撃に耐えられる堅固な箇所に掛けること。シート類や手すりの弱い部分には掛けません。",
+              "一本の親綱を複数の人が同時に使わないこと。そして使う前に器具を点検すること。",
+              "昇り降りは、必ず昇降設備を使ってください。支柱や筋かいをよじ登ると、そこで足を滑らせます。",
+              "昇降と移動についても確認します。",
+              "昇り降りは、必ず昇降設備を使います。階段枠、昇降階段、固定はしご。",
+              "建地や筋かいをよじ登らない。これは基本中の基本です。",
+              "昇降するときは、手に物を持たないこと。工具は腰袋に、材料は荷上げ設備で上げます。",
+              "そして、三点支持です。両手両足のうち三点が常に足場に触れている状態を保ちます。",
+              "移動中の墜落も多く起きています。",
+              "床のすき間、段差、置かれた材料。歩きながら足元を見ていないと、そこでつまずきます。",
+              "つまずいた先に手すりが無ければ、そのまま外に出ます。",
+              "屋根や躯体から足場へ乗り移るときも要注意です。",
+              "乗り移る先の床が固定されているか、必ず確かめてから体重をかけてください。",
+              "飛び移らないこと。実際に、飛び移った先の足場板が固定されておらず、板ごと転落した死亡災害があります。",
+              "最後に、落ちた後の話をします。",
+              "フルハーネスで宙吊りになった場合、そのまま長時間放置すると危険な状態になります。",
+              "ハーネスに体重がかかり続けることで、血流が滞り、意識を失うことがあります。",
+              "つまり、落ちて止まったから安心、ではありません。速やかに救助する必要があります。",
+              "だから、現場ごとに救助の方法を決めておいてください。",
+              "誰が気づき、誰が連絡し、どうやって降ろすのか。",
+              "はしごを掛けるのか、高所作業車を呼ぶのか。事前に決まっていなければ、その場で慌てます。",
+              "そして、一人作業を作らないこと。落ちても誰も気づかない状況が、最も危険です。",
+              "墜落防止について、現場での意識の話もしておきます。",
+              "高いところが怖い、という感覚は、実は安全な感覚です。",
+              "問題は、慣れてその感覚が薄れたときです。",
+              "入りたての頃は手すりを握って歩いていた人が、半年経つと手を離して歩くようになる。",
+              "一年経つと、手すりの無いところでも平気で作業するようになる。",
+              "これは成長ではありません。危険に鈍くなっただけです。",
+              "熟練者の災害が多いのは、技術が落ちたからではなく、危険を感じなくなるからです。",
+              "だから、ルールが要ります。感覚ではなく、決まりで動く。",
+              "フックは必ず掛ける。昇降設備を必ず使う。外した手すりは必ず戻す。",
+              "必ず、という言葉が付いているものは、その場の判断を挟まないという意味です。",
+              "判断を挟まなければ、慣れても行動は変わりません。",
+              "そして、周りの人にも声を掛けてください。",
+              "掛かってないよ、と一言。それで助かる命があります。",
+              "言いにくい相手にこそ、言ってください。",
+              "そして最後に、これだけは覚えて帰ってください。",
+              "足場から落ちて亡くなった人の九割以上は、防止措置が無い状態で被災しています。",
+              "逆に言えば、措置さえあれば、九割は防げたということです。",
+              "手すりを付ける。フックを掛ける。階段を使う。",
+              "どれも、特別な技術は要りません。",
+              "知っているかどうか、そしてやるかどうか。それだけの違いです。",
+              "この単元のまとめです。",
+              "建設業の死亡災害の約四割が墜落・転落。足場からの墜落は、通常作業中と移動中で約五十七パーセント。",
+              "落ちる場面は五つ。組立て中の最上層、解体中の最上層、通常作業中、移動中、昇降中。",
+              "設備の基準は、作業床の幅四十センチ以上、床材間三センチ以下、床材と建地十二センチ未満。",
+              "手すり八十五センチ以上、中さん三十五から五十センチ、わく組の下さん十五から四十センチ、幅木十センチ以上。",
+              "臨時に外したら、立入禁止にし、作業終了後は直ちに元へ戻す。",
+              "床を張る前に手すりを上げる。解体では手すりを最後に外す。",
+              "墜落制止用器具は原則フルハーネス型。二丁掛け、高い位置、堅固な箇所、親綱は一人一本、使用前点検。",
+              "落下距離は、ランヤードの長さとアブソーバの伸びと身長の合計。だから高い位置に掛ける。",
+              "昇降設備を使い、手に物を持たず、三点支持を保つ。",
+              "そして、落ちた後の救助方法を決めておくこと。",
+              "次の単元では、飛来落下と倒壊による危険の防止について学びます。"
+      ],
+        figures: [
+              {
+                      "id": "F3-1-1",
+                      "t": "足場からの墜落・被災時の行動",
+                      "min": 1,
+                      "type": "list",
+                      "lead": "組んでいるときだけが危ないのではありません。",
+                      "parts": [
+                              {
+                                      "n": "足場上での作業中・移動中 約57%",
+                                      "d": "すでに組み上がった足場の上。最も多い"
+                              },
+                              {
+                                      "n": "組立て・解体の作業中 約35%",
+                                      "d": "最上層に囲いが無い状態で作業している"
+                              },
+                              {
+                                      "n": "その他・不明 約8%",
+                                      "d": ""
+                              },
+                              {
+                                      "n": "安衛則に基づく措置が無い状態での被災 約92%",
+                                      "d": "設備があれば防げた災害が9割を超える"
+                              }
+                      ],
+                      "task": {
+                              "q": "足場からの墜落で最も多い場面は",
+                              "a": [
+                                      "組立て作業中",
+                                      "足場上での作業中・移動中",
+                                      "解体作業中"
+                              ],
+                              "ok": 1
+                      }
+              },
+              {
+                      "id": "F3-1-2",
+                      "t": "墜落防止設備の寸法基準",
+                      "min": 1,
+                      "type": "dimension",
+                      "lead": "数字は、現場で確かめるための物差しです。",
+                      "parts": [
+                              {
+                                      "n": "作業床の幅",
+                                      "d": "40cm以上（高さ2m以上の作業場所）"
+                              },
+                              {
+                                      "n": "床材間のすき間",
+                                      "d": "3cm以下"
+                              },
+                              {
+                                      "n": "床材と建地とのすき間",
+                                      "d": "12cm未満。ここから落ちる災害が実際に起きた"
+                              },
+                              {
+                                      "n": "手すり",
+                                      "d": "85cm以上"
+                              },
+                              {
+                                      "n": "中さん",
+                                      "d": "35〜50cmの位置"
+                              },
+                              {
+                                      "n": "わく組足場の下さん",
+                                      "d": "15〜40cmの位置。交差筋かいに加えて設ける"
+                              },
+                              {
+                                      "n": "幅木",
+                                      "d": "10cm以上。物の落下を防ぐ"
+                              }
+                      ],
+                      "task": {
+                              "q": "交差筋かいだけで墜落を防げるか",
+                              "a": [
+                                      "防げる",
+                                      "防げない。下さん等を加える",
+                                      "場合による"
+                              ],
+                              "ok": 1
+                      }
+              },
+              {
+                      "id": "F3-1-3",
+                      "t": "臨時に設備を外すときのルール",
+                      "min": 1,
+                      "type": "list",
+                      "lead": "規則で明確に定められている二つのことです。",
+                      "parts": [
+                              {
+                                      "n": "立入りの禁止",
+                                      "d": "設備を外した箇所へ、関係労働者以外を立ち入らせない"
+                              },
+                              {
+                                      "n": "直ちに元へ戻す",
+                                      "d": "作業が終わった後、直ちに取り外した設備を元の状態に戻す"
+                              },
+                              {
+                                      "n": "外したまま帰らない",
+                                      "d": "翌日その足場を使うのは、別の職種かもしれない"
+                              },
+                              {
+                                      "n": "外したまま昼休みに入らない",
+                                      "d": "戻ってきたときには忘れている"
+                              },
+                              {
+                                      "n": "引き継ぎに残す",
+                                      "d": "どうしても戻せないときは、表示と周知を徹底する"
+                              }
+                      ],
+                      "task": {
+                              "q": "臨時に外した手すりを戻すのは",
+                              "a": [
+                                      "その作業が終わった後、直ちに",
+                                      "その日の終わりに",
+                                      "翌朝"
+                              ],
+                              "ok": 0
+                      }
+              },
+              {
+                      "id": "F3-1-4",
+                      "t": "手すり先行と、床が先の違い",
+                      "min": 1,
+                      "type": "compare",
+                      "lead": "同じ足場でも、順序が違うだけで危険な時間が生まれます。",
+                      "parts": [
+                              {
+                                      "n": "床が先の場合",
+                                      "d": "囲いの無い床の上で手すりを取り付ける。その数分に墜落が集中する"
+                              },
+                              {
+                                      "n": "手すりが先の場合",
+                                      "d": "床に乗った時点で、もう囲われている"
+                              },
+                              {
+                                      "n": "先送り方式",
+                                      "d": "下の段から、上の段の手すりを先に取り付けてから上がる"
+                              },
+                              {
+                                      "n": "据置き方式",
+                                      "d": "作業床を外した後も、手すりをその段に残す"
+                              },
+                              {
+                                      "n": "専用足場工法",
+                                      "d": "あらかじめ手すりが組み込まれた部材を使う"
+                              },
+                              {
+                                      "n": "解体のとき",
+                                      "d": "手すりは、その段の作業がすべて終わってから最後に外す"
+                              }
+                      ],
+                      "task": {
+                              "q": "解体中、最も危ない状態は",
+                              "a": [
+                                      "床を抜いて手すりが残っている",
+                                      "手すりを外して床が残っている",
+                                      "どちらも同じ"
+                              ],
+                              "ok": 1
+                      }
+              },
+              {
+                      "id": "F3-1-5",
+                      "t": "墜落制止用器具の使い方",
+                      "min": 1,
+                      "type": "list",
+                      "lead": "着けているだけでは、助かりません。",
+                      "parts": [
+                              {
+                                      "n": "原則フルハーネス型",
+                                      "d": "体を面で支える。胴ベルト型を使える範囲は限られている"
+                              },
+                              {
+                                      "n": "二丁掛けを基本に",
+                                      "d": "掛け替えのときも常にどちらかが掛かっている状態を保つ"
+                              },
+                              {
+                                      "n": "なるべく高い位置に掛ける",
+                                      "d": "低いほど落下距離が伸びる。腰より下は危険"
+                              },
+                              {
+                                      "n": "堅固な箇所に掛ける",
+                                      "d": "シートの支持点、細い配管、手すりの弱い部分には掛けない"
+                              },
+                              {
+                                      "n": "1本の親綱に1人",
+                                      "d": "二人が同時に落ちれば衝撃は倍になる"
+                              },
+                              {
+                                      "n": "使用前点検",
+                                      "d": "ベルトの傷、縫製のほつれ、フックの変形と外れ止めの動き"
+                              }
+                      ],
+                      "task": {
+                              "q": "フックを掛ける位置として正しいのは",
+                              "a": [
+                                      "足元",
+                                      "なるべく高い堅固な箇所",
+                                      "どこでもよい"
+                              ],
+                              "ok": 1
+                      }
+              },
+              {
+                      "id": "F3-1-6",
+                      "t": "落下距離という考え方",
+                      "min": 1,
+                      "type": "dimension",
+                      "lead": "着けていても、落ちる先に地面があれば助かりません。",
+                      "parts": [
+                              {
+                                      "n": "① ランヤードの長さ",
+                                      "d": "使用する器具によって決まる"
+                              },
+                              {
+                                      "n": "② ショックアブソーバの伸び",
+                                      "d": "衝撃を吸収するために伸びる"
+                              },
+                              {
+                                      "n": "③ 自分の身長",
+                                      "d": "足元まで落ちる"
+                              },
+                              {
+                                      "n": "合計が落下距離",
+                                      "d": "①＋②＋③ だけ落ちる。その先に地面や下段があれば意味がない"
+                              },
+                              {
+                                      "n": "だから高い位置に掛ける",
+                                      "d": "掛ける位置を上げれば、その分だけ余裕ができる"
+                              },
+                              {
+                                      "n": "低い場所ほど注意",
+                                      "d": "2段目や3段目のほうが、地面に届きやすい"
+                              }
+                      ],
+                      "task": {
+                              "q": "落下距離を短くするには",
+                              "a": [
+                                      "ランヤードを長くする",
+                                      "フックを高い位置に掛ける",
+                                      "ゆっくり作業する"
+                              ],
+                              "ok": 1
+                      }
+              },
+              {
+                      "id": "F3-1-7",
+                      "t": "不備を探す（墜落の危険）",
+                      "min": 1,
+                      "type": "findfault",
+                      "lead": "この足場には5か所の墜落の危険があります。全部見つけてください。",
+                      "faults": [
+                              {
+                                      "n": "最上層に手すりも親綱もない",
+                                      "d": "組立て中の最上層。囲いもフックの掛け先もない状態"
+                              },
+                              {
+                                      "n": "床材と建地のすき間が広い",
+                                      "d": "12cm未満とする。そこから人が落ちる"
+                              },
+                              {
+                                      "n": "フックを足元の踏板の枠に掛けている",
+                                      "d": "低い位置に掛けると落下距離が伸びる"
+                              },
+                              {
+                                      "n": "1本の親綱に2人が掛けている",
+                                      "d": "同時に落ちれば衝撃が倍になる"
+                              },
+                              {
+                                      "n": "昇降階段を使わず建地を伝っている",
+                                      "d": "近道をした一回で人は落ちる"
+                              }
+                      ],
+                      "task": {
+                              "q": "5か所すべて見つけてください",
+                              "type": "multi"
+                      }
+              }
+      ],
+        cases: [
+              {
+                      "id": "C3-1-1",
+                      "t": "昇降設備を使わず建地を伝って降りようとして墜落",
+                      "min": 5,
+                      "meta": {
+                              "作業": "足場上での作業終了後の降下",
+                              "事故の型": "墜落・転落",
+                              "起因物": "足場",
+                              "結果": "死亡"
+                      },
+                      "situation": [
+                              "住宅の外壁工事の現場で、足場の3段目での作業が終わったところだった。",
+                              "昇降階段は、足場の反対側の端に設けられていた。",
+                              "被災者がいた位置から階段までは、足場の上を20メートルほど歩く必要があった。",
+                              "その日は作業が押しており、早く降りて次の現場へ移動する予定になっていた。",
+                              "被災者は、階段まで歩かずに、その場から建地を伝って降りようとした。",
+                              "以前にも同じ降り方をしたことがあり、危険だという意識は薄かった。",
+                              "墜落制止用器具は着用していたが、降りるためにフックを外していた。",
+                              "手をかけた手すりの一本が、他職の作業のために一時的に外されていた箇所だった。",
+                              "支えを失って体勢を崩し、約5メートル下の地面へ墜落した。"
+                      ],
+                      "ask": "この災害の、最も重大な原因はどれでしょうか。",
+                      "options": [
+                              {
+                                      "t": "昇降階段が遠い位置にあったこと",
+                                      "ok": false,
+                                      "fb": "配置の問題はありますが、20メートル歩けば安全に降りられました。歩かなかったことが問題です。"
+                              },
+                              {
+                                      "t": "昇降設備を使わず、フックも外して建地を伝って降りたこと",
+                                      "ok": true,
+                                      "fb": "そのとおりです。昇降は必ず昇降設備を使う。これが守られていれば、手すりが外れていても落ちませんでした。"
+                              },
+                              {
+                                      "t": "手すりが一時的に外されていたこと",
+                                      "ok": false,
+                                      "fb": "重大な不備ですが、正規の昇降路を使っていれば、そこに手をかけることはありませんでした。"
+                              }
+                      ],
+                      "causes": [
+                              "昇降設備を使わず、建地を伝って降りようとした。",
+                              "降下のために墜落制止用器具のフックを外していた。",
+                              "他職が臨時に外した手すりが、元に戻されていなかった。",
+                              "作業が押しており、近道をする動機があった。危険であるという認識も薄れていた。"
+                      ],
+                      "prevention": [
+                              "昇降は必ず昇降設備を使う。建地や筋かいをよじ登らない、伝って降りない。",
+                              "昇降設備は、作業位置から離れすぎない場所に設ける。長い足場では複数設ける。",
+                              "臨時に外した手すりは、作業終了後に直ちに元へ戻す。他職にも周知する。",
+                              "「前もやったから大丈夫」という経験則を、現場で否定できる関係をつくる。"
+                      ],
+                      "lesson": "近道は、事故への近道です。20メートル歩けば助かった命が、実際にあります。"
+              },
+              {
+                      "id": "C3-1-2",
+                      "t": "フックを掛け替える一瞬に墜落",
+                      "min": 5,
+                      "meta": {
+                              "作業": "足場上の移動（掛け替え）",
+                              "事故の型": "墜落・転落",
+                              "起因物": "足場",
+                              "結果": "死亡"
+                      },
+                      "situation": [
+                              "工場の改修工事で、高さ8メートルの足場の上を移動する作業が行われていた。",
+                              "移動の経路には支柱があり、フックを一度外して掛け直す必要があった。",
+                              "被災者が使っていたのは、ランヤードが1本のタイプの墜落制止用器具だった。",
+                              "会社には二丁掛けを基本とするルールがあったが、この日は器具が足りず、1本のものを使っていた。",
+                              "被災者は、支柱の手前でフックを外し、支柱を越えた先で掛け直そうとした。",
+                              "その移動のあいだ、フックはどこにも掛かっていない状態だった。",
+                              "足元には材料が置かれており、またぐ動きになった。",
+                              "またいだ拍子にバランスを崩し、手すりの無い開口部側から墜落した。",
+                              "移動にかかった時間は、数秒だったと見られている。"
+                      ],
+                      "ask": "この災害の、最も重大な原因はどれでしょうか。",
+                      "options": [
+                              {
+                                      "t": "足元に材料が置かれていたこと",
+                                      "ok": false,
+                                      "fb": "つまずきの要因ではありますが、フックが掛かっていれば墜落は止まりました。"
+                              },
+                              {
+                                      "t": "二丁掛けができない器具で、掛け替えの一瞬を無防備にしたこと",
+                                      "ok": true,
+                                      "fb": "そのとおりです。二丁掛けは、まさにこの一瞬を無くすためのものです。器具が足りないなら、作業を始めるべきではありませんでした。"
+                              },
+                              {
+                                      "t": "足場が高さ8メートルだったこと",
+                                      "ok": false,
+                                      "fb": "高さの問題ではありません。低くても、落ちれば人は死にます。"
+                              }
+                      ],
+                      "causes": [
+                              "二丁掛けができない器具を使用し、掛け替えの際にフックが外れた状態が生じた。",
+                              "器具が不足していたにもかかわらず、作業を開始した。",
+                              "移動経路に材料が置かれ、またぐ動作が必要になっていた。",
+                              "移動経路側に手すりの無い開口部があった。"
+                      ],
+                      "prevention": [
+                              "二丁掛けが可能な器具を使用する。器具が足りないときは、その作業を行わない。",
+                              "移動経路は片付け、またぐ・くぐるといった動作が必要ない状態にする。",
+                              "開口部には手すり等を設ける。やむを得ず外す場合は立入禁止とする。",
+                              "掛け替えが必要な箇所には親綱を通し、フックを外さずに移動できるようにする。"
+                      ],
+                      "lesson": "落ちるのに必要な時間は、数秒です。その数秒を無防備にしないために、二丁掛けがあります。"
+              }
+      ],
+        quiz: [
+              {
+                      "q": "フックを掛ける位置は",
+                      "a": [
+                              "足元の踏板の枠",
+                              "なるべく高い堅固な箇所",
+                              "メッシュシートの支持点"
+                      ],
+                      "ok": 1,
+                      "why": "掛ける位置が高いほど落下距離が短くなります。"
+              },
+              {
+                      "q": "親綱の使い方として正しいのは",
+                      "a": [
+                              "1本を複数人で使う",
+                              "1本の親綱を複数の人が同時に使わない",
+                              "人数の制限はない"
+                      ],
+                      "ok": 1,
+                      "why": "1本の親綱を複数人で使うと、衝撃が集中し危険です。"
+              },
+              {
+                      "q": "床材と建地とのすき間の基準は",
+                      "a": [
+                              "3cm以下",
+                              "12cm未満",
+                              "制限なし"
+                      ],
+                      "ok": 1,
+                      "why": "そのすき間から人が落ちる災害が起きたため定められました。"
+              },
+              {
+                      "q": "落下距離を構成するのは",
+                      "a": [
+                              "ランヤードの長さのみ",
+                              "ランヤードの長さ＋アブソーバの伸び＋身長",
+                              "身長のみ"
+                      ],
+                      "ok": 1,
+                      "why": "この合計だけ落ちます。だから高い位置に掛けます。"
+              }
+      ] },
+      { id: "3-2", t: "飛来落下・倒壊による危険の防止", han: "落下物による危険防止のための措置", min: 25, scene: "drop",
+        script: [
+              "この単元では、物が落ちること、そして足場そのものが倒れることによる災害を学びます。",
+              "墜落が自分の身に起きる災害だとすれば、飛来落下と倒壊は、他人の身に起きる災害です。",
+              "落ちた物が当たるのは、下にいる誰かです。倒れた足場が押し潰すのは、その下にいた誰かです。",
+              "自分が気をつけていれば防げる、という種類の災害ではありません。",
+              "設備と、段取りと、区域の管理。この三つで防ぎます。",
+              "まず、飛来落下からです。",
+              "足場の上から落ちる物は、大きく三つに分けられます。",
+              "一つ目は、工具です。ハンマー、レンチ、シノ。腰袋から落ちる小物も含みます。",
+              "二つ目は、部材です。手すり、踏板、クランプ、ボルト。解体中は特に多くなります。",
+              "三つ目は、施工中の材料です。塗料の缶、金物、シートの切れ端。他職の物も落ちます。",
+              "どれも、高いところから落ちれば凶器になります。",
+              "十メートルから落ちた物は、地面に届くまでに一・四秒ほど。時速五十キロを超える速さになります。",
+              "ボルト一本でも、当たれば保護帽を貫くことがあります。",
+              "実際に、ビルの解体工事で十階部分から鉄パイプが落下し、歩道を歩いていた通行人が亡くなった事故があります。",
+              "落下防止の防護板は設けられていましたが、そのすき間から抜けていました。",
+              "設備があっても、すき間があれば意味がないということです。",
+              "防ぐ設備を確認します。",
+              "一つ目、幅木。高さ十センチメートル以上のものを、作業床の外側に設けます。",
+              "足元に転がった物が、外へ出るのを止めます。",
+              "二つ目、メッシュシート。足場の外面を覆い、細かい物の飛散を防ぎます。",
+              "ただし、シートに大きな部材を受け止める強度はありません。あくまで飛散防止です。",
+              "三つ目、防護棚、いわゆる朝顔。斜めに張り出して、落ちてきた物を受け止めます。",
+              "四つ目、水平養生ネット。足場と躯体のあいだのすき間から落ちるのを防ぎます。",
+              "外側ばかり気にして、内側が空いている現場は多い。内側も見てください。",
+              "そして、設備と同じくらい大事なのが、そもそも落とさないことです。",
+              "工具には落下防止のひもを付ける。腰袋に入れる物を決める。",
+              "足場の上に物を置いたまま降りない。作業が終わったら回収する。",
+              "材料の上げ下ろしには、つり綱やつり袋、荷上げ設備を使う。投げ下ろしは禁止です。",
+              "最後に、区域の管理です。",
+              "上で作業しているあいだ、その真下には人を入れない。これが最も確実な対策です。",
+              "落とさないように注意する、では防げません。落ちても人がいない状態を作るのです。",
+              "道路や隣地に面する側では、監視員を配置する、時間帯を区切る、通行を規制する。",
+              "第三者に当たれば、けがだけの問題では済みません。工事は止まり、会社の信用も失われます。",
+              "次に、物が落ちること、そして足場そのものが倒れることによる災害です。",
+              "工具や部材が落ちれば、下の作業者を直撃します。住宅街では、隣家や道路も近くにあります。",
+              "実際に、解体工事中に鉄パイプが十階部分から落下し、歩道を歩いていた通行人が亡くなった事故があります。",
+              "第三者に当たれば、けがだけの問題では済みません。会社の存続にかかわります。",
+              "防ぐのは、高さ十センチ以上の幅木、メッシュシート、朝顔などの防護棚、そして立入禁止措置の組み合わせです。",
+              "倒壊のほうは、壁つなぎが要になります。足場は、それ自体では自立しません。",
+              "壁つなぎの不足、構造材の不足、そして天候。この三つが重なって足場が倒壊した事故が起きています。",
+              "強風のなか、解体中のビルの足場が崩れ、道路をふさいだ事例もあります。",
+              "建物と一体につないで、初めて安定します。間隔は基準内に収め、勝手に外さないでください。",
+              "シートは風を受けます。壁つなぎより先に張ってはいけません。解体のときは、逆に先に外します。",
+              "次に、倒壊です。",
+              "まず知っておいてほしいのは、足場はそれ自体では自立しないということです。",
+              "細い支柱を組み上げた構造物です。建物とつないで、初めて安定します。",
+              "そのつなぎが、壁つなぎです。",
+              "壁つなぎには、決められた間隔があります。垂直方向、水平方向とも、足場の種類ごとに基準があります。",
+              "組立図に位置が書かれていますから、そのとおりに取ってください。",
+              "そして、勝手に外さないこと。",
+              "他職が、邪魔だからと外してしまうことがあります。外した本人は、それが何の材か知りません。",
+              "外されていないかを確かめるのが、点検の役目です。",
+              "倒壊の原因は、大きく三つです。",
+              "一つ目、壁つなぎの不足。数が足りない、間隔が広すぎる、外されている。",
+              "二つ目、構造材の不足。筋かいが入っていない、控えが無い、建地の間隔が広すぎる。",
+              "三つ目、天候。特に風です。",
+              "風について、もう一度確認します。",
+              "隙間の多い足場は、風が抜けます。しかしメッシュシートを張ると、面で風を受けるようになります。",
+              "同じ足場でも、シートの有無で受ける力がまったく違うということです。",
+              "だから、シートは壁つなぎより先に張ってはいけません。解体のときは、逆に先に外します。",
+              "強風のなか、解体中のビルの足場が崩れて道路をふさいだ事故が実際に起きています。",
+              "脚部も倒壊に関わります。",
+              "地盤が沈む、滑る。敷板が無い、根がらみが入っていない。",
+              "上がしっかりしていても、脚が動けば全体が傾きます。",
+              "そして、積載荷重です。重い材料を一か所にまとめれば、そこに力が集中します。",
+              "最大積載荷重を守り、分散して置いてください。",
+              "この単元のまとめです。",
+              "落ちる物は、工具、部材、施工材料。どれも高所から落ちれば凶器になる。",
+              "防ぐ設備は、幅木十センチ以上、メッシュシート、防護棚、水平養生ネット。内側のすき間も忘れない。",
+              "設備と同じくらい、落とさない工夫が大事。落下防止のひも、置きっぱなしにしない、投げ下ろさない。",
+              "最も確実なのは、真下に人を入れないこと。",
+              "足場は自立しない。壁つなぎで建物とつないで初めて安定する。",
+              "倒壊の三大要因は、壁つなぎの不足、構造材の不足、そして天候。",
+              "シートは壁つなぎより先に張らない。解体では先に外す。",
+              "脚部の沈下と滑動、積載荷重の集中にも注意する。",
+              "次の単元では、保護具の使用方法と保守点検について学びます。"
+      ],
+        figures: [
+              {
+                      "id": "F3-2-1",
+                      "t": "落下物を防ぐ設備",
+                      "min": 1,
+                      "type": "list",
+                      "lead": "外側だけでなく、内側のすき間も見てください。",
+                      "parts": [
+                              {
+                                      "n": "幅木 10cm以上",
+                                      "d": "作業床の外側に設ける。足元の物が外へ出るのを止める"
+                              },
+                              {
+                                      "n": "メッシュシート",
+                                      "d": "細かい物の飛散を防ぐ。大きな部材を受け止める強度はない"
+                              },
+                              {
+                                      "n": "防護棚（朝顔）",
+                                      "d": "斜めに張り出して落下物を受け止める。角度20〜30度、2m以上突出"
+                              },
+                              {
+                                      "n": "水平養生ネット",
+                                      "d": "足場と躯体のあいだのすき間から落ちるのを防ぐ"
+                              },
+                              {
+                                      "n": "立入禁止措置",
+                                      "d": "最も確実。落ちても人がいない状態を作る"
+                              },
+                              {
+                                      "n": "監視員・通行規制",
+                                      "d": "道路や隣地に面する側で"
+                              }
+                      ],
+                      "task": {
+                              "q": "落下物対策として最も確実なのは",
+                              "a": [
+                                      "注意して作業する",
+                                      "真下に人を入れない",
+                                      "早く終わらせる"
+                              ],
+                              "ok": 1
+                      }
+              },
+              {
+                      "id": "F3-2-2",
+                      "t": "そもそも落とさない工夫",
+                      "min": 1,
+                      "type": "list",
+                      "lead": "設備で受け止める前に、落とさないことです。",
+                      "parts": [
+                              {
+                                      "n": "工具に落下防止のひも",
+                                      "d": "ハンマー、レンチ、シノ。腰袋から落ちやすい物ほど"
+                              },
+                              {
+                                      "n": "腰袋に入れる物を決める",
+                                      "d": "何でも突っ込むと、かがんだときに落ちる"
+                              },
+                              {
+                                      "n": "置きっぱなしにしない",
+                                      "d": "足場に置いたまま降りれば、風や他職の足で落ちる"
+                              },
+                              {
+                                      "n": "つり綱・つり袋・荷上げ設備",
+                                      "d": "材料の上げ下ろしに使う。投げ下ろしは禁止"
+                              },
+                              {
+                                      "n": "解体材は速やかに降ろす",
+                                      "d": "足場上に積まない。荷重にもなる"
+                              }
+                      ],
+                      "task": {
+                              "q": "材料を下ろすときの正しい方法は",
+                              "a": [
+                                      "下に人がいなければ投げ下ろす",
+                                      "つり綱・つり袋等で下ろす",
+                                      "まとめて落とす"
+                              ],
+                              "ok": 1
+                      }
+              },
+              {
+                      "id": "F3-2-3",
+                      "t": "倒壊の三大要因",
+                      "min": 1,
+                      "type": "list",
+                      "lead": "足場は、それ自体では自立しません。",
+                      "parts": [
+                              {
+                                      "n": "① 壁つなぎの不足",
+                                      "d": "数が足りない、間隔が広すぎる、外されている"
+                              },
+                              {
+                                      "n": "② 構造材の不足",
+                                      "d": "筋かいが入っていない、控えが無い、建地の間隔が広すぎる"
+                              },
+                              {
+                                      "n": "③ 天候（特に風）",
+                                      "d": "シートを張れば面で風を受ける。同じ足場でも受ける力が違う"
+                              },
+                              {
+                                      "n": "脚部の沈下・滑動",
+                                      "d": "敷板・根がらみ。脚が動けば全体が傾く"
+                              },
+                              {
+                                      "n": "積載荷重の集中",
+                                      "d": "重い材料を一か所にまとめない。最大積載荷重を守る"
+                              }
+                      ],
+                      "task": {
+                              "q": "足場が安定するのは",
+                              "a": [
+                                      "部材が丈夫だから",
+                                      "建物と壁つなぎでつないでいるから",
+                                      "重いから"
+                              ],
+                              "ok": 1
+                      }
+              },
+              {
+                      "id": "F3-2-4",
+                      "t": "壁つなぎとシートの順序",
+                      "min": 1,
+                      "type": "flow",
+                      "lead": "順序を間違えると、風で倒れます。",
+                      "parts": [
+                              {
+                                      "n": "組立て：壁つなぎが先",
+                                      "d": "所定の間隔で取りながら上げる。組み上がってからまとめて取らない"
+                              },
+                              {
+                                      "n": "組立て：シートは後",
+                                      "d": "壁つなぎより先に張らない。張った瞬間に風荷重が増える"
+                              },
+                              {
+                                      "n": "解体：シートが先",
+                                      "d": "風の抵抗を先に落とす"
+                              },
+                              {
+                                      "n": "解体：壁つなぎは最後",
+                                      "d": "上の足場が無くなってから外す"
+                              },
+                              {
+                                      "n": "勝手に外さない",
+                                      "d": "他職が邪魔だからと外すことがある。点検で確かめる"
+                              },
+                              {
+                                      "n": "台風前",
+                                      "d": "シートを畳む・外す。風が強くなる前に、できれば前日までに"
+                              }
+                      ],
+                      "task": {
+                              "q": "解体でメッシュシートを外すのは",
+                              "a": [
+                                      "壁つなぎより先",
+                                      "壁つなぎより後",
+                                      "同時"
+                              ],
+                              "ok": 0
+                      }
+              },
+              {
+                      "id": "F3-2-5",
+                      "t": "不備を探す（飛来落下・倒壊）",
+                      "min": 1,
+                      "type": "findfault",
+                      "lead": "5か所の不備があります。全部見つけてください。",
+                      "faults": [
+                              {
+                                      "n": "幅木が付いていない",
+                                      "d": "足元の物が外へ出る。10cm以上のものを設ける"
+                              },
+                              {
+                                      "n": "足場と躯体のすき間が空いている",
+                                      "d": "内側から物が落ちる。水平養生ネットを張る"
+                              },
+                              {
+                                      "n": "壁つなぎが外されている",
+                                      "d": "他職が外した可能性。組立図と照らして数える"
+                              },
+                              {
+                                      "n": "解体材を足場上に積んでいる",
+                                      "d": "荷重が集中し、落下の危険もある"
+                              },
+                              {
+                                      "n": "真下の道路に規制がない",
+                                      "d": "第三者災害。監視員の配置や通行規制を行う"
+                              }
+                      ],
+                      "task": {
+                              "q": "5か所すべて見つけてください",
+                              "type": "multi"
+                      }
+              }
+      ],
+        cases: [
+              {
+                      "id": "C3-2-1",
+                      "t": "解体中の鉄パイプが落下し、歩道の通行人が死亡",
+                      "min": 5,
+                      "meta": {
+                              "作業": "ビル外壁工事に伴う足場の解体",
+                              "事故の型": "飛来・落下",
+                              "起因物": "資機材",
+                              "結果": "第三者の死亡"
+                      },
+                      "situation": [
+                              "市街地のビルで、外壁工事に伴う足場の解体作業が行われていた。",
+                              "現場は幹線道路に面しており、足場の外側には落下防止の防護板が設けられていた。",
+                              "解体は上層階から進められ、この日は十階部分の作業が行われていた。",
+                              "解体した鉄パイプは、順次まとめて下ろす計画だったが、作業の途中で足場上に仮置きされていた。",
+                              "何らかの原因で、仮置きされていた鉄パイプの一本が落下した。",
+                              "防護板は設けられていたが、防護板と建物とのあいだに約三・五メートルのすき間があった。",
+                              "鉄パイプはそのすき間を通り抜け、下の歩道まで落下した。",
+                              "歩道を歩いていた通行人に直撃し、その方は亡くなった。",
+                              "落下地点の歩道は、通行止めにされていなかった。"
+                      ],
+                      "ask": "この災害の、最も重大な原因はどれでしょうか。",
+                      "options": [
+                              {
+                                      "t": "防護板と建物のあいだにすき間があったこと",
+                                      "ok": true,
+                                      "fb": "そのとおりです。設備はあっても、すき間があれば意味がありません。防護は連続していなければなりません。"
+                              },
+                              {
+                                      "t": "鉄パイプが重かったこと",
+                                      "ok": false,
+                                      "fb": "重さの問題ではありません。軽い物でも、高所から落ちれば人は死にます。"
+                              },
+                              {
+                                      "t": "解体作業を昼間に行ったこと",
+                                      "ok": false,
+                                      "fb": "時間帯を変えても、防護のすき間と歩道の規制が無ければ、同じことが起きます。"
+                              }
+                      ],
+                      "causes": [
+                              "防護板と建物とのあいだにすき間があり、落下物の経路が塞がれていなかった。",
+                              "解体した部材を足場上に仮置きし、速やかに下ろしていなかった。",
+                              "落下のおそれがある区域の歩道について、通行止め等の措置がとられていなかった。",
+                              "第三者が通行する場所での作業であるという認識が、現場全体で共有されていなかった。"
+                      ],
+                      "prevention": [
+                              "防護は連続させる。防護板と建物のすき間、足場と躯体のすき間を塞ぐ。",
+                              "解体した部材は足場上に仮置きせず、速やかに荷下ろし設備等で下ろす。",
+                              "落下のおそれがある区域は通行止めとし、監視員を配置する。時間帯を区切ることも検討する。",
+                              "第三者が通る現場では、作業開始前に落下の経路を全員で確認する。"
+                      ],
+                      "lesson": "設備があることと、機能していることは別です。すき間が一つあれば、そこから抜けます。"
+              },
+              {
+                      "id": "C3-2-2",
+                      "t": "強風により解体中の足場が崩壊し、道路をふさぐ",
+                      "min": 5,
+                      "meta": {
+                              "作業": "ビル解体工事に伴う足場の解体",
+                              "事故の型": "倒壊・崩壊",
+                              "起因物": "足場",
+                              "結果": "物損（けが人なし）"
+                      },
+                      "situation": [
+                              "駅前のビルの解体工事で、外部足場の解体作業が進められていた。",
+                              "当日は、朝から強風が吹き荒れていた。",
+                              "足場にはメッシュシートが張られたままの状態だった。",
+                              "解体の手順として、上層から壁つなぎを外しながら進めていた。",
+                              "シートを外すよりも先に、壁つなぎの取り外しが進んでいた。",
+                              "残された足場は、シートで風を受けながら、建物とのつなぎを失っていく状態になった。",
+                              "強風にあおられ、足場は上層部から崩壊し、隣接する道路へ倒れ込んだ。",
+                              "道路は交通規制が行われていたため、けが人は出なかった。",
+                              "しかし駅前の主要道路が長時間ふさがれ、周辺に大きな影響が出た。"
+                      ],
+                      "ask": "この災害の、最も重大な原因はどれでしょうか。",
+                      "options": [
+                              {
+                                      "t": "強風の日に作業を行ったこと",
+                                      "ok": false,
+                                      "fb": "重大な要因ですが、順序が正しければここまでの崩壊には至りませんでした。悪天候時の中止判断も含めて考えてください。"
+                              },
+                              {
+                                      "t": "シートを残したまま、壁つなぎを先に外したこと",
+                                      "ok": true,
+                                      "fb": "そのとおりです。シートで風を受けながら建物とのつなぎを失っていく。最も倒れやすい状態を、自分たちで作ってしまいました。"
+                              },
+                              {
+                                      "t": "足場が古かったこと",
+                                      "ok": false,
+                                      "fb": "部材の劣化ではなく、解体の順序と天候判断の問題です。"
+                              }
+                      ],
+                      "causes": [
+                              "メッシュシートを残したまま、壁つなぎの取り外しを先行させた。風を受けながら支えを失う状態になった。",
+                              "強風が吹く中で、足場の解体作業を行った。悪天候時の作業中止の判断がなされなかった。",
+                              "解体の手順が、風の影響を考慮したものになっていなかった。",
+                              "作業を中止する判断の基準と、判断する者が明確でなかった。"
+                      ],
+                      "prevention": [
+                              "解体では、シートを先に外して風の抵抗を落としてから、壁つなぎを外す。",
+                              "強風（10分間平均風速10m/s以上）が予想されるときは、組立て・解体・変更の作業を行わない。",
+                              "作業中止の基準と判断者をあらかじめ定める。現場任せにしない。",
+                              "解体手順書に、天候による作業順序の変更を明記しておく。"
+                      ],
+                      "lesson": "倒れやすい状態は、天候が作るのではありません。順序を間違えた人間が作ります。"
+              }
+      ],
+        quiz: [
+              {
+                      "q": "落下物を止める設備はどれか",
+                      "a": [
+                              "手摺",
+                              "幅木・メッシュシート・防護棚",
+                              "根がらみ"
+                      ],
+                      "ok": 1,
+                      "why": "手摺は人の墜落を、幅木やシートは物の落下を止めます。"
+              },
+              {
+                      "q": "幅木の高さは",
+                      "a": [
+                              "5cm以上",
+                              "10cm以上",
+                              "30cm以上"
+                      ],
+                      "ok": 1,
+                      "why": "飛来落下防止措置として高さ10cm以上の幅木が示されています。"
+              },
+              {
+                      "q": "幅木の高さは",
+                      "a": [
+                              "5cm以上",
+                              "10cm以上",
+                              "30cm以上"
+                      ],
+                      "ok": 1,
+                      "why": "飛来落下防止措置として高さ10cm以上の幅木が示されています。"
+              },
+              {
+                      "q": "足場と躯体のあいだのすき間からの落下を防ぐのは",
+                      "a": [
+                              "幅木",
+                              "水平養生ネット",
+                              "手すり"
+                      ],
+                      "ok": 1,
+                      "why": "外側だけでなく内側も塞ぎます。"
+              }
+      ] },
+      { id: "3-3", t: "保護具の使用方法と保守点検", han: "保護具の使用方法及び保守点検の方法", min: 20, scene: "ppe",
+        script: [
+              "この単元では、保護具の使用方法と保守点検について学びます。",
+              "保護具は、危険そのものを無くす設備ではありません。",
+              "手すりや幅木は、危険を無くすための設備です。落ちない、落とさない状態を作ります。",
+              "それに対して保護具は、危険が現実になったときに、被害を小さくするためのものです。",
+              "順番としては、まず設備で危険を無くす。それでも残る危険に、保護具で備える。",
+              "保護具があるから設備は要らない、という考え方は逆です。",
+              "まず、保護帽です。",
+              "足場の現場では、飛来落下用と墜落時保護用の両方の性能を持つものを使います。",
+              "使い方で最も大事なのは、あごひもを締めることです。",
+              "ゆるいまま使っている人がいます。しかし、衝撃を受けた瞬間に脱げれば、意味がありません。",
+              "実際に、頭に当たる前に保護帽が飛んでしまい、直撃を受けた災害があります。",
+              "内装、いわゆるハンモックの部分も大事です。",
+              "頭と帽体のあいだに空間があることで、衝撃を吸収します。この空間を潰してはいけません。",
+              "内装のバンドが緩んでいれば調整する。汗で傷んでいれば交換する。",
+              "そして、一度大きな衝撃を受けた保護帽は、見た目が無事でも交換します。",
+              "内部に見えない損傷が残っていることがあります。",
+              "保護帽には使用期限の目安もあります。材質によりますが、数年で交換するものと考えてください。",
+              "保護具は、正しく使って初めて意味を持ちます。",
+              "保護帽は、あごひもを締めてください。ゆるいと、衝撃を受けた瞬間に脱げて、頭を守れません。",
+              "墜落制止用器具は、原則としてフルハーネス型を使用します。胴ベルト型を使える範囲は限られています。",
+              "フルハーネスは、落ちたときに体を面で支えます。胴ベルトは腹部の一点に力が集中します。",
+              "ランヤードは、落下距離とショックアブソーバの伸びを考えて選びます。落ちた先で地面や下段に届いては意味がありません。",
+              "使う前には、ベルトの傷、縫製のほつれ、フックの変形と外れ止めの動きを点検してください。",
+              "会社によっては、法令の二メートルという基準にかかわらず、足場の上では常に使用する、という決まりを設けています。",
+              "決められたルールがあるなら、それに従ってください。",
+              "次に、墜落制止用器具です。",
+              "原則として、フルハーネス型を使用します。",
+              "フルハーネスは、肩、腿、胸のベルトで体を支えます。落ちたときの衝撃が分散されます。",
+              "胴ベルト型は、腹部の一点に力が集中します。内臓を損傷する危険があり、使える範囲は限られています。",
+              "装着で大事なのは、緩みなく締めることです。",
+              "腿のベルトが緩んでいると、落ちたときに体がずり下がります。",
+              "背中のD環の位置も確認してください。肩甲骨のあいだ、高い位置にあるのが正しい状態です。",
+              "低い位置にあると、宙吊りになったときに前のめりになり、苦しい姿勢になります。",
+              "ランヤードの選び方にも触れておきます。",
+              "落下距離は、ランヤードの長さ、ショックアブソーバの伸び、そして身長の合計です。",
+              "その先に地面や下の段があれば、器具を着けていても助かりません。",
+              "低い場所ほど注意が要ります。二段目や三段目のほうが、地面に届きやすいのです。",
+              "だから、フックはなるべく高い位置に掛けます。",
+              "そして二丁掛け。掛け替えのときも、常にどちらかが掛かっている状態を保ちます。",
+              "外して、移動して、また掛ける。この数秒が無防備になり、そこで人が落ちています。",
+              "一本の親綱を複数の人が同時に使わないこと。二人が落ちれば、衝撃は倍になります。",
+              "保守点検について説明します。",
+              "使用前に、毎回見るところがあります。",
+              "ベルトの摩耗、切れ、ほつれ。特に縫製部は力がかかる場所です。",
+              "金具の変形、さび、亀裂。バックルが確実に閉まるか。",
+              "フックの外れ止めが、確実に動いて閉じるか。開いたままのフックは使えません。",
+              "ショックアブソーバのカバーが破れていないか。伸びた形跡がないか。",
+              "一度でも落下を止めた器具は、外見が無事でも使用をやめます。",
+              "アブソーバは伸びて衝撃を吸収します。一度伸びたものは、次は機能しません。",
+              "保管も大事です。直射日光、高温、湿気を避けて保管します。",
+              "薬品や油が付いたまま放置すると、繊維が傷みます。",
+              "そして、保護具は個人に割り当てるのが理想です。",
+              "誰が使ったか分からない器具は、履歴が追えません。",
+              "名前を書く、番号を振る。それだけで管理の質が変わります。",
+              "保護具について、現場でよくある話をもう一つ。",
+              "夏場、暑いからとハーネスを緩めて着ける人がいます。",
+              "しかし、緩んだハーネスは、落ちたときに体を支える位置がずれます。",
+              "肩のベルトが脇の下まで上がり、腕が挟まれた状態で宙吊りになった災害が実際にあります。",
+              "暑さへの対策は、装着を緩めることではありません。休憩と水分補給、通気性のある服装で対応してください。",
+              "そして、装着の確認は、二人一組で行うのが確実です。",
+              "自分の背中は自分では見えません。D環の位置も、ベルトのねじれも、人に見てもらってください。",
+              "朝礼のときに、隣の人と互いに確認する。それだけで装着ミスは大きく減ります。",
+              "最後に、支給されたものを使う、という当たり前の話です。",
+              "自分で買った器具や、古い型のものを使い続ける人がいます。",
+              "会社が支給する器具は、規格を満たし、点検の履歴が残るものです。",
+              "会社に管理されていない器具は、いざというときに責任の所在も分かりません。",
+              "支給されたものを、正しく着けて、点検して使う。それが自分を守る一番確実な方法です。",
+              "この単元のまとめです。",
+              "保護具は、危険を無くす設備の代わりにはならない。設備が先、保護具は最後の備え。",
+              "保護帽は、あごひもを締める。内装の空間を潰さない。強い衝撃を受けたら交換する。",
+              "墜落制止用器具は、原則フルハーネス型。腿のベルトを緩めない。D環は肩甲骨のあいだの高い位置。",
+              "落下距離は、ランヤード長とアブソーバの伸びと身長の合計。だから高い位置に掛ける。",
+              "二丁掛けを基本に。親綱は一人一本。",
+              "使用前点検では、ベルトの摩耗と縫製部、金具の変形、フックの外れ止め、アブソーバの状態を見る。",
+              "一度落下を止めた器具は使用をやめる。",
+              "次の単元では、感電と熱中症、その他の災害の防止について学びます。"
+      ],
+        figures: [
+              {
+                      "id": "F3-3-1",
+                      "t": "設備と保護具の順序",
+                      "min": 1,
+                      "type": "list",
+                      "lead": "保護具は、設備の代わりにはなりません。",
+                      "parts": [
+                              {
+                                      "n": "① まず設備で危険を無くす",
+                                      "d": "手すり、幅木、作業床。落ちない・落とさない状態を作る"
+                              },
+                              {
+                                      "n": "② 残る危険に保護具で備える",
+                                      "d": "危険が現実になったとき、被害を小さくする"
+                              },
+                              {
+                                      "n": "保護具があるから設備は不要",
+                                      "d": "これは逆。順序を間違えている"
+                              },
+                              {
+                                      "n": "設備が使えない場面",
+                                      "d": "組立て中の最上層、臨時に外したとき。ここで保護具が効く"
+                              }
+                      ],
+                      "task": {
+                              "q": "保護具の位置づけとして正しいのは",
+                              "a": [
+                                      "設備の代わりになる",
+                                      "設備で無くせない危険への備え",
+                                      "設備より優先される"
+                              ],
+                              "ok": 1
+                      }
+              },
+              {
+                      "id": "F3-3-2",
+                      "t": "保護帽の正しい使い方",
+                      "min": 1,
+                      "type": "list",
+                      "lead": "あごひもを締めていない保護帽は、無いのと同じです。",
+                      "parts": [
+                              {
+                                      "n": "あごひもを締める",
+                                      "d": "衝撃の瞬間に脱げれば意味がない"
+                              },
+                              {
+                                      "n": "内装（ハンモック）の空間",
+                                      "d": "頭と帽体のあいだの空間が衝撃を吸収する。潰さない"
+                              },
+                              {
+                                      "n": "バンドの調整",
+                                      "d": "緩んでいれば調整。汗で傷んでいれば交換"
+                              },
+                              {
+                                      "n": "強い衝撃を受けたら交換",
+                                      "d": "見た目が無事でも、内部に損傷が残る"
+                              },
+                              {
+                                      "n": "使用期限の目安",
+                                      "d": "材質によるが、数年で交換するものと考える"
+                              }
+                      ],
+                      "task": {
+                              "q": "強い衝撃を受けた保護帽は",
+                              "a": [
+                                      "外見に問題なければ使う",
+                                      "交換する",
+                                      "内装だけ替える"
+                              ],
+                              "ok": 1
+                      }
+              },
+              {
+                      "id": "F3-3-3",
+                      "t": "フルハーネスの正しい装着",
+                      "min": 1,
+                      "type": "list",
+                      "lead": "着けているだけでは守れません。",
+                      "parts": [
+                              {
+                                      "n": "原則フルハーネス型",
+                                      "d": "肩・腿・胸で支え、衝撃を分散する"
+                              },
+                              {
+                                      "n": "胴ベルト型の問題",
+                                      "d": "腹部一点に力が集中し、内臓を損傷する危険。使える範囲は限られる"
+                              },
+                              {
+                                      "n": "腿のベルトを緩めない",
+                                      "d": "緩いと落下時に体がずり下がる"
+                              },
+                              {
+                                      "n": "背中のD環の位置",
+                                      "d": "肩甲骨のあいだ、高い位置。低いと宙吊りで前のめりになる"
+                              },
+                              {
+                                      "n": "二丁掛け",
+                                      "d": "掛け替えのときも、常にどちらかが掛かっている"
+                              },
+                              {
+                                      "n": "親綱は1人1本",
+                                      "d": "二人が落ちれば衝撃は倍になる"
+                              }
+                      ],
+                      "task": {
+                              "q": "背中のD環の正しい位置は",
+                              "a": [
+                                      "腰の高さ",
+                                      "肩甲骨のあいだの高い位置",
+                                      "どこでもよい"
+                              ],
+                              "ok": 1
+                      }
+              },
+              {
+                      "id": "F3-3-4",
+                      "t": "使用前点検の項目",
+                      "min": 1,
+                      "type": "list",
+                      "lead": "毎回、使う前に見ます。",
+                      "parts": [
+                              {
+                                      "n": "ベルトの摩耗・切れ・ほつれ",
+                                      "d": "特に縫製部。力がかかる場所"
+                              },
+                              {
+                                      "n": "金具の変形・さび・亀裂",
+                                      "d": "バックルが確実に閉まるか"
+                              },
+                              {
+                                      "n": "フックの外れ止め",
+                                      "d": "確実に動いて閉じるか。開いたままは使えない"
+                              },
+                              {
+                                      "n": "ショックアブソーバ",
+                                      "d": "カバーの破れ、伸びた形跡がないか"
+                              },
+                              {
+                                      "n": "一度落下を止めた器具",
+                                      "d": "外見が無事でも使用をやめる。アブソーバは二度目は機能しない"
+                              },
+                              {
+                                      "n": "保管",
+                                      "d": "直射日光・高温・湿気を避ける。薬品や油が付いたら落とす"
+                              }
+                      ],
+                      "task": {
+                              "q": "一度落下を止めた墜落制止用器具は",
+                              "a": [
+                                      "点検すれば使える",
+                                      "使用をやめる",
+                                      "アブソーバだけ交換して使う"
+                              ],
+                              "ok": 1
+                      }
+              },
+              {
+                      "id": "F3-3-5",
+                      "t": "不備を探す（保護具）",
+                      "min": 1,
+                      "type": "findfault",
+                      "lead": "4か所の不備があります。全部見つけてください。",
+                      "faults": [
+                              {
+                                      "n": "あごひもが締まっていない",
+                                      "d": "衝撃の瞬間に脱げる"
+                              },
+                              {
+                                      "n": "腿のベルトが緩んでいる",
+                                      "d": "落下時に体がずり下がる"
+                              },
+                              {
+                                      "n": "フックを足元に掛けている",
+                                      "d": "落下距離が伸びる。なるべく高い位置へ"
+                              },
+                              {
+                                      "n": "1本の親綱に2人が掛けている",
+                                      "d": "同時に落ちれば衝撃が倍になる"
+                              }
+                      ],
+                      "task": {
+                              "q": "4か所すべて見つけてください",
+                              "type": "multi"
+                      }
+              }
+      ],
+        cases: [
+              {
+                      "id": "C3-3-1",
+                      "t": "フルハーネスを着けていたが、腿のベルトが緩く体がずり下がる",
+                      "min": 5,
+                      "meta": {
+                              "作業": "足場上での外壁補修",
+                              "事故の型": "墜落・転落",
+                              "起因物": "足場",
+                              "結果": "重傷"
+                      },
+                      "situation": [
+                              "改修工事の現場で、足場の4段目から外壁を補修する作業が行われていた。",
+                              "被災者はフルハーネス型の墜落制止用器具を着用し、フックを頭上の親綱に掛けていた。",
+                              "しかし、その日は暑く、装着を緩めたほうが楽だという理由で、腿のベルトを緩めていた。",
+                              "胸のベルトも留めていなかった。",
+                              "作業中、足元の踏板の端に足を掛けた際にバランスを崩し、足場の外側へ落ちた。",
+                              "フックは掛かっており、墜落そのものは止まった。",
+                              "しかし、腿と胸のベルトが緩んでいたため、体がハーネスの中でずり下がった。",
+                              "肩のベルトが脇の下まで上がり、腕が挟まれた状態で宙吊りになった。",
+                              "救助まで時間がかかり、被災者は肩と胸部に重傷を負った。"
+                      ],
+                      "ask": "この災害から学ぶべき、最も重要な点はどれでしょうか。",
+                      "options": [
+                              {
+                                      "t": "フックを掛けていたので、対応としては正しかった",
+                                      "ok": false,
+                                      "fb": "フックを掛けたことは正しい判断でした。しかし、装着が正しくなければ、器具は設計どおりに機能しません。"
+                              },
+                              {
+                                      "t": "ハーネスは、正しく装着して初めて設計どおりに機能する",
+                                      "ok": true,
+                                      "fb": "そのとおりです。緩んだハーネスは、落ちたときに体を支える位置がずれます。着けているかどうかではなく、正しく着けているかどうかです。"
+                              },
+                              {
+                                      "t": "親綱の位置が低かった",
+                                      "ok": false,
+                                      "fb": "フックは頭上の親綱に掛かっていました。落下は止まっています。問題は装着の状態でした。"
+                              }
+                      ],
+                      "causes": [
+                              "暑さを理由に腿のベルトを緩め、胸のベルトも留めていなかった。",
+                              "正しい装着方法についての教育と、日々の確認が徹底されていなかった。",
+                              "宙吊りになった際の救助方法が定められておらず、救助に時間がかかった。",
+                              "踏板の端に足を掛ける不安定な姿勢で作業していた。"
+                      ],
+                      "prevention": [
+                              "フルハーネスは、腿・胸・肩のベルトをすべて正しく締める。緩めた状態で使用しない。",
+                              "作業前に、二人一組で相互に装着状態を確認する習慣をつくる。",
+                              "宙吊りになった場合の救助方法をあらかじめ定め、全員に周知する。",
+                              "暑さ対策は、装着を緩めることではなく、休憩と水分補給、通気性のある服装で行う。"
+                      ],
+                      "lesson": "着けているかどうかではなく、正しく着けているかどうかです。緩んだハーネスは、体を守る位置からずれています。"
+              }
+      ],
+        quiz: [
+              {
+                      "q": "墜落制止用器具について正しいのは",
+                      "a": [
+                              "原則としてフルハーネス型を使用する",
+                              "常に胴ベルト型でよい",
+                              "高さに関係なく不要"
+                      ],
+                      "ok": 0,
+                      "why": "原則はフルハーネス型で、胴ベルト型が使える範囲は限られています。"
+              },
+              {
+                      "q": "保護帽の使い方で正しいのは",
+                      "a": [
+                              "あごひもは締めなくてよい",
+                              "あごひもを締める",
+                              "ヘルメットの上に帽子をかぶる"
+                      ],
+                      "ok": 1,
+                      "why": "あごひもがゆるいと衝撃で脱げてしまいます。"
+              },
+              {
+                      "q": "背中のD環の正しい位置は",
+                      "a": [
+                              "腰の高さ",
+                              "肩甲骨のあいだの高い位置",
+                              "どこでもよい"
+                      ],
+                      "ok": 1,
+                      "why": "低いと宙吊りで前のめりになり苦しい姿勢になります。"
+              },
+              {
+                      "q": "一度落下を止めた墜落制止用器具は",
+                      "a": [
+                              "点検すれば使える",
+                              "使用をやめる",
+                              "アブソーバだけ交換"
+                      ],
+                      "ok": 1,
+                      "why": "アブソーバは一度伸びると次は機能しません。"
+              }
+      ] },
+      { id: "3-4", t: "感電・熱中症その他の危険の防止", han: "感電防止のための措置、その他作業に伴う災害及びその防止方法", min: 10, scene: "shock",
+        script: [
+              "この単元では、感電と熱中症、その他の災害の防止について学びます。",
+              "墜落や落下に比べると件数は多くありませんが、起きたときの結果は重いものばかりです。",
+              "まず、感電です。",
+              "現場の上には、架空電線が通っていることがあります。住宅地では特に低い位置を通っています。",
+              "足場の支柱は三・六メートル、手すりも一・八メートルあります。",
+              "これを持って起こせば、その先端は自分の背丈のはるか上に届きます。",
+              "電線には、直接触れなくても感電することがあります。高い電圧では、近づいただけで放電します。",
+              "だから、離隔距離を確保します。電圧に応じて、必要な距離が定められています。",
+              "電線が近い現場では、電力会社に連絡して、防護管を取り付けてもらう、あるいは移設を依頼します。",
+              "これは事前の段取りです。当日になってから慌てても間に合いません。",
+              "作業の際は、部材を起こす前に必ず上を見てください。",
+              "下を見て足場を組んでいると、上のことを忘れます。起こした先に何があるか、毎回確認すること。",
+              "また、雨の日は特に危険です。濡れた部材は電気を通しやすくなります。",
+              "電動工具も感電の原因になります。コードの被覆の破れ、濡れた手での操作、漏電遮断器の無い電源。",
+              "使う前にコードを見て、濡れた手では触らない。これを守ってください。",
+              "もし感電事故が起きたら、まず電源を切ることです。",
+              "感電している人に、そのまま触ってはいけません。触った人も感電します。",
+              "電源を切れない場合は、乾いた木や樹脂の棒など、電気を通さない物で引き離します。",
+              "そして直ちに救急要請をしてください。感電は、外から見て軽そうでも、体の内部が損傷していることがあります。",
+              "現場の上には、架空電線が通っていることがあります。",
+              "長い支柱や手摺を立てるとき、その先端が電線に触れれば感電します。離隔距離を確保してください。",
+              "電線に近い現場では、防護管の設置や移設を電力会社に依頼します。部材を起こす前に、必ず上を見てください。",
+              "夏場は熱中症にも注意が要ります。汗で失われた水分と塩分を補給しないと、体温調節に障害が起きます。",
+              "水分と塩分は、作業を始める前からこまめにとってください。喉が渇いてからでは遅いのです。",
+              "汗が乾きやすく通気性の良い服装にし、睡眠不足や二日酔い、食欲不振を避ける生活を心がけます。",
+              "特に暑さに慣れないうちは、無理を控えて慎重に行動してください。",
+              "自分や仲間の身体に異常を感じたら、すぐに職長や一緒に作業する仲間に報告すること。我慢は危険です。",
+              "次に、熱中症です。",
+              "夏の高温多湿の炎天下で長時間作業していると、体は汗を出して熱を逃がそうとします。",
+              "しかし、冷却が追いつかない、あるいは汗で失われた水分と塩分を補給しないと、体温調節に障害が起きます。",
+              "これが熱中症です。",
+              "足場の上は、地上より条件が悪くなります。",
+              "鉄の部材は太陽で熱くなり、シートを張っていれば風が通りません。日陰もありません。",
+              "予防の基本は三つです。",
+              "一つ目、水分と塩分を、作業を始める前からこまめにとること。喉が渇いてからでは遅い。",
+              "スポーツドリンクなど、塩分を含むものが有効です。水だけでは足りません。",
+              "二つ目、休憩を取り、体を涼ませること。休憩時間は、涼しい場所で体を冷やすことに使ってください。",
+              "三つ目、体調を整えること。睡眠不足、疲労の蓄積、二日酔い、食欲不振。これらは熱中症の危険を高めます。",
+              "服装も大事です。汗が乾きやすく、通気性の良い素材のものを選んでください。",
+              "そして、暑さに慣れないうちは特に注意が要ります。",
+              "梅雨明け直後や、久しぶりに現場に出た日が最も危ない。無理を控え、慎重に行動してください。",
+              "症状が出たときの対応も知っておいてください。",
+              "めまい、立ちくらみ、筋肉のけいれん、大量の発汗。これらは初期の症状です。",
+              "頭痛、吐き気、体がだるい、力が入らない。ここまで来ると、自力での回復は難しくなります。",
+              "返事がおかしい、まっすぐ歩けない、意識がはっきりしない。これは重症です。すぐに救急要請をしてください。",
+              "そして最も大事なのは、異常を感じたら、すぐに職長や一緒に作業する仲間に報告することです。",
+              "自分では判断できなくなるのが、熱中症の怖いところです。",
+              "だから、周りの人が気づくことも大事です。いつもと様子が違う人がいたら、声を掛けてください。",
+              "我慢は美徳ではありません。倒れてからでは遅いのです。",
+              "その他の災害についても、簡単に触れておきます。",
+              "冬場は、踏板や手すりが凍ります。前日の雨が、朝には氷になっています。",
+              "手袋が滑り、体もこわばります。冬の朝の動き始めが、最も危ない時間帯です。",
+              "粉じんや騒音も、作業環境の問題です。切断作業では防じんマスクを、騒音下では耳栓を使ってください。",
+              "腰痛にも注意が必要です。重い部材を持ち上げるときは、腰を落として、体に近づけて持つ。",
+              "無理な姿勢でひねりながら持ち上げるのが、最も腰を痛めます。",
+              "そして、けがをしたら必ず報告してください。",
+              "軽いから黙っておく、という判断が、後で大きな問題になります。",
+              "この単元のまとめです。",
+              "架空電線には近づかない。離隔距離を確保し、防護管の設置や移設を依頼する。部材を起こす前に上を見る。",
+              "感電した人には直接触れない。電源を切るか、電気を通さない物で引き離し、直ちに救急要請する。",
+              "熱中症は、作業前からの水分と塩分の補給、休憩、体調管理で防ぐ。",
+              "異常を感じたらすぐ報告する。周りの人も、様子の違いに気づいたら声を掛ける。",
+              "次の科目では、関係法令について学びます。"
+      ],
+        figures: [
+              {
+                      "id": "F3-4-1",
+                      "t": "架空電線への対応",
+                      "min": 1,
+                      "type": "list",
+                      "lead": "部材を起こす前に、必ず上を見てください。",
+                      "parts": [
+                              {
+                                      "n": "離隔距離の確保",
+                                      "d": "電圧に応じて必要な距離が定められている。近づくだけで放電することがある"
+                              },
+                              {
+                                      "n": "防護管の設置・移設の依頼",
+                                      "d": "電力会社へ。事前の段取りであり、当日では間に合わない"
+                              },
+                              {
+                                      "n": "部材の長さを意識する",
+                                      "d": "支柱3.6m、手すり1.8m。起こせば背丈のはるか上に届く"
+                              },
+                              {
+                                      "n": "雨の日は特に危険",
+                                      "d": "濡れた部材は電気を通しやすい"
+                              },
+                              {
+                                      "n": "電動工具",
+                                      "d": "コードの被覆、濡れた手、漏電遮断器のある電源から取る"
+                              }
+                      ],
+                      "task": {
+                              "q": "架空電線が近い現場でまずすることは",
+                              "a": [
+                                      "急いで組む",
+                                      "離隔距離の確保と防護管の依頼",
+                                      "夜間に作業する"
+                              ],
+                              "ok": 1
+                      }
+              },
+              {
+                      "id": "F3-4-2",
+                      "t": "感電したときの対応",
+                      "min": 1,
+                      "type": "flow",
+                      "lead": "触った人も感電します。順序を間違えないでください。",
+                      "parts": [
+                              {
+                                      "n": "① 直接触れない",
+                                      "d": "感電している人にそのまま触ると、触った人も感電する"
+                              },
+                              {
+                                      "n": "② まず電源を切る",
+                                      "d": "ブレーカーを落とす。これが最優先"
+                              },
+                              {
+                                      "n": "③ 切れない場合",
+                                      "d": "乾いた木や樹脂の棒など、電気を通さない物で引き離す"
+                              },
+                              {
+                                      "n": "④ 直ちに救急要請",
+                                      "d": "外から見て軽そうでも、体の内部が損傷していることがある"
+                              },
+                              {
+                                      "n": "⑤ 応急手当",
+                                      "d": "意識と呼吸を確認する。必要なら心肺蘇生"
+                              }
+                      ],
+                      "task": {
+                              "q": "感電している人を見つけたら最初にすることは",
+                              "a": [
+                                      "引っ張って助ける",
+                                      "電源を切る",
+                                      "水をかける"
+                              ],
+                              "ok": 1
+                      }
+              },
+              {
+                      "id": "F3-4-3",
+                      "t": "熱中症の予防",
+                      "min": 1,
+                      "type": "list",
+                      "lead": "足場の上は、地上より条件が悪くなります。",
+                      "parts": [
+                              {
+                                      "n": "水分と塩分を作業前から",
+                                      "d": "喉が渇いてからでは遅い。水だけでは足りない"
+                              },
+                              {
+                                      "n": "休憩は体を冷やすことに使う",
+                                      "d": "涼しい場所で、体を涼ませる"
+                              },
+                              {
+                                      "n": "体調管理",
+                                      "d": "睡眠不足、疲労蓄積、二日酔い、食欲不振は危険を高める"
+                              },
+                              {
+                                      "n": "服装",
+                                      "d": "汗が乾きやすく、通気性の良い素材"
+                              },
+                              {
+                                      "n": "暑さに慣れないうち",
+                                      "d": "梅雨明け直後、久しぶりの現場が最も危ない"
+                              },
+                              {
+                                      "n": "足場上の環境",
+                                      "d": "鉄部材が熱くなり、シートで風が通らず、日陰もない"
+                              }
+                      ],
+                      "task": {
+                              "q": "水分・塩分の補給は",
+                              "a": [
+                                      "喉が渇いてから",
+                                      "作業を始める前からこまめに",
+                                      "休憩時だけ"
+                              ],
+                              "ok": 1
+                      }
+              },
+              {
+                      "id": "F3-4-4",
+                      "t": "熱中症の症状と対応",
+                      "min": 1,
+                      "type": "flow",
+                      "lead": "自分では判断できなくなるのが、熱中症の怖いところです。",
+                      "parts": [
+                              {
+                                      "n": "初期：めまい・立ちくらみ",
+                                      "d": "筋肉のけいれん、大量の発汗。この段階で休む"
+                              },
+                              {
+                                      "n": "中等度：頭痛・吐き気・だるさ",
+                                      "d": "力が入らない。自力での回復は難しくなる"
+                              },
+                              {
+                                      "n": "重症：意識がはっきりしない",
+                                      "d": "返事がおかしい、まっすぐ歩けない。すぐに救急要請"
+                              },
+                              {
+                                      "n": "涼しい場所へ移す",
+                                      "d": "衣服を緩め、体を冷やす"
+                              },
+                              {
+                                      "n": "首・脇の下・脚の付け根を冷やす",
+                                      "d": "太い血管が通っている場所"
+                              },
+                              {
+                                      "n": "周りが気づくこと",
+                                      "d": "いつもと様子が違う人がいたら声を掛ける"
+                              }
+                      ],
+                      "task": {
+                              "q": "返事がおかしい、まっすぐ歩けない状態は",
+                              "a": [
+                                      "少し休めばよい",
+                                      "重症。すぐに救急要請",
+                                      "水を飲ませて様子を見る"
+                              ],
+                              "ok": 1
+                      }
+              }
+      ],
+        cases: [],
+        quiz: [
+              {
+                      "q": "架空電線が近い現場での措置は",
+                      "a": [
+                              "急いで組み立てる",
+                              "離隔距離の確保、防護管の設置や移設の依頼",
+                              "夜間に作業する"
+                      ],
+                      "ok": 1,
+                      "why": "長い部材が電線に触れる事故を防ぐ措置が必要です。"
+              },
+              {
+                      "q": "熱中症予防の水分・塩分補給は",
+                      "a": [
+                              "喉が渇いてから",
+                              "作業を始める前からこまめに",
+                              "休憩時だけ"
+                      ],
+                      "ok": 1,
+                      "why": "作業前からこまめな補給が必要です。"
+              },
+              {
+                      "q": "感電している人を見つけたら最初にすることは",
+                      "a": [
+                              "引っ張って助ける",
+                              "電源を切る",
+                              "水をかける"
+                      ],
+                      "ok": 1,
+                      "why": "直接触れると、触った人も感電します。"
+              },
+              {
+                      "q": "熱中症で「返事がおかしい」状態は",
+                      "a": [
+                              "少し休めばよい",
+                              "重症。すぐに救急要請",
+                              "水を飲ませて様子を見る"
+                      ],
+                      "ok": 1,
+                      "why": "意識障害は重症のサインです。"
+              }
+      ] },
+    ],
+  },
+  {
+    id: 4, n: "関係法令", need: 60,
+    lessons: [
+      { id: "4-1", t: "法、令及び安衛則中の関係条項", han: "法、令及び安衛則中の関係条項", min: 35, scene: "law",
+        script: [
+              "この科目では、足場の作業に関わる法令を確認します。",
+              "法令と聞くと、覚えることが多くて面倒だと感じるかもしれません。",
+              "しかし、ここまでの科目で学んだ内容は、ほとんどが法令に根拠を持っています。",
+              "手すりの高さも、作業床の幅も、点検の時期も、すべて条文に書かれています。",
+              "この科目は、新しいことを覚える科目ではありません。",
+              "これまで学んだことが、どこに書かれているのかを確認する科目です。",
+              "まず、法令の仕組みから説明します。",
+              "日本の労働安全に関する決まりは、階層になっています。",
+              "一番上が、法律です。労働安全衛生法、略して安衛法。",
+              "国会で決められるもので、大きな枠組みと、事業者の義務の骨格を定めています。",
+              "その下が、政令です。労働安全衛生法施行令。",
+              "法律で定めた事項のうち、どの範囲に適用するかを具体的に示します。",
+              "さらにその下が、省令です。労働安全衛生規則、略して安衛則。",
+              "実際の現場で守るべき具体的な基準は、ほとんどがここに書かれています。",
+              "手すりの高さも、作業床の幅も、点検の項目も、安衛則の中にあります。",
+              "そして、その下に告示や通達があります。",
+              "告示は、より細かい技術的な基準を定めたもの。",
+              "通達は、行政が解釈や運用の考え方を示したものです。",
+              "手すり先行工法に関するガイドラインなども、この階層に位置します。",
+              "現場で「法律で決まっている」と言うとき、その多くは安衛則のことを指しています。",
+              "では、特別教育の根拠を確認します。",
+              "労働安全衛生法第五十九条第三項。",
+              "事業者は、危険または有害な業務に労働者を就かせるときは、特別の教育を行わなければならない、と定められています。",
+              "そして、どの業務が対象になるかを示しているのが、労働安全衛生規則第三十六条です。",
+              "その第三十九号に、足場の組立て、解体または変更の作業に係る業務が挙げられています。",
+              "この規定は、平成二十七年七月一日から施行されました。",
+              "足場からの墜落・転落災害を防止するため、規則が改正されたことによるものです。",
+              "対象から除かれるのは、地上または堅固な床上における補助作業の業務です。",
+              "ここでいう補助作業とは、地上や堅固な床の上での材料の運搬や整理などをいいます。",
+              "足場材の緊結や取り外しの作業、そして足場の上での補助作業は、除外に含まれません。",
+              "つまり、足場に上がって何かをするなら、特別教育が必要だということです。",
+              "なお、次の者については、科目について十分な知識と経験があると認められ、全ての科目を省略できるとされています。",
+              "足場の組立て等作業主任者。一級または二級のとび技能士。とび科の職業訓練指導員免許を持つ者。",
+              "これらに該当しない限り、教育を受けずに作業に就くことはできません。",
+              "この科目では、足場の作業に関わる法令を確認します。",
+              "足場の組立て、解体、または変更の作業に係る業務は、特別教育の対象とされています。",
+              "根拠は、労働安全衛生法第五十九条第三項と、労働安全衛生規則第三十六条第三十九号です。",
+              "平成二十七年七月一日から義務づけられました。足場からの墜落災害を防ぐための規則改正に伴うものです。",
+              "対象から除かれるのは、地上または堅固な床の上における補助作業の業務です。",
+              "ここでいう補助作業とは、地上や堅固な床の上での材料の運搬や整理などをいいます。",
+              "足場材の緊結や取り外しの作業、そして足場の上での補助作業は、除外に含まれません。つまり特別教育が必要です。",
+              "なお、次の者は科目について十分な知識と経験があると認められ、全ての科目を省略できるとされています。",
+              "足場の組立て等作業主任者、一級または二級のとび技能士、とび科の職業訓練指導員免許を持つ者です。",
+              "これとは別に、作業主任者を選任すべき作業があります。労働安全衛生法施行令第六条に定められています。",
+              "つり足場、ゴンドラのつり足場を除きます。それから張出し足場。そして高さ五メートル以上の構造の足場の組立て、解体、変更の作業です。",
+              "これらの作業は、特別教育の修了者だけでは行えません。",
+              "作業主任者を選任しない作業でも、墜落の危険があるときは、作業指揮者を定めます。安衛則第五百二十九条です。",
+              "事業者は、作業を指揮する者を指名して直接指揮させ、作業の方法と順序をあらかじめ作業者に周知させなければなりません。",
+              "作業者は、作業主任者または作業指揮者の指揮に従って作業を行います。",
+              "作業手順の遵守、保護具の着用と使用の遵守、そして不安全行動をしないこと。これが基本になります。",
+              "次に、作業主任者と作業指揮者です。",
+              "労働安全衛生法施行令第六条に、作業主任者を選任すべき作業が列挙されています。",
+              "足場に関するものは、つり足場、ゴンドラのつり足場を除きます。",
+              "それから張出し足場。そして高さが五メートル以上の構造の足場の組立て、解体または変更の作業です。",
+              "これらの作業では、足場の組立て等作業主任者技能講習を修了した者から、作業主任者を選任しなければなりません。",
+              "作業主任者には、職務が定められています。",
+              "材料の欠点の有無を点検し、不良品を取り除くこと。",
+              "器具、工具、要求性能墜落制止用器具、保護帽の機能を点検し、不良品を取り除くこと。",
+              "作業の方法および労働者の配置を決定し、作業の進行状況を監視すること。",
+              "そして、要求性能墜落制止用器具および保護帽の使用状況を監視することです。",
+              "つまり、指示を出すだけでなく、見張る役目も負っています。",
+              "一方、作業主任者を選任しない作業でも、墜落の危険があるときは作業指揮者を定めます。",
+              "労働安全衛生規則第五百二十九条です。",
+              "事業者は、作業を指揮する者を指名して直接指揮させ、作業の方法と順序をあらかじめ作業者に周知させなければなりません。",
+              "ここで大事なのは、特別教育を修了しても、作業主任者にはなれないということです。",
+              "作業主任者は技能講習の修了者から選ばれます。別の資格だと理解してください。",
+              "続いて、足場に関する主な条項を確認します。",
+              "まず、材料についてです。安衛則には、著しい損傷、変形または腐食のある材料を使用してはならないと定められています。",
+              "次に、作業床です。高さ二メートル以上の作業場所には、作業床を設けなければなりません。",
+              "その作業床の幅は四十センチメートル以上、床材間のすき間は三センチメートル以下。",
+              "床材と建地とのすき間は十二センチメートル未満とされています。",
+              "そして、墜落の危険のある箇所には、手すりと中さん等を設けます。手すりは高さ八十五センチメートル以上です。",
+              "作業の必要上、臨時にこれらを取り外したときは、その箇所への立入りを禁止し、作業終了後は直ちに元に戻さなければなりません。",
+              "次に、足場の組立て等の作業についてです。",
+              "事業者は、組立て等の時期、範囲および順序を作業者に周知させること。",
+              "作業を行う区域内には、関係労働者以外の立入りを禁止すること。",
+              "悪天候のため危険が予想されるときは、作業を中止すること。",
+              "足場材の緊結、取り外し、受け渡し等の作業では、幅四十センチメートル以上の作業床を設けること。",
+              "そして、墜落制止用器具を取り付ける設備を設け、使用させること。",
+              "材料等を上げ下ろしするときは、つり綱、つり袋等を使用させること。",
+              "これらが定められています。ここまでの科目で学んだ内容そのものです。",
+              "次に、点検です。",
+              "足場を組み立て、一部を解体し、または変更した後、作業を開始する前に点検すること。",
+              "その日の作業を開始する前に点検すること。",
+              "強風、大雨、大雪等の悪天候の後、中震以上の地震の後にも点検すること。",
+              "そして、点検の結果と点検者の氏名を記録し、足場を使用する期間中は保存することとされています。",
+              "悪天候時の作業については、高さ二メートル以上の箇所での作業を禁止する規定があります。",
+              "さらに、注文者にも義務があります。",
+              "足場を請負人の労働者に使用させる注文者は、その足場について点検し、危険のおそれがあるときは速やかに修理しなければなりません。",
+              "元請が組んだ足場を下請が使う場合、元請にも点検の義務があるということです。",
+              "最後に、罰則と監督についてお話しします。",
+              "労働安全衛生法に違反した場合、罰則が定められています。",
+              "違反の内容によって、懲役または罰金が科されます。",
+              "そして、行政による監督もあります。",
+              "労働基準監督署の監督官は、事業場に立ち入り、書類を検査し、関係者に質問する権限を持っています。",
+              "違反があれば是正勧告が出され、危険が切迫していれば使用停止命令や作業停止命令が出されます。",
+              "命令が出れば、現場は止まります。工期は遅れ、損害が発生します。",
+              "また、重大な災害を起こした事業者は、公表されることもあります。",
+              "法令は、守らなければ罰せられるから守るもの、と考えるのは少し寂しい話です。",
+              "しかし、罰則があるということは、それだけ重い義務だという意味でもあります。",
+              "そして、法令に書かれている基準は、最低限の基準です。",
+              "これを守っていれば絶対に安全、というものではありません。",
+              "現場の状況に応じて、より安全な措置をとることが求められています。",
+              "法令の使い方についても触れておきます。",
+              "全部を暗記する必要はありません。現場で必要になったときに、調べられればいい。",
+              "厚生労働省の法令検索や、電子政府の総合窓口で、条文はいつでも読めます。",
+              "大事なのは、これは法令で決まっていることなのかどうか、を判断できることです。",
+              "会社の決まりなのか、現場のやり方なのか、それとも法令なのか。",
+              "法令で決まっていることは、話し合いで変えられません。",
+              "「今回だけ」が通用しないのが、法令です。",
+              "そして、条文の番号は改正で変わることがあります。",
+              "数字を覚えるより、どんなことが定められているかを覚えてください。",
+              "法令について、現場でよくある誤解も挙げておきます。",
+              "一つ目、「うちは小さい現場だから関係ない」。",
+              "安衛法に、現場の規模による除外はありません。一人で作業する現場でも、義務は同じです。",
+              "二つ目、「元請が言わないからやらなくていい」。",
+              "事業者としての義務は、自社の労働者に対して自社が負います。元請の指示の有無とは別の話です。",
+              "三つ目、「昔からこうやってきた」。",
+              "法令は改正されます。平成二十七年に特別教育が義務化されたのも、その一つです。",
+              "昔は不要だったことが、いまは必要になっている。それを知らないままでは守れません。",
+              "四つ目、「資格を持っているから大丈夫」。",
+              "資格は、その作業に就く条件を満たしているという意味です。安全を保証するものではありません。",
+              "作業主任者を選任していても、その人が現場を見ていなければ意味がありません。",
+              "この四つは、どれも実際の現場で聞かれる言葉です。",
+              "そして、どれも災害が起きた後に、通用しなかった言葉でもあります。",
+              "この単元のまとめです。",
+              "法令は階層になっている。法律、政令、省令、そして告示と通達。現場の基準の多くは安衛則にある。",
+              "特別教育の根拠は、安衛法第五十九条第三項と、安衛則第三十六条第三十九号。平成二十七年七月一日施行。",
+              "除かれるのは、地上または堅固な床上での補助作業のみ。足場に上がって作業するなら教育が要る。",
+              "全科目を省略できるのは、作業主任者、一級・二級とび技能士、とび科の職業訓練指導員免許取得者。",
+              "つり足場、張出し足場、高さ五メートル以上の足場の組立て等では、作業主任者を選任する。",
+              "特別教育を修了しても、作業主任者にはなれない。作業主任者は技能講習の修了者から選任される。",
+              "作業主任者を選任しない作業でも、墜落の危険があるときは作業指揮者を定める。",
+              "作業床、手すり、点検、悪天候時の作業禁止。これまで学んだ内容は、すべて条文に根拠がある。",
+              "注文者にも点検の義務がある。",
+              "法令の基準は最低限。守っていれば絶対に安全、ということではない。",
+              "次の単元では、事業者と作業者の義務、そして企業の責任について学びます。",
+              "法令の話は以上です。",
+              "条文の番号を覚える必要はありません。",
+              "どんなことが定められているか、そしてそれがなぜ定められたのかを覚えてください。"
+      ],
+        figures: [
+              {
+                      "id": "F4-1-1",
+                      "t": "法令の階層",
+                      "min": 1,
+                      "type": "flow",
+                      "lead": "現場で「法律で決まっている」と言うとき、その多くは安衛則のことです。",
+                      "parts": [
+                              {
+                                      "n": "① 法律：労働安全衛生法（安衛法）",
+                                      "d": "国会で決める。大きな枠組みと事業者の義務の骨格"
+                              },
+                              {
+                                      "n": "② 政令：労働安全衛生法施行令",
+                                      "d": "どの範囲に適用するかを具体的に示す"
+                              },
+                              {
+                                      "n": "③ 省令：労働安全衛生規則（安衛則）",
+                                      "d": "現場で守る具体的な基準はほとんどここ"
+                              },
+                              {
+                                      "n": "④ 告示",
+                                      "d": "より細かい技術的な基準"
+                              },
+                              {
+                                      "n": "⑤ 通達・ガイドライン",
+                                      "d": "行政の解釈や運用の考え方。手すり先行工法のガイドライン等"
+                              }
+                      ],
+                      "task": {
+                              "q": "手すりの高さや作業床の幅が定められているのは",
+                              "a": [
+                                      "労働安全衛生法",
+                                      "労働安全衛生規則",
+                                      "通達"
+                              ],
+                              "ok": 1
+                      }
+              },
+              {
+                      "id": "F4-1-2",
+                      "t": "特別教育の根拠",
+                      "min": 1,
+                      "type": "list",
+                      "lead": "いま受けているこの教育の根拠です。",
+                      "parts": [
+                              {
+                                      "n": "安衛法 第59条第3項",
+                                      "d": "危険または有害な業務に就かせるときは、特別の教育を行わなければならない"
+                              },
+                              {
+                                      "n": "安衛則 第36条第39号",
+                                      "d": "足場の組立て、解体または変更の作業に係る業務"
+                              },
+                              {
+                                      "n": "施行日",
+                                      "d": "平成27年7月1日。足場からの墜落・転落災害の防止のための改正による"
+                              },
+                              {
+                                      "n": "実施義務者",
+                                      "d": "事業者。外部機関に委託しても責任は移らない"
+                              },
+                              {
+                                      "n": "記録",
+                                      "d": "受講者・科目・時間等を記録し、保存する"
+                              }
+                      ],
+                      "task": {
+                              "q": "特別教育の実施義務があるのは",
+                              "a": [
+                                      "作業者本人",
+                                      "事業者",
+                                      "労働基準監督署"
+                              ],
+                              "ok": 1
+                      }
+              },
+              {
+                      "id": "F4-1-3",
+                      "t": "対象となる業務と除外",
+                      "min": 1,
+                      "type": "compare",
+                      "lead": "足場に上がって作業するなら、教育が要ります。",
+                      "parts": [
+                              {
+                                      "n": "対象：足場の組立ての作業",
+                                      "d": "特別教育が必要"
+                              },
+                              {
+                                      "n": "対象：足場の解体の作業",
+                                      "d": "特別教育が必要"
+                              },
+                              {
+                                      "n": "対象：足場の変更の作業",
+                                      "d": "手すりの一時撤去、荷受けステージの設置なども含む"
+                              },
+                              {
+                                      "n": "対象：足場材の緊結・取り外し",
+                                      "d": "除外に含まれない"
+                              },
+                              {
+                                      "n": "対象：足場の上での補助作業",
+                                      "d": "除外に含まれない"
+                              },
+                              {
+                                      "n": "除外：地上・堅固な床上での補助作業",
+                                      "d": "材料の運搬、整理など。これのみが除外"
+                              }
+                      ],
+                      "task": {
+                              "q": "特別教育が不要なのはどれか",
+                              "a": [
+                                      "足場上での補助作業",
+                                      "地上での材料の運搬・整理",
+                                      "足場材の緊結"
+                              ],
+                              "ok": 1
+                      }
+              },
+              {
+                      "id": "F4-1-4",
+                      "t": "全科目を省略できる者",
+                      "min": 1,
+                      "type": "list",
+                      "lead": "十分な知識と経験があると認められる者です。",
+                      "parts": [
+                              {
+                                      "n": "足場の組立て等作業主任者",
+                                      "d": "技能講習の修了者"
+                              },
+                              {
+                                      "n": "1級とび技能士",
+                                      "d": ""
+                              },
+                              {
+                                      "n": "2級とび技能士",
+                                      "d": ""
+                              },
+                              {
+                                      "n": "とび科の職業訓練指導員免許取得者",
+                                      "d": ""
+                              },
+                              {
+                                      "n": "これ以外の者",
+                                      "d": "経験年数にかかわらず、特別教育を受けずに作業に就くことはできない"
+                              }
+                      ],
+                      "task": {
+                              "q": "経験10年の作業者は特別教育を省略できるか",
+                              "a": [
+                                      "経験があれば省略できる",
+                                      "省略できない",
+                                      "職長の判断による"
+                              ],
+                              "ok": 1
+                      }
+              },
+              {
+                      "id": "F4-1-5",
+                      "t": "作業主任者を選任すべき作業",
+                      "min": 1,
+                      "type": "list",
+                      "lead": "労働安全衛生法施行令第6条に列挙されています。",
+                      "parts": [
+                              {
+                                      "n": "つり足場（ゴンドラのつり足場を除く）",
+                                      "d": "の組立て、解体または変更の作業"
+                              },
+                              {
+                                      "n": "張出し足場",
+                                      "d": "の組立て、解体または変更の作業"
+                              },
+                              {
+                                      "n": "高さが5m以上の構造の足場",
+                                      "d": "の組立て、解体または変更の作業"
+                              },
+                              {
+                                      "n": "選任する者",
+                                      "d": "足場の組立て等作業主任者技能講習の修了者から選任する"
+                              },
+                              {
+                                      "n": "特別教育修了者だけでは行えない",
+                                      "d": "これらの作業には作業主任者が必要"
+                              }
+                      ],
+                      "task": {
+                              "q": "作業主任者の選任が必要な足場の高さは",
+                              "a": [
+                                      "2m以上",
+                                      "5m以上",
+                                      "10m以上"
+                              ],
+                              "ok": 1
+                      }
+              },
+              {
+                      "id": "F4-1-6",
+                      "t": "作業主任者の職務",
+                      "min": 1,
+                      "type": "list",
+                      "lead": "指示を出すだけでなく、見張る役目も負っています。",
+                      "parts": [
+                              {
+                                      "n": "材料の欠点の有無を点検",
+                                      "d": "不良品を取り除く"
+                              },
+                              {
+                                      "n": "器具・工具・保護具の機能を点検",
+                                      "d": "要求性能墜落制止用器具、保護帽を含む。不良品を取り除く"
+                              },
+                              {
+                                      "n": "作業の方法と労働者の配置を決定",
+                                      "d": "作業の進行状況を監視する"
+                              },
+                              {
+                                      "n": "保護具の使用状況を監視",
+                                      "d": "着けているか、正しく使っているかを見る"
+                              },
+                              {
+                                      "n": "作業者の側の義務",
+                                      "d": "作業主任者の指揮に従って作業を行う"
+                              }
+                      ],
+                      "task": {
+                              "q": "作業主任者の職務に含まれないのは",
+                              "a": [
+                                      "材料の点検",
+                                      "保護具の使用状況の監視",
+                                      "工事代金の請求"
+                              ],
+                              "ok": 2
+                      }
+              },
+              {
+                      "id": "F4-1-7",
+                      "t": "作業指揮者（安衛則第529条）",
+                      "min": 1,
+                      "type": "list",
+                      "lead": "作業主任者を選任しない作業でも、指揮者が要ります。",
+                      "parts": [
+                              {
+                                      "n": "対象",
+                                      "d": "建築物、橋梁、足場等の組立て、解体または変更の作業（作業主任者を選任する作業を除く）"
+                              },
+                              {
+                                      "n": "条件",
+                                      "d": "墜落により労働者に危険を及ぼすおそれのあるとき"
+                              },
+                              {
+                                      "n": "措置①",
+                                      "d": "作業を指揮する者を指名し、その者に直接作業を指揮させる"
+                              },
+                              {
+                                      "n": "措置②",
+                                      "d": "あらかじめ、作業の方法および順序を作業者に周知させる"
+                              },
+                              {
+                                      "n": "作業者の側",
+                                      "d": "作業主任者または作業指揮者の指揮に従って作業する"
+                              }
+                      ],
+                      "task": {
+                              "q": "高さ4mの足場を組む場合",
+                              "a": [
+                                      "作業主任者を選任する",
+                                      "作業指揮者を定める",
+                                      "誰も要らない"
+                              ],
+                              "ok": 1
+                      }
+              },
+              {
+                      "id": "F4-1-8",
+                      "t": "作業床に関する規定",
+                      "min": 1,
+                      "type": "dimension",
+                      "lead": "これまで学んだ数字が、条文に書かれています。",
+                      "parts": [
+                              {
+                                      "n": "作業床の設置",
+                                      "d": "高さ2m以上の作業場所には作業床を設ける"
+                              },
+                              {
+                                      "n": "作業床の幅",
+                                      "d": "40cm以上"
+                              },
+                              {
+                                      "n": "床材間のすき間",
+                                      "d": "3cm以下"
+                              },
+                              {
+                                      "n": "床材と建地とのすき間",
+                                      "d": "12cm未満"
+                              },
+                              {
+                                      "n": "手すり等",
+                                      "d": "墜落の危険のある箇所に、高さ85cm以上の手すりと中さん等"
+                              },
+                              {
+                                      "n": "臨時に取り外したとき",
+                                      "d": "立入りを禁止し、作業終了後は直ちに元に戻す"
+                              }
+                      ],
+                      "task": {
+                              "q": "作業床を設けるべき高さは",
+                              "a": [
+                                      "1.5m以上",
+                                      "2m以上",
+                                      "5m以上"
+                              ],
+                              "ok": 1
+                      }
+              },
+              {
+                      "id": "F4-1-9",
+                      "t": "組立て等の作業で講じる措置",
+                      "min": 1,
+                      "type": "list",
+                      "lead": "科目1で学んだ5つの措置は、ここに根拠があります。",
+                      "parts": [
+                              {
+                                      "n": "時期・範囲・順序の周知",
+                                      "d": "作業に従事する労働者に周知させる"
+                              },
+                              {
+                                      "n": "立入禁止",
+                                      "d": "作業を行う区域内に、関係労働者以外を立ち入らせない"
+                              },
+                              {
+                                      "n": "悪天候時の中止",
+                                      "d": "危険が予想されるときは作業を中止する"
+                              },
+                              {
+                                      "n": "作業床と取付け設備",
+                                      "d": "幅40cm以上の作業床、墜落制止用器具を取り付ける設備を設け、使用させる"
+                              },
+                              {
+                                      "n": "つり綱・つり袋",
+                                      "d": "材料等を上げ下ろしするときに使用させる"
+                              }
+                      ],
+                      "task": {
+                              "q": "これらの措置を講じる義務があるのは",
+                              "a": [
+                                      "作業主任者",
+                                      "事業者",
+                                      "作業者本人"
+                              ],
+                              "ok": 1
+                      }
+              },
+              {
+                      "id": "F4-1-10",
+                      "t": "点検に関する規定",
+                      "min": 1,
+                      "type": "list",
+                      "lead": "点検の時期と、記録の保存が定められています。",
+                      "parts": [
+                              {
+                                      "n": "組立て・一部解体・変更の後",
+                                      "d": "作業を開始する前に点検する"
+                              },
+                              {
+                                      "n": "その日の作業を開始する前",
+                                      "d": "毎日行う"
+                              },
+                              {
+                                      "n": "悪天候の後",
+                                      "d": "強風、大雨、大雪等の後"
+                              },
+                              {
+                                      "n": "中震以上の地震の後",
+                                      "d": "震度4以上"
+                              },
+                              {
+                                      "n": "記録の保存",
+                                      "d": "点検の結果と点検者の氏名を記録し、足場を使用する期間中保存する"
+                              },
+                              {
+                                      "n": "注文者の義務",
+                                      "d": "足場を請負人の労働者に使用させる注文者にも点検義務がある"
+                              }
+                      ],
+                      "task": {
+                              "q": "点検記録の保存期間は",
+                              "a": [
+                                      "1か月",
+                                      "その足場を使用する期間中",
+                                      "保存不要"
+                              ],
+                              "ok": 1
+                      }
+              },
+              {
+                      "id": "F4-1-11",
+                      "t": "悪天候時の作業禁止",
+                      "min": 1,
+                      "type": "dimension",
+                      "lead": "高さ2m以上の箇所での作業が禁止されます。",
+                      "parts": [
+                              {
+                                      "n": "強風",
+                                      "d": "10分間の平均風速10m/s以上"
+                              },
+                              {
+                                      "n": "大雨",
+                                      "d": "1回の降雨量50mm以上"
+                              },
+                              {
+                                      "n": "大雪",
+                                      "d": "1回の降雪量25cm以上"
+                              },
+                              {
+                                      "n": "対象",
+                                      "d": "悪天候が予想されるときの、高さ2m以上の箇所での作業"
+                              },
+                              {
+                                      "n": "悪天候の後",
+                                      "d": "作業開始前に点検し、危険のおそれがあれば速やかに修理する"
+                              }
+                      ],
+                      "task": {
+                              "q": "悪天候時に禁止されるのは",
+                              "a": [
+                                      "すべての作業",
+                                      "高さ2m以上の箇所での作業",
+                                      "地上の作業"
+                              ],
+                              "ok": 1
+                      }
+              },
+              {
+                      "id": "F4-1-12",
+                      "t": "罰則と行政監督",
+                      "min": 1,
+                      "type": "list",
+                      "lead": "法令の基準は、最低限の基準です。",
+                      "parts": [
+                              {
+                                      "n": "罰則",
+                                      "d": "安衛法違反には、違反の内容に応じて懲役または罰金"
+                              },
+                              {
+                                      "n": "労働基準監督官の権限",
+                                      "d": "事業場への立入り、書類の検査、関係者への質問"
+                              },
+                              {
+                                      "n": "是正勧告",
+                                      "d": "違反が確認された場合に出される"
+                              },
+                              {
+                                      "n": "使用停止・作業停止命令",
+                                      "d": "危険が切迫している場合。現場が止まる"
+                              },
+                              {
+                                      "n": "公表",
+                                      "d": "重大な災害を起こした事業者は公表されることがある"
+                              },
+                              {
+                                      "n": "最低限の基準",
+                                      "d": "守っていれば絶対に安全、ということではない。状況に応じてより安全な措置を"
+                              }
+                      ],
+                      "task": {
+                              "q": "法令の基準の位置づけは",
+                              "a": [
+                                      "守れば絶対に安全",
+                                      "最低限の基準",
+                                      "努力目標"
+                              ],
+                              "ok": 1
+                      }
+              }
+      ],
+        cases: [
+              {
+                      "id": "C4-1-1",
+                      "t": "作業主任者を選任せず、高さ7mの足場の解体作業中に墜落",
+                      "min": 5,
+                      "meta": {
+                              "作業": "高さ7mの外部足場の解体",
+                              "事故の型": "墜落・転落",
+                              "起因物": "足場",
+                              "結果": "死亡・書類送検"
+                      },
+                      "situation": [
+                              "工場の改修工事が終わり、高さ約7メートルの外部足場を解体する作業が行われていた。",
+                              "作業には3名が従事し、いずれも特別教育は修了していた。",
+                              "しかし、足場の組立て等作業主任者は選任されていなかった。",
+                              "会社は「解体だけなので、経験者に任せれば足りる」と判断していた。",
+                              "作業手順書も作成されておらず、その場の判断で進められていた。",
+                              "被災者は、最上段の踏板を外した後、手すりの取り外しにかかった。",
+                              "手すりを外したことで囲いが無くなり、足元は残った布材だけの状態になった。",
+                              "その布材の上を移動しようとして足を踏み外し、地上まで墜落した。",
+                              "墜落制止用器具は着用していたが、掛ける設備が近くになく、フックは外れていた。",
+                              "災害後の調査で、作業主任者の未選任、作業手順の未策定、墜落防止措置の不備が指摘された。"
+                      ],
+                      "ask": "この災害の、法令上の最も重大な問題はどれでしょうか。",
+                      "options": [
+                              {
+                                      "t": "作業者が特別教育しか修了していなかったこと",
+                                      "ok": false,
+                                      "fb": "特別教育は必要な教育です。問題は、それだけでは足りない作業だったということです。"
+                              },
+                              {
+                                      "t": "高さ5m以上の足場の解体であるのに、作業主任者を選任していなかったこと",
+                                      "ok": true,
+                                      "fb": "そのとおりです。高さ5m以上の構造の足場の組立て、解体、変更の作業では、作業主任者の選任が義務づけられています。特別教育の修了者だけでは行えません。"
+                              },
+                              {
+                                      "t": "作業が3名で行われたこと",
+                                      "ok": false,
+                                      "fb": "人数の問題ではありません。指揮する者がいなかったことが問題です。"
+                              }
+                      ],
+                      "causes": [
+                              "高さ5m以上の足場の解体作業であるにもかかわらず、作業主任者を選任していなかった。",
+                              "作業の方法および順序が定められておらず、作業者に周知されていなかった。",
+                              "手すりを先に外し、囲いの無い状態で移動する手順になっていた。",
+                              "墜落制止用器具を取り付ける設備が設けられておらず、フックを掛けられない状態だった。"
+                      ],
+                      "prevention": [
+                              "つり足場、張出し足場、高さ5m以上の足場の組立て等では、必ず作業主任者を選任する。",
+                              "作業手順書を作成し、作業前に全員へ周知する。解体では手すりを最後に外す順序とする。",
+                              "墜落制止用器具の取付け設備（親綱等）を設け、外さずに移動できるようにする。",
+                              "「解体だけだから」という判断をしない。解体は組立てより不安定になる作業である。"
+                      ],
+                      "lesson": "特別教育は、作業に就くための最低条件です。それだけで、すべての足場作業ができるわけではありません。"
+              }
+      ],
+        quiz: [
+              {
+                      "q": "特別教育の対象から除かれるのは",
+                      "a": [
+                              "足場材の緊結作業",
+                              "地上での材料の運搬・整理",
+                              "足場上の補助作業"
+                      ],
+                      "ok": 1,
+                      "why": "除かれるのは地上または堅固な床上での補助作業のみです。"
+              },
+              {
+                      "q": "作業主任者を選任すべき足場の高さは",
+                      "a": [
+                              "2m以上",
+                              "5m以上",
+                              "10m以上"
+                      ],
+                      "ok": 1,
+                      "why": "つり足場、張出し足場、高さ5m以上の足場の組立て等が対象です。"
+              },
+              {
+                      "q": "全科目の省略が認められるのは",
+                      "a": [
+                              "経験3年以上の作業者",
+                              "1級または2級とび技能士",
+                              "職長経験者"
+                      ],
+                      "ok": 1,
+                      "why": "作業主任者、1級・2級とび技能士、とび科の職業訓練指導員免許取得者です。"
+              },
+              {
+                      "q": "現場で守る具体的な基準の多くが書かれているのは",
+                      "a": [
+                              "労働安全衛生法",
+                              "労働安全衛生規則",
+                              "通達"
+                      ],
+                      "ok": 1,
+                      "why": "手すりの高さも作業床の幅も、安衛則に定められています。"
+              },
+              {
+                      "q": "高さ5m以上の足場の解体作業に必要なのは",
+                      "a": [
+                              "特別教育修了者のみ",
+                              "作業主任者の選任",
+                              "資格は不要"
+                      ],
+                      "ok": 1,
+                      "why": "施行令第6条により作業主任者の選任が必要です。"
+              }
+      ] },
+      { id: "4-2", t: "事業者と作業者の義務、企業責任", han: "事業者及び労働者の義務、記録の保存", min: 25, scene: "duty",
+        script: [
+              "この単元では、事業者と作業者の義務、そして労働災害が起きたときの責任について学びます。",
+              "法令の話の最後に、なぜ守らなければならないのか、という部分を確認します。",
+              "まず、義務の所在です。",
+              "特別教育を行う義務は、事業者にあります。労働安全衛生法第五十九条第三項に定められています。",
+              "社外の教育機関を使った場合でも、実施の責任は事業者が負います。外注しても義務は移りません。",
+              "事業者には、このほかにも多くの義務があります。",
+              "作業床を設ける。手すり等を設ける。点検を行う。悪天候時に作業をさせない。作業主任者を選任する。",
+              "これらはすべて、事業者が講じなければならない措置です。",
+              "一方、作業者にも義務があります。",
+              "事業者が講じた措置に応じて、必要な事項を守らなければならないと定められています。",
+              "具体的には、定められた保護具を使用すること。合図と作業手順に従うこと。",
+              "立入禁止の場所に入らないこと。危険な行為をしないこと。",
+              "設備を用意するのが事業者、それを正しく使うのが作業者。両方そろって初めて安全になります。",
+              "手すりが設けられていても、それを外して戻さなければ意味がありません。",
+              "墜落制止用器具が支給されていても、フックを掛けなければ意味がありません。",
+              "最後に、義務と責任について確認します。",
+              "特別教育を行う義務は、事業者にあります。社外の機関を使った場合でも、実施の責任は事業者が負います。",
+              "作業者にも義務があります。定められた保護具を使用し、合図と作業手順に従うことです。",
+              "労働災害が起きたとき、企業は四つの責任を問われます。刑事責任、民事責任、行政責任、社会的責任です。",
+              "刑事責任は、労働安全衛生法違反や、刑法の業務上過失致死傷罪。個人と会社の両方が問われます。",
+              "民事責任は、安全配慮義務違反や不法行為による賠償責任です。",
+              "行政責任は、使用停止や操業停止、指名停止など。社会的責任は、信用の失墜です。",
+              "重大災害が起きたとき、まず問われるのは、現場で危険防止措置を実行する立場にある監督者です。",
+              "だからこそ、指示された手順を守ることが、自分と仲間、そして会社を守ることになります。",
+              "特別教育の記録は保存します。受講者、科目、時間を残し、誰が、いつ、何時間受けたかを示せるようにします。",
+              "インターネットを使った教育で行う場合も、法定の科目、時間、講師の要件を満たす必要があります。",
+              "そのうえで、受講した事実を、教育を実施する者が確認できることが求められます。この講座で在席確認を行っているのは、そのためです。",
+              "次に、労働災害が起きたときの責任についてお話しします。",
+              "災害が発生すると、企業は四つの責任を問われます。四重責任と呼ばれます。",
+              "一つ目は、刑事責任です。",
+              "労働安全衛生法に違反していれば、その罰則が適用されます。",
+              "また、必要な注意を怠って人を死傷させれば、刑法の業務上過失致死傷罪に問われることがあります。",
+              "刑事責任は、会社だけでなく、個人も問われます。",
+              "二つ目は、民事責任です。",
+              "事業者には、労働者が安全に働けるよう配慮する義務があります。安全配慮義務といいます。",
+              "これを怠って災害が起きれば、損害賠償を請求されます。",
+              "三つ目は、行政責任です。",
+              "労働基準監督署による使用停止命令、作業停止命令。建設業法に基づく指名停止や営業停止。",
+              "現場が止まるだけでなく、次の仕事が取れなくなります。",
+              "四つ目は、社会的責任です。",
+              "報道され、信用を失う。取引先から契約を打ち切られる。人が集まらなくなる。",
+              "この四つの中で、実は最も会社を苦しめるのが、三つ目と四つ目です。",
+              "そして、重大な災害が起きたとき、刑事責任をまず問われるのは誰か。",
+              "安衛法では事業者の責任が問われますが、監督者、つまり職長などは、事業者責任を現場で実行する立場にあります。",
+              "したがって、監督者は現場における危険防止措置の実行義務者となります。",
+              "重大災害が発生したとき、まず職長など現場の監督者が被告となる。これが実際です。",
+              "指示を出した人が問われる。だから、正しい指示を出せる知識が要るのです。",
+              "記録についても確認します。",
+              "特別教育を行ったときは、その記録を作成し、保存しなければならないとされています。",
+              "残すのは、受講者、科目、時間、実施年月日、そして講師です。",
+              "なぜ記録が必要なのか。",
+              "災害が起きたとき、まず問われるのは、必要な措置を講じていたかどうかです。",
+              "教育を行っていたか。点検をしていたか。作業主任者を選任していたか。",
+              "記録があれば、それを示せます。記録がなければ、やっていなかったと同じに扱われます。",
+              "実際にやっていても、証明できなければ意味がありません。",
+              "だから、記録は面倒な事務作業ではなく、自分たちの仕事を証明する手段なのです。",
+              "そして、インターネットを使った教育で行う場合についても触れておきます。",
+              "法定の科目の範囲、教育時間、そして講師の要件を満たす必要があります。",
+              "そのうえで、受講した事実を、教育を実施する者が確認できることが求められます。",
+              "この講座で在席確認を行い、視聴時間を記録しているのは、そのためです。",
+              "皆さんが押している確認のボタンは、記録として残ります。",
+              "義務と責任の話を、もう少し具体的にします。",
+              "特別教育を受けさせずに作業させて災害が起きた場合、どうなるか。",
+              "まず、教育を実施していなかったことが、労働安全衛生法違反として問われます。",
+              "そのうえで、墜落防止措置がとられていなければ、それも別の違反として問われます。",
+              "違反が重なれば、会社と現場の監督者が書類送検されることになります。",
+              "そして、遺族からは安全配慮義務違反として損害賠償を請求されます。",
+              "労働基準監督署からは作業停止命令が出て、現場が止まります。",
+              "報道されれば、元請から取引を打ち切られることもあります。",
+              "一つの災害で、これだけのことが同時に起きます。",
+              "逆に言えば、教育を行い、記録を残し、設備を設けていれば、その多くは防げます。",
+              "皆さんがいまこの講座を受けているのは、その第一歩だということです。",
+              "そしてもう一つ、新規入場者への教育についても触れておきます。",
+              "経験の有無にかかわらず、その現場に初めて入る人には、現場のルールを説明します。",
+              "どこが昇降路か、どこが立入禁止か、避難経路はどこか、誰に報告するのか。",
+              "現場ごとに違うことは、その現場で伝えるしかありません。",
+              "「見て覚えろ」では、覚える前に事故が起きます。",
+              "教える側になったときも、このことを思い出してください。",
+              "最後に、皆さん自身の記録についてもお伝えしておきます。",
+              "この特別教育を修了すると、修了証が交付されます。",
+              "修了証は、事業者名義で発行されます。実施の主体が事業者だからです。",
+              "転職する際や、元請から提示を求められる際に必要になります。",
+              "紛失しないよう保管してください。会社にも記録が残っていますが、手元にあるほうが確実です。",
+              "そして、特別教育を修了したからといって、作業主任者になれるわけではありません。",
+              "作業主任者は、技能講習を修了した者から選任されます。",
+              "つり足場、張出し足場、高さ五メートル以上の足場の組立て等では、作業主任者の選任が必要です。",
+              "これらの作業は、特別教育の修了者だけでは行えません。",
+              "次のステップとして、技能講習やとび技能士を目指す道もあります。",
+              "この教育は、その入口です。",
+              "ここで学んだことを土台にして、現場で経験を積んでいってください。",
+              "それでは、この教育全体を振り返ります。",
+              "科目一では、足場の種類と材料、構造、組立図、そして組立て・解体・変更の作業の方法を学びました。",
+              "点検と補修、登り桟橋と朝顔についても確認しました。",
+              "科目二では、クレーンなどの工事用設備、器具と工具、そして悪天候時の作業について学びました。",
+              "科目三では、墜落、飛来落下と倒壊、保護具、感電と熱中症について学びました。",
+              "そして科目四で、関係法令と、事業者・作業者それぞれの義務を確認しました。",
+              "六時間かけて学んだ内容は、どれも過去の災害から生まれたものです。",
+              "手すりの高さも、すき間の寸法も、点検の時期も、誰かが落ちた後に決められました。",
+              "つまり、この基準を守るということは、その人たちの経験を無駄にしないということです。",
+              "最後に一つだけ、お願いがあります。",
+              "明日、現場に着いたら、上がる前に足場を見上げてください。",
+              "手すりは付いているか。床は固定されているか。脚は沈んでいないか。",
+              "今日学んだ目で見れば、これまで見えなかったものが見えるはずです。",
+              "そして、気づいたことがあれば、声に出してください。",
+              "知っている人が黙っている現場が、いちばん危ない現場です。",
+              "この単元のまとめです。",
+              "特別教育を行う義務は事業者にある。外注しても責任は移らない。",
+              "作業者にも義務がある。保護具の使用、合図と手順の遵守、立入禁止の遵守。",
+              "労働災害が起きると、刑事、民事、行政、社会的の四つの責任を問われる。",
+              "刑事責任は個人も問われ、重大災害では現場の監督者がまず被告となる。",
+              "教育の記録は、受講者、科目、時間、年月日、講師を残して保存する。",
+              "記録がなければ、やっていなかったと同じに扱われる。",
+              "これで、足場の組立て等の業務に係る特別教育の全科目が終わります。",
+              "最後に、修了試験を受けてください。",
+              "そして明日から、この内容を現場で使ってください。知っているだけでは、人は守れません。",
+              "ここまで受講いただき、ありがとうございました。",
+              "足場は、正しく組めば人を守り、間違えれば人を殺す構造物です。",
+              "その差を分けるのは、特別な才能ではありません。",
+              "知っていることと、それを毎日実行すること。それだけです。",
+              "以上で、足場の組立て等の業務に係る特別教育の全科目を終了します。",
+              "お疲れさまでした。",
+              "この後、修了試験に進んでください。"
+      ],
+        figures: [
+              {
+                      "id": "F4-2-1",
+                      "t": "事業者の義務と作業者の義務",
+                      "min": 1,
+                      "type": "compare",
+                      "lead": "両方そろって、初めて安全になります。",
+                      "parts": [
+                              {
+                                      "n": "事業者：特別教育の実施",
+                                      "d": "安衛法59条3項。外注しても責任は移らない"
+                              },
+                              {
+                                      "n": "事業者：設備を設ける",
+                                      "d": "作業床、手すり等、昇降設備、防護設備"
+                              },
+                              {
+                                      "n": "事業者：点検・作業主任者の選任",
+                                      "d": "点検者の指名、記録の保存"
+                              },
+                              {
+                                      "n": "事業者：悪天候時の作業禁止",
+                                      "d": "危険が予想されるときは作業させない"
+                              },
+                              {
+                                      "n": "作業者：保護具の使用",
+                                      "d": "定められた保護具を使用する"
+                              },
+                              {
+                                      "n": "作業者：合図と手順の遵守",
+                                      "d": "作業主任者・作業指揮者の指揮に従う"
+                              },
+                              {
+                                      "n": "作業者：立入禁止の遵守",
+                                      "d": "禁止された場所に入らない"
+                              }
+                      ],
+                      "task": {
+                              "q": "特別教育を外部機関に委託した場合、実施の責任は",
+                              "a": [
+                                      "委託先に移る",
+                                      "事業者が負う",
+                                      "元請が負う"
+                              ],
+                              "ok": 1
+                      }
+              },
+              {
+                      "id": "F4-2-2",
+                      "t": "労働災害に伴う四重責任",
+                      "min": 1,
+                      "type": "list",
+                      "lead": "会社と個人、両方が問われます。",
+                      "parts": [
+                              {
+                                      "n": "① 刑事責任",
+                                      "d": "安衛法違反の罰則。刑法の業務上過失致死傷罪。会社も個人も問われる"
+                              },
+                              {
+                                      "n": "② 民事責任",
+                                      "d": "安全配慮義務違反、不法行為責任、工作物瑕疵責任。損害賠償"
+                              },
+                              {
+                                      "n": "③ 行政責任",
+                                      "d": "使用停止・作業停止命令。指名停止、営業停止（建設業法）"
+                              },
+                              {
+                                      "n": "④ 社会的責任",
+                                      "d": "信用の失墜、取引の打ち切り、人が集まらなくなる"
+                              },
+                              {
+                                      "n": "会社を最も苦しめるのは",
+                                      "d": "実は③と④。現場が止まり、次の仕事が取れなくなる"
+                              }
+                      ],
+                      "task": {
+                              "q": "四重責任に含まれないのは",
+                              "a": [
+                                      "刑事責任",
+                                      "行政責任",
+                                      "納税責任"
+                              ],
+                              "ok": 2
+                      }
+              },
+              {
+                      "id": "F4-2-3",
+                      "t": "誰が被告になるのか",
+                      "min": 1,
+                      "type": "list",
+                      "lead": "指示を出した人が問われます。",
+                      "parts": [
+                              {
+                                      "n": "刑事責任",
+                                      "d": "個人と会社の両方。直接の監督者（職長等）が被告となる"
+                              },
+                              {
+                                      "n": "民事責任",
+                                      "d": "主に会社。個人も問われることがある"
+                              },
+                              {
+                                      "n": "行政責任",
+                                      "d": "会社"
+                              },
+                              {
+                                      "n": "社会的責任",
+                                      "d": "会社"
+                              },
+                              {
+                                      "n": "監督者の立場",
+                                      "d": "事業者責任を現場で実行する立場。危険防止措置の実行義務者となる"
+                              },
+                              {
+                                      "n": "だから知識が要る",
+                                      "d": "正しい指示を出せなければ、自分が問われる"
+                              }
+                      ],
+                      "task": {
+                              "q": "重大災害の発生時、まず被告となりやすいのは",
+                              "a": [
+                                      "発注者",
+                                      "現場の監督者（職長等）",
+                                      "資材メーカー"
+                              ],
+                              "ok": 1
+                      }
+              },
+              {
+                      "id": "F4-2-4",
+                      "t": "記録に残すもの",
+                      "min": 1,
+                      "type": "list",
+                      "lead": "実際にやっていても、証明できなければ意味がありません。",
+                      "parts": [
+                              {
+                                      "n": "特別教育の記録",
+                                      "d": "受講者、科目、時間、実施年月日、講師"
+                              },
+                              {
+                                      "n": "点検の記録",
+                                      "d": "年月日、方法と箇所、結果、講じた措置、点検者の氏名"
+                              },
+                              {
+                                      "n": "保存する理由",
+                                      "d": "災害時、必要な措置を講じていたかを示せる"
+                              },
+                              {
+                                      "n": "記録がない場合",
+                                      "d": "やっていなかったと同じに扱われる"
+                              },
+                              {
+                                      "n": "eラーニングの場合",
+                                      "d": "科目・時間・講師の要件を満たし、受講の事実を実施者が確認できること"
+                              },
+                              {
+                                      "n": "在席確認と視聴時間",
+                                      "d": "この講座で記録しているのは、そのため"
+                              }
+                      ],
+                      "task": {
+                              "q": "教育の記録が無い場合",
+                              "a": [
+                                      "口頭で説明すればよい",
+                                      "やっていなかったと同じに扱われる",
+                                      "問題ない"
+                              ],
+                              "ok": 1
+                      }
+              },
+              {
+                      "id": "F4-2-5",
+                      "t": "現場での実践",
+                      "min": 1,
+                      "type": "list",
+                      "lead": "知っているだけでは、人は守れません。",
+                      "parts": [
+                              {
+                                      "n": "朝、上がる前に見る",
+                                      "d": "手すり、床、脚部。自分が乗る足場を自分の目で"
+                              },
+                              {
+                                      "n": "外したら戻す",
+                                      "d": "手すり、幅木、壁つなぎ。作業終了後、直ちに"
+                              },
+                              {
+                                      "n": "掛ける、使う",
+                                      "d": "フックを掛ける。昇降設備を使う。保護具を着ける"
+                              },
+                              {
+                                      "n": "止める、報告する",
+                                      "d": "危ないと感じたら止める。異常を見つけたら報告する"
+                              },
+                              {
+                                      "n": "声を掛ける",
+                                      "d": "掛かってないよ、の一言で助かる命がある"
+                              },
+                              {
+                                      "n": "記録に残す",
+                                      "d": "点検も教育も、残して初めて意味を持つ"
+                              }
+                      ],
+                      "task": {
+                              "q": "この教育で最も大切なことは",
+                              "a": [
+                                      "数字を暗記すること",
+                                      "現場で実際に行うこと",
+                                      "修了証をもらうこと"
+                              ],
+                              "ok": 1
+                      }
+              }
+      ],
+        cases: [
+              {
+                      "id": "C4-2-1",
+                      "t": "特別教育を受けさせずに作業させ、災害後に事業者の責任が問われた",
+                      "min": 5,
+                      "meta": {
+                              "作業": "足場の組立て",
+                              "事故の型": "墜落・転落／法令違反",
+                              "起因物": "足場",
+                              "結果": "死亡・書類送検"
+                      },
+                      "situation": [
+                              "住宅の外部足場を組み立てる作業中、入社まもない作業者が最上層から墜落し、死亡した。",
+                              "その作業者は、入社から二か月で、足場の組立て作業に従事していた。",
+                              "会社は、足場の組立て等の業務に係る特別教育を実施していなかった。",
+                              "「経験者が横についているから大丈夫」という判断だったという。",
+                              "現場では、最上層に手すりが設けられておらず、墜落制止用器具の取付け設備も無かった。",
+                              "災害後の調査で、特別教育の未実施、墜落防止措置の未実施が確認された。",
+                              "会社と、現場を監督していた職長が、労働安全衛生法違反で書類送検された。",
+                              "また、遺族から安全配慮義務違反による損害賠償を請求された。",
+                              "労働基準監督署からは作業停止命令が出され、現場は長期間止まった。",
+                              "報道もされ、会社は複数の元請から取引を打ち切られた。"
+                      ],
+                      "ask": "この事案から学ぶべき、最も重要な点はどれでしょうか。",
+                      "options": [
+                              {
+                                      "t": "経験者が付いていれば、教育は省略できる",
+                                      "ok": false,
+                                      "fb": "そうではありません。特別教育は、業務に就かせる前に実施する義務があります。経験者の同行では代替できません。"
+                              },
+                              {
+                                      "t": "教育の未実施は、災害が起きた後に必ず問われる",
+                                      "ok": true,
+                                      "fb": "そのとおりです。災害が起きれば、必要な措置を講じていたかが問われます。教育の未実施は、そのまま事業者の責任になります。"
+                              },
+                              {
+                                      "t": "報道されたことが最大の問題だった",
+                                      "ok": false,
+                                      "fb": "社会的責任も重いものですが、根本は教育と設備の未実施です。"
+                              }
+                      ],
+                      "causes": [
+                              "足場の組立て等の業務に係る特別教育を実施しないまま、労働者を業務に就かせた。",
+                              "最上層に手すり等の墜落防止設備を設けず、墜落制止用器具の取付け設備も設けなかった。",
+                              "「経験者が付いているから大丈夫」という判断で、法定の措置を省略した。",
+                              "教育の実施記録がなく、実施していないことが明白であった。"
+                      ],
+                      "prevention": [
+                              "業務に就かせる前に、特別教育を実施する。実施記録を作成し、保存する。",
+                              "組立て中の最上層にも、墜落防止設備と墜落制止用器具の取付け設備を設ける。",
+                              "新規入場者には、経験の有無にかかわらず、教育と現場のルールの説明を行う。",
+                              "教育・点検・選任の記録を整備し、いつでも示せる状態にしておく。"
+                      ],
+                      "lesson": "教育は、災害が起きてから価値が問われます。やっていれば守れた命があり、やっていなければ会社ごと失います。"
+              }
+      ],
+        quiz: [
+              {
+                      "q": "特別教育を実施する義務があるのは",
+                      "a": [
+                              "作業者本人",
+                              "事業者",
+                              "元請のみ"
+                      ],
+                      "ok": 1,
+                      "why": "安衛法第59条第3項により、事業者の義務です。"
+              },
+              {
+                      "q": "労働災害に伴う企業の四重責任に含まれないのは",
+                      "a": [
+                              "刑事責任",
+                              "民事責任",
+                              "納税責任"
+                      ],
+                      "ok": 2,
+                      "why": "刑事・民事・行政・社会的責任の四つです。"
+              },
+              {
+                      "q": "重大災害の発生時、刑事責任でまず被告となりやすいのは",
+                      "a": [
+                              "発注者",
+                              "現場の監督者（職長等）",
+                              "資材メーカー"
+                      ],
+                      "ok": 1,
+                      "why": "監督者は現場における危険防止措置の実行義務者です。"
+              },
+              {
+                      "q": "教育の記録が無い場合",
+                      "a": [
+                              "口頭で説明すればよい",
+                              "やっていなかったと同じに扱われる",
+                              "問題ない"
+                      ],
+                      "ok": 1,
+                      "why": "実際にやっていても、証明できなければ意味がありません。"
+              }
+      ] },
+    ],
+  },
+];
+const ALL = SUBJECTS.flatMap((s) => s.lessons);
+/* デモモードでは所要時間を1/10にして、一連の流れを短時間で確認できるようにする */
+const nsec = (l, demo) => Math.round((l.min * 60) / (demo ? 10 : 1));
+const ssec = (sub, demo) => sub.lessons.reduce((a, l) => a + nsec(l, demo), 0);
+const tsec = (demo) => SUBJECTS.reduce((a, sub) => a + ssec(sub, demo), 0);
+
+/* ── 修了試験 ── */
+const EXAM = [
+  { q: "足場の組立て等の業務に係る特別教育の根拠となる規定は", a: ["安衛則第36条第39号", "建築基準法施行令", "消防法"], ok: 0 },
+  { q: "特別教育を実施する義務があるのは", a: ["作業者本人", "事業者", "労働基準監督署"], ok: 1 },
+  { q: "点検を行うべき時期として正しいのは", a: ["組立て後・変更後・悪天候後", "毎月1回のみ", "解体前のみ"], ok: 0 },
+  { q: "手すり先行工法の考え方は", a: ["床を張ってから手摺を付ける", "床を張る前に手摺を上げる", "手摺を省略する"], ok: 1 },
+  { q: "墜落制止用器具のフックを掛ける位置は", a: ["足元", "腰より高い堅固な箇所", "シートの支持点"], ok: 1 },
+  { q: "悪天候で危険が予想されるとき、組立て等の作業は", a: ["行わない", "人数を増やして行う", "短時間なら行う"], ok: 0 },
+  { q: "物の落下を防ぐ設備はどれか", a: ["壁つなぎ", "幅木・メッシュシート", "根がらみ"], ok: 1 },
+  { q: "解体時に壁つなぎを外す時期は", a: ["最初", "上の足場が無くなってから", "シートより先"], ok: 1 },
+  { q: "材料の上げ下ろしの方法として正しいのは", a: ["投げ下ろす", "つり綱・つり袋等を使う", "まとめて落とす"], ok: 1 },
+  { q: "特別教育を修了した者は", a: ["作業主任者になれる", "作業主任者にはなれない", "技能講習が免除される"], ok: 1 },
+];
+const PASS = 8;
+
+/* ── 図解 ─────────────────────────────── */
+function Scene({ kind, p }) {
+  const on = (a) => (p >= a ? 1 : 0);
+  const T = { transition: "opacity .6s ease" };
+  const post = (x, top, w = 7) => (
+    <g><line x1={x} y1="168" x2={x} y2={top} stroke={C.steel} strokeWidth={w} />
+      {[0, 1, 2, 3].map((i) => 150 - i * 30 > top && <polygon key={i} points={`${x - 6},${150 - i * 30} ${x},${146 - i * 30} ${x + 6},${150 - i * 30} ${x},${154 - i * 30}`} fill={C.steelLt} />)}</g>
+  );
+  const cap = (x, y, t, col) => <text x={x} y={y} textAnchor="middle" fontSize="10" fill={col || C.dim} fontFamily={F}>{t}</text>;
+
+  return (
+    <svg viewBox="0 0 340 190" style={{ width: "100%", display: "block" }}>
+      <defs><pattern id="mz" width="6" height="6" patternUnits="userSpaceOnUse"><path d="M0 6L6 0" stroke="#CFE0EC" strokeWidth=".7" opacity=".6" /></pattern></defs>
+      <rect y="168" width="340" height="22" fill="#1A2027" />
+
+      {kind === "types" && <>
+        <g style={{ ...T, opacity: on(.04) }}>
+          {post(42, 40, 6)}{post(92, 40, 6)}
+          <line x1="42" y1="120" x2="92" y2="120" stroke={C.yel} strokeWidth="4" />
+          <line x1="42" y1="90" x2="92" y2="90" stroke={C.yel} strokeWidth="4" />
+          {cap(67, 184, "くさび緊結式", C.yel)}
+        </g>
+        <g style={{ ...T, opacity: on(.22) }}>
+          <rect x="132" y="60" width="70" height="108" fill="none" stroke={C.steel} strokeWidth="6" />
+          <line x1="132" y1="60" x2="202" y2="168" stroke={C.steel} strokeWidth="3" />
+          <line x1="202" y1="60" x2="132" y2="168" stroke={C.steel} strokeWidth="3" />
+          {cap(167, 184, "枠組足場")}
+        </g>
+        <g style={{ ...T, opacity: on(.42) }}>
+          <line x1="243" y1="168" x2="243" y2="50" stroke={C.steel} strokeWidth="6" />
+          <line x1="298" y1="168" x2="298" y2="50" stroke={C.steel} strokeWidth="6" />
+          <line x1="236" y1="105" x2="305" y2="105" stroke={C.steel} strokeWidth="5" />
+          <line x1="236" y1="70" x2="305" y2="70" stroke={C.steel} strokeWidth="5" />
+          {[105, 70].map((y) => [243, 298].map((x) => <rect key={x + y} x={x - 6} y={y - 7} width="12" height="14" rx="2" fill={C.steelDk} />))}
+          {cap(270, 184, "単管足場")}
+        </g>
+        <g style={{ ...T, opacity: on(.62) }}>
+          <rect x="24" y="18" width="120" height="22" rx="5" fill="#2C1815" stroke={C.red} />
+          <text x="84" y="33" textAnchor="middle" fontSize="10.5" fill="#F4B5AE" fontFamily={F}>損傷・変形・腐食は使用禁止</text>
+        </g>
+        <g style={{ ...T, opacity: on(.82) }}>
+          <rect x="196" y="18" width="120" height="22" rx="5" fill={C.panel2} stroke={C.yel} />
+          <text x="256" y="33" textAnchor="middle" fontSize="10.5" fill={C.yel} fontFamily={F}>組立図に従って組む</text>
+        </g>
+      </>}
+
+      {kind === "order" && <>
+        <g style={{ ...T, opacity: on(.04) }}>
+          {[90, 230].map((x) => <g key={x}>
+            <polygon points={`${x - 18},168 ${x + 18},168 ${x + 14},160 ${x - 14},160`} fill="#8A6A45" />
+            <line x1={x} y1="160" x2={x} y2="150" stroke={C.steelLt} strokeWidth="4" />
+          </g>)}
+          {cap(160, 184, "① 敷板・ジャッキ")}
+        </g>
+        <g style={{ ...T, opacity: on(.2) }}>{post(90, 45)}{post(230, 45)}
+          <line x1="90" y1="150" x2="230" y2="150" stroke={C.yel} strokeWidth="5" /></g>
+        <g style={{ ...T, opacity: on(.38) }}>
+          <line x1="56" y1="120" x2="116" y2="120" stroke={C.cyan} strokeWidth="3" />
+          {cap(86, 113, "離れ", C.cyan)}
+          <rect x="140" y="96" width="40" height="14" rx="3" fill="#3A444E" stroke={C.steelLt} />
+          <circle cx="160" cy="103" r="4" fill={C.grn} />
+        </g>
+        <g style={{ ...T, opacity: on(.56) }}>
+          <line x1="90" y1="60" x2="230" y2="60" stroke={C.yel} strokeWidth="5.5" />
+          <line x1="90" y1="90" x2="230" y2="60" stroke={C.yel} strokeWidth="3" />
+          <line x1="230" y1="90" x2="90" y2="60" stroke={C.yel} strokeWidth="3" />
+          {cap(160, 50, "④ 床より先に手摺", C.yel)}
+        </g>
+        <g style={{ ...T, opacity: on(.72) }}>
+          <rect x="90" y="84" width="140" height="7" fill="#71808D" stroke="#4A545E" />
+        </g>
+        <g style={{ ...T, opacity: on(.88) }}>
+          <path d="M262 70 q22 20 0 40" stroke={C.grn} strokeWidth="3" fill="none" strokeDasharray="5 4" />
+          <polygon points="262,114 256,102 268,104" fill={C.grn} />
+          {cap(288, 92, "つり綱", C.grn)}
+        </g>
+      </>}
+
+      {kind === "check" && <>
+        {post(70, 40)}{post(230, 40)}
+        <line x1="70" y1="150" x2="230" y2="150" stroke={C.yel} strokeWidth="4" />
+        <rect x="70" y="96" width="160" height="7" fill="#71808D" stroke="#4A545E" />
+        <line x1="70" y1="62" x2="230" y2="62" stroke={C.yel} strokeWidth="5" />
+        {[
+          { at: .46, x: 70, y: 160, t: "脚部の沈下" },
+          { at: .46, x: 150, y: 92, t: "緊結部のゆるみ" },
+          { at: .46, x: 230, y: 58, t: "手摺の脱落" },
+        ].map((m, i) => (
+          <g key={i} style={{ ...T, opacity: on(m.at) }}>
+            <circle cx={m.x} cy={m.y} r="12" fill="none" stroke={C.red} strokeWidth="2" />
+            <text x={m.x + (i === 2 ? -18 : 18)} y={m.y - 16} textAnchor={i === 2 ? "end" : "start"} fontSize="9.5" fill={C.red} fontFamily={F}>{m.t}</text>
+          </g>
+        ))}
+        <g style={{ ...T, opacity: on(.24) }}>
+          <rect x="238" y="112" width="86" height="48" rx="5" fill={C.panel2} stroke={C.grn} />
+          <text x="281" y="130" textAnchor="middle" fontSize="10" fill={C.grn} fontFamily={F}>点検記録</text>
+          <text x="281" y="146" textAnchor="middle" fontSize="9" fill={C.dim} fontFamily={F}>点検者名・結果</text>
+        </g>
+      </>}
+
+      {kind === "ramp" && <>
+        <g style={{ ...T, opacity: on(.05) }}>
+          <line x1="30" y1="168" x2="150" y2="96" stroke="#71808D" strokeWidth="9" />
+          {[0, 1, 2, 3, 4].map((i) => <line key={i} x1={40 + i * 22} y1={162 - i * 13} x2={46 + i * 22} y2={158 - i * 13} stroke="#4A545E" strokeWidth="3" />)}
+          <line x1="30" y1="150" x2="150" y2="78" stroke={C.yel} strokeWidth="4" />
+          {cap(78, 182, "登り桟橋（すべり止め・手すり）")}
+        </g>
+        <g style={{ ...T, opacity: on(.3) }}>
+          <rect x="150" y="88" width="40" height="8" fill="#71808D" stroke="#4A545E" />
+          {cap(170, 80, "踊り場")}
+        </g>
+        <g style={{ ...T, opacity: on(.55) }}>
+          {post(240, 40)}
+          <line x1="240" y1="80" x2="310" y2="56" stroke={C.org} strokeWidth="7" />
+          {cap(292, 44, "朝顔（防護棚）", C.org)}
+          <line x1="255" y1="30" x2="266" y2="52" stroke={C.red} strokeWidth="2" strokeDasharray="4 4" />
+          <polygon points="268,58 260,48 272,46" fill={C.red} />
+        </g>
+      </>}
+
+      {kind === "lift" && <>
+        {post(66, 60)}{post(146, 60)}
+        <rect x="66" y="104" width="80" height="7" fill="#71808D" />
+        <g style={{ ...T, opacity: on(.05) }}>
+          <path d="M170 100 Q200 84 232 100" stroke={C.grn} strokeWidth="3" fill="none" strokeDasharray="5 4" />
+          <polygon points="238,100 226,94 226,106" fill={C.grn} />
+          {cap(202, 78, "荷上げ設備・つり袋", C.grn)}
+        </g>
+        <g style={{ ...T, opacity: on(.4) }}>
+          <rect x="60" y="132" width="92" height="22" rx="4" fill="#2C1815" stroke={C.red} />
+          <text x="106" y="147" textAnchor="middle" fontSize="10" fill="#F4B5AE" fontFamily={F}>下は立入禁止</text>
+        </g>
+        <g style={{ ...T, opacity: on(.72) }}>
+          <rect x="248" y="120" width="70" height="30" rx="4" fill={C.yel} />
+          <text x="283" y="132" textAnchor="middle" fontSize="9.5" fontWeight="700" fill="#14171B" fontFamily={F}>最大積載荷重</text>
+          <text x="283" y="145" textAnchor="middle" fontSize="9" fill="#14171B" fontFamily={F}>見やすい位置に表示</text>
+        </g>
+      </>}
+
+      {kind === "tools" && <>
+        <g style={{ ...T, opacity: on(.05) }}>
+          <line x1="90" y1="60" x2="118" y2="102" stroke="#8A6A45" strokeWidth="7" strokeLinecap="round" />
+          <rect x="112" y="96" width="26" height="15" rx="3" fill={C.steelDk} stroke={C.steelLt} />
+          <circle cx="90" cy="60" r="9" fill="none" stroke={C.red} strokeWidth="2" />
+          {cap(90, 44, "抜け止めを確認", C.red)}
+        </g>
+        <g style={{ ...T, opacity: on(.4) }}>
+          <rect x="200" y="70" width="34" height="26" rx="4" fill="#6B5636" />
+          <path d="M217 96 q6 20 -4 34" stroke={C.grn} strokeWidth="2.5" fill="none" />
+          <rect x="206" y="128" width="18" height="12" rx="2" fill={C.steelDk} />
+          {cap(240, 122, "落下防止ひも", C.grn)}
+        </g>
+        <g style={{ ...T, opacity: on(.72) }}>
+          <rect x="70" y="132" width="100" height="22" rx="4" fill={C.panel2} stroke={C.line} />
+          <text x="120" y="147" textAnchor="middle" fontSize="10" fill={C.dim} fontFamily={F}>変形・亀裂・さびを点検</text>
+        </g>
+      </>}
+
+      {kind === "weather" && <>
+        <g style={{ ...T, opacity: on(.05) }}>
+          {[50, 105, 160].map((x, i) => (
+            <g key={x}><path d={`M${x} 44 q10 -12 22 -2 q14 -6 18 8 q10 2 6 12 h-52 q-6 -12 6 -18`} fill="#39434D" />
+              {[0, 1, 2].map((k) => <line key={k} x1={x + 8 + k * 12} y1="70" x2={x + 2 + k * 12} y2={88 + i * 4} stroke={C.cyan} strokeWidth="2" />)}</g>
+          ))}
+          <rect x="30" y="112" width="280" height="26" rx="5" fill="#2C1815" stroke={C.red} />
+          <text x="170" y="129" textAnchor="middle" fontSize="11.5" fill="#F4B5AE" fontFamily={F} fontWeight="700">強風・大雨・大雪 → 組立て等の作業は行わない</text>
+        </g>
+        <g style={{ ...T, opacity: on(.4) }}>
+          <rect x="60" y="144" width="220" height="22" rx="5" fill={C.panel2} stroke={C.grn} />
+          <text x="170" y="159" textAnchor="middle" fontSize="10.5" fill={C.grn} fontFamily={F}>悪天候の後は、作業開始前に点検</text>
+        </g>
+      </>}
+
+      {kind === "fall" && <>
+        {[0, 1].map((k) => {
+          const ox = k * 168 + 22;
+          return (
+            <g key={k}>
+              <text x={ox + 62} y="20" textAnchor="middle" fontSize="11" fontWeight="700" fill={k ? C.red : C.grn} fontFamily={F}>
+                {k ? "床が先" : "手摺が先"}
+              </text>
+              <line x1={ox} y1="168" x2={ox} y2="38" stroke={C.steel} strokeWidth="6" />
+              <line x1={ox + 124} y1="168" x2={ox + 124} y2="38" stroke={C.steel} strokeWidth="6" />
+              {(k ? p > .46 : p > .1) && <rect x={ox} y="58" width="124" height="6" fill={C.yel} className="fade" />}
+              {(k ? p > .18 : p > .28) && <rect x={ox} y="104" width="124" height="8" fill="#71808D" className="fade" />}
+              {(k ? p > .3 : p > .4) && <g className="fade">
+                <circle cx={ox + 62} cy="88" r="8" fill={k && p < .46 ? C.red : C.yel} />
+                <line x1={ox + 62} y1="96" x2={ox + 62} y2="104" stroke="#DCE5EC" strokeWidth="4" />
+              </g>}
+              {k && p > .3 && p < .46 && <text x={ox + 62} y="132" textAnchor="middle" fontSize="10" fill={C.red} fontFamily={F}>囲いの無い床</text>}
+            </g>
+          );
+        })}
+        {p > .68 && <g className="fade">
+          <line x1="22" y1="44" x2="314" y2="44" stroke="#DCE5EC" strokeWidth="2" strokeDasharray="3 5" />
+          <text x="168" y="180" textAnchor="middle" fontSize="10" fill={C.grn} fontFamily={F}>フックは腰より高い位置へ</text>
+        </g>}
+      </>}
+
+      {kind === "drop" && <>
+        {post(66, 40)}{post(186, 40)}
+        <rect x="66" y="96" width="120" height="8" fill="#71808D" />
+        <g style={{ ...T, opacity: on(.05) }}>
+          <rect x="124" y="58" width="10" height="10" rx="2" fill={C.steelLt} />
+          <line x1="129" y1="70" x2="129" y2="148" stroke={C.red} strokeWidth="2" strokeDasharray="4 5" />
+          <polygon points="129,158 123,146 135,146" fill={C.red} />
+        </g>
+        <g style={{ ...T, opacity: on(.3) }}>
+          <rect x="66" y="88" width="120" height="7" fill={C.org} />
+          <rect x="58" y="40" width="8" height="128" fill="url(#mz)" stroke="#8FA3B3" />
+          {cap(214, 92, "幅木・シート", C.org)}
+        </g>
+        <g style={{ ...T, opacity: on(.55) }}>
+          <rect x="236" y="30" width="88" height="138" fill="#2A323A" stroke="#39434D" />
+          <line x1="186" y1="80" x2="236" y2="80" stroke={C.grn} strokeWidth="5" />
+          <circle cx="236" cy="80" r="4" fill={C.grn} />
+          {cap(211, 70, "壁つなぎ", C.grn)}
+        </g>
+        <g style={{ ...T, opacity: on(.8) }}>
+          <rect x="236" y="140" width="88" height="24" rx="4" fill={C.panel2} stroke={C.line} />
+          <text x="280" y="155" textAnchor="middle" fontSize="9.5" fill={C.dim} fontFamily={F}>シートは壁つなぎの後</text>
+        </g>
+      </>}
+
+      {kind === "ppe" && <>
+        <g style={{ ...T, opacity: on(.05) }}>
+          <circle cx="80" cy="70" r="22" fill="#E2B48C" />
+          <path d="M54 68 A26 26 0 0 1 106 68 Z" fill={C.yel} />
+          <rect x="50" y="66" width="60" height="7" rx="3.5" fill="#E0C200" />
+          <path d="M62 80 q18 16 36 0" stroke={C.grn} strokeWidth="2.5" fill="none" />
+          {cap(80, 120, "あごひもを締める", C.grn)}
+        </g>
+        <g style={{ ...T, opacity: on(.35) }}>
+          <rect x="182" y="46" width="46" height="58" rx="6" fill="none" stroke={C.steelLt} strokeWidth="3" />
+          <line x1="182" y1="66" x2="228" y2="66" stroke={C.steelLt} strokeWidth="3" />
+          <line x1="205" y1="46" x2="205" y2="104" stroke={C.steelLt} strokeWidth="3" />
+          {cap(205, 120, "フルハーネス型が原則")}
+        </g>
+        <g style={{ ...T, opacity: on(.62) }}>
+          <path d="M240 60 q30 20 22 52" stroke={C.cyan} strokeWidth="3" fill="none" />
+          <rect x="256" y="112" width="14" height="10" rx="2" fill={C.steelDk} />
+          {cap(292, 96, "落下距離を見る", C.cyan)}
+        </g>
+        <g style={{ ...T, opacity: on(.84) }}>
+          <rect x="52" y="140" width="236" height="22" rx="5" fill={C.panel2} stroke={C.line} />
+          <text x="170" y="155" textAnchor="middle" fontSize="10" fill={C.dim} fontFamily={F}>使用前にベルトの傷・フックの外れ止めを点検</text>
+        </g>
+      </>}
+
+      {kind === "shock" && <>
+        <g style={{ ...T, opacity: on(.05) }}>
+          <line x1="0" y1="46" x2="340" y2="34" stroke="#C0392B" strokeWidth="3" />
+          <line x1="0" y1="60" x2="340" y2="48" stroke="#C0392B" strokeWidth="3" />
+          {cap(300, 26, "架空電線", C.red)}
+          {post(120, 96)}
+          <line x1="120" y1="96" x2="150" y2="56" stroke={C.steel} strokeWidth="6" />
+          <path d="M150 56 l-6 10 l10 -2 l-6 12" stroke={C.yel} strokeWidth="2.5" fill="none" />
+          <line x1="120" y1="70" x2="120" y2="52" stroke={C.grn} strokeWidth="2" strokeDasharray="3 3" />
+          {cap(84, 64, "離隔距離", C.grn)}
+        </g>
+        <g style={{ ...T, opacity: on(.4) }}>
+          <rect x="180" y="96" width="140" height="24" rx="5" fill={C.panel2} stroke={C.yel} />
+          <text x="250" y="112" textAnchor="middle" fontSize="10" fill={C.yel} fontFamily={F}>防護管の設置・移設の依頼</text>
+        </g>
+        <g style={{ ...T, opacity: on(.72) }}>
+          <rect x="180" y="128" width="140" height="24" rx="5" fill={C.panel2} stroke={C.line} />
+          <text x="250" y="144" textAnchor="middle" fontSize="10" fill={C.dim} fontFamily={F}>夏場は熱中症にも注意</text>
+        </g>
+      </>}
+
+      {(kind === "law" || kind === "duty") && <>
+        {(kind === "law"
+          ? [
+            { at: .04, t: "足場の組立て・解体・変更の業務 → 特別教育" },
+            { at: .22, t: "安衛法59条3項 ／ 安衛則36条39号" },
+            { at: .42, t: "つり足場・張出し・高さ5m以上 → 作業主任者" },
+            { at: .84, t: "特別教育では作業主任者になれない" },
+          ]
+          : [
+            { at: .05, t: "特別教育を行う義務 → 事業者" },
+            { at: .3, t: "保護具の使用・合図の遵守 → 作業者" },
+            { at: .55, t: "受講者・科目・時間を記録して保存" },
+            { at: .8, t: "eラーニングでも科目・時間・講師の要件" },
+          ]
+        ).map((r, i) => (
+          <g key={i} style={{ ...T, opacity: on(r.at) }}>
+            <rect x="20" y={26 + i * 38} width="300" height="30" rx="6" fill={C.panel2} stroke={i === 0 ? C.yel : C.line} />
+            <text x="36" y={45 + i * 38} fontSize="11.5" fill={i === 0 ? C.yel : C.txt} fontFamily={F}>{r.t}</text>
+          </g>
+        ))}
+      </>}
+    </svg>
+  );
+}
+
+/* ── ナレーション ─────────────────────── */
+const TTS = (() => {
+  let voice = null, ok = typeof window !== "undefined" && "speechSynthesis" in window;
+  const pick = () => {
+    if (!ok) return;
+    const vs = window.speechSynthesis.getVoices();
+    voice = vs.find((v) => /ja/i.test(v.lang)) || null;
+  };
+  if (ok) { pick(); window.speechSynthesis.onvoiceschanged = pick; }
+  return {
+    ok: () => ok,
+    speak: (text, onEnd) => {
+      if (!ok) { const ms = Math.max(1800, text.length * 130); const id = setTimeout(onEnd, ms); return () => clearTimeout(id); }
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = "ja-JP"; u.rate = 1; u.pitch = 1;
+      if (voice) u.voice = voice;
+      u.onend = onEnd; u.onerror = onEnd;
+      window.speechSynthesis.speak(u);
+      return () => window.speechSynthesis.cancel();
+    },
+    stop: () => { if (ok) window.speechSynthesis.cancel(); },
+  };
+})();
+
+/* ── 部品 ─────────────────────────────── */
+const Tape = ({ h = 6 }) => <div style={{ height: h, background: `repeating-linear-gradient(115deg, ${C.yel} 0 12px, #14171B 12px 24px)` }} />;
+const Bar = ({ v, max, color }) => (
+  <div style={{ height: 6, background: C.line, borderRadius: 3, overflow: "hidden" }}>
+    <div style={{ width: `${Math.min(100, (v / max) * 100)}%`, height: "100%", background: color || C.yel, transition: "width .3s" }} />
+  </div>
+);
+const Btn = ({ children, onClick, tone, dis, style }) => (
+  <button onClick={onClick} disabled={dis} style={{
+    background: dis ? C.panel2 : tone === "y" ? C.yel : "none", color: dis ? C.dim2 : tone === "y" ? "#14171B" : C.txt,
+    border: `1px solid ${dis ? C.line : tone === "y" ? C.yel : C.line}`, borderRadius: 9, padding: 13,
+    fontWeight: 800, fontSize: 13.5, fontFamily: F, cursor: dis ? "default" : "pointer", width: "100%", ...style,
+  }}>{children}</button>
+);
+
+/* ── 図解ビュー ─────────────────────────
+   タップして中身を開く。全部開くと次へ進める。
+   ───────────────────────────────────── */
+function FigureView({ fig, onDone }) {
+  const items = fig.parts || fig.faults || fig.points ||
+    (fig.dims ? fig.dims.map((d) => ({ n: d.label, d: d.v })) : null) ||
+    (fig.content ? Object.entries(fig.content).flatMap(([k, v]) => v.map((x) => ({ n: x, d: k }))) : []);
+  const [open, setOpen] = useState([]);
+  const [pick, setPick] = useState(null);
+  const allOpen = open.length >= items.length;
+  const q = fig.task;
+  const solved = !q || !q.a ? allOpen : pick === q.ok;
+
+  return (
+    <div>
+      <div style={{ background: "#10151B", borderBottom: `1px solid ${C.line}`, padding: "14px 16px" }}>
+        <div style={{ fontSize: 10, color: C.cyan, letterSpacing: 1, marginBottom: 4 }}>図解 {fig.id}</div>
+        <div style={{ fontSize: 15, fontWeight: 900, marginBottom: 6 }}>{fig.t}</div>
+        <div style={{ fontSize: 12, color: C.dim, lineHeight: 1.7 }}>{fig.lead}</div>
+      </div>
+
+      <div style={{ padding: 16 }}>
+        <div style={{ display: "grid", gap: 7 }}>
+          {items.map((it, i) => {
+            const isOpen = open.includes(i);
+            return (
+              <button key={i} onClick={() => !isOpen && setOpen((v) => [...v, i])} style={{
+                background: isOpen ? C.panel : C.panel2, border: `1px solid ${isOpen ? C.cyan : C.line}`,
+                borderRadius: 8, padding: "11px 13px", textAlign: "left", fontFamily: F,
+                cursor: isOpen ? "default" : "pointer", color: C.txt,
+              }}>
+                {isOpen ? (
+                  <div className="fade">
+                    <div style={{ fontSize: 13, fontWeight: 800, color: C.cyan }}>{it.n}</div>
+                    <div style={{ fontSize: 12, color: C.dim, lineHeight: 1.7, marginTop: 3 }}>{it.d}</div>
+                  </div>
+                ) : (
+                  <div style={{ fontSize: 13, color: C.dim2 }}>
+                    <span style={{ fontFamily: MO, marginRight: 8 }}>{String(i + 1).padStart(2, "0")}</span>
+                    タップして開く
+                  </div>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {allOpen && q && q.a && (
+          <div className="fade" style={{ marginTop: 16, background: C.panel, border: `1px solid ${C.line}`, borderRadius: 10, padding: 14 }}>
+            <div style={{ fontSize: 10, color: C.yel, letterSpacing: 2, marginBottom: 8 }}>確認</div>
+            <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 10, lineHeight: 1.55 }}>{q.q}</div>
+            <div style={{ display: "grid", gap: 7 }}>
+              {q.a.map((a, i) => {
+                const wrong = pick === i && i !== q.ok, right = pick === q.ok && i === q.ok;
+                return (
+                  <button key={i} onClick={() => setPick(i)} style={{
+                    background: right ? "#12281D" : wrong ? "#2C1815" : C.panel2,
+                    color: right ? "#9FE3BE" : wrong ? "#F4B5AE" : C.txt,
+                    border: `1px solid ${right ? C.grn : wrong ? C.red : C.line}`,
+                    borderRadius: 8, padding: "12px 13px", fontSize: 13, fontWeight: 700,
+                    fontFamily: F, cursor: "pointer", textAlign: "left",
+                  }}>{a}</button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        <Btn tone={solved ? "y" : undefined} dis={!solved} onClick={onDone} style={{ marginTop: 16 }}>
+          {solved ? "次へ" : allOpen ? "答えを選んでください" : `あと${items.length - open.length}か所`}
+        </Btn>
+      </div>
+    </div>
+  );
+}
+
+/* ── 災害事例ビュー ─────────────────────
+   ① 発生状況を読む ② 原因を考えて選ぶ ③ 原因と再発防止
+   ───────────────────────────────────── */
+function CaseView({ cs, onDone }) {
+  const [step, setStep] = useState(0);
+  const [line, setLine] = useState(1);
+  const [pick, setPick] = useState(null);
+  const picked = pick !== null ? cs.options[pick] : null;
+
+  return (
+    <div>
+      <div style={{ background: "#1A1114", borderBottom: `1px solid ${C.red}`, padding: "14px 16px" }}>
+        <div style={{ fontSize: 10, color: C.red, letterSpacing: 1, marginBottom: 4 }}>災害事例 {cs.id}</div>
+        <div style={{ fontSize: 15, fontWeight: 900, lineHeight: 1.45 }}>{cs.t}</div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
+          {Object.entries(cs.meta).map(([k, v]) => (
+            <span key={k} style={{ fontSize: 10, color: C.dim, border: `1px solid ${C.line}`, borderRadius: 4, padding: "2px 7px" }}>
+              {k}：{v}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ padding: 16 }}>
+        {/* ① 発生状況 */}
+        <div style={{ fontSize: 10, color: C.dim, letterSpacing: 2, marginBottom: 8 }}>① 発生状況</div>
+        {cs.situation.slice(0, line).map((s, i) => (
+          <div key={i} className="fade" style={{
+            background: C.panel, border: `1px solid ${C.line}`, borderLeft: `3px solid ${C.red}`,
+            borderRadius: 8, padding: "11px 13px", marginBottom: 7, fontSize: 12.5, lineHeight: 1.8,
+          }}>{s}</div>
+        ))}
+        {line < cs.situation.length && (
+          <Btn onClick={() => setLine((v) => v + 1)} style={{ marginTop: 4 }}>続きを読む（{line}/{cs.situation.length}）</Btn>
+        )}
+
+        {/* ② 原因を考える */}
+        {line >= cs.situation.length && step === 0 && (
+          <Btn tone="y" onClick={() => setStep(1)} style={{ marginTop: 12 }}>原因を考える</Btn>
+        )}
+        {step >= 1 && (
+          <div className="fade" style={{ marginTop: 18 }}>
+            <div style={{ fontSize: 10, color: C.yel, letterSpacing: 2, marginBottom: 8 }}>② 原因を考える</div>
+            <div style={{ fontSize: 14.5, fontWeight: 800, marginBottom: 10, lineHeight: 1.6 }}>{cs.ask}</div>
+            <div style={{ display: "grid", gap: 7 }}>
+              {cs.options.map((o, i) => {
+                const sel = pick === i;
+                return (
+                  <button key={i} onClick={() => { setPick(i); if (o.ok) setStep(2); }} style={{
+                    background: sel ? (o.ok ? "#12281D" : "#2C1815") : C.panel2,
+                    color: sel ? (o.ok ? "#9FE3BE" : "#F4B5AE") : C.txt,
+                    border: `1px solid ${sel ? (o.ok ? C.grn : C.red) : C.line}`,
+                    borderRadius: 8, padding: "13px 14px", fontSize: 13, fontWeight: 700,
+                    fontFamily: F, cursor: "pointer", textAlign: "left", lineHeight: 1.5,
+                  }}>{o.t}</button>
+                );
+              })}
+            </div>
+            {picked && (
+              <div className="fade" style={{ marginTop: 10, fontSize: 12.5, lineHeight: 1.8, color: picked.ok ? C.grn : "#F4B5AE" }}>
+                {picked.fb}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ③ 原因と再発防止 */}
+        {step >= 2 && (
+          <div className="fade" style={{ marginTop: 20 }}>
+            <div style={{ fontSize: 10, color: C.red, letterSpacing: 2, marginBottom: 8 }}>③ 災害発生原因</div>
+            {cs.causes.map((c, i) => (
+              <div key={i} style={{ display: "flex", gap: 9, background: C.panel, border: `1px solid ${C.line}`, borderRadius: 8, padding: "10px 12px", marginBottom: 6 }}>
+                <span style={{ fontFamily: MO, fontSize: 12, color: C.red }}>{i + 1}</span>
+                <span style={{ fontSize: 12.5, lineHeight: 1.75 }}>{c}</span>
+              </div>
+            ))}
+            <div style={{ fontSize: 10, color: C.grn, letterSpacing: 2, margin: "16px 0 8px" }}>再発防止対策</div>
+            {cs.prevention.map((c, i) => (
+              <div key={i} style={{ display: "flex", gap: 9, background: C.panel, border: `1px solid ${C.line}`, borderRadius: 8, padding: "10px 12px", marginBottom: 6 }}>
+                <span style={{ fontFamily: MO, fontSize: 12, color: C.grn }}>{i + 1}</span>
+                <span style={{ fontSize: 12.5, lineHeight: 1.75 }}>{c}</span>
+              </div>
+            ))}
+            <div style={{ marginTop: 14, background: "#1A1F14", border: `1px solid ${C.yel}`, borderRadius: 8, padding: "12px 14px", fontSize: 13, lineHeight: 1.8, color: C.yel }}>
+              {cs.lesson}
+            </div>
+            <Btn tone="y" onClick={onDone} style={{ marginTop: 16 }}>次へ</Btn>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ── 顔認証：同意・本人確認・受講中の照合 ── */
+
+/* 照合ロジック（FaceDetector → 簡易画像解析 → シミュレーション） */
+async function detectFace(video, canvas, prevRef, sim) {
+  if (sim) {
+    const r = Math.random();
+    if (r < 0.10) return { ok: false, msg: "顔を検出できません" };
+    if (r < 0.13) return { ok: false, msg: "複数人を検出しました" };
+    return { ok: true };
+  }
+  if (!video || !canvas || video.videoWidth === 0) return { ok: false, msg: "カメラの映像がありません" };
+  try {
+    if (typeof window !== "undefined" && "FaceDetector" in window) {
+      const faces = await new window.FaceDetector({ fastMode: true }).detect(video);
+      if (faces.length === 0) return { ok: false, msg: "顔を検出できません" };
+      if (faces.length > 1) return { ok: false, msg: "複数人を検出しました" };
+      return { ok: true };
+    }
+  } catch (e) { /* フォールバック */ }
+  canvas.width = 64; canvas.height = 48;
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(video, 0, 0, 64, 48);
+  const d = ctx.getImageData(0, 0, 64, 48).data;
+  const g = new Uint8Array(64 * 48); let sum = 0;
+  for (let i = 0, j = 0; i < d.length; i += 4, j++) {
+    const y = (d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114) | 0;
+    g[j] = y; sum += y;
+  }
+  const mean = sum / g.length;
+  let diff = 0;
+  if (prevRef.current) for (let j = 0; j < g.length; j++) diff += Math.abs(g[j] - prevRef.current[j]);
+  const dm = prevRef.current ? diff / g.length : 99;
+  prevRef.current = g;
+  if (mean < 28) return { ok: false, msg: "カメラが遮られています" };
+  if (dm < 0.6) return { ok: false, msg: "動きを検出できません" };
+  return { ok: true };
+}
+
+/* 受講中のカメラ窓 */
+function CamWindow({ cam, sim, state, active }) {
+  const vRef = useRef(null);
+  useEffect(() => { if (cam.stream && vRef.current) vRef.current.srcObject = cam.stream; }, [cam.stream]);
+  const ok = state === "本人を確認";
+  return (
+    <div style={{
+      position: "absolute", right: 10, top: 10, width: 84, borderRadius: 8, overflow: "hidden",
+      border: `2px solid ${!active ? C.line : ok ? C.grn : C.red}`, background: "#000", zIndex: 3,
+    }}>
+      {cam.stream ? (
+        <video ref={vRef} autoPlay playsInline muted style={{ width: "100%", display: "block", transform: "scaleX(-1)" }} />
+      ) : (
+        <div style={{ padding: "20px 4px", fontSize: 9, color: C.dim2, textAlign: "center" }}>
+          {sim ? "シミュレーション" : "カメラ停止"}
+        </div>
+      )}
+      <div style={{
+        fontSize: 9, textAlign: "center", padding: "3px 0",
+        background: !active ? C.panel2 : ok ? C.grn : C.red,
+        color: !active ? C.dim : "#0F1318",
+      }}>{active ? state : "待機"}</div>
+    </div>
+  );
+}
+
+/* 同意 */
+function ConsentView({ onNext, onSkip }) {
+  const [ok, setOk] = useState(false);
+  return (
+    <div style={{ padding: 16 }}>
+      <div style={{ fontSize: 11, color: C.cyan, fontWeight: 800, letterSpacing: 2 }}>受講の準備　1 / 2</div>
+      <div style={{ fontSize: 20, fontWeight: 900, lineHeight: 1.45, margin: "8px 0 12px" }}>カメラの使用について</div>
+      <div style={{ fontSize: 12.5, color: C.dim, lineHeight: 1.9, marginBottom: 16 }}>
+        この講座は、受講した事実と受講時間を事業者が確認できるようにするため、受講中にカメラで本人確認を行います。
+        法令に基づく特別教育として実施するために必要な措置です。
+      </div>
+      <div style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: 10, padding: 14, marginBottom: 12 }}>
+        <div style={{ fontSize: 11, color: C.yel, letterSpacing: 1, marginBottom: 9 }}>取り扱いの内容</div>
+        {[
+          ["利用目的", "受講者の本人確認、および受講中の在席確認のみに使用します"],
+          ["保存するもの", "照合の結果（一致・不一致）と、その時刻のみ"],
+          ["保存しないもの", "受講中に撮影した映像・静止画は保存しません。端末内で照合し、破棄します"],
+          ["登録用の顔写真", "本人確認のために1枚のみ登録します。記録の保存期間が過ぎたら削除します"],
+          ["提供先", "所属する事業者の教育担当者のみが記録を閲覧します"],
+        ].map(([k, v], i) => (
+          <div key={i} style={{ marginBottom: 9 }}>
+            <div style={{ fontSize: 11.5, fontWeight: 800 }}>{k}</div>
+            <div style={{ fontSize: 11.5, color: C.dim, lineHeight: 1.7, marginTop: 2 }}>{v}</div>
+          </div>
+        ))}
+      </div>
+      <button onClick={() => setOk(!ok)} style={{
+        display: "flex", alignItems: "center", gap: 11, width: "100%", textAlign: "left",
+        background: C.panel, border: `1px solid ${ok ? C.cyan : C.line}`, borderRadius: 10,
+        padding: "13px 14px", fontFamily: F, cursor: "pointer", color: C.txt, marginBottom: 12,
+      }}>
+        <span style={{
+          width: 20, height: 20, borderRadius: 5, flexShrink: 0, border: `1px solid ${ok ? C.cyan : C.line}`,
+          background: ok ? C.cyan : "transparent", color: "#0F1318", fontSize: 13, fontWeight: 900,
+          display: "flex", alignItems: "center", justifyContent: "center",
+        }}>{ok ? "✓" : ""}</span>
+        <span style={{ fontSize: 12.5, lineHeight: 1.6 }}>上記に同意し、カメラの使用を許可します</span>
+      </button>
+      <Btn tone="y" dis={!ok} onClick={onNext}>次へ（本人確認）</Btn>
+      <Btn onClick={onSkip} style={{ marginTop: 8, color: C.dim, fontWeight: 400, fontSize: 12 }}>
+        カメラを使わずに内容だけ確認する（記録は無効）
+      </Btn>
+      <div style={{ fontSize: 10.5, color: C.dim2, lineHeight: 1.9, marginTop: 12 }}>
+        ※同意されない場合は、事業所での集合受講（監視者の配置）をご案内します。教育担当者へご連絡ください。
+      </div>
+    </div>
+  );
+}
+
+/* 本人確認 */
+function EnrollView({ cam, who, setWho, onNext }) {
+  const [face, setFace] = useState(false);
+  const [idc, setIdc] = useState(false);
+  const [shot, setShot] = useState(null);
+  const vRef = useRef(null), cRef = useRef(null);
+  useEffect(() => { if (cam.stream && vRef.current) vRef.current.srcObject = cam.stream; }, [cam.stream]);
+  const capture = (kind) => {
+    if (cam.stream && vRef.current && cRef.current) {
+      const cv = cRef.current; cv.width = 240; cv.height = 180;
+      cv.getContext("2d").drawImage(vRef.current, 0, 0, 240, 180);
+      setShot(cv.toDataURL("image/jpeg", 0.6));
+    }
+    if (kind === "face") setFace(true); else setIdc(true);
+  };
+  return (
+    <div style={{ padding: 16 }}>
+      <div style={{ fontSize: 11, color: C.cyan, fontWeight: 800, letterSpacing: 2 }}>受講の準備　2 / 2</div>
+      <div style={{ fontSize: 20, fontWeight: 900, lineHeight: 1.45, margin: "8px 0 6px" }}>本人確認</div>
+      <div style={{ fontSize: 12.5, color: C.dim, lineHeight: 1.85, marginBottom: 14 }}>
+        照合の基準となる顔写真と、顔写真付きの公的書類を登録します。
+      </div>
+      <div style={{ background: "#0F1318", border: `1px solid ${C.line}`, borderRadius: 10, overflow: "hidden", marginBottom: 12 }}>
+        {cam.stream ? (
+          <video ref={vRef} autoPlay playsInline muted style={{ width: "100%", display: "block", transform: "scaleX(-1)" }} />
+        ) : (
+          <div style={{ padding: "30px 16px", textAlign: "center" }}>
+            <div style={{ fontSize: 28, marginBottom: 8 }}>📷</div>
+            <div style={{ fontSize: 12.5, color: C.dim, lineHeight: 1.8 }}>
+              {cam.error ? `カメラを起動できません（${cam.error}）` : "カメラを起動してください"}
+            </div>
+            <button onClick={cam.start} style={{
+              marginTop: 12, background: C.panel2, color: C.txt, border: `1px solid ${C.line}`,
+              borderRadius: 8, padding: "10px 18px", fontSize: 12.5, fontFamily: F, cursor: "pointer",
+            }}>カメラを起動する</button>
+          </div>
+        )}
+        <canvas ref={cRef} style={{ display: "none" }} />
+      </div>
+      {shot && (
+        <div style={{ display: "flex", gap: 10, alignItems: "center", background: C.panel, border: `1px solid ${C.line}`, borderRadius: 10, padding: 10, marginBottom: 12 }}>
+          <img src={shot} alt="" style={{ width: 72, borderRadius: 6, transform: "scaleX(-1)" }} />
+          <div style={{ fontSize: 11.5, color: C.dim, lineHeight: 1.7 }}>
+            登録用の画像です。<br />端末内で特徴量に変換し、照合に使います。
+          </div>
+        </div>
+      )}
+      {[
+        { k: "face", t: "顔写真の登録", d: "正面を向いて、明るい場所で撮影してください", done: face },
+        { k: "id", t: "公的書類の撮影", d: "運転免許証、マイナンバーカードなど顔写真付きのもの", done: idc },
+      ].map((s) => (
+        <div key={s.k} style={{ background: C.panel, border: `1px solid ${s.done ? C.grn : C.line}`, borderRadius: 10, padding: "13px 14px", marginBottom: 9 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontSize: 14, color: s.done ? C.grn : C.dim2 }}>{s.done ? "✓" : "□"}</span>
+            <span style={{ fontSize: 13.5, fontWeight: 800 }}>{s.t}</span>
+          </div>
+          <div style={{ fontSize: 11.5, color: C.dim, lineHeight: 1.7, margin: "5px 0 9px" }}>{s.d}</div>
+          <Btn tone={s.done ? undefined : "y"} onClick={() => capture(s.k)} style={{ padding: 10, fontSize: 12.5 }}>
+            {s.done ? "撮り直す" : "撮影する"}
+          </Btn>
+        </div>
+      ))}
+      <div style={{ background: C.panel, border: `1px solid ${who.name && who.birth ? C.grn : C.line}`, borderRadius: 10, padding: "13px 14px", marginBottom: 9 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+          <span style={{ fontSize: 14, color: who.name && who.birth ? C.grn : C.dim2 }}>{who.name && who.birth ? "✓" : "□"}</span>
+          <span style={{ fontSize: 13.5, fontWeight: 800 }}>受講者情報</span>
+        </div>
+        <div style={{ fontSize: 11.5, color: C.dim, lineHeight: 1.7, marginBottom: 9 }}>修了証に記載されます。書類のとおりに入力してください。</div>
+        {[["name", "氏名", "例：山田 太郎"], ["birth", "生年月日", "例：1990年4月1日"], ["company", "事業者名（任意）", "例：〇〇建設工業"]].map(([k, lb, ph]) => (
+          <div key={k} style={{ marginBottom: 8 }}>
+            <div style={{ fontSize: 10.5, color: C.dim, marginBottom: 4 }}>{lb}</div>
+            <input value={who[k]} onChange={(e) => setWho({ ...who, [k]: e.target.value })} placeholder={ph}
+              style={{ width: "100%", background: C.panel2, color: C.txt, border: `1px solid ${C.line}`, borderRadius: 8, padding: "10px 11px", fontSize: 13, fontFamily: F, boxSizing: "border-box" }} />
+          </div>
+        ))}
+      </div>
+
+      <Btn tone="y" dis={!(face && idc && who.name && who.birth)} onClick={onNext} style={{ marginTop: 6 }}>
+        {face && idc && who.name && who.birth ? "受講を開始する" : "登録が完了していません"}
+      </Btn>
+      <div style={{ fontSize: 10.5, color: C.dim2, lineHeight: 1.9, marginTop: 12 }}>
+        ※顔写真のない書類では修了証を発行できません。<br />
+        ※本番実装では、撮影画像は端末内で特徴量に変換し、画像そのものは送信しません。
+      </div>
+    </div>
+  );
+}
+
+/* ── 受講画面（ナレーション → 図解 → 災害事例 → 確認問題） ── */
+function Player({ lesson, subj, sec, demo, cam, sim, onMon, onTick, onQuiz, quizOK, onAsk, onBack }) {
+  const figs = lesson.figures || [], cases = lesson.cases || [];
+  const [stage, setStage] = useState("narr");   // narr / fig / case / quiz
+  const [fi, setFi] = useState(0);
+  const [ci, setCi] = useState(0);
+  const [play, setPlay] = useState(false);
+  const [verify, setVerify] = useState(null);
+  const [line, setLine] = useState(0);
+  const [qi, setQi] = useState(0);
+  const [wrong, setWrong] = useState(null);
+  const [askOpen, setAskOpen] = useState(false);
+  const [qText, setQText] = useState("");
+
+  const need = nsec(lesson, demo);
+  const p = Math.min(1, sec / need);
+  const last = line >= lesson.script.length;
+  const sp = Math.min(1, (line + 1) / lesson.script.length);
+
+  const camV = useRef(null), camC = useRef(null), camPrev = useRef(null), miss = useRef(0);
+  const [camState, setCamState] = useState("待機");
+  const watching = !!(cam && (cam.stream || sim));
+  useEffect(() => { if (cam && cam.stream && camV.current) camV.current.srcObject = cam.stream; }, [cam && cam.stream]);
+
+  /* 視聴時間：ナレーションは再生中のみ、図解・事例は表示中に加算 */
+  const counting = (stage === "narr" ? play : stage === "fig" || stage === "case") && !verify;
+  useEffect(() => {
+    if (!counting) return;
+    const id = setInterval(() => onTick(1, () => { if (!watching) { setPlay(false); setVerify("在席確認"); } }), 1000);
+    return () => clearInterval(id);
+  }, [counting, onTick]);
+
+  /* 顔認証：受講中は3秒ごとに照合 */
+  useEffect(() => {
+    if (!counting || !watching) return;
+    const id = setInterval(async () => {
+      const r = await detectFace(camV.current, camC.current, camPrev, sim);
+      if (r.ok) { setCamState("本人を確認"); miss.current = 0; }
+      else {
+        miss.current += 1; setCamState(r.msg);
+        if (miss.current >= 2) {
+          miss.current = 0; setPlay(false); setVerify(r.msg);
+          if (onMon) onMon(lesson.id, r.msg);
+        }
+      }
+    }, 3000);
+    return () => clearInterval(id);
+  }, [counting, watching, sim, lesson.id]);
+
+  /* ナレーション */
+  useEffect(() => {
+    if (stage !== "narr" || !play || verify || last) { TTS.stop(); return; }
+    return TTS.speak(lesson.script[line], () => setLine((v) => v + 1));
+  }, [stage, play, verify, line, last, lesson]);
+
+  useEffect(() => { TTS.stop(); setStage("narr"); setLine(0); setFi(0); setCi(0); setPlay(false); }, [lesson.id]);
+  useEffect(() => () => TTS.stop(), []);
+  useEffect(() => { if (last) setPlay(false); }, [last]);
+  const stopAll = () => { setPlay(false); TTS.stop(); };
+
+  const nextStage = () => {
+    stopAll();
+    if (stage === "narr") setStage(figs.length ? "fig" : cases.length ? "case" : "quiz");
+    else if (stage === "fig") setStage(cases.length ? "case" : "quiz");
+    else if (stage === "case") setStage("quiz");
+  };
+
+  const steps = [
+    { k: "narr", n: "解説" },
+    ...(figs.length ? [{ k: "fig", n: `図解 ${figs.length}` }] : []),
+    ...(cases.length ? [{ k: "case", n: `事例 ${cases.length}` }] : []),
+    { k: "quiz", n: "確認" },
+  ];
+
+  return (
+    <div>
+      <div style={{ padding: "10px 16px", borderBottom: `1px solid ${C.line}`, display: "flex", alignItems: "center", gap: 10 }}>
+        <button onClick={() => { stopAll(); onBack(); }} style={{ background: "none", border: "none", color: C.dim, fontSize: 15, fontFamily: F, cursor: "pointer", padding: 0 }}>←</button>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 10, color: C.dim }}>科目{subj.id}　{lesson.id}</div>
+          <div style={{ fontSize: 13.5, fontWeight: 800, lineHeight: 1.35 }}>{lesson.t}</div>
+        </div>
+        <div style={{ fontFamily: MO, fontSize: 12, color: p >= 1 ? C.grn : C.yel }}>
+          {hm(sec)}<span style={{ color: C.dim }}> / {hm(need)}</span>
+        </div>
+      </div>
+
+      {/* 進行 */}
+      <div style={{ display: "flex", gap: 4, padding: "8px 16px", background: C.panel, borderBottom: `1px solid ${C.line}` }}>
+        {steps.map((s) => (
+          <div key={s.k} style={{
+            flex: 1, textAlign: "center", fontSize: 10.5, fontWeight: 800, padding: "5px 0", borderRadius: 5,
+            background: stage === s.k ? C.yel : "transparent", color: stage === s.k ? "#14171B" : C.dim,
+            border: `1px solid ${stage === s.k ? C.yel : C.line}`,
+          }}>{s.n}</div>
+        ))}
+      </div>
+      <Bar v={sec} max={need} color={p >= 1 ? C.grn : C.yel} />
+
+      {/* ── ナレーション ── */}
+      {stage === "narr" && (
+        <>
+          <div style={{ background: "#10151B", borderBottom: `1px solid ${C.line}`, position: "relative" }}>
+            <Scene kind={lesson.scene} p={sp} />
+            {watching && <CamWindow cam={cam} sim={sim} state={camState} active={counting} />}
+          </div>
+          <canvas ref={camC} style={{ display: "none" }} />
+          {watching && !cam.stream && <video ref={camV} style={{ display: "none" }} />}
+          <div style={{ background: C.panel, borderBottom: `1px solid ${C.line}`, padding: "14px 16px", minHeight: 74, display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{ width: 8, height: 8, borderRadius: 4, flexShrink: 0, background: play && !last ? C.yel : C.line, animation: play && !last ? "pulse 1.1s ease-in-out infinite" : "none" }} />
+            <div style={{ fontSize: 14, lineHeight: 1.75, fontWeight: 600 }}>
+              {last ? "この単元の解説は以上です。" : play || line > 0 ? lesson.script[line] : "再生すると、ナレーションが始まります。"}
+            </div>
+          </div>
+          <div style={{ padding: 16 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr 1fr", gap: 7, marginBottom: 6 }}>
+              <Btn tone={play ? undefined : "y"} onClick={() => { if (last) setLine(0); setPlay(!play); }}>
+                {play ? "一時停止" : last ? "もう一度再生" : line === 0 ? "再生する" : "続きから"}
+              </Btn>
+              <Btn onClick={() => { stopAll(); setLine(0); }} style={{ fontSize: 12, fontWeight: 400, color: C.dim }}>最初から</Btn>
+              <Btn onClick={() => onTick(60, () => { if (!watching) { stopAll(); setVerify("在席確認"); } })} style={{ borderStyle: "dashed", color: C.dim, fontSize: 11.5, fontWeight: 400 }}>＋1分</Btn>
+            </div>
+            <div style={{ display: "flex", fontSize: 10.5, color: C.dim2, marginBottom: 14 }}>
+              <span>ナレーション {Math.min(line + 1, lesson.script.length)}/{lesson.script.length}</span>
+              <span style={{ marginLeft: "auto" }}>{TTS.ok() ? "音声で読み上げます" : "字幕のみ"}</span>
+            </div>
+            {line > 0 && (<>
+              <div style={{ fontSize: 10, color: C.dim, letterSpacing: 2, marginBottom: 8 }}>ここまでの内容</div>
+              {lesson.script.slice(Math.max(0, line - 8), line).map((x, i) => (
+                <div key={i} style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: 8, padding: "9px 12px", marginBottom: 6, fontSize: 12, lineHeight: 1.75, color: C.dim }}>{x}</div>
+              ))}
+              {line > 8 && <div style={{ fontSize: 11, color: C.dim2, marginBottom: 8 }}>（直近8件を表示）</div>}
+            </>)}
+            <Btn tone={last ? "y" : undefined} dis={!last} onClick={nextStage} style={{ marginTop: 10 }}>
+              {last ? (figs.length ? "図解へ進む" : cases.length ? "災害事例へ進む" : "確認問題へ") : "解説を最後まで聞いてください"}
+            </Btn>
+            <Btn onClick={() => { stopAll(); setAskOpen(true); }} style={{ marginTop: 8, color: C.cyan, fontSize: 12.5, fontWeight: 400 }}>この内容について質問する</Btn>
+            <div style={{ marginTop: 14, fontSize: 10.5, color: C.dim2, lineHeight: 1.8 }}>規程上の範囲：{lesson.han}</div>
+          </div>
+        </>
+      )}
+
+      {/* ── 図解 ── */}
+      {stage === "fig" && (
+        <FigureView key={figs[fi].id} fig={figs[fi]}
+          onDone={() => { if (fi + 1 < figs.length) setFi(fi + 1); else nextStage(); }} />
+      )}
+
+      {/* ── 災害事例 ── */}
+      {stage === "case" && (
+        <CaseView key={cases[ci].id} cs={cases[ci]}
+          onDone={() => { if (ci + 1 < cases.length) setCi(ci + 1); else nextStage(); }} />
+      )}
+
+      {/* ── 確認問題 ── */}
+      {stage === "quiz" && (
+        <div style={{ padding: 16 }}>
+          <div style={{ fontSize: 10, color: quizOK ? C.grn : C.yel, letterSpacing: 2, marginBottom: 8 }}>
+            確認問題 {quizOK ? "／ 全問正解" : `（${qi + 1}/${lesson.quiz.length}）`}
+          </div>
+          {quizOK ? (
+            <div style={{ background: C.panel, border: `1px solid ${C.grn}`, borderRadius: 10, padding: 16, fontSize: 13, color: C.grn, lineHeight: 1.8 }}>
+              この単元は修了しました。{sec < need ? "受講時間が規定に達していないため、解説を見直してください。" : "受講時間も満たしています。"}
+            </div>
+          ) : (
+            <div style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: 10, padding: 14 }}>
+              <div style={{ fontSize: 14.5, fontWeight: 800, marginBottom: 10, lineHeight: 1.55 }}>{lesson.quiz[qi].q}</div>
+              <div style={{ display: "grid", gap: 7 }}>
+                {lesson.quiz[qi].a.map((a, i) => (
+                  <button key={i} onClick={() => {
+                    if (i === lesson.quiz[qi].ok) { setWrong(null); if (qi + 1 >= lesson.quiz.length) onQuiz(lesson.id); else setQi(qi + 1); }
+                    else setWrong(i);
+                  }} style={{
+                    background: wrong === i ? "#2C1815" : C.panel2, color: wrong === i ? "#F4B5AE" : C.txt,
+                    border: `1px solid ${wrong === i ? C.red : C.line}`, borderRadius: 8, padding: "12px 13px",
+                    fontSize: 13, fontWeight: 700, fontFamily: F, cursor: "pointer", textAlign: "left",
+                  }}>{a}</button>
+                ))}
+              </div>
+              {wrong !== null && <div style={{ fontSize: 12, color: "#F4B5AE", marginTop: 10, lineHeight: 1.7 }}>{lesson.quiz[qi].why}</div>}
+            </div>
+          )}
+          <Btn onClick={() => { setStage("narr"); }} style={{ marginTop: 14, color: C.dim, fontSize: 12.5, fontWeight: 400 }}>解説に戻る</Btn>
+          <Btn onClick={onBack} style={{ marginTop: 8, color: C.dim, fontSize: 12.5, fontWeight: 400 }}>科目一覧へ</Btn>
+        </div>
+      )}
+
+      {verify && (
+        <div style={{ position: "fixed", inset: 0, background: "#000c", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, zIndex: 30 }}>
+          <div style={{ background: C.panel, border: `2px solid ${verify === "在席確認" ? C.yel : C.red}`, borderRadius: 14, padding: 20, maxWidth: 340, width: "100%" }}>
+            <div style={{ fontSize: 11, color: verify === "在席確認" ? C.yel : C.red, fontWeight: 800, letterSpacing: 1 }}>
+              {verify === "在席確認" ? "在席確認" : "受講を一時停止しました"}
+            </div>
+            <div style={{ fontSize: 15, fontWeight: 800, lineHeight: 1.6, margin: "8px 0 4px" }}>
+              {verify === "在席確認" ? "受講中であることを確認します。" : verify}
+            </div>
+            <div style={{ fontSize: 12, color: C.dim, lineHeight: 1.75, marginBottom: 14 }}>
+              {verify === "在席確認"
+                ? "押されるまで視聴時間は加算されません。確認した時刻は受講記録に残ります。"
+                : "カメラの正面に、お一人で映る状態にしてください。停止しているあいだ、視聴時間は加算されません。この停止は記録に残ります。"}
+            </div>
+            <Btn tone="y" onClick={() => { setVerify(null); miss.current = 0; if (stage === "narr") setPlay(true); }}>受講を続ける</Btn>
+          </div>
+        </div>
+      )}
+
+      {askOpen && (
+        <div style={{ position: "fixed", inset: 0, background: "#000c", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, zIndex: 30 }}>
+          <div style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: 14, padding: 18, maxWidth: 360, width: "100%" }}>
+            <div style={{ fontSize: 11, color: C.cyan, fontWeight: 800, letterSpacing: 1 }}>質問する</div>
+            <div style={{ fontSize: 12, color: C.dim, lineHeight: 1.75, margin: "6px 0 10px" }}>
+              教育担当者へ送られ、質疑応答の記録として保存されます。
+            </div>
+            <textarea value={qText} onChange={(e) => setQText(e.target.value)} rows={4}
+              placeholder="例：手すりを一時的に外してよいのはどんな場合ですか"
+              style={{ width: "100%", background: C.panel2, color: C.txt, border: `1px solid ${C.line}`, borderRadius: 8, padding: 11, fontSize: 13, fontFamily: F, resize: "none", boxSizing: "border-box" }} />
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 10 }}>
+              <Btn onClick={() => { setAskOpen(false); setQText(""); }} style={{ color: C.dim, fontWeight: 400 }}>やめる</Btn>
+              <Btn tone="y" onClick={() => { if (qText.trim()) onAsk(lesson.id, qText.trim()); setAskOpen(false); setQText(""); }}>送信する</Btn>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── 修了試験 ─────────────────────────────
+   全単元の確認問題と総合問題からランダムに20問。16問以上（8割）で合格。
+   ───────────────────────────────────── */
+const EXAM_POOL = (() => {
+  const seen = new Set(), pool = [];
+  const push = (q) => { if (!q || !q.q || seen.has(q.q)) return; seen.add(q.q); pool.push({ q: q.q, a: q.a, ok: q.ok }); };
+  EXAM.forEach(push);
+  ALL.forEach((l) => (l.quiz || []).forEach(push));
+  return pool;
+})();
+const EXAM_N = 20;
+const EXAM_PASS = 16;
+
+function Exam({ tries, onDone, onBack }) {
+  const [qs] = useState(() => {
+    const a = [...EXAM_POOL];
+    for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+    return a.slice(0, Math.min(EXAM_N, a.length));
+  });
+  const [i, setI] = useState(0);
+  const [ans, setAns] = useState([]);
+  const [fin, setFin] = useState(false);
+  const score = ans.filter((x, k) => x === qs[k].ok).length;
+
+  if (fin) {
+    const pass = score >= EXAM_PASS;
+    return (
+      <div style={{ padding: 20 }}>
+        <div style={{ border: `1px solid ${pass ? C.grn : C.red}`, borderRadius: 12, padding: 22, textAlign: "center", background: C.panel }}>
+          <div style={{ fontSize: 11, color: C.dim, letterSpacing: 3 }}>修了試験</div>
+          <div style={{ fontFamily: MO, fontSize: 50, fontWeight: 700, color: pass ? C.grn : C.red, lineHeight: 1.2 }}>
+            {score}<span style={{ fontSize: 20, color: C.dim }}>/{qs.length}</span>
+          </div>
+          <div style={{ fontSize: 16, fontWeight: 800 }}>{pass ? "合格" : "不合格"}</div>
+          <div style={{ fontSize: 12, color: C.dim, marginTop: 4 }}>
+            合格は{EXAM_PASS}問以上（{Math.round(EXAM_PASS / qs.length * 100)}％）　／　受験 {tries + 1}回目
+          </div>
+        </div>
+        {!pass && (
+          <div style={{ marginTop: 16 }}>
+            <div style={{ fontSize: 11, color: C.yel, letterSpacing: 2, marginBottom: 8 }}>間違えた問題</div>
+            {qs.map((e, k) => ans[k] !== e.ok && (
+              <div key={k} style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: 8, padding: "11px 13px", marginBottom: 8 }}>
+                <div style={{ fontSize: 12.5, fontWeight: 700, marginBottom: 4, lineHeight: 1.6 }}>{e.q}</div>
+                <div style={{ fontSize: 12, color: C.grn }}>正解：{e.a[e.ok]}</div>
+              </div>
+            ))}
+            <div style={{ fontSize: 11.5, color: C.dim, lineHeight: 1.8, marginTop: 10 }}>
+              該当する単元を見直してから、もう一度受験してください。出題は毎回ランダムに選ばれます。
+            </div>
+          </div>
+        )}
+        <div style={{ display: "grid", gap: 8, marginTop: 18 }}>
+          <Btn tone="y" onClick={() => onDone(pass, score, qs.length)}>{pass ? "資格証を発行する" : "戻って復習する"}</Btn>
+        </div>
+      </div>
+    );
+  }
+
+  const q = qs[i];
+  return (
+    <div style={{ padding: 16 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+        <button onClick={onBack} style={{ background: "none", border: "none", color: C.dim, fontSize: 15, fontFamily: F, cursor: "pointer", padding: 0 }}>←</button>
+        <div style={{ fontSize: 13, fontWeight: 800 }}>修了試験</div>
+        <div style={{ marginLeft: "auto", fontFamily: MO, fontSize: 12, color: C.dim }}>{i + 1}/{qs.length}</div>
+      </div>
+      <Bar v={i} max={qs.length} />
+      <div style={{ fontSize: 16, fontWeight: 800, lineHeight: 1.65, margin: "18px 0 14px" }}>{q.q}</div>
+      <div style={{ display: "grid", gap: 8 }}>
+        {q.a.map((a, k) => (
+          <button key={k} onClick={() => {
+            const n = [...ans]; n[i] = k; setAns(n);
+            if (i + 1 >= qs.length) setFin(true); else setI(i + 1);
+          }} style={{
+            background: C.panel2, color: C.txt, border: `1px solid ${C.line}`, borderRadius: 9,
+            padding: "14px 14px", fontSize: 13.5, fontWeight: 700, fontFamily: F, cursor: "pointer", textAlign: "left", lineHeight: 1.5,
+          }}>{a}</button>
+        ))}
+      </div>
+      <div style={{ fontSize: 11, color: C.dim2, marginTop: 16, lineHeight: 1.8 }}>
+        全{qs.length}問。{EXAM_PASS}問以上で合格。全単元からランダムに出題されます。
+      </div>
+    </div>
+  );
+}
+
+/* ── 資格証（修了証）─────────────────────
+   画面表示と、PNG形式でのダウンロードに対応。
+   ───────────────────────────────────── */
+function certNo(who) {
+  const d = new Date();
+  const base = (who.name || "").length + (who.company || "").length;
+  return `AT-${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}-${String(1000 + base * 7 + d.getDate() * 13).slice(-4)}`;
+}
+
+function drawCert(cv, who, exam, no, dstr) {
+  const W = 1240, H = 880, ctx = cv.getContext("2d");
+  cv.width = W; cv.height = H;
+  const JP = '"Hiragino Kaku Gothic ProN","Noto Sans JP","Yu Gothic",sans-serif';
+  ctx.fillStyle = "#F7F4EC"; ctx.fillRect(0, 0, W, H);
+  ctx.strokeStyle = "#1A1D21"; ctx.lineWidth = 6; ctx.strokeRect(24, 24, W - 48, H - 48);
+  ctx.strokeStyle = "#C8B26A"; ctx.lineWidth = 2; ctx.strokeRect(40, 40, W - 80, H - 80);
+  ctx.fillStyle = "#1A1D21"; ctx.textAlign = "center";
+  ctx.font = `500 22px ${JP}`; ctx.fillText("特 別 教 育 修 了 証", W / 2, 118);
+  ctx.font = `700 40px ${JP}`; ctx.fillText("足場の組立て等の業務に係る特別教育", W / 2, 178);
+  ctx.strokeStyle = "#1A1D21"; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(150, 208); ctx.lineTo(W - 150, 208); ctx.stroke();
+
+  ctx.textAlign = "left";
+  const L = 150; let y = 272;
+  const row = (k, v, big) => {
+    ctx.font = `400 20px ${JP}`; ctx.fillStyle = "#5A5A55"; ctx.fillText(k, L, y);
+    ctx.font = big ? `700 32px ${JP}` : `500 24px ${JP}`; ctx.fillStyle = "#1A1D21";
+    ctx.fillText(v || "（　　　　　）", L + 200, y + (big ? 4 : 0));
+    y += big ? 62 : 48;
+  };
+  row("氏　　名", who.name, true);
+  row("生年月日", who.birth);
+  row("修 了 日", dstr);
+  row("証明番号", no);
+
+  y += 8;
+  ctx.strokeStyle = "#C8C2B4"; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(L, y); ctx.lineTo(W - L, y); ctx.stroke();
+  y += 34;
+  ctx.font = `400 19px ${JP}`; ctx.fillStyle = "#5A5A55";
+  ctx.fillText("教育科目および時間", L, y); y += 34;
+  SUBJECTS.forEach((s) => {
+    ctx.font = `400 19px ${JP}`; ctx.fillStyle = "#1A1D21";
+    ctx.fillText(`科目${s.id}　${s.n}`, L + 12, y);
+    ctx.textAlign = "right"; ctx.fillText(`${s.need}分`, W - L, y); ctx.textAlign = "left";
+    y += 30;
+  });
+  ctx.font = `700 20px ${JP}`;
+  ctx.fillText("合　計", L + 12, y + 4);
+  ctx.textAlign = "right"; ctx.fillText("6時間（学科）", W - L, y + 4); ctx.textAlign = "left";
+  y += 46;
+
+  ctx.font = `400 19px ${JP}`; ctx.fillStyle = "#1A1D21";
+  ctx.fillText("上記の者は、労働安全衛生法第59条第3項及び労働安全衛生規則第36条第39号に基づく", L, y); y += 30;
+  ctx.fillText("特別教育を修了したことを証する。", L, y); y += 44;
+
+  ctx.font = `400 17px ${JP}`; ctx.fillStyle = "#5A5A55";
+  ctx.fillText(`受講方法：個人受講（顔認証による本人確認・在席確認）　修了試験：${exam.score}/${exam.total}問　合格`, L, y);
+
+  ctx.textAlign = "right";
+  ctx.font = `400 20px ${JP}`; ctx.fillStyle = "#1A1D21";
+  ctx.fillText(`事業者名　　${who.company || "（　　　　　　　）"}`, W - L, H - 150);
+  ctx.fillText(`教育実施責任者　　${who.responsible || "（　　　　　　　）"}`, W - L, H - 110);
+  ctx.strokeStyle = "#B03A2E"; ctx.lineWidth = 3;
+  ctx.strokeRect(W - 190, H - 250, 92, 92);
+  ctx.fillStyle = "#B03A2E"; ctx.font = `700 17px ${JP}`; ctx.textAlign = "center";
+  ctx.fillText("事業者", W - 144, H - 212); ctx.fillText("印", W - 144, H - 186);
+}
+
+function Cert({ who, exam, logs, onBack }) {
+  const cvRef = useRef(null);
+  const [url, setUrl] = useState(null);
+  const dstr = new Date().toLocaleDateString("ja-JP");
+  const no = certNo(who);
+
+  useEffect(() => {
+    if (!cvRef.current) return;
+    try { drawCert(cvRef.current, who, exam, no, dstr); setUrl(cvRef.current.toDataURL("image/png")); }
+    catch (e) { setUrl(null); }
+  }, []);
+
+  const dl = () => {
+    if (!url) return;
+    const a = document.createElement("a");
+    a.href = url; a.download = `特別教育修了証_${who.name || "受講者"}_${no}.png`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  };
+
+  const stops = logs.filter((l) => /検出|遮られ|映像/.test(l.k)).length;
+
+  return (
+    <div style={{ padding: 16 }}>
+      <button onClick={onBack} style={{ background: "none", border: "none", color: C.dim, fontSize: 12.5, fontFamily: F, cursor: "pointer", padding: "0 0 12px" }}>← 戻る</button>
+      <div style={{ fontSize: 11, color: C.grn, fontWeight: 800, letterSpacing: 2 }}>合格</div>
+      <div style={{ fontSize: 20, fontWeight: 900, lineHeight: 1.45, margin: "6px 0 14px" }}>資格証が発行されました</div>
+
+      <canvas ref={cvRef} style={{ display: "none" }} />
+      {url ? (
+        <img src={url} alt="修了証" style={{ width: "100%", borderRadius: 8, border: `1px solid ${C.line}` }} />
+      ) : (
+        <div style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: 8, padding: 20, fontSize: 12.5, color: C.dim, lineHeight: 1.8 }}>
+          この端末では画像を生成できませんでした。教育担当者にご連絡ください。
+        </div>
+      )}
+
+      <Btn tone="y" dis={!url} onClick={dl} style={{ marginTop: 12 }}>資格証をダウンロード（PNG）</Btn>
+
+      <div style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: 10, padding: 14, marginTop: 14 }}>
+        <div style={{ fontSize: 11, color: C.dim, letterSpacing: 1, marginBottom: 9 }}>この資格証に紐づく記録</div>
+        {[
+          ["証明番号", no],
+          ["受講方法", "個人受講（顔認証）"],
+          ["修了試験", `${exam.score}/${exam.total}問　受験${exam.tries}回`],
+          ["照合の中断", `${stops}回`],
+          ["保存した画像", "なし（照合結果と時刻のみ）"],
+        ].map(([k, v], i) => (
+          <div key={i} style={{ display: "flex", fontSize: 12, padding: "5px 0" }}>
+            <span style={{ color: C.dim, width: 96 }}>{k}</span><span style={{ flex: 1 }}>{v}</span>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ fontSize: 11, color: C.dim, lineHeight: 1.9, marginTop: 14 }}>
+        資格証は事業者名義で発行されます。事業者名と教育実施責任者の欄は、教育担当者が記入・押印してください。
+      </div>
+      <div style={{ fontSize: 10.5, color: C.dim2, lineHeight: 1.9, marginTop: 10 }}>
+        ※様式は仮のものです。運用前に所轄労働局または社会保険労務士への確認を推奨します。<br />
+        ※本番実装では、事業者印の電子化と、証明番号による真正性の確認を想定しています。
+      </div>
+    </div>
+  );
+}
+
+/* ── 受講記録 ─────────────────────────── */
+function Log({ watched, quiz, asks, logs, exam, demo, billing, setBilling }) {
+  const total = Object.values(watched).reduce((a, b) => a + b, 0);
+  return (
+    <div style={{ padding: 16 }}>
+      <div style={{ fontSize: 10, color: C.dim, letterSpacing: 2, marginBottom: 8 }}>科目別の受講時間</div>
+      {SUBJECTS.map((s) => {
+        const sw = s.lessons.reduce((a, l) => a + Math.min(watched[l.id] || 0, nsec(l, demo)), 0);
+        const ok = sw >= ssec(s, demo);
+        return (
+          <div key={s.id} style={{ marginBottom: 12 }}>
+            <div style={{ display: "flex", fontSize: 11.5, marginBottom: 5 }}>
+              <span style={{ flex: 1, color: ok ? C.txt : C.dim, lineHeight: 1.4 }}>科目{s.id}　{s.n}</span>
+              <span style={{ fontFamily: MO, color: ok ? C.grn : C.yel, whiteSpace: "nowrap" }}>{Math.floor(sw / 60)}/{Math.round(ssec(s, demo) / 60)}分</span>
+            </div>
+            <Bar v={sw} max={ssec(s, demo)} color={ok ? C.grn : C.yel} />
+          </div>
+        );
+      })}
+      <div style={{ display: "flex", fontSize: 12.5, borderTop: `1px solid ${C.line}`, paddingTop: 10, marginBottom: 18 }}>
+        <span style={{ flex: 1, fontWeight: 800 }}>合計</span>
+        <span style={{ fontFamily: MO, fontWeight: 700, color: total >= tsec(demo) ? C.grn : C.yel }}>{hhmm(total)} / {demo ? "デモ36分" : "6時間"}</span>
+      </div>
+
+      <div style={{ fontSize: 10, color: C.dim, letterSpacing: 2, marginBottom: 8 }}>修了試験</div>
+      <div style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: 8, padding: "11px 13px", marginBottom: 18, fontSize: 12.5, color: exam.done ? C.txt : C.dim }}>
+        {exam.done ? `${exam.score}/${exam.total}　${exam.score >= Math.ceil(exam.total * 0.8) ? "合格" : "不合格"}　（受験${exam.tries}回）` : "未受験"}
+      </div>
+
+      <div style={{ fontSize: 10, color: C.dim, letterSpacing: 2, marginBottom: 8 }}>お支払いの状況</div>
+      <div style={{ background: C.panel, border: `1px solid ${billing.paid ? C.grn : C.yel}`, borderRadius: 8, padding: "11px 13px", marginBottom: 18 }}>
+        <div style={{ display: "flex", fontSize: 12, marginBottom: 4 }}>
+          <span style={{ color: C.dim, width: 92 }}>支払い方法</span>
+          <span style={{ flex: 1 }}>{billing.method === "invoice" ? "請求書払い（銀行振込）" : "クレジットカード"}</span>
+        </div>
+        <div style={{ display: "flex", fontSize: 12 }}>
+          <span style={{ color: C.dim, width: 92 }}>入金確認</span>
+          <span style={{ flex: 1, color: billing.paid ? C.grn : C.yel }}>{billing.paid ? "確認済み" : "未確認（資格証は発行できません）"}</span>
+        </div>
+        <Btn onClick={() => setBilling({ ...billing, paid: !billing.paid })} style={{ marginTop: 10, padding: 9, fontSize: 11.5, borderStyle: "dashed", color: C.dim, fontWeight: 400 }}>
+          {billing.paid ? "未入金に戻す（デモ）" : "入金を確認済みにする（デモ）"}
+        </Btn>
+      </div>
+
+      <div style={{ fontSize: 10, color: C.dim, letterSpacing: 2, marginBottom: 8 }}>本人確認・照合の状況</div>
+      <div style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: 8, padding: "11px 13px", marginBottom: 18, fontSize: 12, lineHeight: 1.9, color: C.dim }}>
+        受講方法：個人受講（顔認証）<br />
+        照合の間隔：3秒ごと<br />
+        中断の回数：{logs.filter((l) => /検出|遮られ|映像/.test(l.k)).length}回<br />
+        保存した画像：なし（照合結果と時刻のみ）
+      </div>
+      <div style={{ fontSize: 10, color: C.dim, letterSpacing: 2, marginBottom: 8 }}>照合・操作ログ（{logs.length}件）</div>
+      <div style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: 8, padding: "8px 12px", marginBottom: 18, maxHeight: 190, overflowY: "auto" }}>
+        {logs.length === 0 && <div style={{ fontSize: 12, color: C.dim2, padding: "6px 0" }}>まだ記録がありません。</div>}
+        {logs.slice().reverse().map((l, i) => (
+          <div key={i} style={{ display: "flex", gap: 10, fontSize: 11.5, padding: "5px 0", borderBottom: i === logs.length - 1 ? "none" : `1px solid ${C.line}` }}>
+            <span style={{ fontFamily: MO, color: C.dim }}>{l.at}</span>
+            <span style={{ color: C.dim }}>{l.id}</span>
+            <span style={{ marginLeft: "auto", color: l.k === "在席確認" ? C.yel : C.grn }}>{l.k}</span>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ fontSize: 10, color: C.dim, letterSpacing: 2, marginBottom: 8 }}>質疑応答（{asks.length}件）</div>
+      {asks.length === 0 && <div style={{ fontSize: 12, color: C.dim2 }}>まだ質問はありません。</div>}
+      {asks.map((a, i) => (
+        <div key={i} style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: 8, padding: "11px 13px", marginBottom: 8 }}>
+          <div style={{ fontSize: 10.5, color: C.cyan, marginBottom: 4 }}>{a.id}　{a.at}</div>
+          <div style={{ fontSize: 12.5, lineHeight: 1.7 }}>{a.t}</div>
+          <div style={{ fontSize: 11, color: C.dim, marginTop: 6 }}>回答待ち（担当者へ送信済み）</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ── 教材テキストのPDF生成 ─────────────
+   キャンバスに組版してJPEGにし、PDFへ埋め込む。
+   （フォント埋め込み不要で、日本語がそのまま出せる）
+   ───────────────────────────────────── */
+const PW = 1240, PH = 1754, PM = 110;   // A4相当・150dpi
+
+function wrap(ctx, text, maxW) {
+  const out = []; let line = "";
+  for (const ch of text) {
+    if (ctx.measureText(line + ch).width > maxW && line) { out.push(line); line = ch; }
+    else line += ch;
+  }
+  if (line) out.push(line);
+  return out;
+}
+
+function buildBlocks(sub) {
+  const b = [{ t: "h1", s: `科目${sub.id}　${sub.n}` }, { t: "note", s: `法定時間 ${sub.need}分` }];
+  sub.lessons.forEach((l) => {
+    b.push({ t: "h2", s: `${l.id}　${l.t}` });
+    b.push({ t: "note", s: `規程上の範囲：${l.han}　／　${l.min}分` });
+    b.push({ t: "h3", s: "本文" });
+    l.script.forEach((s) => b.push({ t: "p", s }));
+    if ((l.figures || []).length) {
+      b.push({ t: "h3", s: "図解で確認する項目" });
+      l.figures.forEach((f) => {
+        b.push({ t: "h4", s: f.t });
+        (f.parts || []).forEach((p) => b.push({ t: "li", s: p.d ? `${p.n}　—　${p.d}` : p.n }));
+      });
+    }
+    if ((l.cases || []).length) {
+      b.push({ t: "h3", s: "災害事例" });
+      l.cases.forEach((c) => {
+        b.push({ t: "h4", s: c.t });
+        b.push({ t: "li", s: Object.entries(c.meta).map(([k, v]) => `${k}：${v}`).join("　") });
+        b.push({ t: "sub", s: "発生状況" });
+        c.situation.forEach((s) => b.push({ t: "p", s }));
+        b.push({ t: "sub", s: "災害発生原因" });
+        c.causes.forEach((s, i) => b.push({ t: "li", s: `${i + 1}. ${s}` }));
+        b.push({ t: "sub", s: "再発防止対策" });
+        c.prevention.forEach((s, i) => b.push({ t: "li", s: `${i + 1}. ${s}` }));
+        b.push({ t: "box", s: c.lesson });
+      });
+    }
+    if ((l.quiz || []).length) {
+      b.push({ t: "h3", s: "確認問題" });
+      l.quiz.forEach((q, i) => {
+        b.push({ t: "li", s: `問${i + 1}　${q.q}` });
+        q.a.forEach((a, k) => b.push({ t: "opt", s: `　${["①", "②", "③", "④"][k]} ${a}` }));
+        b.push({ t: "ans", s: `　答　${["①", "②", "③", "④"][q.ok]}　${q.why || ""}` });
+      });
+    }
+  });
+  return b;
+}
+
+function paintPages(blocks, title) {
+  const JP = '"Hiragino Kaku Gothic ProN","Noto Sans JP","Yu Gothic",sans-serif';
+  const pages = [];
+  let cv = null, ctx = null, y = 0, pageNo = 0;
+  const W = PW - PM * 2;
+
+  const newPage = () => {
+    cv = document.createElement("canvas"); cv.width = PW; cv.height = PH;
+    ctx = cv.getContext("2d");
+    ctx.fillStyle = "#FFFFFF"; ctx.fillRect(0, 0, PW, PH);
+    pageNo += 1;
+    ctx.fillStyle = "#8A8A82"; ctx.font = `400 18px ${JP}`; ctx.textAlign = "left";
+    ctx.fillText(title, PM, 66);
+    ctx.textAlign = "right"; ctx.fillText(String(pageNo), PW - PM, PH - 56);
+    ctx.textAlign = "left";
+    ctx.strokeStyle = "#DDD9CE"; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(PM, 84); ctx.lineTo(PW - PM, 84); ctx.stroke();
+    y = 150;
+    pages.push(cv);
+  };
+  const need = (h) => { if (!cv || y + h > PH - 110) newPage(); };
+
+  const S = {
+    h1: { f: `700 40px ${JP}`, c: "#1A1D21", lh: 58, gap: 26, before: 0 },
+    h2: { f: `700 28px ${JP}`, c: "#1A1D21", lh: 42, gap: 14, before: 26 },
+    h3: { f: `700 22px ${JP}`, c: "#B08900", lh: 34, gap: 8, before: 20 },
+    h4: { f: `700 20px ${JP}`, c: "#1A1D21", lh: 32, gap: 6, before: 14 },
+    sub: { f: `700 18px ${JP}`, c: "#5A5A55", lh: 30, gap: 4, before: 10 },
+    p: { f: `400 20px ${JP}`, c: "#25282C", lh: 36, gap: 6, before: 0 },
+    li: { f: `400 19px ${JP}`, c: "#25282C", lh: 33, gap: 4, before: 0 },
+    opt: { f: `400 19px ${JP}`, c: "#4A4A46", lh: 31, gap: 2, before: 0 },
+    ans: { f: `400 18px ${JP}`, c: "#1E7A4C", lh: 30, gap: 8, before: 0 },
+    note: { f: `400 17px ${JP}`, c: "#8A8A82", lh: 28, gap: 10, before: 0 },
+    box: { f: `500 20px ${JP}`, c: "#8A5A00", lh: 34, gap: 16, before: 8 },
+  };
+
+  newPage();
+  blocks.forEach((b) => {
+    const st = S[b.t] || S.p;
+    ctx.font = st.f;
+    const indent = (b.t === "li" || b.t === "opt" || b.t === "ans") ? 24 : 0;
+    const lines = wrap(ctx, b.s, W - indent - (b.t === "box" ? 40 : 0));
+    need(st.before + lines.length * st.lh + st.gap);
+    y += st.before;
+    if (b.t === "box") {
+      const h = lines.length * st.lh + 24;
+      ctx.fillStyle = "#FBF6E6"; ctx.fillRect(PM, y - 26, W, h);
+      ctx.fillStyle = "#E0C36A"; ctx.fillRect(PM, y - 26, 5, h);
+    }
+    if (b.t === "h1") { ctx.fillStyle = "#1A1D21"; ctx.fillRect(PM, y - 40, 6, 46); }
+    ctx.font = st.f; ctx.fillStyle = st.c;
+    lines.forEach((ln) => { ctx.fillText(ln, PM + indent + (b.t === "box" ? 20 : 0) + (b.t === "h1" ? 18 : 0), y); y += st.lh; });
+    y += st.gap;
+  });
+  return pages;
+}
+
+function canvasesToPdf(pages) {
+  const bin = [];   // 1文字=1バイトの文字列を積む
+  let len = 0;
+  const put = (s) => { bin.push(s); len += s.length; };
+  const offsets = [0];
+  const obj = (n, body) => { offsets[n] = len; put(`${n} 0 obj\n${body}\nendobj\n`); };
+
+  put("%PDF-1.4\n");
+  const N = pages.length;
+  const kids = [];
+  for (let i = 0; i < N; i++) kids.push(`${3 + i * 3} 0 R`);
+  obj(1, "<< /Type /Catalog /Pages 2 0 R >>");
+  obj(2, `<< /Type /Pages /Kids [${kids.join(" ")}] /Count ${N} >>`);
+
+  const sc = 595 / PW, w = 595, h = Math.round(PH * sc);
+  pages.forEach((cv, i) => {
+    const pi = 3 + i * 3, ii = pi + 1, ci = pi + 2;
+    obj(pi, `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${w} ${h}] /Resources << /XObject << /Im0 ${ii} 0 R >> >> /Contents ${ci} 0 R >>`);
+    const dataUrl = cv.toDataURL("image/jpeg", 0.82);
+    const jpg = atob(dataUrl.split(",")[1]);
+    offsets[ii] = len;
+    put(`${ii} 0 obj\n<< /Type /XObject /Subtype /Image /Width ${cv.width} /Height ${cv.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jpg.length} >>\nstream\n`);
+    put(jpg);
+    put("\nendstream\nendobj\n");
+    const cs = `q ${w} 0 0 ${h} 0 0 cm /Im0 Do Q`;
+    obj(ci, `<< /Length ${cs.length} >>\nstream\n${cs}\nendstream`);
+  });
+
+  const total = 3 + N * 3;
+  const xref = len;
+  let x = `xref\n0 ${total}\n0000000000 65535 f \n`;
+  for (let n = 1; n < total; n++) x += String(offsets[n] || 0).padStart(10, "0") + " 00000 n \n";
+  put(x);
+  put(`trailer\n<< /Size ${total} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`);
+
+  const str = bin.join("");
+  const u8 = new Uint8Array(str.length);
+  for (let i = 0; i < str.length; i++) u8[i] = str.charCodeAt(i) & 0xff;
+  return new Blob([u8], { type: "application/pdf" });
+}
+
+/* ── テキスト一覧タブ ─────────────────── */
+function TextBook() {
+  const [busy, setBusy] = useState(null);
+  const [err, setErr] = useState(null);
+
+  const make = async (sub) => {
+    setBusy(sub.id); setErr(null);
+    await new Promise((r) => setTimeout(r, 40));
+    try {
+      const title = `足場の組立て等の業務に係る特別教育　科目${sub.id}`;
+      const pages = paintPages(buildBlocks(sub), title);
+      const blob = canvasesToPdf(pages);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = `特別教育テキスト_科目${sub.id}.pdf`;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 4000);
+    } catch (e) { setErr(String(e && e.message ? e.message : e)); }
+    setBusy(null);
+  };
+
+  return (
+    <div style={{ padding: 16 }}>
+      <div style={{ fontSize: 19, fontWeight: 900, lineHeight: 1.4 }}>教材テキスト</div>
+      <div style={{ fontSize: 12, color: C.dim, lineHeight: 1.9, margin: "8px 0 16px" }}>
+        受講中に使用する教材です。科目ごとにPDFでダウンロードできます。<br />
+        本文、図解の項目、災害事例、確認問題と解答を収録しています。
+      </div>
+
+      {SUBJECTS.map((s) => {
+        const n = s.lessons.reduce((a, l) => a + l.script.length, 0);
+        const f = s.lessons.reduce((a, l) => a + (l.figures || []).length, 0);
+        const c = s.lessons.reduce((a, l) => a + (l.cases || []).length, 0);
+        return (
+          <div key={s.id} style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: 10, padding: "13px 14px", marginBottom: 10 }}>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+              <span style={{ fontFamily: MO, fontSize: 11, color: C.yel, fontWeight: 700 }}>科目{s.id}</span>
+              <span style={{ fontSize: 13.5, fontWeight: 800, flex: 1, lineHeight: 1.45 }}>{s.n}</span>
+            </div>
+            <div style={{ fontSize: 11, color: C.dim, marginTop: 6 }}>
+              {s.lessons.length}単元　本文{n}項　図解{f}枚　事例{c}件　／　{s.need}分
+            </div>
+            <Btn onClick={() => make(s)} dis={busy !== null} style={{ marginTop: 10, padding: 11, fontSize: 12.5 }}>
+              {busy === s.id ? "作成しています…" : "PDFをダウンロード"}
+            </Btn>
+          </div>
+        );
+      })}
+
+      {err && (
+        <div style={{ background: "#2C1815", border: `1px solid ${C.red}`, borderRadius: 8, padding: 12, fontSize: 12, color: "#F4B5AE", lineHeight: 1.8, marginTop: 6 }}>
+          PDFを作成できませんでした（{err}）。端末を変えてお試しください。
+        </div>
+      )}
+
+      <div style={{ fontSize: 10.5, color: C.dim2, lineHeight: 1.95, marginTop: 14 }}>
+        ※教材の使用は、eラーニングで特別教育を行う場合の要件のひとつです。受講前にダウンロードし、手元に置いてご受講ください。<br />
+        ※本テキストの著作権は当社に帰属します。受講者本人の学習目的以外での複製・配布はご遠慮ください。
+      </div>
+    </div>
+  );
+}
+
+/* ── 一覧 ─────────────────────────────── */
+function Home({ watched, quiz, exam, demo, setDemo, billing, onOpen, onExam, onCert }) {
+  const [open, setOpen] = useState(1);
+  const total = Object.values(watched).reduce((a, b) => a + b, 0);
+  const lessonsDone = ALL.every((l) => (watched[l.id] || 0) >= nsec(l, demo) && quiz.includes(l.id));
+  const passed = exam.done && exam.total > 0 && exam.score >= Math.ceil(exam.total * 0.8);
+
+  return (
+    <div style={{ padding: 16 }}>
+      <div style={{ fontSize: 19, fontWeight: 900, lineHeight: 1.45 }}>足場の組立て等の業務に<br />係る特別教育（学科）</div>
+      <div style={{ fontSize: 11.5, color: C.dim, lineHeight: 1.85, margin: "8px 0 14px" }}>
+        安衛法第59条第3項／安衛則第36条第39号　全4科目・6時間<br />
+        視聴時間は再生中のみ加算されます。
+      </div>
+
+      <div style={{ background: C.panel, border: `1px solid ${passed ? C.grn : C.line}`, borderRadius: 10, padding: 14, marginBottom: 16 }}>
+        <div style={{ display: "flex", alignItems: "baseline", marginBottom: 8 }}>
+          <span style={{ fontSize: 11, color: C.dim, letterSpacing: 1 }}>受講時間</span>
+          <span style={{ marginLeft: "auto", fontFamily: MO, fontSize: 15, fontWeight: 700, color: total >= tsec(demo) ? C.grn : C.yel }}>
+            {hhmm(total)} / {demo ? hhmm(tsec(false)) + "（デモ36分）" : "6時間"}
+          </span>
+        </div>
+        <Bar v={total} max={tsec(demo)} color={total >= tsec(demo) ? C.grn : C.yel} />
+        <div style={{ display: "grid", gap: 6, marginTop: 12, fontSize: 12 }}>
+          {[
+            ["全科目の受講と確認問題", lessonsDone],
+            ["修了試験に合格", passed],
+          ].map(([t, ok], i) => (
+            <div key={i} style={{ display: "flex", gap: 8, color: ok ? C.grn : C.dim }}>
+              <span style={{ width: 14 }}>{ok ? "✓" : "□"}</span><span>{t}</span>
+            </div>
+          ))}
+        </div>
+        <div style={{ display: "grid", gap: 8, marginTop: 12 }}>
+          <Btn tone={lessonsDone && !passed ? "y" : undefined} dis={!lessonsDone} onClick={onExam}>
+            {passed ? "修了試験（合格済み）" : lessonsDone ? "修了試験を受ける（20問／16問以上で合格）" : "全科目の受講後に受験できます"}
+          </Btn>
+          {passed && (billing.method !== "invoice" || billing.paid
+            ? <Btn tone="y" onClick={onCert}>資格証を表示・ダウンロード</Btn>
+            : (
+              <div style={{ background: "#2A2612", border: `1px solid ${C.yel}`, borderRadius: 9, padding: "12px 13px", fontSize: 12, color: C.yel, lineHeight: 1.8 }}>
+                お支払いの確認が取れていないため、資格証を発行できません。<br />
+                <span style={{ color: C.dim }}>請求書払いのため、入金の確認後に発行されます。教育担当者へお問い合わせください。</span>
+              </div>
+            ))}
+        </div>
+      </div>
+
+      {SUBJECTS.map((s) => {
+        const sw = s.lessons.reduce((a, l) => a + Math.min(watched[l.id] || 0, nsec(l, demo)), 0);
+        const need = ssec(s, demo);
+        const ok = sw >= need && s.lessons.every((l) => quiz.includes(l.id));
+        return (
+          <div key={s.id} style={{ marginBottom: 10 }}>
+            <button onClick={() => setOpen(open === s.id ? 0 : s.id)} style={{
+              width: "100%", textAlign: "left", background: C.panel, border: `1px solid ${ok ? C.grn : C.line}`,
+              borderRadius: 10, padding: "13px 14px", fontFamily: F, cursor: "pointer", color: C.txt,
+            }}>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+                <span style={{ fontFamily: MO, fontSize: 11, color: ok ? C.grn : C.yel, fontWeight: 700 }}>科目{s.id}</span>
+                <span style={{ fontSize: 13, fontWeight: 800, flex: 1, lineHeight: 1.45 }}>{s.n}</span>
+              </div>
+              <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 8 }}>
+                <div style={{ flex: 1 }}><Bar v={sw} max={need} color={ok ? C.grn : C.yel} /></div>
+                <span style={{ fontFamily: MO, fontSize: 11, color: C.dim }}>{Math.floor(sw / 60)}/{Math.round(need / 60)}分</span>
+              </div>
+            </button>
+            {open === s.id && s.lessons.map((l) => {
+              const w = watched[l.id] || 0, d = w >= nsec(l, demo), q = quiz.includes(l.id);
+              return (
+                <button key={l.id} onClick={() => onOpen(s, l)} style={{
+                  display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left",
+                  background: C.panel2, border: `1px solid ${C.line}`, borderRadius: 8,
+                  padding: "11px 13px", margin: "6px 0 0", fontFamily: F, cursor: "pointer", color: C.txt,
+                }}>
+                  <span style={{ fontSize: 13, color: d && q ? C.grn : d ? C.yel : C.dim2 }}>{d && q ? "✓" : d ? "◔" : "□"}</span>
+                  <span style={{ flex: 1, fontSize: 12.5, lineHeight: 1.4 }}>{l.t}</span>
+                  <span style={{ fontFamily: MO, fontSize: 11, color: C.dim, whiteSpace: "nowrap" }}>{Math.floor(w / 60)}/{Math.round(nsec(l, demo) / 60)}分</span>
+                </button>
+              );
+            })}
+          </div>
+        );
+      })}
+
+      <button onClick={() => setDemo(!demo)} style={{
+        display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left", marginTop: 6,
+        background: C.panel, color: C.txt, border: `1px solid ${demo ? C.cyan : C.line}`, borderRadius: 10,
+        padding: "12px 14px", fontFamily: F, cursor: "pointer",
+      }}>
+        <span style={{
+          width: 20, height: 20, borderRadius: 5, flexShrink: 0, border: `1px solid ${demo ? C.cyan : C.line}`,
+          background: demo ? C.cyan : "transparent", color: "#0F1318", fontSize: 13, fontWeight: 900,
+          display: "flex", alignItems: "center", justifyContent: "center",
+        }}>{demo ? "✓" : ""}</span>
+        <span>
+          <span style={{ fontSize: 13, fontWeight: 800 }}>デモモード（所要時間 1/10）</span>
+          <span style={{ display: "block", fontSize: 11, color: C.dim, marginTop: 2 }}>
+            確認用。本番は実時間で6時間になります
+          </span>
+        </span>
+      </button>
+
+      <div style={{ fontSize: 10.5, color: C.dim2, lineHeight: 1.95, marginTop: 16 }}>
+        科目と時間は安全衛生特別教育規程の区分に対応させています。実施主体は事業者であり、修了証も事業者名義で発行されます。運用前に所轄労働局または社会保険労務士への確認を推奨します。
+      </div>
+    </div>
+  );
+}
+
+/* ── ルート ───────────────────────────── */
+function App() {
+  const [tab, setTab] = useState("study");
+  const [watched, setWatched] = useState({});
+  const [quiz, setQuiz] = useState([]);
+  const [asks, setAsks] = useState([]);
+  const [logs, setLogs] = useState([]);
+  const [exam, setExam] = useState({ done: false, score: 0, total: 0, tries: 0 });
+  const [cur, setCur] = useState(null);
+  const [view, setView] = useState("home");
+  const [demo, setDemo] = useState(true);
+  const [stream, setStream] = useState(null);
+  const [camErr, setCamErr] = useState(null);
+  const [sim, setSim] = useState(false);
+  const [prep, setPrep] = useState("consent");   // consent → enroll → done / skip
+  const [who, setWho] = useState({ name: "", birth: "", company: "", responsible: "" });
+  /* 請求書払いは入金確認まで資格証を発行しない */
+  const [billing, setBilling] = useState({ method: "invoice", paid: false });
+  const startCam = async () => {
+    try {
+      const st = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false });
+      setStream(st); setCamErr(null);
+    } catch (e) { setCamErr(e && e.name ? e.name : "不明なエラー"); setSim(true); }
+  };
+  useEffect(() => () => { if (stream) stream.getTracks().forEach((t) => t.stop()); }, [stream]);
+  const cam = { stream, error: camErr, start: startCam };
+
+  const tick = (n, onVerify) => {
+    if (!cur) return;
+    const id = cur.l.id, before = watched[id] || 0, after = before + n;
+    setWatched((v) => ({ ...v, [id]: after }));
+    const iv = demo ? 120 : 300;
+    if (Math.floor(after / iv) > Math.floor(before / iv)) {
+      setLogs((v) => [...v, { at: now(), id, k: "在席確認" }]);
+      onVerify();
+    }
+  };
+  const finishQuiz = (id) => { setQuiz((v) => [...v, id]); setLogs((v) => [...v, { at: now(), id, k: "確認問題 正解" }]); };
+  const monLog = (id, k) => setLogs((v) => [...v, { at: now(), id, k }]);
+  const ask = (id, t) => { setAsks((v) => [...v, { id, t, at: now() }]); setLogs((v) => [...v, { at: now(), id, k: "質問を送信" }]); };
+
+  const css = `
+    @keyframes pulse{0%,100%{opacity:.35}50%{opacity:1}}
+    @keyframes fd{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+    .fade{animation:fd .45s ease both}
+    @media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+  `;
+
+  return (
+    <div style={{ background: C.bg, color: C.txt, fontFamily: F, minHeight: "100vh", maxWidth: 480, margin: "0 auto" }}>
+      <style>{css}</style>
+      <Tape />
+      {prep === "consent" && (
+        <ConsentView onNext={() => { setPrep("enroll"); startCam(); }} onSkip={() => { setPrep("skip"); setSim(true); }} />
+      )}
+      {prep === "enroll" && <EnrollView cam={cam} who={who} setWho={setWho} onNext={() => { setPrep("done"); setLogs((v) => [...v, { at: now(), id: "本人確認", k: "顔写真・公的書類の登録 完了" }]); }} />}
+      {prep !== "consent" && prep !== "enroll" && !cur && view === "home" && (
+        <div style={{ display: "flex", borderBottom: `1px solid ${C.line}` }}>
+          {[["study", "受講"], ["text", "テキスト"], ["log", "受講記録"]].map(([k, t]) => (
+            <button key={k} onClick={() => setTab(k)} style={{
+              flex: 1, background: "none", border: "none", borderBottom: `2px solid ${tab === k ? C.yel : "transparent"}`,
+              color: tab === k ? C.txt : C.dim, padding: "12px 0", fontSize: 13, fontWeight: 800, fontFamily: F, cursor: "pointer",
+            }}>{t}</button>
+          ))}
+        </div>
+      )}
+
+      {prep === "consent" || prep === "enroll" ? null : cur ? (
+        <Player lesson={cur.l} subj={cur.s} sec={watched[cur.l.id] || 0} demo={demo} cam={cam} sim={sim} onMon={monLog} onTick={tick}
+          quizOK={quiz.includes(cur.l.id)} onQuiz={finishQuiz} onAsk={ask} onBack={() => setCur(null)} />
+      ) : view === "exam" ? (
+        <Exam tries={exam.tries} onBack={() => setView("home")}
+          onDone={(pass, score, total) => {
+            setExam((e) => ({ done: true, score, total, tries: e.tries + 1 }));
+            setLogs((v) => [...v, { at: now(), id: "修了試験", k: `${score}/${total} ${pass ? "合格" : "不合格"}` }]);
+            setView(pass && (billing.method !== "invoice" || billing.paid) ? "cert" : "home");
+          }} />
+      ) : view === "cert" ? (
+        <Cert who={who} exam={exam} logs={logs} onBack={() => setView("home")} />
+      ) : tab === "text" ? (
+        <TextBook />
+      ) : tab === "study" ? (
+        <Home watched={watched} quiz={quiz} exam={exam} demo={demo} setDemo={setDemo} billing={billing} onOpen={(s, l) => setCur({ s, l })}
+          onExam={() => setView("exam")} onCert={() => setView("cert")} />
+      ) : (
+        <Log watched={watched} quiz={quiz} asks={asks} logs={logs} exam={exam} demo={demo} billing={billing} setBilling={setBilling} />
+      )}
+      <Tape h={4} />
+    </div>
+  );
+}
+
+  return App;
+})();
+
+const CheckoutApp = (() => {
+
+/* ═══════════════════════════════════════════
+   足場の組立て等 特別教育　お申込み・決済
+   法人まとめ購入 → 受講コード発行 → 受講者がコードで開始
+   （決済処理はモック。本番はStripe等の決済代行を想定）
+   ═══════════════════════════════════════════ */
+
+const C = {
+  bg: "#14171B", panel: "#1E232A", panel2: "#252C34", line: "#2E3640",
+  yel: "#F5D400", red: "#E23B2E", grn: "#25B36B", cyan: "#4FC3D9",
+  txt: "#E9EEF3", dim: "#8D98A4", dim2: "#5F6B78",
+};
+const F = `"Hiragino Kaku Gothic ProN","Noto Sans JP","Yu Gothic",sans-serif`;
+const MO = `ui-monospace,"SFMono-Regular",Menlo,monospace`;
+const yen = (n) => "¥" + n.toLocaleString();
+const Tape = ({ h = 6 }) => <div style={{ height: h, background: `repeating-linear-gradient(115deg, ${C.yel} 0 12px, #14171B 12px 24px)` }} />;
+
+/* 単価（税抜・仮） */
+const TIERS = [
+  { min: 1, max: 9, price: 8000, label: "1〜9名" },
+  { min: 10, max: 29, price: 7000, label: "10〜29名" },
+  { min: 30, max: 99, price: 6000, label: "30〜99名" },
+  { min: 100, max: 9999, price: 5000, label: "100名〜" },
+];
+const tierOf = (n) => TIERS.find((t) => n >= t.min && n <= t.max) || TIERS[0];
+const TAX = 0.1;
+
+function Btn({ children, onClick, tone, dis, style }) {
+  const y = tone === "y";
+  return (
+    <button onClick={onClick} disabled={dis} style={{
+      background: dis ? C.panel2 : y ? C.yel : "none",
+      color: dis ? C.dim2 : y ? "#14171B" : C.txt,
+      border: `1px solid ${dis ? C.line : y ? C.yel : C.line}`,
+      borderRadius: 9, padding: 14, fontWeight: 800, fontSize: 14, fontFamily: F,
+      cursor: dis ? "default" : "pointer", width: "100%", ...style,
+    }}>{children}</button>
+  );
+}
+function Field({ label, value, onChange, ph, note, type }) {
+  return (
+    <div style={{ marginBottom: 11 }}>
+      <div style={{ fontSize: 10.5, color: C.dim, marginBottom: 4 }}>{label}</div>
+      <input value={value} onChange={(e) => onChange(e.target.value)} placeholder={ph} inputMode={type}
+        style={{
+          width: "100%", background: C.panel2, color: C.txt, border: `1px solid ${C.line}`,
+          borderRadius: 8, padding: "11px 12px", fontSize: 13.5, fontFamily: type === "numeric" ? MO : F, boxSizing: "border-box",
+        }} />
+      {note && <div style={{ fontSize: 10.5, color: C.dim2, marginTop: 4, lineHeight: 1.7 }}>{note}</div>}
+    </div>
+  );
+}
+
+/* ── ① プランと人数 ───────────────────── */
+function Plan({ kind, setKind, n, setN, onNext }) {
+  const t = tierOf(n);
+  const sub = t.price * n, tax = Math.floor(sub * TAX), total = sub + tax;
+  const base = TIERS[0].price * n, save = base - sub;
+
+  return (
+    <div style={{ padding: 16 }}>
+      <div style={{ fontSize: 11, color: C.cyan, fontWeight: 800, letterSpacing: 2 }}>STEP 1 / 4</div>
+      <div style={{ fontSize: 21, fontWeight: 900, lineHeight: 1.4, margin: "8px 0 6px" }}>
+        足場の組立て等<br />特別教育（学科6時間）
+      </div>
+      <div style={{ fontSize: 12.5, color: C.dim, lineHeight: 1.85, marginBottom: 16 }}>
+        全4科目・13単元。顔認証による本人確認と在席確認、修了試験、資格証の発行まで含みます。
+      </div>
+
+      <div style={{ fontSize: 10, color: C.dim, letterSpacing: 2, marginBottom: 8 }}>お申込みの種類</div>
+      <div style={{ display: "grid", gap: 8, marginBottom: 16 }}>
+        {[
+          { k: "corp", t: "法人でまとめて申し込む", d: "人数ぶんの受講コードを発行します。請求書払いに対応。", rec: true },
+          { k: "solo", t: "個人で申し込む", d: "1名ぶん。クレジットカード払いのみ。", rec: false },
+        ].map((o) => (
+          <button key={o.k} onClick={() => { setKind(o.k); if (o.k === "solo") setN(1); }} style={{
+            textAlign: "left", background: C.panel, border: `1px solid ${kind === o.k ? C.yel : C.line}`,
+            borderRadius: 10, padding: "13px 14px", fontFamily: F, cursor: "pointer", color: C.txt,
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{
+                width: 16, height: 16, borderRadius: 8, border: `1px solid ${kind === o.k ? C.yel : C.line}`,
+                background: kind === o.k ? C.yel : "transparent", flexShrink: 0,
+              }} />
+              <span style={{ fontSize: 14, fontWeight: 800 }}>{o.t}</span>
+              {o.rec && <span style={{ fontSize: 9.5, color: "#14171B", background: C.cyan, borderRadius: 4, padding: "2px 6px", fontWeight: 800 }}>推奨</span>}
+            </div>
+            <div style={{ fontSize: 11.5, color: C.dim, lineHeight: 1.7, marginTop: 5, paddingLeft: 24 }}>{o.d}</div>
+          </button>
+        ))}
+      </div>
+
+      {kind === "corp" && (
+        <>
+          <div style={{ fontSize: 10, color: C.dim, letterSpacing: 2, marginBottom: 8 }}>受講人数</div>
+          <div style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: 10, padding: 14, marginBottom: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+              <button onClick={() => setN(Math.max(1, n - 1))} style={{ width: 44, height: 44, background: C.panel2, border: `1px solid ${C.line}`, borderRadius: 8, color: C.txt, fontSize: 20, cursor: "pointer" }}>−</button>
+              <div style={{ flex: 1, textAlign: "center" }}>
+                <span style={{ fontFamily: MO, fontSize: 30, fontWeight: 700 }}>{n}</span>
+                <span style={{ fontSize: 14, color: C.dim, marginLeft: 4 }}>名</span>
+              </div>
+              <button onClick={() => setN(Math.min(999, n + 1))} style={{ width: 44, height: 44, background: C.panel2, border: `1px solid ${C.line}`, borderRadius: 8, color: C.txt, fontSize: 20, cursor: "pointer" }}>＋</button>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 6 }}>
+              {[5, 10, 30, 50].map((v) => (
+                <button key={v} onClick={() => setN(v)} style={{
+                  background: n === v ? C.yel : C.panel2, color: n === v ? "#14171B" : C.dim,
+                  border: `1px solid ${n === v ? C.yel : C.line}`, borderRadius: 7, padding: "9px 0",
+                  fontSize: 12, fontWeight: 800, fontFamily: F, cursor: "pointer",
+                }}>{v}名</button>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ fontSize: 10, color: C.dim, letterSpacing: 2, marginBottom: 8 }}>単価表（税抜）</div>
+          <div style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: 10, padding: "10px 14px", marginBottom: 14 }}>
+            {TIERS.map((x) => (
+              <div key={x.label} style={{
+                display: "flex", fontSize: 12, padding: "6px 0",
+                color: x === t ? C.yel : C.dim, fontWeight: x === t ? 800 : 400,
+              }}>
+                <span style={{ flex: 1 }}>{x.label}</span>
+                <span style={{ fontFamily: MO }}>{yen(x.price)} / 名</span>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      <div style={{ background: C.panel, border: `1px solid ${C.yel}`, borderRadius: 10, padding: 14, marginBottom: 14 }}>
+        <div style={{ display: "flex", fontSize: 12.5, padding: "4px 0", color: C.dim }}>
+          <span style={{ flex: 1 }}>{yen(t.price)} × {n}名</span><span style={{ fontFamily: MO, color: C.txt }}>{yen(sub)}</span>
+        </div>
+        {save > 0 && (
+          <div style={{ display: "flex", fontSize: 12.5, padding: "4px 0", color: C.grn }}>
+            <span style={{ flex: 1 }}>まとめ割引</span><span style={{ fontFamily: MO }}>−{yen(save)}</span>
+          </div>
+        )}
+        <div style={{ display: "flex", fontSize: 12.5, padding: "4px 0", color: C.dim }}>
+          <span style={{ flex: 1 }}>消費税（10%）</span><span style={{ fontFamily: MO, color: C.txt }}>{yen(tax)}</span>
+        </div>
+        <div style={{ display: "flex", alignItems: "baseline", borderTop: `1px solid ${C.line}`, marginTop: 8, paddingTop: 10 }}>
+          <span style={{ flex: 1, fontSize: 13, fontWeight: 800 }}>お支払い金額</span>
+          <span style={{ fontFamily: MO, fontSize: 22, fontWeight: 700, color: C.yel }}>{yen(total)}</span>
+        </div>
+      </div>
+
+      <Btn tone="y" onClick={() => onNext(total)}>お申込み内容の入力へ</Btn>
+
+      <div style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: 10, padding: 13, marginTop: 16 }}>
+        <div style={{ fontSize: 11, color: C.yel, letterSpacing: 1, marginBottom: 7 }}>お申込み前にご確認ください</div>
+        <div style={{ fontSize: 11.5, color: C.dim, lineHeight: 1.95 }}>
+          特別教育の実施義務は事業者にあります。修了証は事業者名義で発行されます。<br />
+          個人事業主（一人親方）の方が自ら申し込む場合、受講の事実をご自身で証明することになるため、
+          所属先や元請の確認が必要になる場合があります。事前に教育担当者へご相談ください。
+        </div>
+      </div>
+      <div style={{ fontSize: 10.5, color: C.dim2, lineHeight: 1.9, marginTop: 12 }}>
+        ※価格は仮のものです。<br />※受講コードの有効期限は発行から1年です。
+      </div>
+    </div>
+  );
+}
+
+/* ── ② 申込情報 ───────────────────────── */
+function Info({ kind, form, setForm, onNext, onBack }) {
+  const req = kind === "corp"
+    ? ["company", "person", "email", "tel"]
+    : ["person", "email", "tel"];
+  const ok = req.every((k) => (form[k] || "").trim().length > 0) && /@/.test(form.email || "");
+
+  return (
+    <div style={{ padding: 16 }}>
+      <button onClick={onBack} style={{ background: "none", border: "none", color: C.dim, fontSize: 12.5, fontFamily: F, cursor: "pointer", padding: "0 0 10px" }}>← 戻る</button>
+      <div style={{ fontSize: 11, color: C.cyan, fontWeight: 800, letterSpacing: 2 }}>STEP 2 / 4</div>
+      <div style={{ fontSize: 20, fontWeight: 900, margin: "8px 0 14px" }}>お申込み情報</div>
+
+      {kind === "corp" && (
+        <Field label="事業者名（必須）" value={form.company} onChange={(v) => setForm({ ...form, company: v })}
+          ph="例：〇〇建設工業株式会社" note="修了証に記載される名義になります" />
+      )}
+      <Field label="ご担当者名（必須）" value={form.person} onChange={(v) => setForm({ ...form, person: v })} ph="例：山田 太郎" />
+      <Field label="メールアドレス（必須）" value={form.email} onChange={(v) => setForm({ ...form, email: v })}
+        ph="例：yamada@example.co.jp" note="受講コードと領収書をお送りします" />
+      <Field label="電話番号（必須）" value={form.tel} onChange={(v) => setForm({ ...form, tel: v })} ph="例：022-000-0000" type="numeric" />
+      {kind === "corp" && (
+        <Field label="教育実施責任者（任意）" value={form.responsible} onChange={(v) => setForm({ ...form, responsible: v })}
+          ph="例：安全管理者 佐藤" note="修了証の責任者欄に記載します。後から設定もできます" />
+      )}
+
+      <Btn tone="y" dis={!ok} onClick={onNext} style={{ marginTop: 6 }}>
+        {ok ? "お支払い方法の選択へ" : "必須項目を入力してください"}
+      </Btn>
+    </div>
+  );
+}
+
+/* ── ③ 支払い方法 ─────────────────────── */
+function Pay({ kind, total, pay, setPay, card, setCard, onNext, onBack }) {
+  const brand = (num) => {
+    const s = num.replace(/\D/g, "");
+    if (/^4/.test(s)) return "VISA";
+    if (/^5[1-5]/.test(s)) return "Mastercard";
+    if (/^3[47]/.test(s)) return "AMEX";
+    if (/^35/.test(s)) return "JCB";
+    return "";
+  };
+  const fmt = (v) => v.replace(/\D/g, "").slice(0, 16).replace(/(.{4})/g, "$1 ").trim();
+  const cardOK = card.no.replace(/\D/g, "").length >= 14 && /^\d{2}\/\d{2}$/.test(card.exp) && card.cvc.length >= 3 && card.name.trim();
+  const ok = pay === "invoice" ? true : cardOK;
+
+  return (
+    <div style={{ padding: 16 }}>
+      <button onClick={onBack} style={{ background: "none", border: "none", color: C.dim, fontSize: 12.5, fontFamily: F, cursor: "pointer", padding: "0 0 10px" }}>← 戻る</button>
+      <div style={{ fontSize: 11, color: C.cyan, fontWeight: 800, letterSpacing: 2 }}>STEP 3 / 4</div>
+      <div style={{ fontSize: 20, fontWeight: 900, margin: "8px 0 4px" }}>お支払い方法</div>
+      <div style={{ fontFamily: MO, fontSize: 20, fontWeight: 700, color: C.yel, marginBottom: 14 }}>{yen(total)}</div>
+
+      <div style={{ display: "grid", gap: 8, marginBottom: 14 }}>
+        {[
+          { k: "card", t: "クレジットカード", d: "すぐに受講コードが発行されます" },
+          ...(kind === "corp" ? [{ k: "invoice", t: "請求書払い（銀行振込）", d: "受講コードは先に発行、お支払いは翌月末までに" }] : []),
+        ].map((o) => (
+          <button key={o.k} onClick={() => setPay(o.k)} style={{
+            textAlign: "left", background: C.panel, border: `1px solid ${pay === o.k ? C.yel : C.line}`,
+            borderRadius: 10, padding: "13px 14px", fontFamily: F, cursor: "pointer", color: C.txt,
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ width: 16, height: 16, borderRadius: 8, border: `1px solid ${pay === o.k ? C.yel : C.line}`, background: pay === o.k ? C.yel : "transparent", flexShrink: 0 }} />
+              <span style={{ fontSize: 14, fontWeight: 800 }}>{o.t}</span>
+            </div>
+            <div style={{ fontSize: 11.5, color: C.dim, marginTop: 5, paddingLeft: 24 }}>{o.d}</div>
+          </button>
+        ))}
+      </div>
+
+      {pay === "card" && (
+        <div style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: 10, padding: 14, marginBottom: 14 }}>
+          <div style={{ display: "flex", alignItems: "center", marginBottom: 10 }}>
+            <span style={{ fontSize: 11, color: C.dim, letterSpacing: 1 }}>カード情報</span>
+            {brand(card.no) && <span style={{ marginLeft: "auto", fontSize: 11, color: C.cyan, fontWeight: 800 }}>{brand(card.no)}</span>}
+          </div>
+          <Field label="カード番号" value={card.no} onChange={(v) => setCard({ ...card, no: fmt(v) })} ph="4242 4242 4242 4242" type="numeric" />
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            <Field label="有効期限" value={card.exp} onChange={(v) => {
+              const s = v.replace(/\D/g, "").slice(0, 4);
+              setCard({ ...card, exp: s.length > 2 ? s.slice(0, 2) + "/" + s.slice(2) : s });
+            }} ph="MM/YY" type="numeric" />
+            <Field label="セキュリティコード" value={card.cvc} onChange={(v) => setCard({ ...card, cvc: v.replace(/\D/g, "").slice(0, 4) })} ph="123" type="numeric" />
+          </div>
+          <Field label="カード名義" value={card.name} onChange={(v) => setCard({ ...card, name: v.toUpperCase() })} ph="TARO YAMADA" />
+          <div style={{ fontSize: 10.5, color: C.dim2, lineHeight: 1.8 }}>
+            カード情報は決済代行会社に直接送信され、当社のサーバには保存されません。
+          </div>
+        </div>
+      )}
+
+      {pay === "invoice" && (
+        <div style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: 10, padding: 14, marginBottom: 14, fontSize: 12, color: C.dim, lineHeight: 1.95 }}>
+          請求書はご登録のメールアドレスへPDFでお送りします。<br />
+          お支払い期限は、請求書発行の翌月末日です。<br />
+          受講コードは、お申込み完了と同時に発行されます。お支払いを待たずに受講を開始できます。
+        </div>
+      )}
+
+      <Btn tone="y" dis={!ok} onClick={onNext}>
+        {pay === "invoice" ? "この内容で申し込む" : "この内容で支払う"}
+      </Btn>
+      <div style={{ fontSize: 10.5, color: C.dim2, lineHeight: 1.9, marginTop: 12 }}>
+        ※本プロトタイプの決済は動作しません。本番は決済代行サービスを利用します。<br />
+        ※受講開始後の返金はできません。受講コードの未使用ぶんは1年間有効です。
+      </div>
+    </div>
+  );
+}
+
+/* ── ④ 完了・受講コード ───────────────── */
+function Done({ kind, n, total, form, pay, onReset }) {
+  const [codes] = useState(() => {
+    const cs = [];
+    const c36 = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    for (let i = 0; i < n; i++) {
+      let s = "";
+      for (let k = 0; k < 9; k++) s += c36[Math.floor(Math.random() * c36.length)];
+      cs.push(`AT-${s.slice(0, 3)}-${s.slice(3, 6)}-${s.slice(6, 9)}`);
+    }
+    return cs;
+  });
+  const [copied, setCopied] = useState(false);
+  const cvRef = useRef(null);
+  const [rcpt, setRcpt] = useState(null);
+  const dstr = new Date().toLocaleDateString("ja-JP");
+  const orderNo = `ORD-${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, "0")}-${String(Math.floor(Math.random() * 9000) + 1000)}`;
+
+  useEffect(() => {
+    const cv = cvRef.current; if (!cv) return;
+    try {
+      const W = 1000, H = 620, ctx = cv.getContext("2d");
+      cv.width = W; cv.height = H;
+      const JP = '"Hiragino Kaku Gothic ProN","Noto Sans JP","Yu Gothic",sans-serif';
+      ctx.fillStyle = "#FFFFFF"; ctx.fillRect(0, 0, W, H);
+      ctx.strokeStyle = "#1A1D21"; ctx.lineWidth = 2; ctx.strokeRect(30, 30, W - 60, H - 60);
+      ctx.fillStyle = "#1A1D21"; ctx.textAlign = "center";
+      ctx.font = `700 34px ${JP}`; ctx.fillText(pay === "invoice" ? "御 請 求 書" : "領 収 書", W / 2, 100);
+      ctx.textAlign = "left";
+      ctx.font = `500 20px ${JP}`;
+      ctx.fillText(`${form.company || form.person} 御中`, 70, 165);
+      ctx.beginPath(); ctx.moveTo(70, 178); ctx.lineTo(520, 178); ctx.stroke();
+      ctx.font = `700 40px ${JP}`;
+      ctx.fillText(yen(total) + " －", 70, 240);
+      ctx.font = `400 18px ${JP}`; ctx.fillStyle = "#444";
+      ctx.fillText("但し　足場の組立て等の業務に係る特別教育 受講料として", 70, 285);
+      ctx.fillText(`（受講人数 ${n}名 ／ 消費税10%を含む）`, 70, 315);
+      ctx.fillText(pay === "invoice" ? "お支払期限　翌月末日" : "上記のとおり領収いたしました。", 70, 355);
+      ctx.textAlign = "right";
+      ctx.font = `400 16px ${JP}`; ctx.fillStyle = "#666";
+      ctx.fillText(`発行日　${dstr}`, W - 70, 165);
+      ctx.fillText(`番号　${orderNo}`, W - 70, 190);
+      ctx.fillStyle = "#1A1D21"; ctx.font = `500 18px ${JP}`;
+      ctx.fillText("足場トレーニング運営事務局", W - 70, H - 130);
+      ctx.font = `400 15px ${JP}`; ctx.fillStyle = "#666";
+      ctx.fillText("登録番号 T0000000000000", W - 70, H - 102);
+      setRcpt(cv.toDataURL("image/png"));
+    } catch (e) { setRcpt(null); }
+  }, []);
+
+  const copyAll = () => {
+    try { navigator.clipboard.writeText(codes.join("\n")); setCopied(true); setTimeout(() => setCopied(false), 1800); } catch (e) { }
+  };
+  const dlCsv = () => {
+    const csv = "受講コード,発行日,有効期限,状態\n" + codes.map((c) => `${c},${dstr},${new Date(Date.now() + 365 * 864e5).toLocaleDateString("ja-JP")},未使用`).join("\n");
+    const a = document.createElement("a");
+    a.href = "data:text/csv;charset=utf-8," + encodeURIComponent("\uFEFF" + csv);
+    a.download = `受講コード_${orderNo}.csv`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  };
+  const dlRcpt = () => {
+    if (!rcpt) return;
+    const a = document.createElement("a");
+    a.href = rcpt; a.download = `${pay === "invoice" ? "請求書" : "領収書"}_${orderNo}.png`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  };
+
+  return (
+    <div style={{ padding: 16 }}>
+      <div style={{ background: C.panel, border: `1px solid ${C.grn}`, borderRadius: 12, padding: 20, textAlign: "center", marginBottom: 16 }}>
+        <div style={{ fontSize: 32, marginBottom: 6 }}>✓</div>
+        <div style={{ fontSize: 17, fontWeight: 900 }}>お申込みが完了しました</div>
+        <div style={{ fontSize: 12, color: C.dim, lineHeight: 1.8, marginTop: 6 }}>
+          {pay === "invoice" ? "請求書をメールでお送りします。" : "領収書をメールでお送りします。"}<br />
+          受講コード{n}件を発行しました。
+        </div>
+      </div>
+
+      <div style={{ fontSize: 10, color: C.dim, letterSpacing: 2, marginBottom: 8 }}>受講コード（{codes.length}件）</div>
+      <div style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: 10, padding: "8px 12px", maxHeight: 190, overflowY: "auto", marginBottom: 10 }}>
+        {codes.map((c, i) => (
+          <div key={c} style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 0", borderBottom: i === codes.length - 1 ? "none" : `1px solid ${C.line}` }}>
+            <span style={{ fontFamily: MO, fontSize: 11, color: C.dim2, width: 24 }}>{String(i + 1).padStart(2, "0")}</span>
+            <span style={{ fontFamily: MO, fontSize: 13.5, letterSpacing: 1 }}>{c}</span>
+            <span style={{ marginLeft: "auto", fontSize: 10.5, color: C.dim }}>未使用</span>
+          </div>
+        ))}
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 14 }}>
+        <Btn onClick={copyAll} style={{ fontSize: 12.5, padding: 12 }}>{copied ? "コピーしました" : "すべてコピー"}</Btn>
+        <Btn onClick={dlCsv} style={{ fontSize: 12.5, padding: 12 }}>CSVで保存</Btn>
+      </div>
+
+      <div style={{ fontSize: 10, color: C.dim, letterSpacing: 2, marginBottom: 8 }}>{pay === "invoice" ? "請求書" : "領収書"}</div>
+      <canvas ref={cvRef} style={{ display: "none" }} />
+      {rcpt && <img src={rcpt} alt="" style={{ width: "100%", borderRadius: 8, border: `1px solid ${C.line}`, marginBottom: 10 }} />}
+      <Btn onClick={dlRcpt} dis={!rcpt} style={{ fontSize: 12.5, padding: 12 }}>
+        {pay === "invoice" ? "請求書をダウンロード" : "領収書をダウンロード"}
+      </Btn>
+
+      <div style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: 10, padding: 14, marginTop: 16 }}>
+        <div style={{ fontSize: 11, color: C.yel, letterSpacing: 1, marginBottom: 8 }}>受講の始め方</div>
+        <div style={{ fontSize: 12, color: C.dim, lineHeight: 2 }}>
+          1. 受講者にコードを1つずつ配付します<br />
+          2. 受講者はアプリで「受講コードを入力」を選びます<br />
+          3. 同意と本人確認（顔写真・公的書類）を済ませます<br />
+          4. 受講開始。進み具合は管理画面で確認できます
+        </div>
+      </div>
+
+      <Btn onClick={onReset} style={{ marginTop: 14, color: C.dim, fontWeight: 400, fontSize: 12.5 }}>最初に戻る</Btn>
+    </div>
+  );
+}
+
+/* ── 受講コードの入力（受講者側）───────── */
+function Redeem({ onBack }) {
+  const [code, setCode] = useState("");
+  const [state, setState] = useState(null);
+  const check = () => {
+    const c = code.trim().toUpperCase();
+    if (!/^AT-[A-Z0-9]{3}-[A-Z0-9]{3}-[A-Z0-9]{3}$/.test(c)) { setState({ ok: false, m: "コードの形式が違います。AT-XXX-XXX-XXX の形で入力してください。" }); return; }
+    setState({ ok: true, m: "コードを確認しました。受講を開始できます。" });
+  };
+  return (
+    <div style={{ padding: 16 }}>
+      <button onClick={onBack} style={{ background: "none", border: "none", color: C.dim, fontSize: 12.5, fontFamily: F, cursor: "pointer", padding: "0 0 10px" }}>← 戻る</button>
+      <div style={{ fontSize: 20, fontWeight: 900, margin: "6px 0 6px" }}>受講コードの入力</div>
+      <div style={{ fontSize: 12.5, color: C.dim, lineHeight: 1.85, marginBottom: 14 }}>
+        会社から配付されたコードを入力してください。1つのコードで1名が受講できます。
+      </div>
+      <input value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} placeholder="AT-XXX-XXX-XXX"
+        style={{
+          width: "100%", background: C.panel2, color: C.txt, border: `1px solid ${state ? (state.ok ? C.grn : C.red) : C.line}`,
+          borderRadius: 10, padding: "16px 14px", fontSize: 18, fontFamily: MO, letterSpacing: 2,
+          textAlign: "center", boxSizing: "border-box", marginBottom: 10,
+        }} />
+      {state && (
+        <div style={{ fontSize: 12.5, color: state.ok ? C.grn : "#F4B5AE", lineHeight: 1.8, marginBottom: 10 }}>{state.m}</div>
+      )}
+      <Btn tone="y" dis={!code} onClick={check}>{state && state.ok ? "受講を開始する" : "コードを確認する"}</Btn>
+      <div style={{ fontSize: 10.5, color: C.dim2, lineHeight: 1.9, marginTop: 12 }}>
+        コードが分からない場合は、社内の教育担当者にお問い合わせください。
+      </div>
+    </div>
+  );
+}
+
+/* ── ルート ───────────────────────────── */
+function App() {
+  const [step, setStep] = useState("plan");
+  const [kind, setKind] = useState("corp");
+  const [n, setN] = useState(5);
+  const [total, setTotal] = useState(0);
+  const [form, setForm] = useState({ company: "", person: "", email: "", tel: "", responsible: "" });
+  const [pay, setPay] = useState("card");
+  const [card, setCard] = useState({ no: "", exp: "", cvc: "", name: "" });
+  const [busy, setBusy] = useState(false);
+
+  const submit = () => {
+    setBusy(true);
+    setTimeout(() => { setBusy(false); setStep("done"); }, 1400);
+  };
+
+  return (
+    <div style={{ background: C.bg, color: C.txt, fontFamily: F, minHeight: "100vh", maxWidth: 480, margin: "0 auto", position: "relative" }}>
+      <Tape />
+      <div style={{ padding: "12px 16px", borderBottom: `1px solid ${C.line}`, display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{ fontSize: 15, fontWeight: 900, letterSpacing: -0.5 }}>特別教育 お申込み</div>
+        <div style={{ fontSize: 10, color: C.dim, border: `1px solid ${C.line}`, padding: "2px 6px", borderRadius: 4 }}>試作</div>
+        {step === "plan" && (
+          <button onClick={() => setStep("redeem")} style={{
+            marginLeft: "auto", background: "none", border: `1px solid ${C.line}`, color: C.cyan,
+            borderRadius: 6, padding: "5px 9px", fontSize: 11, fontFamily: F, cursor: "pointer",
+          }}>受講コードをお持ちの方</button>
+        )}
+      </div>
+
+      {step === "plan" && <Plan kind={kind} setKind={setKind} n={n} setN={setN} onNext={(t) => { setTotal(t); setStep("info"); }} />}
+      {step === "info" && <Info kind={kind} form={form} setForm={setForm} onNext={() => setStep("pay")} onBack={() => setStep("plan")} />}
+      {step === "pay" && <Pay kind={kind} total={total} pay={pay} setPay={setPay} card={card} setCard={setCard} onNext={submit} onBack={() => setStep("info")} />}
+      {step === "done" && <Done kind={kind} n={n} total={total} form={form} pay={pay} onReset={() => { setStep("plan"); setCard({ no: "", exp: "", cvc: "", name: "" }); }} />}
+      {step === "redeem" && <Redeem onBack={() => setStep("plan")} />}
+
+      {busy && (
+        <div style={{ position: "fixed", inset: 0, background: "#000c", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 30 }}>
+          <div style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: 12, padding: "24px 30px", textAlign: "center" }}>
+            <div style={{ width: 26, height: 26, border: `3px solid ${C.line}`, borderTopColor: C.yel, borderRadius: 13, margin: "0 auto 12px", animation: "sp .8s linear infinite" }} />
+            <div style={{ fontSize: 13, color: C.dim }}>処理しています…</div>
+          </div>
+        </div>
+      )}
+      <style>{`@keyframes sp{to{transform:rotate(360deg)}}`}</style>
+      <Tape h={4} />
+    </div>
+  );
+}
+
+  return App;
+})();
+
+const AdminApp = (() => {
+
+/* ═══════════════════════════════════════════
+   特別教育 管理画面（教育担当者向け）
+   ・注文と入金の管理（請求書払い）
+   ・受講者の進捗と修了試験
+   ・資格証の一括発行（入金確認済みのみ）
+   ═══════════════════════════════════════════ */
+
+const C = {
+  bg: "#14171B", panel: "#1E232A", panel2: "#252C34", line: "#2E3640",
+  yel: "#F5D400", red: "#E23B2E", grn: "#25B36B", cyan: "#4FC3D9", org: "#D98B2B",
+  txt: "#E9EEF3", dim: "#8D98A4", dim2: "#5F6B78",
+};
+const F = `"Hiragino Kaku Gothic ProN","Noto Sans JP","Yu Gothic",sans-serif`;
+const MO = `ui-monospace,"SFMono-Regular",Menlo,monospace`;
+const yen = (n) => "¥" + n.toLocaleString();
+const Tape = ({ h = 6 }) => <div style={{ height: h, background: `repeating-linear-gradient(115deg, ${C.yel} 0 12px, #14171B 12px 24px)` }} />;
+
+function Btn({ children, onClick, tone, dis, style }) {
+  const y = tone === "y", g = tone === "g";
+  return (
+    <button onClick={onClick} disabled={dis} style={{
+      background: dis ? C.panel2 : y ? C.yel : g ? C.grn : "none",
+      color: dis ? C.dim2 : y ? "#14171B" : g ? "#0F1318" : C.txt,
+      border: `1px solid ${dis ? C.line : y ? C.yel : g ? C.grn : C.line}`,
+      borderRadius: 9, padding: 13, fontWeight: 800, fontSize: 13.5, fontFamily: F,
+      cursor: dis ? "default" : "pointer", width: "100%", ...style,
+    }}>{children}</button>
+  );
+}
+const Pill = ({ t, c }) => (
+  <span style={{ fontSize: 10, color: c, border: `1px solid ${c}`, borderRadius: 4, padding: "2px 7px", whiteSpace: "nowrap" }}>{t}</span>
+);
+
+/* ── モックデータ ─────────────────────── */
+const ORDERS0 = [
+  { no: "ORD-202608-1042", company: "第一班（本社）", person: "佐藤 部長", n: 5, amount: 44000, method: "invoice", date: "8/1", due: "9/30", paid: false },
+  { no: "ORD-202607-0988", company: "協力業者 山田工業", person: "山田 社長", n: 3, amount: 26400, method: "invoice", date: "7/18", due: "8/31", paid: true },
+  { no: "ORD-202607-0951", company: "第二班（仙台）", person: "鈴木 主任", n: 2, amount: 17600, method: "card", date: "7/10", due: "-", paid: true },
+];
+const M0 = [
+  { id: 1, n: "田中 健太", order: "ORD-202608-1042", min: 360, exam: 18, cert: null, last: "8/6" },
+  { id: 2, n: "佐藤 涼", order: "ORD-202608-1042", min: 360, exam: 17, cert: null, last: "8/6" },
+  { id: 3, n: "山口 大輔", order: "ORD-202608-1042", min: 285, exam: null, cert: null, last: "8/5" },
+  { id: 4, n: "中村 蓮", order: "ORD-202608-1042", min: 120, exam: null, cert: null, last: "8/4" },
+  { id: 5, n: "小林 悠", order: "ORD-202608-1042", min: 360, exam: 14, cert: null, last: "8/6" },
+  { id: 6, n: "山田 剛", order: "ORD-202607-0988", min: 360, exam: 19, cert: null, last: "7/29" },
+  { id: 7, n: "高橋 一馬", order: "ORD-202607-0988", min: 360, exam: 16, cert: null, last: "7/28" },
+  { id: 8, n: "伊藤 誠", order: "ORD-202607-0988", min: 210, exam: null, cert: null, last: "7/30" },
+  { id: 9, n: "鈴木 翔", order: "ORD-202607-0951", min: 360, exam: 20, cert: "AT-202607-0031", last: "7/15" },
+  { id: 10, n: "渡辺 拓真", order: "ORD-202607-0951", min: 360, exam: 17, cert: "AT-202607-0032", last: "7/16" },
+];
+const PASSLINE = 16;
+
+/* 受講者の状態を判定 */
+function statusOf(m, orders) {
+  const o = orders.find((x) => x.no === m.order);
+  if (m.cert) return { k: "issued", t: "発行済み", c: C.dim };
+  if (m.min < 360) return { k: "learning", t: "受講中", c: C.cyan };
+  if (m.exam === null) return { k: "exam", t: "試験待ち", c: C.yel };
+  if (m.exam < PASSLINE) return { k: "failed", t: "不合格", c: C.red };
+  if (o && o.method === "invoice" && !o.paid) return { k: "unpaid", t: "入金待ち", c: C.org };
+  return { k: "ready", t: "発行可能", c: C.grn };
+}
+
+/* ── 概要 ─────────────────────────────── */
+function Overview({ orders, members, onGo }) {
+  const s = members.map((m) => statusOf(m, orders));
+  const cnt = (k) => s.filter((x) => x.k === k).length;
+  const waiting = orders.filter((o) => o.method === "invoice" && !o.paid);
+  const wAmt = waiting.reduce((a, o) => a + o.amount, 0);
+
+  return (
+    <div style={{ padding: 16 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 14 }}>
+        {[
+          ["受講中", cnt("learning"), C.cyan],
+          ["試験待ち", cnt("exam"), C.yel],
+          ["入金待ち", cnt("unpaid"), C.org],
+          ["発行可能", cnt("ready"), C.grn],
+        ].map(([t, v, c], i) => (
+          <div key={i} style={{ background: C.panel, border: `1px solid ${v > 0 ? c : C.line}`, borderRadius: 10, padding: "12px 13px" }}>
+            <div style={{ fontSize: 10.5, color: C.dim, letterSpacing: 1 }}>{t}</div>
+            <div style={{ fontFamily: MO, fontSize: 24, fontWeight: 700, color: v > 0 ? c : C.dim2 }}>{v}<span style={{ fontSize: 12, color: C.dim }}>名</span></div>
+          </div>
+        ))}
+      </div>
+
+      {cnt("ready") > 0 && (
+        <div style={{ background: C.panel, border: `1px solid ${C.grn}`, borderRadius: 10, padding: 14, marginBottom: 10 }}>
+          <div style={{ fontSize: 13.5, fontWeight: 800, marginBottom: 4 }}>資格証を発行できる受講者が{cnt("ready")}名います</div>
+          <div style={{ fontSize: 11.5, color: C.dim, lineHeight: 1.7, marginBottom: 10 }}>
+            修了試験に合格し、入金の確認も済んでいます。まとめて発行できます。
+          </div>
+          <Btn tone="g" onClick={() => onGo("members", "ready")}>発行画面へ</Btn>
+        </div>
+      )}
+
+      {waiting.length > 0 && (
+        <div style={{ background: C.panel, border: `1px solid ${C.org}`, borderRadius: 10, padding: 14, marginBottom: 10 }}>
+          <div style={{ fontSize: 13.5, fontWeight: 800, marginBottom: 4 }}>入金の確認待ちが{waiting.length}件</div>
+          <div style={{ fontSize: 11.5, color: C.dim, lineHeight: 1.7, marginBottom: 4 }}>
+            合計 <span style={{ fontFamily: MO, color: C.txt }}>{yen(wAmt)}</span>
+          </div>
+          <div style={{ fontSize: 11.5, color: C.org, lineHeight: 1.7, marginBottom: 10 }}>
+            入金が確認できるまで、該当する受講者の資格証は発行されません。
+          </div>
+          <Btn onClick={() => onGo("orders")}>注文一覧を見る</Btn>
+        </div>
+      )}
+
+      <div style={{ fontSize: 10, color: C.dim, letterSpacing: 2, margin: "16px 0 8px" }}>直近の状況</div>
+      {members.slice().sort((a, b) => (b.min - a.min)).slice(0, 5).map((m) => {
+        const st = statusOf(m, orders);
+        return (
+          <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 8, background: C.panel, border: `1px solid ${C.line}`, borderRadius: 8, padding: "10px 12px", marginBottom: 6 }}>
+            <span style={{ fontSize: 12.5, fontWeight: 700 }}>{m.n}</span>
+            <span style={{ fontSize: 10.5, color: C.dim }}>{Math.floor(m.min / 60)}時間{m.min % 60}分</span>
+            <span style={{ marginLeft: "auto" }}><Pill t={st.t} c={st.c} /></span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ── 注文と入金 ───────────────────────── */
+function Orders({ orders, setOrders, members }) {
+  const [ask, setAsk] = useState(null);
+  return (
+    <div style={{ padding: 16 }}>
+      <div style={{ fontSize: 10, color: C.dim, letterSpacing: 2, marginBottom: 8 }}>注文（{orders.length}件）</div>
+      {orders.map((o) => {
+        const mem = members.filter((m) => m.order === o.no);
+        const ready = mem.filter((m) => statusOf(m, orders).k === "ready").length;
+        const held = mem.filter((m) => statusOf(m, orders).k === "unpaid").length;
+        return (
+          <div key={o.no} style={{ background: C.panel, border: `1px solid ${o.paid ? C.line : C.org}`, borderRadius: 10, padding: "13px 14px", marginBottom: 10 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontFamily: MO, fontSize: 11, color: C.dim }}>{o.no}</span>
+              <span style={{ marginLeft: "auto" }}>
+                <Pill t={o.method === "invoice" ? "請求書払い" : "カード払い"} c={o.method === "invoice" ? C.cyan : C.dim} />
+              </span>
+            </div>
+            <div style={{ fontSize: 14, fontWeight: 800, marginTop: 6 }}>{o.company}</div>
+            <div style={{ fontSize: 11.5, color: C.dim, marginTop: 3 }}>{o.person}　／　{o.n}名　／　{o.date}申込</div>
+            <div style={{ display: "flex", alignItems: "baseline", marginTop: 8 }}>
+              <span style={{ fontFamily: MO, fontSize: 18, fontWeight: 700, color: C.txt }}>{yen(o.amount)}</span>
+              <span style={{ marginLeft: "auto", fontSize: 11.5, color: o.paid ? C.grn : C.org }}>
+                {o.paid ? "入金確認済み" : `未入金（期限 ${o.due}）`}
+              </span>
+            </div>
+            {!o.paid && held > 0 && (
+              <div style={{ fontSize: 11.5, color: C.org, lineHeight: 1.7, marginTop: 8, background: "#2A2213", borderRadius: 6, padding: "8px 10px" }}>
+                この注文の{held}名が修了試験に合格していますが、入金待ちのため資格証を発行できません。
+              </div>
+            )}
+            {o.paid && ready > 0 && (
+              <div style={{ fontSize: 11.5, color: C.grn, lineHeight: 1.7, marginTop: 8 }}>
+                発行可能な受講者が{ready}名います。
+              </div>
+            )}
+            {!o.paid && (
+              <Btn tone="g" onClick={() => setAsk(o)} style={{ marginTop: 10, padding: 11, fontSize: 12.5 }}>入金を確認する</Btn>
+            )}
+          </div>
+        );
+      })}
+
+      {ask && (
+        <div style={{ position: "fixed", inset: 0, background: "#000c", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, zIndex: 30 }}>
+          <div style={{ background: C.panel, border: `2px solid ${C.grn}`, borderRadius: 14, padding: 20, maxWidth: 340, width: "100%" }}>
+            <div style={{ fontSize: 11, color: C.grn, fontWeight: 800, letterSpacing: 1 }}>入金の確認</div>
+            <div style={{ fontSize: 15, fontWeight: 800, lineHeight: 1.6, margin: "8px 0 4px" }}>
+              {ask.company}　{yen(ask.amount)}
+            </div>
+            <div style={{ fontSize: 12, color: C.dim, lineHeight: 1.8, marginBottom: 14 }}>
+              入金を確認済みにすると、この注文の受講者のうち修了試験に合格した方の資格証を発行できるようになります。
+              確認の操作は記録に残ります。
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+              <Btn onClick={() => setAsk(null)} style={{ color: C.dim, fontWeight: 400 }}>やめる</Btn>
+              <Btn tone="g" onClick={() => { setOrders(orders.map((x) => x.no === ask.no ? { ...x, paid: true } : x)); setAsk(null); }}>確認済みにする</Btn>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── 受講者と一括発行 ─────────────────── */
+function Members({ orders, members, setMembers, filter, setFilter }) {
+  const [sel, setSel] = useState([]);
+  const [done, setDone] = useState(null);
+
+  const list = useMemo(() => members.filter((m) => filter === "all" || statusOf(m, orders).k === filter), [members, orders, filter]);
+  const readyIds = list.filter((m) => statusOf(m, orders).k === "ready").map((m) => m.id);
+  const allSel = readyIds.length > 0 && readyIds.every((id) => sel.includes(id));
+
+  const issue = () => {
+    const d = new Date();
+    const pre = `AT-${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}-`;
+    let seq = 100 + members.filter((m) => m.cert).length;
+    const issued = [];
+    setMembers(members.map((m) => {
+      if (!sel.includes(m.id) || m.cert) return m;
+      seq += 1;
+      const no = pre + String(seq).padStart(4, "0");
+      issued.push({ ...m, cert: no });
+      return { ...m, cert: no };
+    }));
+    setSel([]);
+    setDone(issued);
+  };
+
+  const dlCsv = (rows) => {
+    const csv = "証明番号,氏名,注文番号,受講時間(分),修了試験,発行日\n" +
+      rows.map((r) => `${r.cert},${r.n},${r.order},${r.min},${r.exam}/20,${new Date().toLocaleDateString("ja-JP")}`).join("\n");
+    const a = document.createElement("a");
+    a.href = "data:text/csv;charset=utf-8," + encodeURIComponent("\uFEFF" + csv);
+    a.download = `資格証発行台帳_${new Date().toLocaleDateString("ja-JP").replace(/\//g, "")}.csv`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  };
+
+  return (
+    <div style={{ padding: 16 }}>
+      <div style={{ display: "flex", gap: 5, marginBottom: 12, flexWrap: "wrap" }}>
+        {[["all", "すべて"], ["learning", "受講中"], ["exam", "試験待ち"], ["unpaid", "入金待ち"], ["ready", "発行可能"], ["issued", "発行済み"]].map(([k, t]) => (
+          <button key={k} onClick={() => setFilter(k)} style={{
+            background: filter === k ? C.yel : C.panel2, color: filter === k ? "#14171B" : C.dim,
+            border: `1px solid ${filter === k ? C.yel : C.line}`, borderRadius: 7,
+            padding: "7px 11px", fontSize: 11.5, fontWeight: 800, fontFamily: F, cursor: "pointer",
+          }}>{t}</button>
+        ))}
+      </div>
+
+      {readyIds.length > 0 && (
+        <div style={{ background: C.panel, border: `1px solid ${C.grn}`, borderRadius: 10, padding: "12px 14px", marginBottom: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <button onClick={() => setSel(allSel ? [] : readyIds)} style={{
+              width: 20, height: 20, borderRadius: 5, border: `1px solid ${allSel ? C.grn : C.line}`,
+              background: allSel ? C.grn : "transparent", color: "#0F1318", fontSize: 13, fontWeight: 900, cursor: "pointer",
+            }}>{allSel ? "✓" : ""}</button>
+            <span style={{ fontSize: 12.5 }}>発行可能な{readyIds.length}名をすべて選択</span>
+            <span style={{ marginLeft: "auto", fontFamily: MO, fontSize: 13, color: C.grn }}>{sel.length}</span>
+          </div>
+          <Btn tone="g" dis={sel.length === 0} onClick={issue} style={{ marginTop: 10, padding: 11, fontSize: 12.5 }}>
+            {sel.length ? `${sel.length}名の資格証を発行する` : "受講者を選択してください"}
+          </Btn>
+        </div>
+      )}
+
+      {list.length === 0 && <div style={{ fontSize: 12.5, color: C.dim2, padding: "10px 0" }}>該当する受講者はいません。</div>}
+      {list.map((m) => {
+        const st = statusOf(m, orders);
+        const can = st.k === "ready";
+        const on = sel.includes(m.id);
+        return (
+          <div key={m.id} style={{
+            display: "flex", alignItems: "center", gap: 10, background: C.panel,
+            border: `1px solid ${on ? C.grn : C.line}`, borderRadius: 10, padding: "12px 13px", marginBottom: 8,
+          }}>
+            {can ? (
+              <button onClick={() => setSel(on ? sel.filter((x) => x !== m.id) : [...sel, m.id])} style={{
+                width: 20, height: 20, borderRadius: 5, flexShrink: 0, border: `1px solid ${on ? C.grn : C.line}`,
+                background: on ? C.grn : "transparent", color: "#0F1318", fontSize: 13, fontWeight: 900, cursor: "pointer",
+              }}>{on ? "✓" : ""}</button>
+            ) : <span style={{ width: 20, flexShrink: 0 }} />}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                <span style={{ fontSize: 13.5, fontWeight: 800 }}>{m.n}</span>
+                <Pill t={st.t} c={st.c} />
+              </div>
+              <div style={{ fontSize: 10.5, color: C.dim, marginTop: 4 }}>
+                受講 {Math.floor(m.min / 60)}時間{m.min % 60}分 / 6時間
+                {m.exam !== null && `　試験 ${m.exam}/20`}
+                {m.cert && `　${m.cert}`}
+              </div>
+              <div style={{ height: 4, background: C.line, borderRadius: 2, marginTop: 6, overflow: "hidden" }}>
+                <div style={{ width: `${Math.min(100, m.min / 360 * 100)}%`, height: "100%", background: m.min >= 360 ? C.grn : C.yel }} />
+              </div>
+            </div>
+          </div>
+        );
+      })}
+
+      {done && (
+        <div style={{ position: "fixed", inset: 0, background: "#000c", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, zIndex: 30 }}>
+          <div style={{ background: C.panel, border: `2px solid ${C.grn}`, borderRadius: 14, padding: 20, maxWidth: 360, width: "100%" }}>
+            <div style={{ fontSize: 11, color: C.grn, fontWeight: 800, letterSpacing: 1 }}>発行しました</div>
+            <div style={{ fontSize: 16, fontWeight: 900, margin: "8px 0 8px" }}>{done.length}名の資格証を発行</div>
+            <div style={{ background: C.panel2, borderRadius: 8, padding: "8px 11px", maxHeight: 160, overflowY: "auto", marginBottom: 12 }}>
+              {done.map((r) => (
+                <div key={r.id} style={{ display: "flex", gap: 8, fontSize: 11.5, padding: "4px 0" }}>
+                  <span style={{ fontFamily: MO, color: C.grn }}>{r.cert}</span>
+                  <span style={{ marginLeft: "auto" }}>{r.n}</span>
+                </div>
+              ))}
+            </div>
+            <div style={{ fontSize: 11.5, color: C.dim, lineHeight: 1.8, marginBottom: 12 }}>
+              受講者へメールで通知しました。アプリからPNG形式でダウンロードできます。
+            </div>
+            <div style={{ display: "grid", gap: 8 }}>
+              <Btn onClick={() => dlCsv(done)}>発行台帳をCSVで保存</Btn>
+              <Btn tone="y" onClick={() => setDone(null)}>閉じる</Btn>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── ルート ───────────────────────────── */
+function App() {
+  const [tab, setTab] = useState("home");
+  const [filter, setFilter] = useState("all");
+  const [orders, setOrders] = useState(ORDERS0);
+  const [members, setMembers] = useState(M0);
+
+  return (
+    <div style={{ background: C.bg, color: C.txt, fontFamily: F, minHeight: "100vh", maxWidth: 480, margin: "0 auto" }}>
+      <Tape />
+      <div style={{ padding: "12px 16px", borderBottom: `1px solid ${C.line}`, display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{ fontSize: 15, fontWeight: 900, letterSpacing: -0.5 }}>特別教育 管理</div>
+        <div style={{ fontSize: 10, color: C.dim, border: `1px solid ${C.line}`, padding: "2px 6px", borderRadius: 4 }}>教育担当者</div>
+      </div>
+      <div style={{ display: "flex", borderBottom: `1px solid ${C.line}` }}>
+        {[["home", "概要"], ["orders", "注文・入金"], ["members", "受講者・発行"]].map(([k, t]) => (
+          <button key={k} onClick={() => setTab(k)} style={{
+            flex: 1, background: "none", border: "none",
+            borderBottom: `2px solid ${tab === k ? C.yel : "transparent"}`,
+            color: tab === k ? C.txt : C.dim, padding: "12px 0", fontSize: 12.5, fontWeight: 800,
+            fontFamily: F, cursor: "pointer",
+          }}>{t}</button>
+        ))}
+      </div>
+
+      {tab === "home" && <Overview orders={orders} members={members} onGo={(t, f) => { setTab(t); if (f) setFilter(f); }} />}
+      {tab === "orders" && <Orders orders={orders} setOrders={setOrders} members={members} />}
+      {tab === "members" && <Members orders={orders} members={members} setMembers={setMembers} filter={filter} setFilter={setFilter} />}
+
+      <div style={{ padding: "0 16px 24px", fontSize: 10.5, color: C.dim2, lineHeight: 1.95 }}>
+        ※資格証は事業者名義で発行されます。発行の操作は記録に残ります。<br />
+        ※請求書払いの注文は、入金の確認後に発行できるようになります。
+      </div>
+      <Tape h={4} />
+    </div>
+  );
+}
+
+  return App;
+})();
+
+/* ── シェル ───────────────────────────── */
+const S = {
+  bg: "#14171B", panel: "#1E232A", panel2: "#252C34", line: "#2E3640",
+  yel: "#F5D400", cyan: "#4FC3D9", grn: "#25B36B", txt: "#E9EEF3", dim: "#8D98A4", dim2: "#5F6B78",
+};
+const SF = `"Hiragino Kaku Gothic ProN","Noto Sans JP","Yu Gothic",sans-serif`;
+const SM = `ui-monospace,"SFMono-Regular",Menlo,monospace`;
+const STape = ({ h = 6 }) => (
+  <div style={{ height: h, background: `repeating-linear-gradient(115deg, ${S.yel} 0 12px, #14171B 12px 24px)` }} />
+);
+
+function ShellCard({ tag, tagColor, title, sub, lines, cta, onClick, accent }) {
+  return (
+    <button onClick={onClick} style={{
+      display: "block", width: "100%", textAlign: "left", background: S.panel,
+      border: `1px solid ${accent}`, borderRadius: 12, padding: "16px 17px",
+      marginBottom: 12, fontFamily: SF, cursor: "pointer", color: S.txt,
+    }}>
+      <span style={{
+        fontSize: 10, fontWeight: 800, letterSpacing: 1, color: "#14171B",
+        background: tagColor, borderRadius: 4, padding: "3px 8px",
+      }}>{tag}</span>
+      <div style={{ fontSize: 18, fontWeight: 900, marginTop: 9, lineHeight: 1.4 }}>{title}</div>
+      <div style={{ fontSize: 12, color: S.dim, marginTop: 4, lineHeight: 1.7 }}>{sub}</div>
+      <div style={{ marginTop: 11, display: "grid", gap: 5 }}>
+        {lines.map((l, i) => (
+          <div key={i} style={{ display: "flex", gap: 8, fontSize: 11.5, color: S.dim }}>
+            <span style={{ color: accent, fontFamily: SM }}>▸</span><span>{l}</span>
+          </div>
+        ))}
+      </div>
+      <div style={{
+        marginTop: 13, background: accent, color: "#14171B", borderRadius: 8,
+        padding: "11px 0", textAlign: "center", fontSize: 13.5, fontWeight: 800,
+      }}>{cta}</div>
+    </button>
+  );
+}
+
+/* ── 実務トレーニングの章選択 ── */
+const CHAPTERS = [
+  { n: 1, t: "段取りと根がらみ", d: "資材の配置から、1段目の根がらみを組み終えるまで", tag: "無料", ok: true },
+  { n: 2, t: "高所作業", d: "1段目に登り、2段目の踏板・筋交・壁当てジャッキ、屋根の転落防止手摺まで", tag: "買い切り", ok: true },
+  { n: 3, t: "火打とシート", d: "出隅4箇所の火打、メッシュシートの張り方と緊結", tag: "買い切り", ok: true },
+  { n: 4, t: "本足場", d: "巾木・内側手摺・先行手摺・踏板用手摺・踏板", tag: "準備中" },
+  { n: 5, t: "壁つなぎ・層間ネット", d: "壁つなぎの打ち方から取り付け、層間ネットの設置", tag: "準備中" },
+  { n: 6, t: "技能士試験の実技練習", d: "試験の課題を通しで練習する", tag: "準備中" },
+];
+
+function TrainSelect({ onPick }) {
+  return (
+    <div style={{ padding: "16px 16px 28px", fontFamily: SF, color: S.txt }}>
+      <div style={{ fontSize: 11, color: S.yel, fontWeight: 800, letterSpacing: 2 }}>実務トレーニング</div>
+      <div style={{ fontSize: 19, fontWeight: 900, marginTop: 6 }}>どの章をやる？</div>
+      <div style={{ fontSize: 12, color: S.dim, lineHeight: 1.85, margin: "8px 0 16px" }}>
+        章は現場の進み方に沿っています。順番にやると、地上から屋根まで一通り通ります。
+      </div>
+      {CHAPTERS.map((c) => (
+        <button key={c.n} onClick={() => c.ok && onPick(c.n)} disabled={!c.ok} style={{
+          display: "block", width: "100%", textAlign: "left", marginBottom: 10,
+          background: c.ok ? S.panel : "none", color: c.ok ? S.txt : S.dim2,
+          border: `1px ${c.ok ? "solid" : "dashed"} ${c.ok ? S.line : "#252C34"}`,
+          borderRadius: 11, padding: "14px 15px", fontFamily: SF,
+          cursor: c.ok ? "pointer" : "default",
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontSize: 11, fontFamily: SM, color: c.ok ? S.yel : S.dim2 }}>第{c.n}章</span>
+            <span style={{
+              fontSize: 10, fontWeight: 800, borderRadius: 4, padding: "2px 7px",
+              background: c.ok ? (c.n === 1 ? S.grn : S.yel) : "none",
+              color: c.ok ? "#14171B" : S.dim2,
+              border: c.ok ? "none" : `1px solid #252C34`,
+            }}>{c.tag}</span>
+          </div>
+          <div style={{ fontSize: 16, fontWeight: 900, marginTop: 6 }}>{c.t}</div>
+          <div style={{ fontSize: 11.5, color: c.ok ? S.dim : S.dim2, marginTop: 4, lineHeight: 1.7 }}>{c.d}</div>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+export default function Shell() {
+  const [view, setView] = useState("home");
+  const inChapter = ["train1", "train2", "train3", "train1cat", "train1demo"].includes(view);
+  const [cat, setCat] = useState(false);
+  /* 第3章と見学は画面内に収める。第1・2章は縦に長いのでページごとスクロールさせる */
+  const fit = ["train3", "train1demo", "train1cat"].includes(view);
+
+  if (view !== "home") {
+    return (
+      <div style={{
+        background: S.bg, maxWidth: 480, margin: "0 auto", position: "relative",
+        ...(fit
+          ? { height: "100dvh", display: "flex", flexDirection: "column", overflow: "hidden" }
+          : { minHeight: "100dvh" }),
+      }}>
+        <div style={{
+          display: "flex", alignItems: "center", gap: 10, padding: "9px 14px",
+          background: "#0F1318", borderBottom: `1px solid ${S.line}`, fontFamily: SF, flex: "0 0 auto",
+          position: fit ? "static" : "sticky", top: 0, zIndex: 20,
+        }}>
+          <button onClick={() => setView(inChapter ? "train" : "home")} style={{
+            background: "none", border: `1px solid ${S.line}`, color: S.dim, borderRadius: 7,
+            padding: "6px 12px", fontSize: 12, fontFamily: SF, cursor: "pointer",
+          }}>{inChapter ? "← 章を選ぶ" : "← ホーム"}</button>
+          {inChapter && view !== "train1cat" && (
+            <button onClick={() => setCat(true)} style={{
+              marginLeft: "auto", background: "none", border: `1px solid ${S.line}`, color: S.yel,
+              borderRadius: 7, padding: "6px 12px", fontSize: 12, fontFamily: SF, cursor: "pointer",
+            }}>資材</button>
+          )}
+          <span style={{ fontSize: 12, color: S.dim }}>
+            {view === "train" ? "実務トレーニング"
+              : view === "train1" ? "実務トレーニング 第1章"
+                : view === "train1cat" ? "資材カタログ"
+                  : view === "train1demo" ? "組立の通し"
+                    : view === "train2" ? "実務トレーニング 第2章"
+                  : view === "train3" ? "実務トレーニング 第3章"
+                  : view === "buy" ? "お申込み・決済" : view === "admin" ? "管理（教育担当者）" : "特別教育（学科）"}
+          </span>
+        </div>
+        <div style={fit ? { flex: 1, minHeight: 0, overflowY: "auto", WebkitOverflowScrolling: "touch" } : {}}>
+        {view === "train" ? <TrainSelect onPick={(n) => setView(n === 1 ? "train1cat" : `train${n}`)} />
+          : view === "train1cat" ? <GlossaryApp mode="intro" onDone={() => setView("train1demo")} />
+            : view === "train1demo" ? <DemoApp onDone={() => setView("train1")} />
+              : view === "train1" ? <TrainingApp />
+                : view === "train2" ? <Ch2App />
+                  : view === "train3" ? <Ch3App />
+                    : view === "buy" ? <CheckoutApp /> : view === "admin" ? <AdminApp /> : <EduApp />}
+        </div>
+        {cat && (
+          <div style={{ position: "fixed", inset: 0, zIndex: 60 }}>
+            <GlossaryApp mode="ref" onClose={() => setCat(false)} />
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ background: S.bg, color: S.txt, fontFamily: SF, minHeight: "100vh", maxWidth: 480, margin: "0 auto" }}>
+      <STape />
+      <div style={{ padding: "16px 16px 6px" }}>
+        <div style={{ fontSize: 11, color: S.yel, fontWeight: 800, letterSpacing: 2 }}>ASHIBA TRAINING</div>
+        <div style={{ fontSize: 22, fontWeight: 900, lineHeight: 1.4, marginTop: 6 }}>
+          足場を、体で覚える。<br />資格は、記録で残す。
+        </div>
+        <div style={{ fontSize: 12.5, color: S.dim, lineHeight: 1.85, margin: "10px 0 18px" }}>
+          手を動かして覚える実務トレーニングと、法定の特別教育。<br />
+          ひとつのアプリで、現場に出るまでを通します。
+        </div>
+      </div>
+
+      <div style={{ padding: "0 16px" }}>
+        <ShellCard
+          tag="実務トレーニング" tagColor={S.yel} accent={S.yel}
+          title="足場を組む練習"
+          sub="作業員を操作して1スパンずつ組み上げる。順番を間違えると親方が飛んでくる。"
+          lines={[
+            "第1章 段取りと根がらみ（無料）",
+            "第2章 高所作業／第3章 火打とシート",
+            "第4章 本足場／第5章 壁つなぎ・層間ネット",
+            "第6章 技能士試験の実技練習",
+          ]}
+          cta="トレーニングを始める"
+          onClick={() => setView("train")}
+        />
+        <ShellCard
+          tag="法定教育" tagColor={S.cyan} accent={S.cyan}
+          title="足場の組立て等 特別教育"
+          sub="安衛法第59条第3項／安衛則第36条第39号。全4科目・学科6時間。"
+          lines={[
+            "全4科目・13単元／教材テキストPDF付き",
+            "受講前に同意と本人確認（顔認証）",
+            "受講中は3秒ごとに照合。離席で自動停止",
+            "修了試験20問に合格で資格証をダウンロード",
+          ]}
+          cta="受講する"
+          onClick={() => setView("edu")}
+        />
+      </div>
+
+      <div style={{ padding: "0 16px" }}>
+        {[
+          { k: "buy", i: "🧾", t: "特別教育のお申込み・受講コード", d: "法人まとめ購入／請求書払いに対応" },
+          { k: "admin", i: "🗂", t: "管理画面（教育担当者）", d: "入金の確認、受講の進み具合、資格証の一括発行" },
+        ].map((o) => (
+          <button key={o.k} onClick={() => setView(o.k)} style={{
+            display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left",
+            background: S.panel, border: `1px dashed ${S.line}`, borderRadius: 10,
+            padding: "13px 15px", fontFamily: SF, cursor: "pointer", color: S.txt, marginBottom: 10,
+          }}>
+            <span style={{ fontSize: 18 }}>{o.i}</span>
+            <span>
+              <span style={{ fontSize: 13, fontWeight: 800 }}>{o.t}</span>
+              <span style={{ display: "block", fontSize: 11, color: S.dim, marginTop: 2 }}>{o.d}</span>
+            </span>
+          </button>
+        ))}
+      </div>
+
+      <div style={{ padding: "6px 16px 24px" }}>
+        <div style={{ background: S.panel, border: `1px solid ${S.line}`, borderRadius: 10, padding: "13px 15px" }}>
+          <div style={{ fontSize: 11, color: S.dim, letterSpacing: 1, marginBottom: 7 }}>この2つの関係</div>
+          <div style={{ fontSize: 12, color: S.dim, lineHeight: 1.9 }}>
+            特別教育は、法令で定められた学科教育です。修了することで、足場の組立て等の業務に就くことができます。<br />
+            実務トレーニングは法定要件の外にあり、手順を体で覚えるためのものです。座学で知り、操作で身につける。この順で使ってください。
+          </div>
+        </div>
+        <div style={{ fontSize: 10.5, color: S.dim2, lineHeight: 1.9, marginTop: 12 }}>
+          ※特別教育の実施主体は事業者です。修了証は事業者名義で発行されます。<br />
+          ※科目・時間・設問には制作中の内容が含まれます。運用前に所轄労働局または社会保険労務士への確認を推奨します。
+        </div>
+      </div>
+      <STape h={4} />
+    </div>
+  );
+}
