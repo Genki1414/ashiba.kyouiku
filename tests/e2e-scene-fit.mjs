@@ -7,6 +7,12 @@ let ng = 0;
 for (const [w, h, name] of [[390, 640, "small"], [360, 600, "tiny"], [390, 844, "normal"]]) {
   const page = await browser.newPage({ viewport: { width: w, height: h } });
   await page.goto("http://localhost:3100/training/ch1");
+  /* 更新のお知らせが出ていたら閉じる */
+  {
+    const b = page.getByTestId("update-close");
+    await b.waitFor({ timeout: 2000 }).catch(() => {});
+    if (await b.count()) { await b.click(); await page.waitForTimeout(200); }
+  }
   await page.waitForSelector("text=段取りと根がらみ");
   // 段取りを一気に済ませて建方へ
   const tap = async (key) => {

@@ -105,6 +105,13 @@ export default function TrainingPage() {
         <br />
         ④ は手摺先行工法。出隅の片側を600スパンにして、床を張る前に先行手摺を上げる段取りです。
       </p>
+
+      <Link
+        href="/updates"
+        className="mx-5 mt-4 block rounded-lg border border-line p-3 text-center text-[12.5px] text-dim no-underline"
+      >
+        更新の一覧を見る
+      </Link>
     </main>
   );
 }

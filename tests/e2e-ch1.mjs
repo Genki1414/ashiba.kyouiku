@@ -137,8 +137,17 @@ const doInner = async () => {
 
 const bossSays = () => page.locator(".whitespace-pre-line").textContent();
 
+
+/* 更新のお知らせが出ていたら閉じる（実機でも同じように一度だけ出る） */
+const dismissNotice = async () => {
+  const b = page.getByTestId("update-close");
+  await b.waitFor({ timeout: 2000 }).catch(() => {});
+  if (await b.count()) { await b.click(); await page.waitForTimeout(200); }
+};
+
 await page.goto(`${BASE}/training/ch1`);
 await page.waitForSelector("text=段取りと根がらみ");
+await dismissNotice();
 
 /* ── 段取り ── */
 await tool("ジャッキ");

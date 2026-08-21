@@ -11,8 +11,17 @@ const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
 page.on("pageerror", (e) => { console.error("pageerror:", e.message); ng++; });
 
 /* ── 章選択：①→②→③ の導線 ── */
+
+/* 更新のお知らせが出ていたら閉じる（実機でも同じように一度だけ出る） */
+const dismissNotice = async () => {
+  const b = page.getByTestId("update-close");
+  await b.waitFor({ timeout: 2000 }).catch(() => {});
+  if (await b.count()) { await b.click(); await page.waitForTimeout(200); }
+};
+
 await page.goto(`${BASE}/training`);
 await page.waitForSelector("text=実務トレーニング");
+await dismissNotice();
 for (const t of ["① 資材カタログ", "② 通し見学", "③ チュートリアル"]) {
   check(await page.locator(`text=${t}`).count() > 0, `章選択に「${t}」がある`);
 }

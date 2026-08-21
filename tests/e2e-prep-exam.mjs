@@ -30,7 +30,16 @@ const page = await ctx.newPage();
 page.on("pageerror", (e) => console.error("pageerror:", e.message));
 
 // 1) 準備が済んでいないと受講画面へ入れない（prep へリダイレクト）
+
+/* 更新のお知らせが出ていたら閉じる（実機でも同じように一度だけ出る） */
+const dismissNotice = async () => {
+  const b = page.getByTestId("update-close");
+  await b.waitFor({ timeout: 2000 }).catch(() => {});
+  if (await b.count()) { await b.click(); await page.waitForTimeout(200); }
+};
+
 await page.goto(`${BASE}/edu/1-1`);
+await dismissNotice();
 await page.waitForURL("**/edu/prep?back=1-1");
 await page.waitForSelector("text=カメラの使用について");
 console.log("OK: 準備前は受講画面に入れず、同意画面へ");

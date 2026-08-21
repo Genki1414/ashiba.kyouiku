@@ -27,8 +27,17 @@ const clickAt = async (loc) => {
   await page.waitForTimeout(150);
 };
 
+
+/* 更新のお知らせが出ていたら閉じる（実機でも同じように一度だけ出る） */
+const dismissNotice = async () => {
+  const b = page.getByTestId("update-close");
+  await b.waitFor({ timeout: 2000 }).catch(() => {});
+  if (await b.count()) { await b.click(); await page.waitForTimeout(200); }
+};
+
 await page.goto(`${BASE}/training/ch3`);
 await page.waitForSelector("text=火打とシート");
+await dismissNotice();
 await shot(page, "01-plan");
 
 /* ── 火打：4隅 ── */

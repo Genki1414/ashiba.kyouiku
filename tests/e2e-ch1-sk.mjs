@@ -152,8 +152,17 @@ const waitNext = async (title) => {
   await page.waitForTimeout(300);
 };
 
+
+/* 更新のお知らせが出ていたら閉じる（実機でも同じように一度だけ出る） */
+const dismissNotice = async () => {
+  const b = page.getByTestId("update-close");
+  await b.waitFor({ timeout: 2000 }).catch(() => {});
+  if (await b.count()) { await b.click(); await page.waitForTimeout(200); }
+};
+
 await page.goto(`${BASE}/training/ch1?sk=1`);
 await page.waitForSelector("text=段取りと根がらみ");
+await dismissNotice();
 
 /* ── はじめに、出隅のどちら側を600スパンにするか決める ── */
 await page.waitForSelector("text=出隅のどちら側を600にする？", { timeout: 5000 })

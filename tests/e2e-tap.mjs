@@ -33,8 +33,17 @@ const need = async (label) => {
 };
 const tool = async (t) => { await page.getByRole("button", { name: t, exact: true }).click(); };
 
+
+/* 更新のお知らせが出ていたら閉じる（実機でも同じように一度だけ出る） */
+const dismissNotice = async () => {
+  const b = page.getByTestId("update-close");
+  await b.waitFor({ timeout: 2000 }).catch(() => {});
+  if (await b.count()) { await b.click(); await page.waitForTimeout(200); }
+};
+
 await page.goto(`${BASE}/training/ch1`);
 await page.waitForSelector("text=段取りと根がらみ");
+await dismissNotice();
 await page.waitForTimeout(300);
 
 /* ── 印どうしの画面上の間隔 ── */

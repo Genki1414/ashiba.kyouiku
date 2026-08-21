@@ -28,8 +28,17 @@ const page = await ctx.newPage();
 page.on("pageerror", (e) => console.error("pageerror:", e.message));
 
 // 1) ホーム → 一覧
+
+/* 更新のお知らせが出ていたら閉じる（実機でも同じように一度だけ出る） */
+const dismissNotice = async () => {
+  const b = page.getByTestId("update-close");
+  await b.waitFor({ timeout: 2000 }).catch(() => {});
+  if (await b.count()) { await b.click(); await page.waitForTimeout(200); }
+};
+
 await page.goto(BASE);
 await page.waitForSelector("text=足場の教育アプリ");
+await dismissNotice();
 await shot(page, "01-home");
 await page.click("text=特別教育（学科）");
 await page.waitForURL("**/edu");
