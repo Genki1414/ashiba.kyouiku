@@ -1,11 +1,26 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { UpdateNotice } from "@/components/UpdateNotice";
+import { ServiceWorker } from "@/components/ServiceWorker";
 import { LATEST } from "@/content/changelog";
 
 export const metadata: Metadata = {
   title: "足場の特別教育",
   description: "足場の組立て等の業務に係る特別教育（学科6時間）",
+  manifest: "/manifest.webmanifest",
+  applicationName: "足場教育",
+  appleWebApp: {
+    capable: true,
+    title: "足場教育",
+    statusBarStyle: "black-translucent",
+  },
+  icons: {
+    icon: [
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: "/apple-touch-icon.png",
+  },
 };
 
 export const viewport: Viewport = {
@@ -23,6 +38,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <div className="mx-auto min-h-dvh max-w-md bg-bg">{children}</div>
         {/* 直したところ・足したところを、開いたときに知らせる */}
         <UpdateNotice />
+        {/* 圏外でも、一度開いた画面は開けるようにする */}
+        <ServiceWorker />
       </body>
     </html>
   );

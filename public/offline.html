@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#14171B">
+<title>圏外です｜足場の特別教育</title>
+<style>
+  /* この画面は電波が無いときに出る。
+     読み込むものがあると出せないので、字と色はこの中に書いておく。 */
+  :root { color-scheme: dark; }
+  html, body { margin: 0; background: #14171B; color: #E9EEF3;
+    font-family: "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic", sans-serif; }
+  .wrap { max-width: 28rem; margin: 0 auto; padding: 0 20px 40px; }
+  .tape { height: 6px; background: repeating-linear-gradient(115deg, #F5D400 0 12px, #14171B 12px 24px); }
+  .eyebrow { margin-top: 26px; font-size: 11px; font-weight: 800; letter-spacing: 2px; color: #F5D400; }
+  h1 { margin: 8px 0 0; font-size: 20px; font-weight: 900; line-height: 1.4; }
+  p { margin: 16px 0 0; font-size: 13px; line-height: 1.9; color: #8D98A4; }
+  .btns { display: grid; gap: 8px; margin-top: 26px; }
+  a { display: block; padding: 14px; border-radius: 8px; text-align: center;
+      text-decoration: none; font-size: 14px; }
+  a.y { background: #F5D400; color: #14171B; font-weight: 800; }
+  a.o { border: 1px solid #2E3640; color: #8D98A4; font-size: 13px; }
+  button { width: 100%; margin-top: 8px; padding: 14px; border-radius: 8px;
+    border: 1px solid #2E3640; background: none; color: #8D98A4; font-size: 13px;
+    font-family: inherit; cursor: pointer; }
+</style>
+</head>
+<body>
+<div class="tape"></div>
+<div class="wrap">
+  <div class="eyebrow">圏外です</div>
+  <h1>この画面は、まだ<br>端末に入っていません</h1>
+  <p>
+    一度開いた画面は、電波が無くても開けます。<br>
+    この画面はまだ開いたことがないので、電波のある所で一度開いてください。
+  </p>
+  <div class="btns">
+    <a class="y" href="/">ホームへ</a>
+    <a class="o" href="/training">実務トレーニングへ</a>
+    <a class="o" href="/edu">特別教育（学科）へ</a>
+  </div>
+  <button onclick="location.reload()">もう一度ためす</button>
+</div>
+</body>
+</html>
