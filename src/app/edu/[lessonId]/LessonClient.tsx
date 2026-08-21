@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { Lesson, Subject } from "@/types/curriculum";
 import { useLessonStore } from "@/stores/useLessonStore";
 import { loadProgress, syncDelta, markQuizPassed } from "@/lib/progressClient";
@@ -13,6 +14,10 @@ import { QuizView } from "@/components/edu/QuizView";
 import { LockedNotice } from "@/components/edu/LockedNotice";
 import { Bar } from "@/components/ui/Bar";
 import { hm } from "@/components/ui/format";
+import { readPrep, prepDone } from "@/lib/prep";
+import { useVerification } from "@/lib/useVerification";
+import { CamWindow } from "@/components/edu/CamWindow";
+import { VerifyModal } from "@/components/edu/VerifyModal";
 
 const SYNC_INTERVAL_SEC = 15;
 
@@ -30,10 +35,22 @@ export function LessonClient({
   prevId: string | null;
   nextId: string | null;
 }) {
+  const router = useRouter();
   const s = useLessonStore();
   const [loaded, setLoaded] = useState(false);
   const [passError, setPassError] = useState<string | null>(null);
   const needSec = lesson.legal_min * 60;
+
+  /* 受講の準備（同意・本人確認）が済んでいなければ先にそちらへ */
+  const [prepState, setPrepState] = useState<"checking" | "cam" | "nocam">("checking");
+  useEffect(() => {
+    const p = readPrep();
+    if (!prepDone(p)) {
+      router.replace(`/edu/prep?back=${lesson.id}`);
+      return;
+    }
+    setPrepState(p.skipped ? "nocam" : "cam");
+  }, [lesson.id, router]);
 
   /* 開発時のみ：E2Eテストから状態を動かせるように store を window へ出す */
   useEffect(() => {
@@ -61,8 +78,24 @@ export function LessonClient({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lesson.id]);
 
-  /* 視聴時間：ナレーションは再生中のみ、図解・事例は表示中に加算（SPEC 5章） */
-  const counting = loaded && (s.stage === "narr" ? s.playing : s.stage === "fig" || s.stage === "case");
+  /* 受講中の照合（カメラあり）／在席確認（カメラなし） */
+  const verification = useVerification({
+    lessonId: lesson.id,
+    counting:
+      loaded &&
+      prepState !== "checking" &&
+      (s.stage === "narr" ? s.playing : s.stage === "fig" || s.stage === "case"),
+    useCam: prepState === "cam",
+    onStop: () => useLessonStore.getState().set({ playing: false }),
+  });
+
+  /* 視聴時間：ナレーションは再生中のみ、図解・事例は表示中に加算（SPEC 5章）。
+     照合失敗・在席確認で停止しているあいだは加算しない */
+  const counting =
+    loaded &&
+    prepState !== "checking" &&
+    !verification.stop &&
+    (s.stage === "narr" ? s.playing : s.stage === "fig" || s.stage === "case");
   useEffect(() => {
     if (!counting) return;
     const id = setInterval(() => useLessonStore.getState().tick(), 1000);
@@ -140,6 +173,38 @@ export function LessonClient({
 
       <StageNav stage={s.stage} figCount={lesson.figures.length} caseCount={lesson.cases.length} />
       <Bar v={s.watchedSec} max={needSec} color={p >= 1 ? "var(--color-grn)" : "var(--color-yel)"} />
+
+      {/* 受講中の照合（端末内で完結。映像は送信しない） */}
+      {prepState === "cam" && (
+        <>
+          <CamWindow stream={verification.cam.stream} state={verification.camState} active={counting} />
+          <video ref={verification.videoRef} autoPlay playsInline muted className="hidden" />
+          <canvas ref={verification.canvasRef} className="hidden" />
+          {!verification.cam.stream && (
+            <div className="flex items-center justify-between gap-3 border-b border-line bg-ng-bg px-4 py-2.5">
+              <span className="text-[12px] leading-snug text-ng-tx">
+                {verification.cam.error ?? "本人確認のためカメラを使用します"}
+              </span>
+              <button
+                onClick={verification.cam.start}
+                className="shrink-0 rounded border border-line bg-panel2 px-3 py-1.5 text-[12px] text-txt"
+              >
+                カメラを起動
+              </button>
+            </div>
+          )}
+        </>
+      )}
+      {verification.stop && (
+        <VerifyModal
+          kind={verification.stop.kind}
+          message={verification.stop.message}
+          onResume={() => {
+            verification.resume();
+            if (s.stage === "narr") useLessonStore.getState().set({ playing: true });
+          }}
+        />
+      )}
 
       {s.stage === "narr" && (
         <NarrationView

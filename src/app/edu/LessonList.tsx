@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { loadProgress, type ProgressState } from "@/lib/progressClient";
+import { readPrep, prepDone, type PrepState } from "@/lib/prep";
 import { Bar } from "@/components/ui/Bar";
 import { hm } from "@/components/ui/format";
 
@@ -17,6 +18,11 @@ export function LessonList({
   subjects: SubjectRow[];
 }) {
   const [prog, setProg] = useState<Record<string, ProgressState>>({});
+  const [prep, setPrep] = useState<PrepState | null>(null);
+
+  useEffect(() => {
+    setPrep(readPrep());
+  }, []);
 
   useEffect(() => {
     let alive = true;
@@ -31,6 +37,9 @@ export function LessonList({
   }, [subjects]);
 
   const mode = Object.values(prog)[0]?.mode;
+  const allIds = subjects.flatMap((sub) => sub.lessons.map((l) => l.id));
+  const doneCount = allIds.filter((id) => prog[id]?.quizPassedAt).length;
+  const allDone = Object.keys(prog).length > 0 && doneCount === allIds.length;
 
   return (
     <main className="pb-10">
@@ -47,6 +56,39 @@ export function LessonList({
           </p>
         )}
       </div>
+
+      {prep && (
+        <div className="mb-4 px-5">
+          <Link
+            href="/edu/prep"
+            className={`block rounded-xl border bg-panel p-3.5 no-underline ${
+              prepDone(prep) ? (prep.skipped ? "border-org" : "border-grn") : "border-yel"
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-[13px] font-extrabold text-txt">受講の準備（同意・本人確認）</span>
+              <span
+                className={`ml-auto rounded border px-1.5 py-0.5 text-[11px] ${
+                  prepDone(prep)
+                    ? prep.skipped
+                      ? "border-org text-org"
+                      : "border-grn text-grn"
+                    : "border-yel text-yel"
+                }`}
+              >
+                {prepDone(prep) ? (prep.skipped ? "記録は無効（見るだけ）" : "登録済み") : "未登録"}
+              </span>
+            </div>
+            <div className="mt-1 text-[12px] leading-relaxed text-dim">
+              {prepDone(prep)
+                ? prep.skipped
+                  ? "カメラを使わない閲覧モードです。正式な受講にするにはタップして登録してください。"
+                  : `受講者：${prep.who.name}。受講中はカメラで本人確認を行います。`
+                : "受講を始める前に、カメラの使用への同意と本人確認の登録が必要です。"}
+            </div>
+          </Link>
+        </div>
+      )}
 
       {subjects.map((s) => (
         <section key={s.id} className="mb-5 px-5">
@@ -94,6 +136,25 @@ export function LessonList({
           </div>
         </section>
       ))}
+      <div className="px-5">
+        {allDone ? (
+          <Link
+            href="/edu/exam"
+            className="block rounded-xl border border-yel bg-panel p-4 no-underline"
+          >
+            <div className="text-[11px] font-extrabold tracking-widest text-yel">修了試験</div>
+            <div className="mt-1 text-[15px] font-black text-txt">全単元を修了しました。受験できます</div>
+            <div className="mt-1 text-[12px] text-dim">全20問・16問以上で合格</div>
+          </Link>
+        ) : (
+          <div className="rounded-xl border border-line bg-panel p-4 opacity-70">
+            <div className="text-[11px] font-extrabold tracking-widest text-dim">修了試験</div>
+            <div className="mt-1 text-[13px] leading-relaxed text-dim">
+              すべての単元の確認問題に合格すると受験できます（残り {allIds.length - doneCount} 単元）。
+            </div>
+          </div>
+        )}
+      </div>
     </main>
   );
 }

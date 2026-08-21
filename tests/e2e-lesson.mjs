@@ -16,7 +16,15 @@ const shot = (p, n) => p.screenshot({ path: `${SC}/shot-${n}.png` });
 const die = (msg) => { console.error("NG:", msg); process.exit(1); };
 
 const browser = await chromium.launch({ executablePath: process.env.PW_CHROMIUM ?? "/opt/pw-browsers/chromium-1194/chrome-linux/chrome" });
-const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
+// フェーズ2の準備ゲートを通過させる（この試験は受講画面そのものが対象）
+await ctx.addInitScript(() => {
+  localStorage.setItem(
+    "ashiba.prep",
+    JSON.stringify({ consentedAt: null, skipped: true, faceRegistered: false, idDocument: false, who: { name: "", birth: "", company: "" }, faceFeature: null }),
+  );
+});
+const page = await ctx.newPage();
 page.on("pageerror", (e) => console.error("pageerror:", e.message));
 
 // 1) ホーム → 一覧
@@ -26,7 +34,8 @@ await shot(page, "01-home");
 await page.click("text=特別教育（学科）");
 await page.waitForURL("**/edu");
 await page.waitForSelector('a[href="/edu/1-1"]');
-const cards = await page.locator('a[href^="/edu/"]').count();
+const hrefs = await page.locator('a[href^="/edu/"]').evaluateAll((as) => as.map((a) => a.getAttribute("href")));
+const cards = hrefs.filter((h) => /^\/edu\/\d+-\d+$/.test(h)).length;
 if (cards !== 13) die(`一覧の単元数が ${cards}（13のはず）`);
 await page.waitForSelector("text=端末内記録");
 await shot(page, "02-list");
