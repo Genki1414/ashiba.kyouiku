@@ -164,9 +164,21 @@ await page.goto(`${BASE}/training/demo`);
 await page.waitForSelector("text=組立の通し見学");
 let demoScenes = 0;
 for (let n = 1; n <= 15; n++) {
-  /* 場面が開いていたら、まず操作して閉じる（説明欄はその後ろにある） */
-  while (await page.getByTestId("demo-skip-scene").count()) {
+  /* その手に場面があれば、自分で開いて操作する。
+     いきなり場面から始まらないこと */
+  if (await page.getByTestId("demo-try").count()) {
+    check(
+      (await page.getByTestId("demo-skip-scene").count()) === 0,
+      `${n}手目：場面がいきなり開いていない`,
+    );
+    await page.getByTestId("demo-try").click();
+    await page.waitForTimeout(200);
     if (demoScenes === 0) await page.screenshot({ path: `${SC}/cat-05b-demo-scene.png` });
+    const w = await page.evaluate(() => {
+      const el = document.querySelector('[data-testid="demo-skip-scene"]')?.closest("div")?.parentElement;
+      return el ? Math.round(el.getBoundingClientRect().width) : 0;
+    });
+    check(w > 0 && w <= 448, `${n}手目：場面の幅がスマホ幅に収まっている（${w}px）`);
     const ok = await doDemoScene();
     check(ok, `${n}手目：場面を操作して進められる`);
     demoScenes++;

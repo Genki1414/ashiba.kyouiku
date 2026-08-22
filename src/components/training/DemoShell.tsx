@@ -18,37 +18,48 @@ export function DemoShell({
   steps,
   board,
   overlay,
+  hasScene,
   goal,
   goalLabel,
 }: {
   title: string;
   sub: string;
   steps: ShellStep[];
-  /** i 手目の盤面。scene が開いているあいだは、まだ手を打つ前の姿を出す */
-  board: (i: number, sceneOpen: boolean) => React.ReactNode;
+  /** i 手目の盤面。その手の場面をまだやっていない間は、手を打つ前の姿を出す
+      （やる前から出来上がりが見えていると、何をする場面なのか分からない） */
+  board: (i: number, before: boolean) => React.ReactNode;
   /** i 手目で開く場面。無ければ null を返す。
       遊ぶときと同じ部品をそのまま出し、操作してもらう */
   overlay?: (i: number, done: () => void) => React.ReactNode | null;
+  /** i 手目に場面があるか。あるとき「やってみる」を出す */
+  hasScene?: (i: number) => boolean;
   /** 見終えたあとの行き先 */
   goal: string;
   goalLabel: string;
 }) {
   const [i, setI] = useState(0);
   const [why, setWhy] = useState(false);
-  /* その手の場面を、まだ操作していないか */
-  const [sceneOpen, setSceneOpen] = useState(true);
+  /* 場面を開いているか／その手の場面をもう済ませたか。
+     いきなり場面から始めると何をしている所か分からないので、
+     まず手順と「なぜ」を読んでもらってから、自分で開いてもらう */
+  const [sceneOpen, setSceneOpen] = useState(false);
+  const [sceneDone, setSceneDone] = useState(false);
   const step = steps[i];
   const last = i >= steps.length - 1;
 
   const go = (d: number) => {
     setI((v) => Math.max(0, Math.min(steps.length - 1, v + d)));
     setWhy(false);
-    setSceneOpen(true);
+    setSceneOpen(false);
+    setSceneDone(false);
   };
 
   if (!step) return null;
 
-  const scene = sceneOpen ? overlay?.(i, () => setSceneOpen(false)) : null;
+  const closeScene = () => { setSceneOpen(false); setSceneDone(true); };
+  const scene = sceneOpen ? overlay?.(i, closeScene) : null;
+  /* まだやっていない場面がある手は、手を打つ前の姿を出す */
+  const before = !!hasScene?.(i) && !sceneDone;
 
   return (
     <main className="relative flex h-dvh flex-col" data-testid="demo">
@@ -68,7 +79,7 @@ export function DemoShell({
       <Bar v={i + 1} max={steps.length} />
 
       {/* 盤面。はみ出しは切る（切らないと下の説明に絵が重なる） */}
-      <div className="min-h-0 flex-1 overflow-hidden bg-[#0C1015]">{board(i, !!scene)}</div>
+      <div className="min-h-0 flex-1 overflow-hidden bg-[#0C1015]">{board(i, before)}</div>
 
       <div
         className="flex-none overflow-y-auto border-t border-line bg-bg px-4 pb-4 pt-3"
@@ -100,6 +111,15 @@ export function DemoShell({
           </button>
         )}
 
+        {/* 操作してもらう場面がある手。読んでから、自分で開く */}
+        {hasScene?.(i) && (
+          <div className="mt-2">
+            <Btn tone="y" onClick={() => setSceneOpen(true)} testid="demo-try">
+              {sceneDone ? "もう一度やってみる" : "この場面をやってみる"}
+            </Btn>
+          </div>
+        )}
+
         <div className="mt-3 grid grid-cols-2 gap-2">
           <Btn dis={i === 0} onClick={() => go(-1)} testid="demo-prev">
             ← 前の手
@@ -121,30 +141,33 @@ export function DemoShell({
       </div>
 
       {/* 場面。遊ぶときと同じものを、そのまま操作してもらう */}
-      {scene && <SceneFrame onSkip={() => setSceneOpen(false)}>{scene}</SceneFrame>}
+      {scene && <SceneFrame onSkip={closeScene}>{scene}</SceneFrame>}
     </main>
   );
 }
 
-/* 場面を置く枠。上に細い帯を作って、そこに逃げ道を出す。
+/* 場面を置く枠。上に細い帯を作って、そこに「閉じる」を出す。
    帯の中に置かないと、場面が自分で出している文字（いまの高さなど）に重なる。
 
    場面は position:absolute / fixed で inset:0 に広がるので、
    下の枠に transform を掛けて「ここが画面」ということにしている。 */
 export function SceneFrame({ children, onSkip }: { children: React.ReactNode; onSkip: () => void }) {
   return (
-    <div className="fixed inset-0 z-30 flex flex-col bg-[#0C1015]">
-      <div className="flex flex-none justify-end border-b border-line bg-bg px-2 py-1">
-        <button
-          onClick={onSkip}
-          className="rounded-lg border border-line bg-panel px-2.5 py-1 text-[11px] text-dim"
-          data-testid="demo-skip-scene"
-        >
-          この場面をとばす
-        </button>
-      </div>
-      <div className="relative min-h-0 flex-1" style={{ transform: "translateZ(0)" }}>
-        {children}
+    <div className="fixed inset-0 z-30 flex justify-center bg-[#0C1015]">
+      {/* スマホの幅に絞る。広い画面で絵が引き伸ばされないように */}
+      <div className="flex w-full max-w-md flex-col">
+        <div className="flex flex-none justify-end border-b border-line bg-bg px-2 py-1">
+          <button
+            onClick={onSkip}
+            className="rounded-lg border border-line bg-panel px-2.5 py-1 text-[11px] text-dim"
+            data-testid="demo-skip-scene"
+          >
+            閉じる
+          </button>
+        </div>
+        <div className="relative min-h-0 flex-1 overflow-hidden" style={{ transform: "translateZ(0)" }}>
+          {children}
+        </div>
       </div>
     </div>
   );

@@ -24,10 +24,10 @@ export function Demo2Client() {
       steps={steps}
       goal="/training/ch2"
       goalLabel="第2章をやる"
-      board={(i, sceneOpen) => (
+      board={(i, before) => (
         <Board
-          /* 場面を操作している間は、まだ手を打つ前の姿を出す */
-          s={sceneOpen ? (steps[i - 1]?.state ?? initialState()) : steps[i].state}
+          /* その手の場面をまだやっていない間は、手を打つ前の姿を出す */
+          s={before ? (steps[i - 1]?.state ?? initialState()) : steps[i].state}
           cur={null}
           mood="normal"
           tuto={false}
@@ -37,6 +37,7 @@ export function Demo2Client() {
           onTapSpan={() => {}}
         />
       )}
+      hasScene={(i) => !!steps[i].scene}
       overlay={(i, done) => {
         const sc = steps[i].scene;
         if (!sc) return null;

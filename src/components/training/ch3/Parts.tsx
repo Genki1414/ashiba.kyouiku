@@ -423,7 +423,9 @@ export function TieZoom({
   const dy = (i: number) => Y1 - ((Y1 - Y0) / DOTN) * i;
   return (
     <div style={{
-      position: "fixed", inset: 0, background: "#0C1015", zIndex: 30,
+      /* 広い画面でも絵が引き伸ばされないよう、スマホの幅に絞って中央へ */
+      position: "fixed", inset: 0, maxWidth: 448, margin: "0 auto",
+      background: "#0C1015", zIndex: 30,
       display: "flex", flexDirection: "column",
     }}>
       <div style={{ padding: "10px 16px", borderBottom: `1px solid ${C.line}`, display: "flex", gap: 8, alignItems: "baseline", flex: "0 0 auto" }}>

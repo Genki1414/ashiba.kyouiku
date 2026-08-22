@@ -23,17 +23,25 @@ import { SceneFrame } from "@/components/training/DemoShell";
 export function DemoClient() {
   const [i, setI] = useState(0);
   const [showWhy, setShowWhy] = useState(false);
-  /* その手の場面を、いくつ目まで操作したか */
+  /* 場面を開いているか／その手の場面を、いくつ目まで操作したか。
+     いきなり場面から始めると何をしている所か分からないので、
+     まず手順と「なぜ」を読んでもらってから、自分で開いてもらう */
+  const [open, setOpen] = useState(false);
+  const [sceneDone, setSceneDone] = useState(false);
   const [si, setSi] = useState(0);
   const step = STEPS[i];
   const last = i >= STEPS.length - 1;
 
   const scenes = scenesOf(step.n);
-  const scene = si < scenes.length ? scenes[si] : null;
+  const scene = open && si < scenes.length ? scenes[si] : null;
+  /* まだやっていない場面がある手は、手を打つ前の姿を出す */
+  const before = scenes.length > 0 && !sceneDone;
 
   const go = (d: number) => {
     setI((v) => Math.max(0, Math.min(STEPS.length - 1, v + d)));
     setShowWhy(false);
+    setOpen(false);
+    setSceneDone(false);
     setSi(0);
   };
 
@@ -64,11 +72,11 @@ export function DemoClient() {
               <DemoArt kind={step.art} />
             </div>
             <div className="min-h-0" style={{ height: "58%" }}>
-              <DemoBoard upTo={scene ? i - 1 : i} spot={step.spot} />
+              <DemoBoard upTo={before ? i - 1 : i} spot={step.spot} />
             </div>
           </div>
         ) : (
-          <DemoBoard upTo={scene ? i - 1 : i} spot={step.spot} />
+          <DemoBoard upTo={before ? i - 1 : i} spot={step.spot} />
         )}
       </div>
 
@@ -99,8 +107,21 @@ export function DemoClient() {
           </button>
         )}
 
+        {/* 操作してもらう場面がある手。読んでから、自分で開く */}
+        {scenes.length > 0 && (
+          <div className="mt-2">
+            <Btn
+              tone="y"
+              onClick={() => { setSi(0); setOpen(true); }}
+              testid="demo-try"
+            >
+              {sceneDone ? "もう一度やってみる" : "この場面をやってみる"}
+            </Btn>
+          </div>
+        )}
+
         <div className="mt-3 grid grid-cols-2 gap-2">
-          <Btn dis={i === 0} onClick={() => go(-1)}>
+          <Btn dis={i === 0} onClick={() => go(-1)} testid="demo-prev">
             ← 前の手
           </Btn>
           {last ? (
@@ -111,7 +132,7 @@ export function DemoClient() {
               第1章をやる
             </Link>
           ) : (
-            <Btn tone="y" onClick={() => go(1)}>
+            <Btn tone="y" onClick={() => go(1)} testid="demo-next">
               次の手 →
             </Btn>
           )}
@@ -129,10 +150,10 @@ export function DemoClient() {
           見学なので減点はしない（部品が自分で理由を出す）。
           どうしても進めないときのために逃げ道を出しておく */}
       {scene && (
-        <SceneFrame onSkip={() => setSi(scenes.length)}>
+        <SceneFrame onSkip={() => { setOpen(false); setSceneDone(true); }}>
           <Ch1Scene
             scene={scene}
-            onDone={() => setSi((v) => v + 1)}
+            onDone={() => setSi((v) => { const n = v + 1; if (n >= scenes.length) setSceneDone(true); return n; })}
             onFoul={() => {}}
             onPenalty={() => {}}
           />

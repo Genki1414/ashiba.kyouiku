@@ -93,6 +93,7 @@ export function Demo3Client() {
       steps={steps}
       goal="/training/ch3"
       goalLabel="第3章をやる"
+      hasScene={(i) => !!steps[i].scene}
       overlay={(i, done) => {
         const st = steps[i];
         const sc = st.scene;
@@ -107,9 +108,9 @@ export function Demo3Client() {
         if (sc.type === "spread") return <SpreadScene s={st.state} span={sc.span} onClear={done} />;
         return <TieScene s={st.state} post={sc.post} onClear={done} />;
       }}
-      board={(i, sceneOpen) => {
-        /* 場面を操作している間は、まだ手を打つ前の姿を出す */
-        const st = sceneOpen && i > 0 ? steps[i - 1] : steps[i];
+      board={(i, before) => {
+        /* その手の場面をまだやっていない間は、手を打つ前の姿を出す */
+        const st = before && i > 0 ? steps[i - 1] : steps[i];
         return st.view === "plan" ? (
           <div className="h-full p-2">
             <Plan done={st.state.hiuchi} cur={null} />

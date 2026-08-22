@@ -180,10 +180,24 @@ const doScene = async () => {
   return false;
 };
 
-/* 場面が開いていれば、とばさずに操作して進む */
+/* その手に場面があれば、自分で開いて、操作して進む。
+   いきなり場面から始まらず「この場面をやってみる」を押してから開くこと */
 const clearScene = async (shot, i) => {
-  if (!(await page.getByTestId("demo-skip-scene").count())) return false;
+  const tryBtn = page.getByTestId("demo-try");
+  if (!(await tryBtn.count())) return false;
+  check(
+    (await page.getByTestId("demo-skip-scene").count()) === 0,
+    `${i + 1}手目：場面がいきなり開いていない`,
+  );
+  await tryBtn.click();
+  await page.waitForTimeout(200);
   if (shot) await page.screenshot({ path: shot });
+  /* 広い画面でも、場面がスマホの幅より広がらない */
+  const w = await page.evaluate(() => {
+    const el = document.querySelector('[data-testid="demo-skip-scene"]')?.closest("div")?.parentElement;
+    return el ? Math.round(el.getBoundingClientRect().width) : 0;
+  });
+  check(w > 0 && w <= 448, `${i + 1}手目：場面の幅がスマホ幅に収まっている（${w}px）`);
   const ok = await doScene();
   check(ok, `${i + 1}手目：場面を操作して進められる`);
   if (!ok) { await page.getByTestId("demo-skip-scene").click(); await page.waitForTimeout(150); }
@@ -240,8 +254,6 @@ for (const [w, h] of [[611, 876], [390, 844], [360, 640]]) {
     await page.goto(BASE + url);
     await dismissNotice();
     await page.waitForSelector("main svg", { timeout: 8000 });
-    const skip = page.getByTestId("demo-skip-scene");
-    if (await skip.count()) { await skip.click(); await page.waitForTimeout(150); }
     await page.waitForTimeout(250);
     const r = await page.evaluate(() => {
       const svg = document.querySelector("main svg");
@@ -255,6 +267,40 @@ for (const [w, h] of [[611, 876], [390, 844], [360, 640]]) {
   }
 }
 console.log("OK: どの画面の大きさでも、盤面と説明が重ならない");
+
+/* ── パソコンの広い画面で、場面が引き伸ばされないか ──
+   場面は画面いっぱいに広がる作りなので、絞っておかないと
+   1本の支柱が画面の高さいっぱいになって何も分からなくなる。 */
+await page.setViewportSize({ width: 1440, height: 900 });
+for (const [url, upto, nm] of [
+  ["/training/demo", 3, "第1章"],
+  ["/training/demo/ch2", 0, "第2章"],
+  ["/training/demo/ch3", 0, "第3章"],
+]) {
+  await page.goto(BASE + url);
+  await dismissNotice();
+  await page.waitForSelector('[data-testid="demo-try"], [data-testid="demo-next"]', { timeout: 8000 });
+  for (let k = 0; k < upto; k++) {
+    await page.getByTestId("demo-next").click();
+    await page.waitForTimeout(120);
+  }
+  check((await page.getByTestId("demo-try").count()) === 1, `${nm}：場面のある手に「やってみる」が出る`);
+  await page.getByTestId("demo-try").click();
+  await page.waitForTimeout(400);
+  const r = await page.evaluate(() => {
+    const bar = document.querySelector('[data-testid="demo-skip-scene"]');
+    const frame = bar?.closest("div")?.parentElement;
+    const svg = frame?.querySelector("svg");
+    return {
+      frame: frame ? Math.round(frame.getBoundingClientRect().width) : 0,
+      svg: svg ? Math.round(svg.getBoundingClientRect().width) : 0,
+    };
+  });
+  check(r.frame > 0 && r.frame <= 448, `${nm}：場面の枠がスマホ幅に収まる（${r.frame}px）`);
+  check(r.svg > 0 && r.svg <= 448, `${nm}：場面の絵がスマホ幅に収まる（${r.svg}px）`);
+  await page.screenshot({ path: `${SC}/demo-wide-${nm}.png` });
+}
+console.log("OK: 広い画面でも場面が引き伸ばされない");
 
 await browser.close();
 if (ng) { console.error(`\n${ng} 件失敗`); process.exit(1); }
