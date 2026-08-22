@@ -6,7 +6,7 @@
    「なぜそうするのか」だけは、ここに書いてあります。
    ── げんきさんの確認が要る文言です（docs/09-通し見学の文言.md） */
 
-import { judge, type Action, type HiuchiPoint } from "./rules";
+import { judge, type Action, type HiuchiPoint, type Scene } from "./rules";
 import { initialState, type Ch3State } from "./state";
 import {
   CORNERS,
@@ -25,6 +25,8 @@ export type DemoStep = {
   state: Ch3State;
   /** 平面図で見せるか、立面（シート）で見せるか */
   view: "plan" | "sheet";
+  /** この手で開く場面。見学でも、遊ぶときと同じように操作してもらう */
+  scene?: Scene;
 };
 
 /** 火打の取付点。支柱どうし・別の面・出隅から同じ距離（＝二等辺三角形） */
@@ -146,7 +148,7 @@ export function buildDemo(): DemoStep[] {
     const v = judge(s, p.a);
     if (v.kind !== "good") break;
     s = v.state;
-    out.push({ n: out.length + 1, t: p.t, why: p.why, state: s, view: p.view });
+    out.push({ n: out.length + 1, t: p.t, why: p.why, state: s, view: p.view, scene: v.scene });
   }
   return out;
 }

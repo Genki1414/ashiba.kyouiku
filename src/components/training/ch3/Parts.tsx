@@ -363,6 +363,174 @@ const PPOST: { k: PostKey; x: number; y: number; nm: string }[] = [
 /* ── シート（縦張り・1スパン1枚・上から下へ結ぶ）──
    プロトタイプの SheetPart から描画を移した。
    良し悪しの判定はここには置かず、すべて act()（rules.ts の judge）へ渡す。 */
+/** 1段＝1,800mm ÷ 450mm＝4コマ */
+const DOTN = KOMA_PER_LEVEL;
+
+/* ══ 全画面：結ぶ位置を選ぶ ══
+   遊ぶときと通し見学で同じものを出すため、部品として切り出してある。
+   良し悪しはここでは決めず、すべて act()（rules.ts の judge）へ渡す。 */
+export function TieZoom({
+  post,
+  bandIdx,
+  pitch,
+  act,
+  angryMsg,
+  onDone,
+}: {
+  /** いま結んでいる支柱 */
+  post: PostKey;
+  /** いま結んでいる段（0＝2段目） */
+  bandIdx: number;
+  pitch: Pitch;
+  /** 手を打つ。良手なら true */
+  act: (a: Action) => boolean;
+  /** 親方のいまのセリフ（ファールのとき出す） */
+  angryMsg: string;
+  /** 「次の支柱へ」が通った */
+  onDone: () => void;
+}) {
+  const [dots, setDots] = useState<number[]>([]);
+  const [angry, setAngry] = useState(false);
+
+  /* 叱る文言は親（rules.ts）が持つ。ここは親方を出すだけ */
+  const shake = () => {
+    SFX.shout(); setAngry(true);
+    setTimeout(() => setAngry(false), 4200);
+  };
+
+  /* 結ぶ位置。立っている踏板から上へ、下から順に */
+  const OKDOT = tieOrder(pitch);
+  const hitDot = (i: number) => {
+    if (dots.includes(i)) return;
+    if (!act({ type: "tapKoma", koma: i })) {
+      shake();
+      if (i !== 0) setDots([]);
+      return;
+    }
+    SFX.ham();
+    setDots([...dots, i]);
+  };
+
+  /* 次の支柱へ（結び終わっていなければファール） */
+  const next = () => {
+    if (!act({ type: "nextPost" })) { shake(); return; }
+    SFX.ok();
+    onDone();
+  };
+
+  const p = PPOST.find((q) => q.k === post)!, B = BANDS[bandIdx];
+  const Y0 = 96, Y1 = 470;                     // Y1＝いま立っている踏板
+  const dy = (i: number) => Y1 - ((Y1 - Y0) / DOTN) * i;
+  return (
+    <div style={{
+      position: "fixed", inset: 0, background: "#0C1015", zIndex: 30,
+      display: "flex", flexDirection: "column",
+    }}>
+      <div style={{ padding: "10px 16px", borderBottom: `1px solid ${C.line}`, display: "flex", gap: 8, alignItems: "baseline", flex: "0 0 auto" }}>
+        <span style={{ fontSize: 12.5, fontWeight: 800, color: C.yel }}>{p.nm}の支柱</span>
+        <span style={{ fontSize: 11, color: C.dim }}>{B.top}から{B.nm}まで　{dots.length} / {OKDOT.length}</span>
+      </div>
+
+      <svg viewBox="0 0 340 520" preserveAspectRatio="xMidYMid meet" style={{ flex: 1, minHeight: 0, width: "100%", display: "block" }}>
+        <defs>
+          <pattern id="mesh" width="6" height="6" patternUnits="userSpaceOnUse">
+            <path d="M0 0 L6 6 M6 0 L0 6" stroke="#5FBF8C" strokeWidth=".6" opacity=".7" />
+          </pattern>
+        </defs>
+        <rect width="340" height="520" fill="#0C1015" />
+        {/* 上下の段 */}
+        <line x1="40" y1={Y0} x2="300" y2={Y0} stroke={C.steel} strokeWidth="5" strokeLinecap="round" />
+        <line x1="40" y1={Y1} x2="300" y2={Y1} stroke={C.steel} strokeWidth="5" strokeLinecap="round" />
+        <text x="300" y={Y0 - 12} textAnchor="end" fontSize="11.5" fill={C.dim} fontFamily={F}>{B.top}（4コマ）</text>
+        <text x="300" y={Y1 + 22} textAnchor="end" fontSize="11.5" fill={C.dim} fontFamily={F}>{B.nm}　いま立っている踏板</text>
+
+        {/* 左右のシートの端 */}
+        <rect x="86" y={Y0} width="76" height={Y1 - Y0} fill="#2C6B4A" opacity=".5" />
+        <rect x="86" y={Y0} width="76" height={Y1 - Y0} fill="url(#mesh)" opacity=".4" />
+        <rect x="178" y={Y0} width="76" height={Y1 - Y0} fill="#2C6B4A" opacity=".5" />
+        <rect x="178" y={Y0} width="76" height={Y1 - Y0} fill="url(#mesh)" opacity=".4" />
+        <text x="124" y={Y0 + 26} textAnchor="middle" fontSize="10.5" fill="#9FD9B8" fontFamily={F}>シート</text>
+        <text x="216" y={Y0 + 26} textAnchor="middle" fontSize="10.5" fill="#9FD9B8" fontFamily={F}>シート</text>
+
+        {/* 踏板（上＝4コマ目の高さ、下＝いま立っている段） */}
+        <rect x="60" y={Y0 + 4} width="200" height="9" fill="#5F6B78" stroke="#4A545E" />
+        <rect x="60" y={Y1 + 4} width="200" height="11" fill="#7B8895" stroke="#4A545E" />
+
+        {/* 支柱とコマ（450mmごと） */}
+        <line x1="170" y1={Y0 - 16} x2="170" y2={Y1 + 16} stroke={C.steel} strokeWidth="16" />
+        {Array.from({ length: DOTN + 1 }, (_, i) => {
+          const y = Y0 + ((Y1 - Y0) / DOTN) * i;
+          return <polygon key={i} points={`160,${y} 170,${y - 7} 180,${y} 170,${y + 7}`} fill={C.steelLt} />;
+        })}
+        <text x="170" y={Y0 - 26} textAnchor="middle" fontSize="10.5" fill={C.dim} fontFamily={F}>{p.nm}</text>
+
+        {/* 作業員（下の段に立っている。身長1,700mm） */}
+        <g transform={`translate(276,${Y1}) scale(${(Y1 - Y0) / 1800 * 1700 / 151})`}>
+          <WorkerSide />
+        </g>
+        <text x="276" y={Y1 + 26} textAnchor="middle" fontSize="10" fill={C.dim2} fontFamily={F}>{B.nm}に立つ</text>
+
+        {/* 結ぶ位置の候補。0＝立っている踏板の高さ（ここは下の段から結ぶ） */}
+        {Array.from({ length: DOTN + 1 }, (_, i) => {
+          const y = dy(i), on = dots.includes(i);
+          return (
+            <g key={i} data-koma={i} onClick={() => hitDot(i)} style={{ cursor: "pointer" }} className={on ? "" : "tgt"}>
+              {on ? (
+                <g>
+                  <line x1="120" y1={y} x2="220" y2={y} stroke={C.yel} strokeWidth="5" strokeLinecap="round" />
+                  <circle cx="170" cy={y} r="9" fill={C.yel} />
+                </g>
+              ) : (
+                <g>
+                  <circle cx="170" cy={y} r="24" fill={C.yel} opacity=".08" />
+                  <circle cx="170" cy={y} r="24" fill="none" stroke={C.yel} strokeWidth="1.5" strokeDasharray="5 5" />
+                </g>
+              )}
+              {i > 0 && (
+                <text x="76" y={y + 4} textAnchor="end" fontSize="11" fill={on ? C.yel : C.dim2} fontFamily={F}>
+                  {i}コマ
+                </text>
+              )}
+            </g>
+          );
+        })}
+      </svg>
+
+      <div style={{ padding: "8px 16px 16px", flex: "0 0 auto" }}>
+        <div style={{ fontSize: 14.5, fontWeight: 800, marginBottom: 6 }}>どこを結ぶ？</div>
+        <div style={{ fontSize: 12.5, color: C.dim, lineHeight: 1.85, marginBottom: 12 }}>
+          立っている踏板から上を、上から順に結んでいく。緊結ピッチ{pitch}mmなら{pitch === 450 ? "1コマごと" : "2コマごと"}だ。<br />
+          結び終えたら自分で「次の支柱へ」だ。
+        </div>
+        <div style={{ fontSize: 11.5, color: C.dim2, fontFamily: MO, marginBottom: 10 }}>
+          結んだ　{dots.length} / {OKDOT.length}
+        </div>
+        <Btn tone={dots.length === OKDOT.length ? "y" : undefined} onClick={next}>次の支柱へ</Btn>
+      </div>
+      <Oyakata show={angry && !!angryMsg} text={angryMsg} />
+    </div>
+  );
+}
+
+/* ══ シートを広げる。落とさないためには？ ══
+   遊ぶときと通し見学で同じものを出すため、部品として切り出してある。 */
+export function SpreadAsk({ onPick }: { onPick: (foot: boolean) => void }) {
+  return (
+    <>
+      <div style={{ fontSize: 14.5, fontWeight: 800, lineHeight: 1.6, marginBottom: 8 }}>
+        シートを広げる。落とさないためには？
+      </div>
+      <div style={{ fontSize: 12.5, color: C.dim, lineHeight: 1.85, marginBottom: 12 }}>
+        張り始めのシートを地上へ落とすのが、この作業で一番多い失敗だ。
+      </div>
+      <div style={{ display: "grid", gap: 8 }}>
+        <Btn onClick={() => onPick(true)}>足で挟んで押さえる</Btn>
+        <Btn onClick={() => onPick(false)}>手で持つだけで広げる</Btn>
+      </div>
+    </>
+  );
+}
+
 export function SheetPart({
   act,
   angryMsg,
@@ -386,7 +554,6 @@ export function SheetPart({
   const [bi, setBi] = useState(0);               // いま結んでいる段
   const [tied, setTied] = useState<PostKey[]>([]);          // その段で結び終えた支柱
   const [sel, setSel] = useState<PostKey | null>(null);
-  const [dots, setDots] = useState<number[]>([]);
   const [gap, setGap] = useState(false);
   const [angry, setAngry] = useState(false);
 
@@ -446,30 +613,13 @@ export function SheetPart({
       shake();
       return;
     }
-    SFX.ham(); setSel(k); setDots([]);
+    SFX.ham(); setSel(k);
   };
 
-  /* ── ④ 結ぶ位置。立っている踏板から上へ、下から順に ── */
-  const DOTN = 4;                                 // 1段＝1,800mm ÷ 450mm＝4コマ
-  /* 上（4コマ目）から下へ。900なら4コマ目・2コマ目 */
-  const OKDOT = [4, 3, 2, 1].filter((i) => pitch === 450 ? true : i % 2 === 0);
-  const hitDot = (i: number) => {
-    if (dots.includes(i)) return;
-    if (!act({ type: "tapKoma", koma: i })) {
-      shake();
-      if (i !== 0) setDots([]);
-      return;
-    }
-    SFX.ham();
-    setDots([...dots, i]);
-  };
-
-  /* 次の支柱へ（結び終わっていなければファール） */
-  const goNext = () => {
-    if (!act({ type: "nextPost" })) { shake(); return; }
-    SFX.ok();
+  /* ── ④ 結ぶ位置は TieZoom に任せる。ここは結び終わったあとの後始末 ── */
+  const donePost = () => {
     const nt: PostKey[] = sel ? [...tied, sel] : tied;
-    setSel(null); setDots([]);
+    setSel(null);
     if (nt.length === PPOST.length) {
       /* 1段目・地上は同じ繰り返しなので省略 */
       setTied(nt); setPh("done");
@@ -485,101 +635,7 @@ export function SheetPart({
     </g>
   );
 
-  /* ══ 全画面：結ぶ位置を選ぶ ══ */
-  const TieFull = () => {
-    const p = PPOST.find((q) => q.k === sel)!, B = BANDS[bi];
-    const Y0 = 96, Y1 = 470;                     // Y1＝いま立っている踏板
-    const dy = (i: number) => Y1 - ((Y1 - Y0) / DOTN) * i;
-    return (
-      <div style={{
-        position: "fixed", inset: 0, background: "#0C1015", zIndex: 30,
-        display: "flex", flexDirection: "column",
-      }}>
-        <div style={{ padding: "10px 16px", borderBottom: `1px solid ${C.line}`, display: "flex", gap: 8, alignItems: "baseline", flex: "0 0 auto" }}>
-          <span style={{ fontSize: 12.5, fontWeight: 800, color: C.yel }}>{p.nm}の支柱</span>
-          <span style={{ fontSize: 11, color: C.dim }}>{B.top}から{B.nm}まで　{dots.length} / {OKDOT.length}</span>
-        </div>
 
-        <svg viewBox="0 0 340 520" preserveAspectRatio="xMidYMid meet" style={{ flex: 1, minHeight: 0, width: "100%", display: "block" }}>
-          <defs>
-            <pattern id="mesh" width="6" height="6" patternUnits="userSpaceOnUse">
-              <path d="M0 0 L6 6 M6 0 L0 6" stroke="#5FBF8C" strokeWidth=".6" opacity=".7" />
-            </pattern>
-          </defs>
-          <rect width="340" height="520" fill="#0C1015" />
-          {/* 上下の段 */}
-          <line x1="40" y1={Y0} x2="300" y2={Y0} stroke={C.steel} strokeWidth="5" strokeLinecap="round" />
-          <line x1="40" y1={Y1} x2="300" y2={Y1} stroke={C.steel} strokeWidth="5" strokeLinecap="round" />
-          <text x="300" y={Y0 - 12} textAnchor="end" fontSize="11.5" fill={C.dim} fontFamily={F}>{B.top}（4コマ）</text>
-          <text x="300" y={Y1 + 22} textAnchor="end" fontSize="11.5" fill={C.dim} fontFamily={F}>{B.nm}　いま立っている踏板</text>
-
-          {/* 左右のシートの端 */}
-          <rect x="86" y={Y0} width="76" height={Y1 - Y0} fill="#2C6B4A" opacity=".5" />
-          <rect x="86" y={Y0} width="76" height={Y1 - Y0} fill="url(#mesh)" opacity=".4" />
-          <rect x="178" y={Y0} width="76" height={Y1 - Y0} fill="#2C6B4A" opacity=".5" />
-          <rect x="178" y={Y0} width="76" height={Y1 - Y0} fill="url(#mesh)" opacity=".4" />
-          <text x="124" y={Y0 + 26} textAnchor="middle" fontSize="10.5" fill="#9FD9B8" fontFamily={F}>シート</text>
-          <text x="216" y={Y0 + 26} textAnchor="middle" fontSize="10.5" fill="#9FD9B8" fontFamily={F}>シート</text>
-
-          {/* 踏板（上＝4コマ目の高さ、下＝いま立っている段） */}
-          <rect x="60" y={Y0 + 4} width="200" height="9" fill="#5F6B78" stroke="#4A545E" />
-          <rect x="60" y={Y1 + 4} width="200" height="11" fill="#7B8895" stroke="#4A545E" />
-
-          {/* 支柱とコマ（450mmごと） */}
-          <line x1="170" y1={Y0 - 16} x2="170" y2={Y1 + 16} stroke={C.steel} strokeWidth="16" />
-          {Array.from({ length: DOTN + 1 }, (_, i) => {
-            const y = Y0 + ((Y1 - Y0) / DOTN) * i;
-            return <polygon key={i} points={`160,${y} 170,${y - 7} 180,${y} 170,${y + 7}`} fill={C.steelLt} />;
-          })}
-          <text x="170" y={Y0 - 26} textAnchor="middle" fontSize="10.5" fill={C.dim} fontFamily={F}>{p.nm}</text>
-
-          {/* 作業員（下の段に立っている。身長1,700mm） */}
-          <g transform={`translate(276,${Y1}) scale(${(Y1 - Y0) / 1800 * 1700 / 151})`}>
-            <WorkerSide />
-          </g>
-          <text x="276" y={Y1 + 26} textAnchor="middle" fontSize="10" fill={C.dim2} fontFamily={F}>{B.nm}に立つ</text>
-
-          {/* 結ぶ位置の候補。0＝立っている踏板の高さ（ここは下の段から結ぶ） */}
-          {Array.from({ length: DOTN + 1 }, (_, i) => {
-            const y = dy(i), on = dots.includes(i);
-            return (
-              <g key={i} data-koma={i} onClick={() => hitDot(i)} style={{ cursor: "pointer" }} className={on ? "" : "tgt"}>
-                {on ? (
-                  <g>
-                    <line x1="120" y1={y} x2="220" y2={y} stroke={C.yel} strokeWidth="5" strokeLinecap="round" />
-                    <circle cx="170" cy={y} r="9" fill={C.yel} />
-                  </g>
-                ) : (
-                  <g>
-                    <circle cx="170" cy={y} r="24" fill={C.yel} opacity=".08" />
-                    <circle cx="170" cy={y} r="24" fill="none" stroke={C.yel} strokeWidth="1.5" strokeDasharray="5 5" />
-                  </g>
-                )}
-                {i > 0 && (
-                  <text x="76" y={y + 4} textAnchor="end" fontSize="11" fill={on ? C.yel : C.dim2} fontFamily={F}>
-                    {i}コマ
-                  </text>
-                )}
-              </g>
-            );
-          })}
-        </svg>
-
-        <div style={{ padding: "8px 16px 16px", flex: "0 0 auto" }}>
-          <div style={{ fontSize: 14.5, fontWeight: 800, marginBottom: 6 }}>どこを結ぶ？</div>
-          <div style={{ fontSize: 12.5, color: C.dim, lineHeight: 1.85, marginBottom: 12 }}>
-            立っている踏板から上を、上から順に結んでいく。緊結ピッチ{pitch}mmなら{pitch === 450 ? "1コマごと" : "2コマごと"}だ。<br />
-            結び終えたら自分で「次の支柱へ」だ。
-          </div>
-          <div style={{ fontSize: 11.5, color: C.dim2, fontFamily: MO, marginBottom: 10 }}>
-            結んだ　{dots.length} / {OKDOT.length}
-          </div>
-          <Btn tone={dots.length === OKDOT.length ? "y" : undefined} onClick={goNext}>次の支柱へ</Btn>
-        </div>
-        <Oyakata show={angry && !!angryMsg} text={angryMsg} />
-      </div>
-    );
-  };
 
   return (
     <div style={{ position: "relative", flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
@@ -660,26 +716,22 @@ export function SheetPart({
       <Oyakata show={angry && !sel && !!angryMsg} text={angryMsg} />
 
       <div style={{ padding: "6px 16px 14px", flex: "0 0 auto" }}>
-        <div style={{ fontSize: 14.5, fontWeight: 800, lineHeight: 1.6, marginBottom: 8 }}>
-          {ask !== null ? "シートを広げる。落とさないためには？"
-            : ph === "hang" ? "まず全スパンを垂らす"
-              : ph === "pitch" ? "緊結ピッチはどれで結ぶ？"
-                : ph === "tie" ? `${BANDS[bi].nm}を結ぶ　支柱 ${tied.length} / ${PPOST.length}`
-                  : "2段目が結べた"}
-        </div>
-        <div style={{ fontSize: 12.5, color: C.dim, lineHeight: 1.85, marginBottom: 12 }}>
-          {ask !== null ? "張り始めのシートを地上へ落とすのが、この作業で一番多い失敗だ。"
-            : ph === "hang" ? "シートは縦に張る。1スパンに1枚。先に全部、最上段から下へ垂らしてしまう。"
-              : ph === "pitch" ? "シートを支柱に結ぶ間隔だ。"
-                : ph === "tie" ? "この段の支柱を全部結んでから、下の段へ下りる。出隅は南①・西①の両方を結んでからだ。"
-                  : "この下は同じことの繰り返しだ。1段目、地上と下りて、他の面も同じ要領で張っていく。"}
-        </div>
-
-        {ask !== null && (
-          <div style={{ display: "grid", gap: 8 }}>
-            <Btn onClick={() => spread(true)}>足で挟んで押さえる</Btn>
-            <Btn onClick={() => spread(false)}>手で持つだけで広げる</Btn>
-          </div>
+        {ask !== null && <SpreadAsk onPick={spread} />}
+        {ask === null && (
+          <>
+            <div style={{ fontSize: 14.5, fontWeight: 800, lineHeight: 1.6, marginBottom: 8 }}>
+              {ph === "hang" ? "まず全スパンを垂らす"
+                : ph === "pitch" ? "緊結ピッチはどれで結ぶ？"
+                  : ph === "tie" ? `${BANDS[bi].nm}を結ぶ　支柱 ${tied.length} / ${PPOST.length}`
+                    : "2段目が結べた"}
+            </div>
+            <div style={{ fontSize: 12.5, color: C.dim, lineHeight: 1.85, marginBottom: 12 }}>
+              {ph === "hang" ? "シートは縦に張る。1スパンに1枚。先に全部、最上段から下へ垂らしてしまう。"
+                : ph === "pitch" ? "シートを支柱に結ぶ間隔だ。"
+                  : ph === "tie" ? "この段の支柱を全部結んでから、下の段へ下りる。出隅は南①・西①の両方を結んでからだ。"
+                    : "この下は同じことの繰り返しだ。1段目、地上と下りて、他の面も同じ要領で張っていく。"}
+            </div>
+          </>
         )}
         {ph === "pitch" && (
           <div style={{ display: "grid", gap: 8 }}>
@@ -694,7 +746,10 @@ export function SheetPart({
         {ph === "done" && <Btn tone="y" onClick={onDone}>次へ</Btn>}
       </div>
 
-      {sel && <TieFull />}
+      {sel && pitch && (
+        <TieZoom post={sel} bandIdx={bi} pitch={pitch as Pitch} act={act}
+          angryMsg={angryMsg} onDone={donePost} />
+      )}
     </div>
   );
 }

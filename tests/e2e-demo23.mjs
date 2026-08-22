@@ -29,7 +29,168 @@ for (const ch of ["ch2", "ch3"]) {
   );
 }
 
-const walk = async (ch, n, want) => {
+/* ── 場面の操作 ──
+   通し見学でも、遊ぶときと同じ部品が出る。
+   見ているだけでは身につかないので、ここでも実際に操作して通す。 */
+
+/* 安全帯：正しい掛け先を選ぶ（どちらの場面でも1つ目が正解） */
+const doBelt = async () => {
+  await page.locator('[data-scene="belt"]').waitFor({ timeout: 8000 });
+  await page.getByRole("button", { name: /支柱に付ける|入れた手摺に掛け替える/ }).first().click();
+  await page.waitForTimeout(250);
+  const next = page.getByRole("button", { name: "次へ" });
+  if (!(await next.count())) return false;
+  await next.first().click();
+  await page.waitForTimeout(250);
+  return true;
+};
+
+/* 手摺：低い方から。中さん450 → 上さん900 */
+const doRail = async () => {
+  const box = await page.locator('[data-scene="rail"]').boundingBox();
+  if (!box) return false;
+  const P = (x, y) => ({ x: box.x + (x / 340) * box.width, y: box.y + (y / 320) * box.height });
+  const ZP = 40, ZD = 268, ZX1 = 74, ZX2 = 266;
+  const zk = (n) => ZD - n * ZP;
+  const mid = (ZX1 + ZX2) / 2;
+  for (const n of [1, 2]) {
+    const q = P(mid, zk(n));
+    await page.mouse.click(q.x, q.y);
+    await page.waitForTimeout(900);
+  }
+  const next = page.getByRole("button", { name: "次へ" });
+  if (!(await next.count())) return false;
+  await next.first().click();
+  await page.waitForTimeout(300);
+  return true;
+};
+
+/* 筋交：① 中心を持って先端を上のコマへ ② 上端を軸に振って後端を下のコマへ */
+const doBrace = async () => {
+  const box = await page.locator('[data-scene="brace"]').boundingBox();
+  if (!box) return false;
+  const P = (x, y) => ({ x: box.x + (x / 340) * box.width, y: box.y + (y / 340) * box.height });
+  const ZP = 40, ZD = 268, ZX1 = 74, ZX2 = 266;
+  const zk = (n) => ZD - n * ZP;
+  const TOP = { x: ZX1, y: zk(5) };
+  const BOT = { x: ZX2, y: zk(1) };
+  const LEN = Math.hypot(TOP.x - BOT.x, TOP.y - BOT.y);
+  const AF = Math.atan2(BOT.y - TOP.y, BOT.x - TOP.x);
+  const AH = AF - 0.42;
+  const hx = (Math.cos(AH) * LEN) / 2, hy = (Math.sin(AH) * LEN) / 2;
+  const start = P(190, 200);
+  await page.mouse.move(start.x, start.y);
+  await page.mouse.down();
+  for (let i = 1; i <= 12; i++) {
+    const q = P(190 + ((TOP.x + hx - 190) * i) / 12, 200 + ((TOP.y + hy - 200) * i) / 12);
+    await page.mouse.move(q.x, q.y);
+    await page.waitForTimeout(20);
+  }
+  for (let i = 0; i <= 14; i++) {
+    const th = AH + ((AF - AH) * i) / 14;
+    const q = P(TOP.x + Math.cos(th) * LEN, TOP.y + Math.sin(th) * LEN);
+    await page.mouse.move(q.x, q.y);
+    await page.waitForTimeout(25);
+  }
+  await page.mouse.up();
+  await page.waitForTimeout(300);
+  const next = page.getByRole("button", { name: "次へ" });
+  if (!(await next.count())) return false;
+  await next.first().click();
+  await page.waitForTimeout(300);
+  return true;
+};
+
+/* 壁当てジャッキ：① 踏板手摺の直下のコマ ② 回して垂直を出す */
+const doWJack = async () => {
+  const box = await page.locator('[data-scene="wjack"]').boundingBox();
+  if (!box) return false;
+  const P = (x, y) => ({ x: box.x + (x / 340) * box.width, y: box.y + (y / 320) * box.height });
+  const ZP = 40, ZD = 268, XI = 190;
+  const q = P(XI, ZD - 172 + ZP);
+  await page.mouse.click(q.x, q.y);
+  await page.waitForTimeout(700);
+  for (let i = 0; i < 12; i++) {
+    if (await page.getByRole("button", { name: "次へ" }).count()) break;
+    const b = page.getByRole("button", { name: /締める/ });
+    if (!(await b.count())) break;
+    await b.click();
+    await page.waitForTimeout(120);
+  }
+  const next = page.getByRole("button", { name: "次へ" });
+  if (!(await next.count())) return false;
+  await next.first().click();
+  await page.waitForTimeout(300);
+  return true;
+};
+
+/* 中の当たり判定を押す（的の <g> には名前ラベルも入っている） */
+const clickAt = async (loc) => {
+  const inner = (await loc.locator("circle").count()) ? loc.locator("circle").first() : loc.locator("rect").first();
+  const b = await inner.boundingBox();
+  if (!b) return false;
+  await page.mouse.click(b.x + b.width / 2, b.y + b.height / 2);
+  await page.waitForTimeout(160);
+  return true;
+};
+
+/* 火打：支柱どうしを、出隅から同じ距離で2箇所 */
+const doHiuchi = async () => {
+  await clickAt(page.locator('[data-hiuchi="a-post-1"]'));
+  await clickAt(page.locator('[data-hiuchi="b-post-1"]'));
+  await page.waitForTimeout(600);
+  const next = page.getByRole("button", { name: "次へ" });
+  if (!(await next.count())) return false;
+  await next.first().click();
+  await page.waitForTimeout(300);
+  return (await page.getByTestId("demo-skip-scene").count()) === 0;
+};
+
+/* シートを広げる：足で挟んで押さえる */
+const doSpread = async () => {
+  await page.getByRole("button", { name: /足で挟/ }).first().click();
+  await page.waitForTimeout(300);
+  return (await page.getByTestId("demo-skip-scene").count()) === 0;
+};
+
+/* 結ぶ位置：900ピッチなので4コマ目・2コマ目、それから次の支柱へ */
+const doTie = async () => {
+  for (const n of [4, 2]) {
+    await clickAt(page.locator(`[data-koma="${n}"]`));
+    await page.waitForTimeout(160);
+  }
+  await page.getByRole("button", { name: /次の支柱/ }).first().click();
+  await page.waitForTimeout(300);
+  return (await page.getByTestId("demo-skip-scene").count()) === 0;
+};
+
+/* いま開いている場面を、実際に操作して閉じる */
+const doScene = async () => {
+  for (const [sel, fn] of [
+    ['[data-scene="belt"]', doBelt],
+    ['[data-scene="rail"]', doRail],
+    ['[data-scene="brace"]', doBrace],
+    ['[data-scene="wjack"]', doWJack],
+    ["[data-hiuchi]", doHiuchi],
+    ["[data-koma]", doTie],
+  ]) {
+    if (await page.locator(sel).count()) return fn();
+  }
+  if (await page.getByRole("button", { name: /足で挟/ }).count()) return doSpread();
+  return false;
+};
+
+/* 場面が開いていれば、とばさずに操作して進む */
+const clearScene = async (shot, i) => {
+  if (!(await page.getByTestId("demo-skip-scene").count())) return false;
+  if (shot) await page.screenshot({ path: shot });
+  const ok = await doScene();
+  check(ok, `${i + 1}手目：場面を操作して進められる`);
+  if (!ok) { await page.getByTestId("demo-skip-scene").click(); await page.waitForTimeout(150); }
+  return true;
+};
+
+const walk = async (ch, n, want, wantScenes) => {
   await page.goto(`${BASE}/training/demo/${ch}`);
   await page.waitForSelector('[data-testid="demo"]', { timeout: 8000 });
   const total = (await page.getByTestId("demo-n").textContent()).split("/")[1];
@@ -37,7 +198,10 @@ const walk = async (ch, n, want) => {
 
   /* 1手ずつ最後まで。各手に「なぜ」がある */
   const seen = new Set();
+  let scenes = 0;
   for (let i = 0; i < want; i++) {
+    /* 場面が開いていたら、まず操作して閉じる（説明欄はその後ろにある） */
+    if (await clearScene(scenes === 0 ? `${SC}/demo-${ch}-scene.png` : null, i)) scenes++;
     const title = (await page.getByTestId("demo-title").textContent()).trim();
     check(title.length > 4, `${i + 1}手目に何をするかが書いてある`);
     await page.getByTestId("demo-why-open").click();
@@ -53,6 +217,7 @@ const walk = async (ch, n, want) => {
     }
   }
   check(seen.size >= 5, `「なぜ」が使い回しだらけになっていない（${seen.size}通り）`);
+  check(scenes === wantScenes, `操作してもらう場面が${wantScenes}箇所とも出る（いま ${scenes}）`);
   check((await page.getByTestId("demo-goal").count()) === 1, `最後に第${n}章へ進める`);
   await page.screenshot({ path: `${SC}/demo-${ch}-last.png` });
 
@@ -63,8 +228,8 @@ const walk = async (ch, n, want) => {
   console.log(`OK: 第${n}章の通し見学（${want}手）`);
 };
 
-await walk("ch2", 2, 33);
-await walk("ch3", 3, 38);
+await walk("ch2", 2, 33, 7);
+await walk("ch3", 3, 38, 11);
 
 /* ── 盤面が説明欄に重なっていないか ──
    絵が縦にはみ出すと、手順の文字の上に足場が重なって読めなくなる。
@@ -75,10 +240,12 @@ for (const [w, h] of [[611, 876], [390, 844], [360, 640]]) {
     await page.goto(BASE + url);
     await dismissNotice();
     await page.waitForSelector("main svg", { timeout: 8000 });
+    const skip = page.getByTestId("demo-skip-scene");
+    if (await skip.count()) { await skip.click(); await page.waitForTimeout(150); }
     await page.waitForTimeout(250);
     const r = await page.evaluate(() => {
       const svg = document.querySelector("main svg");
-      const panel = document.querySelector("main > div:last-of-type");
+      const panel = document.querySelector('[data-testid="demo-panel"]') ?? document.querySelector("main > div:last-of-type");
       const a = svg.getBoundingClientRect();
       const b = panel.getBoundingClientRect();
       return { over: Math.round(a.bottom - b.top), h: Math.round(a.height) };

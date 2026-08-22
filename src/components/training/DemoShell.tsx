@@ -17,32 +17,41 @@ export function DemoShell({
   sub,
   steps,
   board,
+  overlay,
   goal,
   goalLabel,
 }: {
   title: string;
   sub: string;
   steps: ShellStep[];
-  /** i 手目の盤面 */
-  board: (i: number) => React.ReactNode;
+  /** i 手目の盤面。scene が開いているあいだは、まだ手を打つ前の姿を出す */
+  board: (i: number, sceneOpen: boolean) => React.ReactNode;
+  /** i 手目で開く場面。無ければ null を返す。
+      遊ぶときと同じ部品をそのまま出し、操作してもらう */
+  overlay?: (i: number, done: () => void) => React.ReactNode | null;
   /** 見終えたあとの行き先 */
   goal: string;
   goalLabel: string;
 }) {
   const [i, setI] = useState(0);
   const [why, setWhy] = useState(false);
+  /* その手の場面を、まだ操作していないか */
+  const [sceneOpen, setSceneOpen] = useState(true);
   const step = steps[i];
   const last = i >= steps.length - 1;
 
   const go = (d: number) => {
     setI((v) => Math.max(0, Math.min(steps.length - 1, v + d)));
     setWhy(false);
+    setSceneOpen(true);
   };
 
   if (!step) return null;
 
+  const scene = sceneOpen ? overlay?.(i, () => setSceneOpen(false)) : null;
+
   return (
-    <main className="flex h-dvh flex-col" data-testid="demo">
+    <main className="relative flex h-dvh flex-col" data-testid="demo">
       <div className="flex flex-none items-center gap-2.5 border-b border-line px-4 py-2.5">
         <Link href="/training" className="backlink-bar text-[16px] text-dim no-underline">
           ←
@@ -59,11 +68,12 @@ export function DemoShell({
       <Bar v={i + 1} max={steps.length} />
 
       {/* 盤面。はみ出しは切る（切らないと下の説明に絵が重なる） */}
-      <div className="min-h-0 flex-1 overflow-hidden bg-[#0C1015]">{board(i)}</div>
+      <div className="min-h-0 flex-1 overflow-hidden bg-[#0C1015]">{board(i, !!scene)}</div>
 
       <div
         className="flex-none overflow-y-auto border-t border-line bg-bg px-4 pb-4 pt-3"
         style={{ maxHeight: "44vh" }}
+        data-testid="demo-panel"
       >
         <div className="flex items-start gap-3">
           <Boss size={38} />
@@ -109,6 +119,19 @@ export function DemoShell({
           )}
         </div>
       </div>
+
+      {/* 場面。遊ぶときと同じものを、そのまま操作してもらう。
+          見学なので、どうしても進めないときのために逃げ道を出しておく */}
+      {scene}
+      {scene && (
+        <button
+          onClick={() => setSceneOpen(false)}
+          className="fixed right-3 top-2 z-40 rounded-lg border border-line bg-panel px-2.5 py-1.5 text-[11px] text-dim"
+          data-testid="demo-skip-scene"
+        >
+          この場面をとばす
+        </button>
+      )}
     </main>
   );
 }

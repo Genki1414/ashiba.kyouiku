@@ -21,6 +21,8 @@ export type DemoStep = {
   why: string;
   /** この手を打ち終えた盤面 */
   state: Ch2State;
+  /** この手で開く場面。見学でも、遊ぶときと同じように操作してもらう */
+  scene?: Scene;
 };
 
 /* ── なぜそうするのか ──
@@ -122,7 +124,7 @@ export function buildDemo(): DemoStep[] {
     const v = judge(s, a);
     if (v.kind !== "good") break;
     s = settle(v.state, v.scene);
-    out.push({ n: out.length + 1, t: st.d, why: WHY[st.k], state: s });
+    out.push({ n: out.length + 1, t: st.d, why: WHY[st.k], state: s, scene: v.scene });
   }
   return out;
 }
