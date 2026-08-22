@@ -17,6 +17,10 @@ type Health = {
     examSecret: boolean;
   };
   checks?: Record<string, { ok: boolean; detail: string }>;
+  /* いま誰として記録しているか */
+  auth?: { required: boolean; signedIn: boolean; enrollment: string };
+  /* この版がいつのものか。新しい版が届いているかを見る目印 */
+  appVersion?: string;
 };
 
 /* NEXT_PUBLIC_ はビルド時にこのファイルへ直接埋め込まれる。
@@ -29,7 +33,8 @@ const BROWSER_ENV: [string, boolean][] = [
 
 const CHECK_LABEL: Record<string, string> = {
   lessons: "lessons テーブル（単元13件）",
-  enrollment: "開発用の受講（DEV_ENROLLMENT_ID）",
+  schema: "apply-all.sql を流したか",
+  enrollment: "受講の行",
   rpc: "視聴時間の関数（sync_watched_sec）",
 };
 
@@ -121,6 +126,36 @@ export function SetupClient() {
                 </div>
               ))}
             </div>
+
+            {/* ログインの状態。ここが「求めない」なら、新しい版がまだ届いていない */}
+            {h.auth && (
+              <div className="mt-3 rounded-xl border border-line bg-panel p-4" data-testid="setup-auth">
+                <div className="mb-1 text-[11px] tracking-[2px] text-dim">ログイン</div>
+                <div className="mb-2 text-[11px] leading-relaxed text-dim2">
+                  Supabase を設定してあれば、ログインしないと中を開けません。
+                  ここが「求めない」なら、新しい版がまだ届いていません。
+                </div>
+                {(
+                  [
+                    ["ログインを求める", h.auth.required ? "求める" : "求めない", h.auth.required],
+                    ["いまログインしているか", h.auth.signedIn ? "している" : "していない", h.auth.signedIn],
+                    ["記録の宛先", h.auth.enrollment, h.auth.enrollment === "本人"],
+                  ] as const
+                ).map(([k, v, ok]) => (
+                  <div key={k} className="mb-1.5 flex items-baseline gap-2">
+                    <span className={`text-[13px] ${ok ? "text-grn" : "text-org"}`}>{ok ? "✓" : "！"}</span>
+                    <span className="text-[12.5px] text-dim">{k}</span>
+                    <span className={`ml-auto shrink-0 text-[12.5px] ${ok ? "text-txt" : "text-org"}`}>{v}</span>
+                  </div>
+                ))}
+                {h.appVersion && (
+                  <div className="mt-2 border-t border-line pt-2 text-[11.5px] text-dim">
+                    いま動いている版　
+                    <span className="font-mono text-txt">{h.appVersion}</span>
+                  </div>
+                )}
+              </div>
+            )}
 
             {h.checks && (
               <div className="mt-3 rounded-xl border border-line bg-panel p-4">

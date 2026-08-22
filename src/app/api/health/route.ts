@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServiceClient, getDevEnrollmentId } from "@/lib/supabase/server";
 import { currentEnrollment } from "@/lib/enrollment";
 import { currentUser } from "@/lib/supabase/session";
+import { LATEST } from "@/content/changelog";
 
 /* 接続確認。/setup 画面がこれを見て、何が足りないかを表示する。
    鍵そのものは返さない（設定されているかどうかだけ）。 */
@@ -35,6 +36,8 @@ export async function GET() {
     /* 記録の宛先が決まっているか */
     enrollment: who ? (user ? "本人" : "開発用") : "なし",
   };
+  /* いま動いているのがどの版か。新しい版が届いているかを見る目印 */
+  const appVersion = LATEST;
 
   if (!supabase || !enrollmentId) {
     return NextResponse.json({
@@ -42,6 +45,7 @@ export async function GET() {
       host,
       env,
       auth,
+      appVersion,
       message: !supabase
         ? "Supabase 未設定です。視聴記録はブラウザ内（localStorage）に保存されます。"
         : "ログインしていないので、視聴記録はブラウザ内（localStorage）に保存されます。",
@@ -77,6 +81,17 @@ export async function GET() {
     return "あり";
   });
 
+  /* apply-all.sql を流したか。版を返す関数があるかで見る */
+  await check("schema", async () => {
+    const { data, error } = await supabase.rpc("schema_version");
+    if (error) {
+      throw new Error(
+        "版が読めません。supabase/apply-all.sql を SQL Editor で実行してください",
+      );
+    }
+    return `${data} まで入っている`;
+  });
+
   await check("rpc", async () => {
     // 0秒の同期。加算されないので記録は汚れない
     const { error } = await supabase.rpc("sync_watched_sec", {
@@ -94,6 +109,7 @@ export async function GET() {
     host,
     env,
     auth,
+    appVersion,
     checks,
     message: ok
       ? "Supabase に接続できています。視聴記録・照合ログ・受験記録はサーバに保存されます。"

@@ -2,7 +2,7 @@
 -- 足場トレーニング Supabase 初期化（このファイルを SQL Editor に貼って実行）
 --
 -- 中身:
---   1. マイグレーション 0001_init / 0002_rls / 0003_rules / 0004_auth / 0005_cert
+--   1. マイグレーション 0001_init / 0002_rls / 0003_rules / 0004_auth / 0005_cert / 0006_version
 --   2. lessons（単元の規定時間）13件を投入
 --   3. 開発用の事業者・受講者・受講コード・受講（フェーズ1〜2で使う）
 --
@@ -576,6 +576,20 @@ end $$;
 create unique index if not exists certificates_one_active_idx
   on public.certificates (enrollment_id)
   where revoked_at is null;
+
+
+-- 0006_version.sql
+-- いまデータベースに入っている版を返すだけの関数。
+--
+-- 「apply-all.sql を流したかどうか」を画面（/setup）から見るために使います。
+-- 手を入れて新しいマイグレーションを足したら、下の数字を上げてください。
+
+create or replace function public.schema_version()
+returns text language sql stable set search_path = public as $$
+  select '0006'
+$$;
+
+grant execute on function public.schema_version() to anon, authenticated, service_role;
 
 
 -- ═══════════════════════════════════════════════════════════
