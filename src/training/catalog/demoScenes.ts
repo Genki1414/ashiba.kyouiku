@@ -19,8 +19,10 @@ const hanareLabel = (id: PostId) => `${faceOf(id)} ${POSTS[id].n}`;
     1手前に付けると、まだ教えていないことを聞くことになって、
     初めての人には何が正解か分からない。 */
 export const DEMO_SCENES: Record<number, Scene[]> = {
-  /* 04 基準のジャッキの高さを合わせる */
-  4: [{ type: "jackAdjust", post: "C" }],
+  /* 05 基準の支柱を挿す。
+     ジャッキの場面は「ハンドルを合わせて、柱を挿す」まで通しでやる。
+     04（高さを合わせる）で出すと、挿す話をする前に挿させることになる */
+  5: [{ type: "jackAdjust", post: "C" }],
   /* 08 離れを測る */
   8: [{ type: "hanare", post: "S1", label: hanareLabel("S1") }],
   /* 09 水平を見る（置き場所を選んでから気泡を合わせる） */

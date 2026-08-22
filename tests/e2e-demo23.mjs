@@ -276,7 +276,8 @@ console.log("OK: どの画面の大きさでも、盤面と説明が重ならな
    1本の支柱が画面の高さいっぱいになって何も分からなくなる。 */
 await page.setViewportSize({ width: 1440, height: 900 });
 for (const [url, upto, nm] of [
-  ["/training/demo", 3, "第1章"],
+  /* 第1章の最初の場面は5手目（基準の支柱を挿す手） */
+  ["/training/demo", 4, "第1章"],
   ["/training/demo/ch2", 0, "第2章"],
   /* 第3章の最初の場面は2手目（火打を掛ける手）。1手目は出隅に寄るだけ */
   ["/training/demo/ch3", 1, "第3章"],

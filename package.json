@@ -13,6 +13,7 @@
     "dump:why": "tsx scripts/dump-demo-why.ts",
     "test:score": "tsx tests/score.ts",
     "test:changelog": "tsx tests/changelog.ts",
+    "test:demoscenes": "tsx tests/demo-scenes.ts",
     "test:record": "tsx tests/record.ts",
     "test:authgate": "tsx tests/auth-gate.ts",
     "test:cert": "tsx tests/cert.ts",
