@@ -164,12 +164,16 @@ await page.goto(`${BASE}/training/demo`);
 await page.waitForSelector("text=組立の通し見学");
 let demoScenes = 0;
 for (let n = 1; n <= 15; n++) {
-  /* その手に場面があれば、自分で開いて操作する。
-     いきなり場面から始まらないこと */
+  /* その手に場面があれば、必ずやってから次へ進む。
+     いきなり場面から始まらないこと。やる前に「次の手」は出ないこと */
   if (await page.getByTestId("demo-try").count()) {
     check(
       (await page.getByTestId("demo-skip-scene").count()) === 0,
       `${n}手目：場面がいきなり開いていない`,
+    );
+    check(
+      (await page.getByTestId("demo-next").count()) === 0,
+      `${n}手目：場面をやるまで次へ進めない`,
     );
     await page.getByTestId("demo-try").click();
     await page.waitForTimeout(200);
@@ -186,18 +190,14 @@ for (let n = 1; n <= 15; n++) {
   }
   const counter = await page.locator("main .font-mono").first().textContent();
   check(counter.includes(`${n}`), `${n}手目が出ている（表示: ${counter.trim()}）`);
-  // 「なぜそうするのか」が必ずある
-  const whyBtn = page.getByRole("button", { name: "なぜそうするのか" });
-  check(await whyBtn.count() > 0, `${n}手目に「なぜそうするのか」がある`);
-  await whyBtn.click();
-  await page.waitForTimeout(80);
-  const whyText = await page.locator("text=なぜそうするのか").locator("..").textContent();
-  check(whyText.trim().length > 0, `${n}手目の理由が空でない`);
+  // 「なぜそうするのか」がいつも出ている（隠さない）
+  const whyText = (await page.getByTestId("demo-why").textContent()).replace("なぜそうするのか", "").trim();
+  check(whyText.length >= 8, `${n}手目に「なぜ」がいつも出ている（${whyText.slice(0, 16)}）`);
   if (n === 1) await page.screenshot({ path: `${SC}/cat-05-demo-1.png` });
   if (n === 4) await page.screenshot({ path: `${SC}/cat-06-demo-art.png` });
   if (n === 15) await page.screenshot({ path: `${SC}/cat-07-demo-last.png` });
   if (n < 15) {
-    await page.getByRole("button", { name: "次の手 →" }).click();
+    await page.getByTestId("demo-next").click();
     await page.waitForTimeout(90);
   }
 }

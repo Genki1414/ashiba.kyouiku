@@ -180,14 +180,19 @@ const doScene = async () => {
   return false;
 };
 
-/* その手に場面があれば、自分で開いて、操作して進む。
-   いきなり場面から始まらず「この場面をやってみる」を押してから開くこと */
+/* その手に場面があれば、必ずやってから次へ進む。
+   いきなり場面から始まらないこと。やる前に「次の手」は出ないこと */
 const clearScene = async (shot, i) => {
   const tryBtn = page.getByTestId("demo-try");
   if (!(await tryBtn.count())) return false;
   check(
     (await page.getByTestId("demo-skip-scene").count()) === 0,
     `${i + 1}手目：場面がいきなり開いていない`,
+  );
+  check(
+    (await page.getByTestId("demo-next").count()) === 0 &&
+      (await page.getByTestId("demo-goal").count()) === 0,
+    `${i + 1}手目：場面をやるまで次へ進めない`,
   );
   await tryBtn.click();
   await page.waitForTimeout(200);
@@ -218,10 +223,8 @@ const walk = async (ch, n, want, wantScenes) => {
     if (await clearScene(scenes === 0 ? `${SC}/demo-${ch}-scene.png` : null, i)) scenes++;
     const title = (await page.getByTestId("demo-title").textContent()).trim();
     check(title.length > 4, `${i + 1}手目に何をするかが書いてある`);
-    await page.getByTestId("demo-why-open").click();
-    await page.waitForTimeout(60);
     const why = (await page.getByTestId("demo-why").textContent()).replace("なぜそうするのか", "").trim();
-    check(why.length >= 12, `${i + 1}手目に「なぜ」が書いてある（${why.slice(0, 16)}）`);
+    check(why.length >= 12, `${i + 1}手目に「なぜ」がいつも出ている（${why.slice(0, 16)}）`);
     seen.add(why);
     if (i === 0) await page.screenshot({ path: `${SC}/demo-${ch}-first.png` });
     if (i === Math.floor(want / 2)) await page.screenshot({ path: `${SC}/demo-${ch}-mid.png` });
@@ -284,7 +287,7 @@ for (const [url, upto, nm] of [
     await page.getByTestId("demo-next").click();
     await page.waitForTimeout(120);
   }
-  check((await page.getByTestId("demo-try").count()) === 1, `${nm}：場面のある手に「やってみる」が出る`);
+  check((await page.getByTestId("demo-try").count()) === 1, `${nm}：場面のある手は「この場面をやる」になる`);
   await page.getByTestId("demo-try").click();
   await page.waitForTimeout(400);
   const r = await page.evaluate(() => {

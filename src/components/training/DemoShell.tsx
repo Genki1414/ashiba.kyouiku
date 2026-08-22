@@ -38,10 +38,9 @@ export function DemoShell({
   goalLabel: string;
 }) {
   const [i, setI] = useState(0);
-  const [why, setWhy] = useState(false);
   /* 場面を開いているか／その手の場面をもう済ませたか。
      いきなり場面から始めると何をしている所か分からないので、
-     まず手順と「なぜ」を読んでもらってから、自分で開いてもらう */
+     まず手順と「なぜ」を出す。そのうえで、やらないと次の手へは進めない */
   const [sceneOpen, setSceneOpen] = useState(false);
   const [sceneDone, setSceneDone] = useState(false);
   const step = steps[i];
@@ -49,7 +48,6 @@ export function DemoShell({
 
   const go = (d: number) => {
     setI((v) => Math.max(0, Math.min(steps.length - 1, v + d)));
-    setWhy(false);
     setSceneOpen(false);
     setSceneDone(false);
   };
@@ -58,8 +56,9 @@ export function DemoShell({
 
   const closeScene = () => { setSceneOpen(false); setSceneDone(true); };
   const scene = sceneOpen ? overlay?.(i, closeScene) : null;
-  /* まだやっていない場面がある手は、手を打つ前の姿を出す */
-  const before = !!hasScene?.(i) && !sceneDone;
+  /* まだやっていない場面がある手。やる前は、手を打つ前の姿を出す */
+  const todo = !!hasScene?.(i) && !sceneDone;
+  const before = todo;
 
   return (
     <main className="relative flex h-dvh flex-col" data-testid="demo">
@@ -96,35 +95,22 @@ export function DemoShell({
           </div>
         </div>
 
-        {why ? (
-          <div className="fade mt-3 rounded-lg border border-yel bg-[#1A1F14] px-3.5 py-3" data-testid="demo-why">
-            <div className="mb-1 text-[10.5px] font-bold tracking-widest text-yel">なぜそうするのか</div>
-            <div className="text-[13px] leading-relaxed text-yel">{step.why}</div>
-          </div>
-        ) : (
-          <button
-            onClick={() => setWhy(true)}
-            className="mt-3 w-full rounded-lg border border-yel/50 p-2.5 text-[12.5px] font-bold text-yel"
-            data-testid="demo-why-open"
-          >
-            なぜそうするのか
-          </button>
-        )}
-
-        {/* 操作してもらう場面がある手。読んでから、自分で開く */}
-        {hasScene?.(i) && (
-          <div className="mt-2">
-            <Btn tone="y" onClick={() => setSceneOpen(true)} testid="demo-try">
-              {sceneDone ? "もう一度やってみる" : "この場面をやってみる"}
-            </Btn>
-          </div>
-        )}
+        {/* なぜそうするのかは、いつも出しておく（隠さない） */}
+        <div className="mt-3 rounded-lg border border-yel bg-[#1A1F14] px-3.5 py-3" data-testid="demo-why">
+          <div className="mb-1 text-[10.5px] font-bold tracking-widest text-yel">なぜそうするのか</div>
+          <div className="text-[13px] leading-relaxed text-yel">{step.why}</div>
+        </div>
 
         <div className="mt-3 grid grid-cols-2 gap-2">
           <Btn dis={i === 0} onClick={() => go(-1)} testid="demo-prev">
             ← 前の手
           </Btn>
-          {last ? (
+          {/* 操作してもらう手は、やらないと次へ進めない */}
+          {todo ? (
+            <Btn tone="y" onClick={() => setSceneOpen(true)} testid="demo-try">
+              この場面をやる →
+            </Btn>
+          ) : last ? (
             <Link
               href={goal}
               className="rounded-lg border border-yel bg-yel p-3.5 text-center text-[14px] font-extrabold text-bg no-underline"
@@ -138,15 +124,27 @@ export function DemoShell({
             </Btn>
           )}
         </div>
+
+        {/* もう一度やりたいとき */}
+        {hasScene?.(i) && sceneDone && (
+          <button
+            onClick={() => setSceneOpen(true)}
+            className="mt-2 w-full rounded-lg border border-line p-2 text-[12px] text-dim"
+            data-testid="demo-again"
+          >
+            この場面をもう一度やる
+          </button>
+        )}
       </div>
 
       {/* 場面。遊ぶときと同じものを、そのまま操作してもらう */}
-      {scene && <SceneFrame onSkip={closeScene}>{scene}</SceneFrame>}
+      {scene && <SceneFrame onSkip={() => setSceneOpen(false)}>{scene}</SceneFrame>}
     </main>
   );
 }
 
-/* 場面を置く枠。上に細い帯を作って、そこに「閉じる」を出す。
+/* 場面を置く枠。上に細い帯を作って、そこに「戻る」を出す。
+   戻っても、その手をやったことにはしない（やらないと次へは進めない）。
    帯の中に置かないと、場面が自分で出している文字（いまの高さなど）に重なる。
 
    場面は position:absolute / fixed で inset:0 に広がるので、
@@ -162,7 +160,7 @@ export function SceneFrame({ children, onSkip }: { children: React.ReactNode; on
             className="rounded-lg border border-line bg-panel px-2.5 py-1 text-[11px] text-dim"
             data-testid="demo-skip-scene"
           >
-            閉じる
+            ← 戻る
           </button>
         </div>
         <div className="relative min-h-0 flex-1 overflow-hidden" style={{ transform: "translateZ(0)" }}>

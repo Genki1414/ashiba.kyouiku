@@ -17,15 +17,15 @@ import { SceneFrame } from "@/components/training/DemoShell";
    画面内に収める作り（HANDOFF.md 2章）。
 
    操作してもらう場面（ジャッキ・離れ・水平・内柱）は、見学でも
-   遊ぶときと同じ部品を出す。見ているだけでは身につかないため。
+   遊ぶときと同じ部品を出す。見ているだけでは身につかないため、
+   その手は必ずやってもらう（やらないと次の手へ進めない）。
    ただし見学なので、間違えても点は引かない。 */
 
 export function DemoClient() {
   const [i, setI] = useState(0);
-  const [showWhy, setShowWhy] = useState(false);
   /* 場面を開いているか／その手の場面を、いくつ目まで操作したか。
      いきなり場面から始めると何をしている所か分からないので、
-     まず手順と「なぜ」を読んでもらってから、自分で開いてもらう */
+     まず手順と「なぜ」を出す。そのうえで、やらないと次の手へは進めない */
   const [open, setOpen] = useState(false);
   const [sceneDone, setSceneDone] = useState(false);
   const [si, setSi] = useState(0);
@@ -39,7 +39,6 @@ export function DemoClient() {
 
   const go = (d: number) => {
     setI((v) => Math.max(0, Math.min(STEPS.length - 1, v + d)));
-    setShowWhy(false);
     setOpen(false);
     setSceneDone(false);
     setSi(0);
@@ -93,38 +92,22 @@ export function DemoClient() {
           </div>
         </div>
 
-        {showWhy ? (
-          <div className="fade mt-3 rounded-lg border border-yel bg-[#1A1F14] px-3.5 py-3">
-            <div className="mb-1 text-[10.5px] font-bold tracking-widest text-yel">なぜそうするのか</div>
-            <div className="text-[13px] leading-relaxed text-yel">{step.why}</div>
-          </div>
-        ) : (
-          <button
-            onClick={() => setShowWhy(true)}
-            className="mt-3 w-full rounded-lg border border-yel/50 p-2.5 text-[12.5px] font-bold text-yel"
-          >
-            なぜそうするのか
-          </button>
-        )}
-
-        {/* 操作してもらう場面がある手。読んでから、自分で開く */}
-        {scenes.length > 0 && (
-          <div className="mt-2">
-            <Btn
-              tone="y"
-              onClick={() => { setSi(0); setOpen(true); }}
-              testid="demo-try"
-            >
-              {sceneDone ? "もう一度やってみる" : "この場面をやってみる"}
-            </Btn>
-          </div>
-        )}
+        {/* なぜそうするのかは、いつも出しておく（隠さない） */}
+        <div className="mt-3 rounded-lg border border-yel bg-[#1A1F14] px-3.5 py-3" data-testid="demo-why">
+          <div className="mb-1 text-[10.5px] font-bold tracking-widest text-yel">なぜそうするのか</div>
+          <div className="text-[13px] leading-relaxed text-yel">{step.why}</div>
+        </div>
 
         <div className="mt-3 grid grid-cols-2 gap-2">
           <Btn dis={i === 0} onClick={() => go(-1)} testid="demo-prev">
             ← 前の手
           </Btn>
-          {last ? (
+          {/* 操作してもらう手は、やらないと次へ進めない */}
+          {before ? (
+            <Btn tone="y" onClick={() => { setSi(0); setOpen(true); }} testid="demo-try">
+              この場面をやる →
+            </Btn>
+          ) : last ? (
             <Link
               href="/training/ch1"
               className="rounded-lg border border-yel bg-yel p-3.5 text-center text-[14px] font-extrabold text-bg no-underline"
@@ -138,6 +121,16 @@ export function DemoClient() {
           )}
         </div>
 
+        {scenes.length > 0 && sceneDone && (
+          <button
+            onClick={() => { setSi(0); setOpen(true); }}
+            className="mt-2 w-full rounded-lg border border-line p-2 text-[12px] text-dim"
+            data-testid="demo-again"
+          >
+            この場面をもう一度やる
+          </button>
+        )}
+
         <Link
           href="/training/catalog?back=/training/demo"
           className="mt-2 block rounded-lg border border-line p-2.5 text-center text-[12.5px] text-cyan no-underline"
@@ -150,7 +143,7 @@ export function DemoClient() {
           見学なので減点はしない（部品が自分で理由を出す）。
           どうしても進めないときのために逃げ道を出しておく */}
       {scene && (
-        <SceneFrame onSkip={() => { setOpen(false); setSceneDone(true); }}>
+        <SceneFrame onSkip={() => setOpen(false)}>
           <Ch1Scene
             scene={scene}
             onDone={() => setSi((v) => { const n = v + 1; if (n >= scenes.length) setSceneDone(true); return n; })}
