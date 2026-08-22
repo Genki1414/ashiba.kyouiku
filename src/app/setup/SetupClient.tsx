@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Btn } from "@/components/ui/Btn";
 
 type Health = {
-  mode: "local" | "supabase" | "error";
+  mode: "local" | "supabase" | "stale" | "error";
   /** どこで動いているか。手順の出し分けに使う */
   host?: "vercel" | "local";
   message: string;
@@ -58,7 +58,11 @@ export function SetupClient() {
   }, [load]);
 
   const tone =
-    h?.mode === "supabase" ? "border-grn text-grn" : h?.mode === "error" ? "border-red text-red" : "border-org text-org";
+    h?.mode === "supabase"
+      ? "border-grn text-grn"
+      : h?.mode === "error"
+        ? "border-red text-red"
+        : "border-org text-org";
 
   return (
     <main className="pb-10">
@@ -80,7 +84,13 @@ export function SetupClient() {
           <>
             <div className={`rounded-xl border bg-panel p-4 ${tone}`}>
               <div className="text-[11px] font-extrabold tracking-widest">
-                {h.mode === "supabase" ? "接続できています" : h.mode === "error" ? "初期化が未完了" : "未設定（端末内記録）"}
+                {h.mode === "supabase"
+                  ? "接続できています"
+                  : h.mode === "stale"
+                    ? "動いています（版が古い）"
+                    : h.mode === "error"
+                      ? "初期化が未完了"
+                      : "未設定（端末内記録）"}
               </div>
               <div className="mt-1.5 text-[13px] leading-relaxed text-txt">{h.message}</div>
             </div>

@@ -104,8 +104,12 @@ export async function GET() {
   });
 
   const ok = Object.values(checks).every((c) => c.ok);
+  /* 版だけが古いときは、動いてはいる。壊れているかのように言わない */
+  const onlyOldSchema =
+    !ok && Object.entries(checks).every(([k, c]) => c.ok || k === "schema");
+
   return NextResponse.json({
-    mode: ok ? "supabase" : "error",
+    mode: ok ? "supabase" : onlyOldSchema ? "stale" : "error",
     host,
     env,
     auth,
@@ -113,6 +117,8 @@ export async function GET() {
     checks,
     message: ok
       ? "Supabase に接続できています。視聴記録・照合ログ・受験記録はサーバに保存されます。"
-      : "接続はできましたが、初期化が終わっていません。supabase/apply-all.sql を SQL Editor で実行してください。",
+      : onlyOldSchema
+        ? "動いていますが、データベースの版が古いままです。新しい supabase/apply-all.sql を SQL Editor で実行してください。"
+        : "接続はできましたが、初期化が終わっていません。supabase/apply-all.sql を SQL Editor で実行してください。",
   });
 }
