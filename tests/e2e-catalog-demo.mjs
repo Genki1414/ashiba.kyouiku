@@ -57,10 +57,121 @@ await page.screenshot({ path: `${SC}/cat-04-same.png` });
 await page.click("text=閉じる");
 console.log("OK: 資材カタログ");
 
+/* ── 通し見学で操作してもらう場面 ──
+   遊ぶときと同じ部品が出る。見学でも実際に操作して通す。 */
+
+const jackNow = () => page.getByTestId("jack-now");
+const hanareNow = () => page.getByTestId("hanare-now");
+const levelNow = () => page.getByTestId("level-now");
+
+/* ジャッキ：10刻みで目標150±15へ寄せてから柱を挿す */
+const doJack = async () => {
+  for (let i = 0; i < 40; i++) {
+    const now = Number(await jackNow().getAttribute("data-value"));
+    if (Math.abs(now - 150) <= 15) break;
+    await page.getByRole("button", { name: now < 150 ? "上げる（10）" : "下げる（10）" }).click();
+    await page.waitForTimeout(20);
+  }
+  await page.getByRole("button", { name: "柱を挿す" }).click();
+  await page.waitForTimeout(250);
+};
+
+/* 離れ：50刻みで900へ寄せる。合うと自動で閉じる */
+const doHanare = async () => {
+  for (let i = 0; i < 20; i++) {
+    if (!(await hanareNow().count())) break;
+    const now = Number(await hanareNow().getAttribute("data-value"));
+    if (now === 900) break;
+    await page.getByRole("button", { name: now > 900 ? "← 押す（50）" : "引く（50）→" }).click();
+    await page.waitForTimeout(40);
+  }
+  await page.waitForTimeout(300);
+};
+
+/* 水平器の置き場所。的は点滅しているので座標を取って直接押す */
+const tapSpot = async (label) => {
+  const tgts = page.locator("g.tgt");
+  const n = await tgts.count();
+  for (let i = 0; i < n; i++) {
+    const t = await tgts.nth(i).textContent();
+    if (t && t.includes(label)) {
+      const box = await tgts.nth(i).locator("circle").first().boundingBox();
+      await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+      await page.waitForTimeout(250);
+      return true;
+    }
+  }
+  return false;
+};
+
+/* 気泡を合わせる。動かすのは調整側だけ */
+const settleBubble = async () => {
+  for (let i = 0; i < 30; i++) {
+    if (!(await levelNow().count())) break;
+    const o = Number(await levelNow().getAttribute("data-o"));
+    if (o === 0) break;
+    const btn = page
+      .locator('[data-side="adj"]')
+      .getByRole("button", { name: o > 0 ? "↓ 下げる" : "↑ 上げる" });
+    if (!(await btn.count())) break;
+    await btn.click();
+    await page.waitForTimeout(70);
+  }
+  await page.waitForTimeout(300);
+};
+
+/* 600手摺の取付。アニメが終わるまで「次へ」は押せない */
+const doRailAnim = async () => {
+  const next = page.getByRole("button", { name: "次へ" });
+  for (let i = 0; i < 40; i++) {
+    if (await next.isEnabled().catch(() => false)) break;
+    await page.waitForTimeout(150);
+  }
+  await next.click();
+  await page.waitForTimeout(300);
+};
+
+/* いま開いている場面を、実際に操作して閉じる */
+const doDemoScene = async () => {
+  for (let round = 0; round < 6; round++) {
+    if (!(await page.getByTestId("demo-skip-scene").count())) return true;
+    if (await jackNow().count()) { await doJack(); continue; }
+    if (await hanareNow().count()) { await doHanare(); continue; }
+    if (await page.getByRole("button", { name: "踏板高さの手摺を付ける" }).count()) {
+      await page.getByRole("button", { name: "踏板高さの手摺を付ける" }).click();
+      await page.waitForTimeout(300);
+      continue;
+    }
+    if (await page.getByRole("button", { name: "支柱（内柱）に当てる" }).count()) {
+      await page.getByRole("button", { name: "支柱（内柱）に当てる" }).click();
+      await page.waitForTimeout(400);
+      continue;
+    }
+    if (await page.locator("text=水平器をどこに置く？").count()) {
+      check(await tapSpot("端から少し中"), "「端から少し中」の的がある");
+      await settleBubble();
+      continue;
+    }
+    if (await levelNow().count()) { await settleBubble(); continue; }
+    if (await page.locator("text=踏板用手摺（600手摺）").count()) { await doRailAnim(); continue; }
+    return false;
+  }
+  return (await page.getByTestId("demo-skip-scene").count()) === 0;
+};
+
 /* ── 通し見学：15手すべてに「なぜ」 ── */
 await page.goto(`${BASE}/training/demo`);
 await page.waitForSelector("text=組立の通し見学");
+let demoScenes = 0;
 for (let n = 1; n <= 15; n++) {
+  /* 場面が開いていたら、まず操作して閉じる（説明欄はその後ろにある） */
+  while (await page.getByTestId("demo-skip-scene").count()) {
+    if (demoScenes === 0) await page.screenshot({ path: `${SC}/cat-05b-demo-scene.png` });
+    const ok = await doDemoScene();
+    check(ok, `${n}手目：場面を操作して進められる`);
+    demoScenes++;
+    if (!ok) { await page.getByTestId("demo-skip-scene").click(); await page.waitForTimeout(150); }
+  }
   const counter = await page.locator("main .font-mono").first().textContent();
   check(counter.includes(`${n}`), `${n}手目が出ている（表示: ${counter.trim()}）`);
   // 「なぜそうするのか」が必ずある
@@ -79,7 +190,8 @@ for (let n = 1; n <= 15; n++) {
   }
 }
 check(await page.locator("text=第1章をやる").count() > 0, "最後に第1章への導線が出る");
-console.log("OK: 通し見学 15手すべてに理由あり");
+check(demoScenes === 6, `操作してもらう場面が6箇所とも出る（いま ${demoScenes}）`);
+console.log("OK: 通し見学 15手すべてに理由あり／場面6箇所を操作して通せた");
 
 /* ── 章の中から資材を開ける ── */
 await page.goto(`${BASE}/training/ch1`);

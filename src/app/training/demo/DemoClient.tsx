@@ -3,29 +3,42 @@
 import { useState } from "react";
 import Link from "next/link";
 import { STEPS } from "@/training/catalog/demoSteps";
+import { scenesOf } from "@/training/catalog/demoScenes";
+import { Ch1Scene } from "@/components/training/ch1/Scene";
 import { DemoBoard } from "@/components/training/DemoBoard";
 import { DemoArt } from "@/components/training/DemoArt";
 import { Boss } from "@/components/training/Characters";
 import { Bar } from "@/components/ui/Bar";
 import { Btn } from "@/components/ui/Btn";
+import { SceneFrame } from "@/components/training/DemoShell";
 
-/* 通し見学。手を出さずに15手を順に見る。
+/* 通し見学。15手を順に見る。
    全15手に「なぜそうするのか」を出す（HANDOFF.md 4章）。
-   画面内に収める作り（HANDOFF.md 2章）。 */
+   画面内に収める作り（HANDOFF.md 2章）。
+
+   操作してもらう場面（ジャッキ・離れ・水平・内柱）は、見学でも
+   遊ぶときと同じ部品を出す。見ているだけでは身につかないため。
+   ただし見学なので、間違えても点は引かない。 */
 
 export function DemoClient() {
   const [i, setI] = useState(0);
   const [showWhy, setShowWhy] = useState(false);
+  /* その手の場面を、いくつ目まで操作したか */
+  const [si, setSi] = useState(0);
   const step = STEPS[i];
   const last = i >= STEPS.length - 1;
+
+  const scenes = scenesOf(step.n);
+  const scene = si < scenes.length ? scenes[si] : null;
 
   const go = (d: number) => {
     setI((v) => Math.max(0, Math.min(STEPS.length - 1, v + d)));
     setShowWhy(false);
+    setSi(0);
   };
 
   return (
-    <main className="flex h-dvh flex-col">
+    <main className="relative flex h-dvh flex-col" data-testid="demo1">
       {/* 見出し */}
       <div className="flex flex-none items-center gap-2.5 border-b border-line px-4 py-2.5">
         <Link href="/training" className="backlink-bar text-[16px] text-dim no-underline">
@@ -51,11 +64,11 @@ export function DemoClient() {
               <DemoArt kind={step.art} />
             </div>
             <div className="min-h-0" style={{ height: "58%" }}>
-              <DemoBoard upTo={i} spot={step.spot} />
+              <DemoBoard upTo={scene ? i - 1 : i} spot={step.spot} />
             </div>
           </div>
         ) : (
-          <DemoBoard upTo={i} spot={step.spot} />
+          <DemoBoard upTo={scene ? i - 1 : i} spot={step.spot} />
         )}
       </div>
 
@@ -111,6 +124,20 @@ export function DemoClient() {
           資材を見る
         </Link>
       </div>
+
+      {/* 場面。遊ぶときと同じものを、そのまま操作してもらう。
+          見学なので減点はしない（部品が自分で理由を出す）。
+          どうしても進めないときのために逃げ道を出しておく */}
+      {scene && (
+        <SceneFrame onSkip={() => setSi(scenes.length)}>
+          <Ch1Scene
+            scene={scene}
+            onDone={() => setSi((v) => v + 1)}
+            onFoul={() => {}}
+            onPenalty={() => {}}
+          />
+        </SceneFrame>
+      )}
     </main>
   );
 }

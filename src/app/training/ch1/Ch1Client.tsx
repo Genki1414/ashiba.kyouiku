@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
-  POSTS,
   post600,
   postsFor,
   span600,
@@ -19,7 +18,6 @@ import {
   type Ch1State,
 } from "@/training/ch1/state";
 import {
-  LEVEL_SPOT_WHY,
   hint as hintOf,
   judge,
   type Action,
@@ -27,20 +25,14 @@ import {
   type Tool,
 } from "@/training/ch1/rules";
 import { Board } from "@/components/training/Board";
+import { Ch1Scene } from "@/components/training/ch1/Scene";
 import { Boss, type Mood } from "@/components/training/Characters";
-import { JackScene } from "@/components/training/scenes/JackScene";
-import { HanareScene } from "@/components/training/scenes/HanareScene";
 import {
   Choice,
   CornerArt,
-  InnerArt,
-  LevelZoom,
-  RailAnim,
   Scold,
-  SgakeAnim,
   type ChoiceOpt,
 } from "@/components/training/scenes/Prototype";
-import { flipOf, innerPos } from "@/components/training/geometry";
 import { Bar } from "@/components/ui/Bar";
 import { Btn } from "@/components/ui/Btn";
 import { Hud, PopText } from "@/components/training/Hud";
@@ -76,13 +68,6 @@ const SK_TOOLS: { k: Tool; t: string }[] = [
   { k: "rail6", t: "600手摺" },
   { k: "sgake", t: "先行手摺" },
 ];
-
-/** 置き場所を外したまま進めるとどうなるか（記録に残す一言） */
-const LEVEL_SPOT_RESULT: Record<"end" | "in" | "mid", string> = {
-  end: "1本の狂いは小さくても、4面が一周すると積み上がって最後の根がらみが入らなくなる。",
-  in: "",
-  mid: "回しては見に行き、を繰り返すことになる。ジャッキに手が届く場所で見る。",
-};
 
 /* 章を開いたときの殻。途中まで残っていたら、続きからやるか聞く */
 export function Ch1Client({ tutorial, sk = false }: { tutorial: boolean; sk?: boolean }) {
@@ -384,138 +369,14 @@ function Ch1Game({
         )}
       </div>
 
-      {/* 場面。すべてプロトタイプの overlay をそのまま使う */}
-      {scene?.type === "jackAdjust" && (
-        <JackScene post={scene.post} onDone={(value) => closeScene(value)} />
-      )}
-
-      {scene?.type === "hanare" && (
-        <HanareScene label={scene.label} onDone={() => closeScene()} />
-      )}
-
-      {/* 外柱の水平：置き場所を選んでから気泡を合わせる */}
-      {scene?.type === "level" && (
-        <LevelZoom
-          baseN={POSTS[scene.a].n}
-          tgtN={POSTS[scene.b].n}
-          aId={scene.a}
-          bId={scene.b}
-          flip={flipOf(posts[scene.a], posts[scene.b])}
-          onClear={() => closeScene()}
-          onFoul={() =>
-            sceneFoul(
-              "基準柱のジャッキを操作",
-              "そこは基準の柱じゃ！　基準を動かしたら全部狂うぞ！",
-              "基準の柱を動かすと、そこまでに出した水平が全部やり直しになる。",
-            )
-          }
-          onSpotFoul={(spot) =>
-            scenePenalty("水平器の置き場所", LEVEL_SPOT_WHY[spot], LEVEL_SPOT_RESULT[spot])
-          }
-        />
-      )}
-
-      {/* 内柱：立てた直後 → 600手摺 → 水平器をどこに当てるか → 内柱の水平 */}
-      {scene?.type === "innerChoiceA" && (
-        <Choice
-          title="内柱を立てた"
-          q="次にどうする？"
-          art={<InnerArt flip={flipOf(posts[scene.post], innerPos(scene.post, posts))} ghost />}
-          opts={[
-            { t: "内柱に水平器を当てて水平を見る", ok: false },
-            { t: "踏板高さの手摺を付ける", ok: true },
-          ]}
-          onPick={(o: ChoiceOpt) => {
-            if (!o.ok) {
-              return sceneFoul(
-                "内柱の水平を先に見た",
-                "順番が逆じゃ！　手摺で外柱とつないでから見んかい！",
-                "つないでいない内柱は動く。動くものに水平器を当てても意味がない。",
-              );
-            }
-            closeScene();
-          }}
-        />
-      )}
-
-      {scene?.type === "railAnim" && (
-        <RailAnim
-          flip={flipOf(posts[scene.post], innerPos(scene.post, posts))}
-          onDone={() => closeScene()}
-        />
-      )}
-
-      {scene?.type === "innerChoiceB" && (
-        <Choice
-          title="水平を見る"
-          q="水平器はどこに当てる？"
-          art={<InnerArt flip={flipOf(posts[scene.post], innerPos(scene.post, posts))} rail />}
-          opts={[
-            { t: "支柱（内柱）に当てる", ok: true },
-            { t: "取り付けた手摺に当てる", ok: false },
-          ]}
-          onPick={(o: ChoiceOpt) => {
-            if (!o.ok) {
-              return sceneFoul(
-                "水平器を当てる箇所の誤り",
-                "手摺で見るな！　柱で見るんじゃ！",
-                "手摺は差し込みに遊びがある。柱に当てんと本当の垂直は分からん。",
-              );
-            }
-            closeScene();
-          }}
-        />
-      )}
-
-      {scene?.type === "levelInner" && (
-        <LevelZoom
-          vertical
-          baseN="外柱"
-          tgtN="内柱"
-          aId={scene.post}
-          flip={flipOf(posts[scene.post], innerPos(scene.post, posts))}
-          onClear={() => closeScene()}
-          onFoul={() =>
-            sceneFoul(
-              "外柱のジャッキを操作",
-              "外柱を動かすな！　もう水平は出とるじゃろが！",
-              "外柱はもう決まっとる。動かせば、そこまでの離れも水平もやり直しだ。",
-            )
-          }
-        />
-      )}
-
-      {/* ── 手摺先行工法のときだけ出る場面 ── */}
-
-      {/* 600スパンを踏板高さの手摺でつなぐ */}
-      {scene?.type === "rail600" && (
-        <RailAnim corner flip={flipOf(posts.C, posts[scene.post])} onDone={() => closeScene()} />
-      )}
-
-      {/* 600スパンの柱の水平。出隅を基準に縦で見る */}
-      {scene?.type === "level600" && (
-        <LevelZoom
-          vertical
-          miniInner={false}
-          what="600スパンを見る"
-          baseN="出隅"
-          tgtN={POSTS[scene.post].n}
-          aId="C"
-          bId={scene.post}
-          flip={flipOf(posts.C, posts[scene.post])}
-          onClear={() => closeScene()}
-          onFoul={() =>
-            sceneFoul(
-              "基準柱のジャッキを操作",
-              "出隅を動かすな！　そこが基準じゃ！",
-              "出隅は2方向の基準だ。動かせば南面も東面も割り付けからやり直しになる。",
-            )
-          }
-        />
-      )}
-
-      {/* 先行手摺を下から上げる */}
-      {scene?.type === "sgake" && <SgakeAnim onDone={() => closeScene()} />}
+      {/* 場面。すべてプロトタイプの overlay をそのまま使う（通し見学と同じ部品） */}
+      <Ch1Scene
+        scene={scene}
+        posts={posts}
+        onDone={closeScene}
+        onFoul={sceneFoul}
+        onPenalty={scenePenalty}
+      />
 
       {/* 出隅のどちら側を600スパンにするか。先行手摺を使うときだけ、はじめに決める */}
       {s.sk && !s.side && (

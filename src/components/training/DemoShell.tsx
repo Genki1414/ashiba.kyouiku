@@ -120,18 +120,32 @@ export function DemoShell({
         </div>
       </div>
 
-      {/* 場面。遊ぶときと同じものを、そのまま操作してもらう。
-          見学なので、どうしても進めないときのために逃げ道を出しておく */}
-      {scene}
-      {scene && (
+      {/* 場面。遊ぶときと同じものを、そのまま操作してもらう */}
+      {scene && <SceneFrame onSkip={() => setSceneOpen(false)}>{scene}</SceneFrame>}
+    </main>
+  );
+}
+
+/* 場面を置く枠。上に細い帯を作って、そこに逃げ道を出す。
+   帯の中に置かないと、場面が自分で出している文字（いまの高さなど）に重なる。
+
+   場面は position:absolute / fixed で inset:0 に広がるので、
+   下の枠に transform を掛けて「ここが画面」ということにしている。 */
+export function SceneFrame({ children, onSkip }: { children: React.ReactNode; onSkip: () => void }) {
+  return (
+    <div className="fixed inset-0 z-30 flex flex-col bg-[#0C1015]">
+      <div className="flex flex-none justify-end border-b border-line bg-bg px-2 py-1">
         <button
-          onClick={() => setSceneOpen(false)}
-          className="fixed right-3 top-2 z-40 rounded-lg border border-line bg-panel px-2.5 py-1.5 text-[11px] text-dim"
+          onClick={onSkip}
+          className="rounded-lg border border-line bg-panel px-2.5 py-1 text-[11px] text-dim"
           data-testid="demo-skip-scene"
         >
           この場面をとばす
         </button>
-      )}
-    </main>
+      </div>
+      <div className="relative min-h-0 flex-1" style={{ transform: "translateZ(0)" }}>
+        {children}
+      </div>
+    </div>
   );
 }
