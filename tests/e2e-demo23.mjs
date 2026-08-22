@@ -66,6 +66,29 @@ const walk = async (ch, n, want) => {
 await walk("ch2", 2, 33);
 await walk("ch3", 3, 38);
 
+/* ── 盤面が説明欄に重なっていないか ──
+   絵が縦にはみ出すと、手順の文字の上に足場が重なって読めなくなる。
+   狭い画面ほど起きやすいので、いくつかの大きさで見る。 */
+for (const [w, h] of [[611, 876], [390, 844], [360, 640]]) {
+  await page.setViewportSize({ width: w, height: h });
+  for (const url of ["/training/demo", "/training/demo/ch2", "/training/demo/ch3"]) {
+    await page.goto(BASE + url);
+    await dismissNotice();
+    await page.waitForSelector("main svg", { timeout: 8000 });
+    await page.waitForTimeout(250);
+    const r = await page.evaluate(() => {
+      const svg = document.querySelector("main svg");
+      const panel = document.querySelector("main > div:last-of-type");
+      const a = svg.getBoundingClientRect();
+      const b = panel.getBoundingClientRect();
+      return { over: Math.round(a.bottom - b.top), h: Math.round(a.height) };
+    });
+    check(r.over <= 1, `${url} ${w}×${h}：盤面が説明欄に重なっていない（${r.over}px はみ出し）`);
+    check(r.h > 60, `${url} ${w}×${h}：盤面が潰れていない（高さ ${r.h}px）`);
+  }
+}
+console.log("OK: どの画面の大きさでも、盤面と説明が重ならない");
+
 await browser.close();
 if (ng) { console.error(`\n${ng} 件失敗`); process.exit(1); }
 console.log("ALL OK");

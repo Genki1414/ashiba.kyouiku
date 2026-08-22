@@ -55,6 +55,7 @@ export function Board({
   walking,
   tuto,
   still,
+  fit,
   onTapPost,
   onTapSpan,
 }: {
@@ -65,6 +66,9 @@ export function Board({
   tuto: boolean;
   /** 組み上がりを見せるだけのとき。タップ位置の印を出さない */
   still?: boolean;
+  /** 入れ物の高さに合わせて縮める。通し見学のように、
+      下に説明欄がある画面で使う（そのままだと縦にはみ出す） */
+  fit?: boolean;
   onTapPost: (i: number) => void;
   onTapSpan: (i: number) => void;
 }) {
@@ -80,7 +84,13 @@ export function Board({
   const hasK = (k: string) => has(s, k);
 
   return (
-    <svg viewBox="0 0 340 476" style={{ width: "100%", display: "block" }}>
+    <svg
+      viewBox="0 0 340 476"
+      preserveAspectRatio="xMidYMid meet"
+      style={fit
+        ? { width: "100%", height: "100%", display: "block" }
+        : { width: "100%", display: "block" }}
+    >
       <Roof />
       <rect y={GY} width="340" height="46" fill="#1A2027" />
       {/* 内柱（1段目まで既設） */}

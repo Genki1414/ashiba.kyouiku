@@ -58,10 +58,11 @@ export function DemoShell({
       </div>
       <Bar v={i + 1} max={steps.length} />
 
-      <div className="min-h-0 flex-1 bg-[#0C1015]">{board(i)}</div>
+      {/* 盤面。はみ出しは切る（切らないと下の説明に絵が重なる） */}
+      <div className="min-h-0 flex-1 overflow-hidden bg-[#0C1015]">{board(i)}</div>
 
       <div
-        className="flex-none overflow-y-auto border-t border-line px-4 pb-4 pt-3"
+        className="flex-none overflow-y-auto border-t border-line bg-bg px-4 pb-4 pt-3"
         style={{ maxHeight: "44vh" }}
       >
         <div className="flex items-start gap-3">

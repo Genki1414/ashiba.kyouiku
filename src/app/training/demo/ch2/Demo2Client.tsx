@@ -25,6 +25,7 @@ export function Demo2Client() {
           mood="normal"
           tuto={false}
           still
+          fit
           onTapPost={() => {}}
           onTapSpan={() => {}}
         />

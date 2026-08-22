@@ -44,7 +44,7 @@ export function DemoClient() {
 
       {/* 盤面。拡大図がある手は、上に拡大図（42%）・下に平面図（58%）で重ねる
           （プロトタイプと同じ配分。横に並べると狭い画面で両方とも小さくなる） */}
-      <div className="min-h-0 flex-1 bg-[#0C1015]">
+      <div className="min-h-0 flex-1 overflow-hidden bg-[#0C1015]">
         {step.art ? (
           <div className="flex h-full flex-col">
             <div className="min-h-0 border-b border-line" style={{ height: "42%" }}>
@@ -60,7 +60,7 @@ export function DemoClient() {
       </div>
 
       {/* 説明 */}
-      <div className="flex-none overflow-y-auto border-t border-line px-4 pb-4 pt-3" style={{ maxHeight: "46vh" }}>
+      <div className="flex-none overflow-y-auto border-t border-line bg-bg px-4 pb-4 pt-3" style={{ maxHeight: "46vh" }}>
         <div className="flex items-start gap-3">
           <Boss size={38} />
           <div className="min-w-0 flex-1">
