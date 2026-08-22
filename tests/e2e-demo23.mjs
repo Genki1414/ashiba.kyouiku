@@ -278,7 +278,8 @@ await page.setViewportSize({ width: 1440, height: 900 });
 for (const [url, upto, nm] of [
   ["/training/demo", 3, "第1章"],
   ["/training/demo/ch2", 0, "第2章"],
-  ["/training/demo/ch3", 0, "第3章"],
+  /* 第3章の最初の場面は2手目（火打を掛ける手）。1手目は出隅に寄るだけ */
+  ["/training/demo/ch3", 1, "第3章"],
 ]) {
   await page.goto(BASE + url);
   await dismissNotice();

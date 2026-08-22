@@ -202,8 +202,8 @@ for (let n = 1; n <= 15; n++) {
   }
 }
 check(await page.locator("text=第1章をやる").count() > 0, "最後に第1章への導線が出る");
-check(demoScenes === 6, `操作してもらう場面が6箇所とも出る（いま ${demoScenes}）`);
-console.log("OK: 通し見学 15手すべてに理由あり／場面6箇所を操作して通せた");
+check(demoScenes === 5, `操作してもらう場面が5手とも出る（いま ${demoScenes}）`);
+console.log("OK: 通し見学 15手すべてに理由あり／場面5手を操作して通せた");
 
 /* ── 章の中から資材を開ける ── */
 await page.goto(`${BASE}/training/ch1`);

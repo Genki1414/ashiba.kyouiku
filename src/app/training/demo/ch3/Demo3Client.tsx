@@ -97,7 +97,9 @@ export function Demo3Client() {
       overlay={(i, done) => {
         const st = steps[i];
         const sc = st.scene;
-        if (!sc) return null;
+        /* 場面は、開いたときの盤面（1手前）から判定を通す */
+        const from = st.sceneFrom;
+        if (!sc || !from) return null;
         if (sc.type === "hiuchi") {
           const c = CORNERS.find((x) => x.id === sc.corner)!;
           /* 見学なので、間違えても減点しない。部品が自分で理由を出す */
@@ -105,8 +107,8 @@ export function Demo3Client() {
             <HiuchiZoom corner={{ ...c, ...CORNER_XY[sc.corner] }} onClear={done} onFoul={() => {}} />
           );
         }
-        if (sc.type === "spread") return <SpreadScene s={st.state} span={sc.span} onClear={done} />;
-        return <TieScene s={st.state} post={sc.post} onClear={done} />;
+        if (sc.type === "spread") return <SpreadScene s={from} span={sc.span} onClear={done} />;
+        return <TieScene s={from} post={sc.post} onClear={done} />;
       }}
       board={(i, before) => {
         /* その手の場面をまだやっていない間は、手を打つ前の姿を出す */

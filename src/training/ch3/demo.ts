@@ -27,6 +27,8 @@ export type DemoStep = {
   view: "plan" | "sheet";
   /** この手で開く場面。見学でも、遊ぶときと同じように操作してもらう */
   scene?: Scene;
+  /** その場面を開いたときの盤面。場面はここから判定を通す */
+  sceneFrom?: Ch3State;
 };
 
 /** 火打の取付点。支柱どうし・別の面・出隅から同じ距離（＝二等辺三角形） */
@@ -139,16 +141,32 @@ function plan(): Plan[] {
   return out;
 }
 
-/** 通し見学の手順を組み立てる。判定を通らない手があれば、そこで止める */
+/** 通し見学の手順を組み立てる。判定を通らない手があれば、そこで止める。
+
+    場面は、その場面で何をするかを書いた手に付ける。
+    判定が場面を出すのは1手前（出隅に寄る／シートを垂らす／支柱を選ぶ）で、
+    そこで出してしまうと、まだ教えていないことを聞くことになる。
+    初めての人には何が正解か分からないので、次の手へ持ち越す。 */
 export function buildDemo(): DemoStep[] {
   const out: DemoStep[] = [];
   let s = initialState();
+  /* 1手前で出た場面と、そのときの盤面 */
+  let pending: { scene: Scene; from: Ch3State } | undefined;
 
   for (const p of plan()) {
     const v = judge(s, p.a);
     if (v.kind !== "good") break;
     s = v.state;
-    out.push({ n: out.length + 1, t: p.t, why: p.why, state: s, view: p.view, scene: v.scene });
+    out.push({
+      n: out.length + 1,
+      t: p.t,
+      why: p.why,
+      state: s,
+      view: p.view,
+      scene: pending?.scene,
+      sceneFrom: pending?.from,
+    });
+    pending = v.scene ? { scene: v.scene, from: s } : undefined;
   }
   return out;
 }

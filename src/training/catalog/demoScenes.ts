@@ -13,7 +13,11 @@ import type { Scene } from "@/training/ch1/rules";
 /** 離れの見出し。判定（rules.ts）が作るものと同じにする */
 const hanareLabel = (id: PostId) => `${faceOf(id)} ${POSTS[id].n}`;
 
-/** 手の番号（STEPS の n）→ その手で出す場面 */
+/** 手の番号（STEPS の n）→ その手で出す場面。
+
+    場面は「何をするか」を書いた手に付ける。
+    1手前に付けると、まだ教えていないことを聞くことになって、
+    初めての人には何が正解か分からない。 */
 export const DEMO_SCENES: Record<number, Scene[]> = {
   /* 04 基準のジャッキの高さを合わせる */
   4: [{ type: "jackAdjust", post: "C" }],
@@ -21,10 +25,13 @@ export const DEMO_SCENES: Record<number, Scene[]> = {
   8: [{ type: "hanare", post: "S1", label: hanareLabel("S1") }],
   /* 09 水平を見る（置き場所を選んでから気泡を合わせる） */
   9: [{ type: "level", a: "C", b: "S1" }],
-  /* 11 内柱を立てる（立てた直後にどうするか） */
-  11: [{ type: "innerChoiceA", post: "S1" }],
-  /* 12 踏板高さの手摺でつなぐ */
-  12: [{ type: "railAnim", post: "S1" }],
+  /* 12 踏板高さの手摺でつなぐ。
+     「内柱を立てた。次にどうする？」は、踏板高さの手摺の話をしてから聞く。
+     11（内柱を立てる）で聞くと、まだ手摺の話をしていないので答えようがない */
+  12: [
+    { type: "innerChoiceA", post: "S1" },
+    { type: "railAnim", post: "S1" },
+  ],
   /* 13 内柱の水平を見る（どこに当てるか → 合わせる） */
   13: [
     { type: "innerChoiceB", post: "S1" },
