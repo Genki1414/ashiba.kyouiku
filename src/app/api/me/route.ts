@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { currentAdmin } from "@/lib/admin";
 import { myCompany, needsJoin } from "@/lib/tenant";
+import { currentOwner } from "@/lib/owner";
 
 /* いまの自分の立場。ホームの出し分けに使う。
 
@@ -8,11 +9,13 @@ import { myCompany, needsJoin } from "@/lib/tenant";
    （AccountBar と同じやり方）。 */
 
 export async function GET() {
+  const owner = await currentOwner();
   const admin = await currentAdmin();
   if (admin) {
     return NextResponse.json({
       ok: true,
       admin: true,
+      owner: !!owner,
       needsJoin: false,
       company: admin.companyName,
     });
@@ -21,6 +24,7 @@ export async function GET() {
   return NextResponse.json({
     ok: true,
     admin: false,
+    owner: !!owner,
     needsJoin: join,
     company: co?.name ?? "",
   });

@@ -6,6 +6,8 @@
    ・つながり具合を見る /api/health（設定を直すときに開けないと困る）
    ・修了証の照会（/verify）。元請や監督署が番号を確かめるので、
      こちらのログインを持っていない人が開く。名前は伏せ字にしてある
+   ・Stripe からの入金の知らせ（/api/stripe/webhook）。
+     向こうはログインを持たない。代わりに署名を確かめる
    ・画面を動かす部品（/_next/ と、拡張子で分かるもの） */
 
 const OPEN = [
@@ -15,6 +17,7 @@ const OPEN = [
   "/api/health",
   "/verify",
   "/api/verify-cert",
+  "/api/stripe/webhook",
   "/manifest.webmanifest",
   "/sw.js",
 ];

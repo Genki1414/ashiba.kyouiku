@@ -4,6 +4,7 @@ import { canCreateCompany, currentAdmin } from "@/lib/admin";
 import { currentUser } from "@/lib/supabase/session";
 import { getCurriculum } from "@/lib/curriculum";
 import { buildRoster, rosterTotals } from "@/training/roster";
+import { seatCounts } from "@/lib/seats";
 
 /* 教育担当者の画面に出す一覧。
    担当者でなければ何も返さない。画面の出し分けではなく、ここで止める。 */
@@ -39,6 +40,16 @@ export async function GET() {
   const cur = await getCurriculum();
   const lessonsTotal = cur.subjects.reduce((n, s) => n + s.lessons.length, 0);
 
+  /* 受講コード（席）の残り。買った数が足りているかを担当者に見せる */
+  const { data: myOrders } = await supabase
+    .from("orders")
+    .select("id, status")
+    .eq("company_id", admin.companyId);
+  const paidIds = (myOrders ?? []).filter((o) => o.status === "paid").map((o) => o.id as string);
+  const allIds = (myOrders ?? []).map((o) => o.id as string);
+  const seats = await seatCounts(supabase, allIds);
+  const paidSeats = await seatCounts(supabase, paidIds);
+
   const { data: users } = await supabase
     .from("users")
     .select("id, name, email, role")
@@ -49,6 +60,7 @@ export async function GET() {
       ok: true,
       company: admin.companyName,
       joinCode: admin.joinCode,
+      seats: { total: seats.total, used: seats.used, paid: paidSeats.total },
       rows: [],
       totals: rosterTotals([]),
       lessonsTotal,
@@ -92,6 +104,7 @@ export async function GET() {
     ok: true,
     company: admin.companyName,
     joinCode: admin.joinCode,
+    seats: { total: seats.total, used: seats.used, paid: paidSeats.total },
     rows,
     totals: rosterTotals(rows),
     lessonsTotal,

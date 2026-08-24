@@ -60,6 +60,11 @@ const shut = [
   "/api/join",
   "/api/admin/company",
   "/api/me",
+  "/order",
+  "/api/order",
+  "/owner",
+  "/api/owner/orders",
+  "/api/stripe/checkout",
 ];
 for (const p of shut) check(!isOpenPath(p), `止める: ${p}`);
 
@@ -68,6 +73,8 @@ check(!isOpenPath("/loginish"), "/loginish は /login ではない");
 check(!isOpenPath("/api/healthy"), "/api/healthy は /api/health ではない");
 check(!isOpenPath("/api/verify-log"), "/api/verify-log（顔照合のログ）は通さない");
 check(isOpenPath("/api/verify-cert"), "/api/verify-cert（修了証の照会）は通す");
+check(isOpenPath("/api/stripe/webhook"), "Stripe からの知らせは通す（ログインを持たない）");
+check(!isOpenPath("/api/stripe/checkout"), "支払い画面を作る方は止める");
 check(!isOpenPath("/api/cert"), "/api/cert（修了証の発行）は本人だけ");
 check(isOpenPath("/login/reset"), "/login の下は通す");
 check(!isOpenPath("/edu/1-1/js"), "拡張子に見えても道の一部なら止める");

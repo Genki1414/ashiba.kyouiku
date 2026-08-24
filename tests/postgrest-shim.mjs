@@ -177,6 +177,8 @@ const server = createServer(async (req, res) => {
         flat,
       );
       await client.query("commit");
+      /* .single() / .maybeSingle() は1行だけを期待する */
+      if (single) return send(201, r.rows[0] ?? null);
       return send(201, r.rows);
     }
 
@@ -191,6 +193,7 @@ const server = createServer(async (req, res) => {
         [...cols.map((c) => val(patch[c])), ...w.vals],
       );
       await client.query("commit");
+      if (single) return send(200, r.rows[0] ?? null);
       return send(200, r.rows);
     }
 

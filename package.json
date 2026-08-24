@@ -16,6 +16,7 @@
     "test:demoscenes": "tsx tests/demo-scenes.ts",
     "test:roster": "tsx tests/roster.ts",
     "test:tenant": "tsx tests/tenant.ts",
+    "test:pricing": "tsx tests/pricing.ts",
     "test:admindb": "tsx tests/admin-db.mts",
     "test:record": "tsx tests/record.ts",
     "test:authgate": "tsx tests/auth-gate.ts",
@@ -33,6 +34,7 @@
     "test:e2e:update": "node tests/e2e-update-notice.mjs",
     "test:e2e:record": "node tests/e2e-record.mjs",
     "test:e2e:admin": "node tests/e2e-admin.mjs",
+    "test:e2e:order": "node tests/e2e-order.mjs",
     "test:e2e:resume": "node tests/e2e-resume.mjs",
     "test:e2e:catalog": "node tests/e2e-catalog-demo.mjs",
     "test:e2e:demo23": "node tests/e2e-demo23.mjs",
@@ -48,6 +50,7 @@
     "next": "^15.5.12",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "stripe": "^22.5.0",
     "zod": "^3.24.1",
     "zustand": "^5.0.3"
   },

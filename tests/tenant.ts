@@ -1,7 +1,7 @@
 /* 参加コードの試験。外販なので、事業者ごとに合言葉を配る。
    実行: npx tsx tests/tenant.ts */
 
-import { isJoinCode, newJoinCode, normalizeJoinCode } from "@/training/joinCode";
+import { codeKind, isJoinCode, isSeatCode, newJoinCode, normalizeJoinCode, showSeatCode } from "@/training/joinCode";
 
 let ok = 0;
 let ng = 0;
@@ -37,6 +37,20 @@ check(!isJoinCode("ABCD234I"), "I は使っていないので通さない");
 check(!isJoinCode("ABCD234L"), "L は使っていないので通さない");
 check(!isJoinCode("ABCD234O"), "O は使っていないので通さない");
 check(!isJoinCode("ABCD234."), "記号は通さない");
+
+console.log("── 参加コードと受講コードを見分ける ──");
+/* 入り口は1つ。桁で見分ける（現場の人に2種類を説明したくない） */
+check(codeKind("ABCD2345") === "join", "8文字は参加コード");
+check(codeKind("ABCD23456789") === "seat", "12文字は受講コード");
+check(codeKind("ABCD-2345-6789") === "seat", "区切り線が入っていても受講コード");
+check(codeKind("abcd-2345-6789") === "seat", "小文字でも受講コード");
+check(codeKind("ABCD234567") === null, "10文字はどちらでもない");
+check(codeKind("") === null, "空はどちらでもない");
+check(codeKind("ABCD23456780") === null, "使っていない字（0）が入れば通さない");
+check(isSeatCode("ABCD23456789"), "受講コードの形");
+check(!isSeatCode("ABCD2345"), "参加コードは受講コードではない");
+check(!isJoinCode("ABCD23456789"), "受講コードは参加コードではない");
+check(showSeatCode("ABCD23456789") === "ABCD-2345-6789", "4文字ごとに区切って見せる");
 
 console.log("\n── まとめ ──");
 console.log(`${ok} 件通過 / ${ng} 件失敗`);

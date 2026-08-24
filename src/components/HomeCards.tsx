@@ -11,7 +11,7 @@ import Link from "next/link";
 
    ホームを静的なまま置いておきたいので、ここから聞く（AccountBar と同じ）。 */
 
-type Me = { admin: boolean; needsJoin: boolean; company: string };
+type Me = { admin: boolean; owner: boolean; needsJoin: boolean; company: string };
 
 export function HomeCards() {
   const [me, setMe] = useState<Me | null>(null);
@@ -21,7 +21,8 @@ export function HomeCards() {
     fetch("/api/me", { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
       .then((j) => {
-        if (alive && j?.ok) setMe({ admin: !!j.admin, needsJoin: !!j.needsJoin, company: j.company ?? "" });
+        if (alive && j?.ok)
+          setMe({ admin: !!j.admin, owner: !!j.owner, needsJoin: !!j.needsJoin, company: j.company ?? "" });
       })
       .catch(() => {
         /* 圏外・未設定。何も出さない */
@@ -31,9 +32,12 @@ export function HomeCards() {
 
   if (!me) return null;
 
+  const cards = [];
+
   if (me.needsJoin) {
-    return (
+    cards.push(
       <Link
+        key="join"
         href="/join"
         className="block rounded-xl border border-yel bg-[#1A1F14] p-4 no-underline"
         data-testid="home-join"
@@ -44,13 +48,14 @@ export function HomeCards() {
           会社の教育担当者から渡された8文字を入れてください。
           入れないと、修了証をどの会社の名義で出すか決まりません。
         </div>
-      </Link>
+      </Link>,
     );
   }
 
   if (me.admin) {
-    return (
+    cards.push(
       <Link
+        key="admin"
         href="/admin"
         className="block rounded-xl border border-line bg-panel p-5 no-underline"
         data-testid="home-admin"
@@ -62,9 +67,26 @@ export function HomeCards() {
           <br />
           {me.company}
         </div>
-      </Link>
+      </Link>,
     );
   }
 
-  return null;
+  if (me.owner) {
+    cards.push(
+      <Link
+        key="owner"
+        href="/owner"
+        className="block rounded-xl border border-line bg-panel p-5 no-underline"
+        data-testid="home-owner"
+      >
+        <div className="text-[11px] font-extrabold tracking-widest text-cyan">運営</div>
+        <div className="mt-1 text-[17px] font-black text-txt">申込みと入金</div>
+        <div className="mt-2 text-[12px] leading-relaxed text-dim">
+          売った先の注文をぜんぶ見る。請求書払いの入金を確認する。
+        </div>
+      </Link>,
+    );
+  }
+
+  return <>{cards}</>;
 }

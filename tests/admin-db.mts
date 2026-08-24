@@ -46,6 +46,8 @@ const E3 = "aaaaaaaa-0000-0000-0000-000000000023";
 const ORPHAN = "aaaaaaaa-0000-0000-0000-000000000099";
 const PEOPLE = [U1, U2, U3, ORPHAN];
 
+/* 注文は company を restrict で掴んでいるので、先に消す */
+await raw.query("delete from public.orders where company_id = $1", [CO]);
 await raw.query("delete from public.users where id = any($1::uuid[])", [PEOPLE]);
 await raw.query("delete from public.companies where id = $1", [CO]);
 await raw.query("delete from auth.users where id = any($1::uuid[])", [PEOPLE]);
@@ -99,6 +101,9 @@ await must(
     created_by: U1,
   }).select("id"),
 );
+/* この試験の事業者は、はじめは無償利用（席なしで修了証が出る側）。
+   あとで有償に切り替えて、席と入金の決まりを確かめる */
+await raw.query("update public.companies set trial = true where id = $1", [CO]);
 {
   /* 参加コードは事業者ごとに1つ。他社と同じにはできない */
   const { error } = await db.from("companies").insert({ name: "よその会社", join_code: "ABCD2345" });
@@ -302,6 +307,116 @@ await must("戻せる", db.from("users").update({ role: "learner" }).eq("id", U2
   );
   const fixed = await db.from("users").select("company_id").eq("id", ORPHAN).maybeSingle();
   check(fixed.data?.company_id === CO, "参加コードを入れた人が名簿に入る");
+}
+
+/* ══ 申込みと席、そして修了証 ══
+   ここが売り物の根っこ。入金が済むまで修了証を出さない。 */
+console.log("");
+
+/* ① 請求書払いの申込み。席はすぐ配るが、まだ入金前 */
+const ord = await must(
+  "注文を作れる",
+  db.from("orders").insert({
+    company_id: CO, seats: 3, unit_price: 3000, amount: 9900,
+    method: "invoice", status: "pending",
+    due_date: "2026-09-30", ordered_by: U1, bill_to: "点検用工業 経理部",
+  }).select("id").single(),
+);
+const orderId = ord!.id as string;
+
+const codes: string[] = [];
+for (let i = 0; i < 3; i++) {
+  const { data: c } = await db.rpc("gen_seat_code");
+  codes.push(String(c));
+  await must(`受講コード${i + 1}枚目を配れる`, db.from("seats").insert({ order_id: orderId, code: String(c) }).select("id"));
+}
+check(new Set(codes).size === 3, "3枚とも違うコード");
+check(codes.every((c) => /^[2-9A-HJKMNP-Z]{12}$/.test(c)), `12文字・読み違えやすい字なし（${codes[0]}）`);
+{
+  const { error } = await db.from("seats").insert({ order_id: orderId, code: codes[0] });
+  check(!!error, "同じ受講コードは2枚作れない");
+}
+{
+  /* 期限は既定で1年後 */
+  const { data } = await db.from("seats").select("expires_at").eq("code", codes[0]).maybeSingle();
+  check(!!data?.expires_at, "受講コードに期限が入る");
+}
+
+/* ② 席を引き換える。会社に入り、受講に紐づく */
+{
+  const { data, error } = await db.rpc("redeem_seat", { p_code: codes[0], p_user: U3 });
+  check(!error && data === CO, `引き換えると会社が返る（${error?.message ?? data}）`);
+  const u = await db.from("users").select("company_id").eq("id", U3).maybeSingle();
+  check(u.data?.company_id === CO, "引き換えた人が会社に入る");
+  const s = await db.from("seats").select("used_by, used_at").eq("code", codes[0]).maybeSingle();
+  check(s.data?.used_by === U3 && !!s.data?.used_at, "席が使用済みになる");
+  const e = await db.from("enrollments").select("seat_id").eq("id", E3).maybeSingle();
+  check(!!e.data?.seat_id, "受講に席が紐づく");
+}
+{
+  /* 2人目が同じコードを入れても通らない */
+  const { error } = await db.rpc("redeem_seat", { p_code: codes[0], p_user: U2 });
+  check(!!error, "使われた受講コードは、ほかの人には使えない");
+}
+{
+  const { error } = await db.rpc("redeem_seat", { p_code: "ZZZZZZZZZZZZ", p_user: U2 });
+  check(!!error, "無いコードは断る");
+}
+{
+  /* 期限切れは断る */
+  await raw.query("update public.seats set expires_at = now() - interval '1 day' where code = $1", [codes[2]]);
+  const { error } = await db.rpc("redeem_seat", { p_code: codes[2], p_user: U2 });
+  check(!!error && /期限/.test(error.message), `期限切れは断る（${error?.message}）`);
+  await raw.query("update public.seats set expires_at = now() + interval '1 year' where code = $1", [codes[2]]);
+}
+
+/* ③ 入金前は修了証を出せない */
+await raw.query("update public.companies set trial = false where id = $1", [CO]);
+await raw.query("delete from public.certificates where enrollment_id = $1", [E2]);
+{
+  /* E2（鈴木）は学科を終えているが、席が無い。無償利用でもない */
+  const { error } = await db.from("certificates").insert({
+    enrollment_id: E2, cert_no: String((await db.rpc("next_cert_no")).data),
+  });
+  check(!!error && /受講コード/.test(error.message), `席が無ければ出せない（${error?.message}）`);
+}
+{
+  /* 席を渡す。ただし注文はまだ入金待ち */
+  await raw.query("update public.enrollments set seat_id = (select id from public.seats where code = $1) where id = $2", [codes[1], E2]);
+  const { error } = await db.from("certificates").insert({
+    enrollment_id: E2, cert_no: String((await db.rpc("next_cert_no")).data),
+  });
+  check(!!error && /未入金/.test(error.message), `未入金では出せない（${error?.message}）`);
+}
+
+/* ④ 入金を確認したら出せる */
+await must(
+  "入金済みにできる",
+  db.from("orders").update({ status: "paid", paid_at: new Date(0).toISOString() }).eq("id", orderId).select("id"),
+);
+{
+  const no = String((await db.rpc("next_cert_no")).data);
+  const { error } = await db.from("certificates").insert({ enrollment_id: E2, cert_no: no });
+  check(!error, `入金後は出せる（${error?.message ?? no}）`);
+}
+
+/* ⑤ 無償利用の事業者は、席が無くても出せる */
+await raw.query("update public.companies set trial = true where id = $1", [CO]);
+await raw.query("delete from public.certificates where enrollment_id = $1", [E2]);
+await raw.query("update public.enrollments set seat_id = null where id = $1", [E2]);
+{
+  const { error } = await db.from("certificates").insert({
+    enrollment_id: E2, cert_no: String((await db.rpc("next_cert_no")).data),
+  });
+  check(!error, `無償利用なら席が無くても出せる（${error?.message ?? "ok"}）`);
+}
+
+/* ⑥ 入金済みと入金日時は必ず対で入る */
+{
+  const { error } = await raw.query(
+    "update public.orders set status = 'paid', paid_at = null where id = $1", [orderId],
+  ).then(() => ({ error: null })).catch((e: Error) => ({ error: e }));
+  check(!!error, "入金済みなのに入金日時が無い行は入らない");
 }
 
 await raw.end();

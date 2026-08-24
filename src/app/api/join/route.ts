@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase/server";
 import { currentUser } from "@/lib/supabase/session";
-import { isJoinCode, normalizeJoinCode } from "@/training/joinCode";
+import { codeKind, normalizeJoinCode } from "@/training/joinCode";
 
-/* 参加コードで、自分の事業者に入る。
+/* コードを入れて、自分の事業者に入る。
 
-   合言葉を1つ持っているだけの人が総当たりで他社に入れないよう、
-   形が合っていないものは数える前に断る。 */
+   ・受講コード（12文字）… 1人1枚の席。入れると会社に入り、席が割り当たる
+   ・参加コード（8文字）　… 名簿に入るだけ。席は割り当たらない
+                            （修了証は席が要る。無償利用の事業者は例外）
+
+   受け取る側は1つの入り口にしてある。現場の人に2種類を説明したくないため。
+   形が合っていないものは、数える前に断る（総当たり避け）。 */
 
 export async function POST(req: NextRequest) {
   const supabase = getServiceClient();
@@ -20,10 +24,38 @@ export async function POST(req: NextRequest) {
 
   const body = (await req.json().catch(() => ({}))) as { code?: string };
   const code = normalizeJoinCode(body.code ?? "");
-  if (!isJoinCode(code)) {
-    return NextResponse.json({ ok: false, reason: "参加コードの形が違います。" }, { status: 400 });
+  const kind = codeKind(code);
+  if (!kind) {
+    return NextResponse.json({ ok: false, reason: "コードの形が違います。" }, { status: 400 });
   }
 
+  const { data: me } = await supabase
+    .from("users")
+    .select("company_id")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  /* ── 受講コード（席）── */
+  if (kind === "seat") {
+    const { data: companyId, error } = await supabase.rpc("redeem_seat", {
+      p_code: code,
+      p_user: user.id,
+    });
+    if (error || typeof companyId !== "string") {
+      return NextResponse.json(
+        { ok: false, reason: error?.message ?? "その受講コードは使えません。" },
+        { status: 409 },
+      );
+    }
+    const { data: co } = await supabase
+      .from("companies")
+      .select("name")
+      .eq("id", companyId)
+      .maybeSingle();
+    return NextResponse.json({ ok: true, kind: "seat", company: (co?.name as string) ?? "" });
+  }
+
+  /* ── 参加コード ── */
   const { data: co } = await supabase
     .from("companies")
     .select("id, name")
@@ -32,23 +64,16 @@ export async function POST(req: NextRequest) {
   if (!co) {
     return NextResponse.json({ ok: false, reason: "そのコードの事業者がありません。" }, { status: 404 });
   }
-
-  const { data: me } = await supabase
-    .from("users")
-    .select("company_id")
-    .eq("id", user.id)
-    .maybeSingle();
   if (me?.company_id && me.company_id !== co.id) {
     return NextResponse.json(
       { ok: false, reason: "すでに別の事業者に属しています。担当者に頼んでください。" },
       { status: 409 },
     );
   }
-
   const { error } = await supabase
     .from("users")
     .update({ company_id: co.id as string })
     .eq("id", user.id);
   if (error) return NextResponse.json({ ok: false, reason: error.message }, { status: 500 });
-  return NextResponse.json({ ok: true, company: co.name as string });
+  return NextResponse.json({ ok: true, kind: "join", company: co.name as string });
 }

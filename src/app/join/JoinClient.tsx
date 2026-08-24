@@ -4,20 +4,21 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Btn } from "@/components/ui/Btn";
-import { isJoinCode, normalizeJoinCode } from "@/training/joinCode";
+import { codeKind, normalizeJoinCode } from "@/training/joinCode";
 
-/* 参加コードで自分の事業者に入る。
+/* コードを入れて自分の事業者に入る。
 
-   この仕組みはいくつもの会社が使う。誰がどの会社の人かを
-   決めておかないと、修了証をどの会社の名義で出すか決まらない。
-   コードは教育担当者から配られる。 */
+   ・受講コード（12文字）… 1人1枚の席。これが本筋
+   ・参加コード（8文字）　… 名簿に入るだけ（担当者や、席を使わない人）
+
+   入り口は1つ。現場の人に2種類を説明したくないので、桁で見分ける。 */
 
 export function JoinClient() {
   const router = useRouter();
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState("");
-  const [done, setDone] = useState<string | null>(null);
+  const [done, setDone] = useState<{ company: string; kind: string } | null>(null);
 
   const go = async () => {
     setBusy(true);
@@ -33,7 +34,7 @@ export function JoinClient() {
         setNote(j.reason ?? "入れませんでした。");
         return;
       }
-      setDone(j.company ?? "");
+      setDone({ company: j.company ?? "", kind: j.kind ?? "join" });
       router.refresh();
     } catch {
       setNote("つながりません。電波の届く所でもう一度。");
@@ -46,9 +47,11 @@ export function JoinClient() {
     return (
       <main className="px-5 py-8">
         <div className="tape -mx-5 mb-6" />
-        <h1 className="text-[18px] font-black">{done} に入りました</h1>
+        <h1 className="text-[18px] font-black">{done.company} に入りました</h1>
         <p className="mt-2 text-[13px] leading-relaxed text-dim">
-          これで修了証がこの事業者の名義で出ます。
+          {done.kind === "seat"
+            ? "受講コードが1枚あなたのものになりました。学科を最後まで進めると修了証が出ます。"
+            : "名簿に入りました。修了証には受講コードが要ります。担当者に聞いてください。"}
         </p>
         <Link
           href="/"
@@ -66,17 +69,17 @@ export function JoinClient() {
       <Link href="/" className="backlink text-[13px] text-dim no-underline">
         ← ホーム
       </Link>
-      <h1 className="mt-2 text-[18px] font-black">参加コードを入れる</h1>
+      <h1 className="mt-2 text-[18px] font-black">コードを入れる</h1>
       <p className="mt-2 text-[13px] leading-relaxed text-dim">
-        会社の教育担当者から渡された8文字を入れてください。
+        会社の教育担当者から渡されたコードを入れてください。
         <br />
-        これを入れないと、修了証をどの会社の名義で出すか決まりません。
+        受講コード（12文字）でも、参加コード（8文字）でも構いません。
       </p>
 
       <input
         value={code}
         onChange={(e) => setCode(e.target.value)}
-        placeholder="ABCD2345"
+        placeholder="ABCD-2345-6789"
         autoCapitalize="characters"
         autoComplete="off"
         spellCheck={false}
@@ -90,7 +93,7 @@ export function JoinClient() {
       <div className="mt-4">
         <Btn
           tone="y"
-          dis={busy || !isJoinCode(code)}
+          dis={busy || !codeKind(code)}
           onClick={go}
           testid="join-go"
         >

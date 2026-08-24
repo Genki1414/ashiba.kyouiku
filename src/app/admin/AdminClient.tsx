@@ -17,7 +17,14 @@ import type { LearnerRow } from "@/training/roster";
 type Totals = { people: number; done: number; issued: number; waiting: number };
 
 type Loaded =
-  | { kind: "ok"; company: string; joinCode: string; rows: LearnerRow[]; totals: Totals }
+  | {
+      kind: "ok";
+      company: string;
+      joinCode: string;
+      seats: { total: number; used: number; paid: number };
+      rows: LearnerRow[];
+      totals: Totals;
+    }
   | { kind: "setup"; reason: string }
   | { kind: "ng"; reason: string; signIn?: boolean };
 
@@ -44,6 +51,7 @@ export function AdminClient() {
           kind: "ok",
           company: j.company ?? "",
           joinCode: j.joinCode ?? "",
+          seats: j.seats ?? { total: 0, used: 0, paid: 0 },
           rows: j.rows ?? [],
           totals: j.totals,
         });
@@ -235,14 +243,36 @@ export function AdminClient() {
           </>
         )}
 
+        {/* 買った受講コード（席） */}
+        <div className="mt-4 border-t border-line pt-3">
+          <div className="mb-1 text-[11px] tracking-[2px] text-dim">受講コード（席）</div>
+          <div className="text-[12.5px] leading-[1.9]">
+            <span className="font-black text-txt">
+              {st.seats.paid} 枚
+            </span>
+            <span className="text-dim"> 入金済み　／　配った {st.seats.total} 枚　使用 {st.seats.used} 枚</span>
+          </div>
+          <div className="mt-1 text-[11.5px] leading-relaxed text-dim2">
+            修了証は受講コードが要ります。人数ぶん申し込んでください。
+          </div>
+          <Link
+            href="/order"
+            className="mt-2 block rounded-lg border border-yel bg-yel p-2.5 text-center text-[13px] font-extrabold text-bg no-underline"
+            data-testid="admin-order"
+          >
+            受講コードを申し込む
+          </Link>
+        </div>
+
         <div className="mt-4 border-t border-line pt-3">
           <div className="mb-1 text-[11px] tracking-[2px] text-dim">受講者に配る参加コード</div>
           <div className="font-mono text-[20px] font-black tracking-[4px] text-yel" data-testid="admin-joincode">
             {st.joinCode || "—"}
           </div>
           <div className="mt-1 text-[11.5px] leading-relaxed text-dim">
-            受講する人に登録してもらい、このコードを入れてもらうと名簿に並びます。
-            コードが漏れたら作り直してください（前のコードは使えなくなります）。
+            席を使わずに名簿へ入れるコードです（担当者や、見学だけの人）。
+            受講する人には受講コードを渡してください。
+            漏れたら作り直せます（前のコードは使えなくなります）。
           </div>
           <button
             className="mt-2 w-full rounded-lg border border-line p-1.5 text-[11.5px] text-dim2"
