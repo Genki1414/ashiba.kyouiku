@@ -1,0 +1,118 @@
+/* 売るために要る表記の中身。
+
+   特定商取引法に基づく表記は、住所や電話番号まで載せる決まりです。
+   ここに直接書かず、Vercel の環境変数から取ります。
+   （リポジトリは外の人にも見えるため。値そのものは公開情報ですが、
+     直すたびに組み立て直すのも面倒なので設定にしてあります）
+
+   埋まっていない項目は画面に「未設定」と出ます。
+   /setup でも、どれが空かが分かります。 */
+
+import { TAX_RATE, unitPrice } from "@/lib/pricing";
+
+export type Item = { k: string; v: string; env: string; note?: string };
+
+const get = (name: string, fallback = "") => (process.env[name] ?? "").trim() || fallback;
+
+/** 事業者の情報。特商法・利用規約・個人情報の3ページで使う */
+export function seller() {
+  return {
+    name: get("SELLER_NAME", "東北三上機材株式会社"),
+    /** 会社の代表者。教育実施責任者とは別 */
+    ceo: get("SELLER_CEO"),
+    address: get("SELLER_ADDRESS"),
+    tel: get("SELLER_TEL"),
+    email: get("SELLER_EMAIL"),
+    /** 電話を受けられる時間 */
+    hours: get("SELLER_HOURS", "平日 9:00〜17:00（土日祝を除く）"),
+    /** 問い合わせ窓口の名前 */
+    contact: get("SELLER_CONTACT", "教育事業担当"),
+  };
+}
+
+/** 「未設定」の項目。ここが空のまま売ると、特商法の表示義務を満たしません */
+export function missingSeller(): string[] {
+  const s = seller();
+  const need: [string, string][] = [
+    ["代表者", s.ceo],
+    ["所在地", s.address],
+    ["電話番号", s.tel],
+    ["メールアドレス", s.email],
+  ];
+  return need.filter(([, v]) => !v).map(([k]) => k);
+}
+
+const yen = (n: number) => `${n.toLocaleString("ja-JP")}円`;
+
+/** 特定商取引法に基づく表記。順番も決まりに沿って並べる */
+export function tokushoho(): Item[] {
+  const s = seller();
+  const price = unitPrice();
+  const tax = Math.floor(price * TAX_RATE);
+  return [
+    { k: "販売事業者", v: s.name, env: "SELLER_NAME" },
+    { k: "代表者", v: s.ceo, env: "SELLER_CEO" },
+    { k: "所在地", v: s.address, env: "SELLER_ADDRESS" },
+    { k: "電話番号", v: s.tel, env: "SELLER_TEL", note: `受付時間 ${s.hours}` },
+    { k: "メールアドレス", v: s.email, env: "SELLER_EMAIL" },
+    {
+      k: "販売価格",
+      v: `受講1名につき ${yen(price)}（税抜）／${yen(price + tax)}（税込）`,
+      env: "SEAT_UNIT_PRICE",
+      note: "申込みの画面に、人数を入れた合計金額を出します。",
+    },
+    {
+      k: "商品代金以外の必要料金",
+      v: "インターネットの通信料はお客様のご負担です。銀行振込の手数料はお客様のご負担です。",
+      env: "",
+    },
+    {
+      k: "支払方法",
+      v: "クレジットカード（Stripe）／銀行振込（請求書払い）",
+      env: "",
+    },
+    {
+      k: "支払時期",
+      v: "クレジットカードは申込みと同時。請求書払いは請求書に記載の期限まで（申込みから30日後の月末）。",
+      env: "",
+    },
+    {
+      k: "引渡し時期",
+      v: "申込み後ただちに受講コードを発行します。受講はすぐ始められます。修了証は入金の確認後に発行できるようになります。",
+      env: "",
+    },
+    {
+      k: "返品・キャンセル",
+      v:
+        "受講コードの性質上、発行後の返品・返金はお受けできません。" +
+        "未使用の受講コードについては、入金前であれば申込みの取消を承ります。" +
+        "誤って申し込んだ場合は、上記の連絡先までご連絡ください。",
+      env: "",
+    },
+    {
+      k: "動作環境",
+      v: "スマートフォン・タブレット・パソコンの最新のブラウザ。受講中に顔の照合を行うため、カメラの使えるものをお使いください。",
+      env: "",
+    },
+  ];
+}
+
+/** 個人情報の扱いで挙げる、実際に預かるもの。コードと突き合わせて書いてある */
+export const PERSONAL_DATA: { k: string; v: string }[] = [
+  { k: "氏名・生年月日", v: "修了証に載せるため。ご本人が入力します" },
+  { k: "メールアドレス", v: "ログインのため" },
+  { k: "所属事業者", v: "名簿を分けるため" },
+  { k: "学科の視聴記録", v: "単元ごとの視聴時間と、確認問題に合格した日時" },
+  { k: "修了試験の記録", v: "点数と合否、受験した日時" },
+  { k: "実務トレーニングの記録", v: "章ごとの点数・所要時間と、指摘された内容" },
+  { k: "顔の照合の記録", v: "「照合できた／できなかった」という結果と理由だけ" },
+  { k: "修了証の記録", v: "証明番号と発行日、取り消した日" },
+  { k: "申込みの記録", v: "人数・金額・支払方法・請求先" },
+];
+
+/** 外部に渡るもの */
+export const THIRD_PARTIES: { k: string; v: string }[] = [
+  { k: "Supabase", v: "記録の保管とログイン（データベース）" },
+  { k: "Vercel", v: "画面の配信" },
+  { k: "Stripe", v: "クレジットカードの決済。カード番号は当社を通りません" },
+];

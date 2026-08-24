@@ -44,8 +44,23 @@ export default async function Home() {
           </div>
         </Link>
 
-        {/* 立場によって出すもの（参加コード／教育担当者）*/}
+        {/* 立場によって出すもの（参加コード／教育担当者／運営）*/}
         <HomeCards />
+      </div>
+
+      {/* 売るために要る表記。買う前に読めるところに置く */}
+      <div className="border-t border-line px-5 py-5">
+        <div className="flex flex-wrap gap-x-4 gap-y-2 text-[11.5px]">
+          <Link href="/legal/tokushoho" className="text-dim no-underline">
+            特定商取引法に基づく表記
+          </Link>
+          <Link href="/legal/terms" className="text-dim no-underline">
+            利用規約
+          </Link>
+          <Link href="/legal/privacy" className="text-dim no-underline">
+            個人情報の取扱い
+          </Link>
+        </div>
       </div>
     </main>
   );

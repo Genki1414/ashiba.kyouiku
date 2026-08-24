@@ -21,6 +21,15 @@ type Health = {
   auth?: { required: boolean; signedIn: boolean; enrollment: string };
   /* この版がいつのものか。新しい版が届いているかを見る目印 */
   appVersion?: string;
+  /* 売るために要る設定。空のままだと売れない */
+  sell?: {
+    owners: number;
+    unitPrice: boolean;
+    stripeKey: boolean;
+    stripeHook: boolean;
+    siteUrl: boolean;
+    sellerMissing: string[];
+  };
 };
 
 /* NEXT_PUBLIC_ はビルド時にこのファイルへ直接埋め込まれる。
@@ -164,6 +173,36 @@ export function SetupClient() {
                     <span className="font-mono text-txt">{h.appVersion}</span>
                   </div>
                 )}
+              </div>
+            )}
+
+            {h.sell && (
+              <div className="mt-3 rounded-xl border border-line bg-panel p-4">
+                <div className="mb-2 text-[11px] tracking-[2px] text-dim">売るための設定</div>
+                {(
+                  [
+                    ["運営のメール（OWNER_EMAILS）", h.sell.owners ? `${h.sell.owners}人` : "未設定", h.sell.owners > 0, true],
+                    ["単価（SEAT_UNIT_PRICE）", h.sell.unitPrice ? "設定済み" : "未設定（仮の値）", h.sell.unitPrice, true],
+                    ["本番のURL（NEXT_PUBLIC_SITE_URL）", h.sell.siteUrl ? "設定済み" : "未設定", h.sell.siteUrl, true],
+                    ["特商法の表記", h.sell.sellerMissing.length ? `${h.sell.sellerMissing.join("・")}が空` : "そろっている", h.sell.sellerMissing.length === 0, true],
+                    ["カード払い（STRIPE_SECRET_KEY）", h.sell.stripeKey ? "設定済み" : "未設定（請求書払いのみ）", h.sell.stripeKey, false],
+                    ["カードの入金確認（STRIPE_WEBHOOK_SECRET）", h.sell.stripeHook ? "設定済み" : "未設定", h.sell.stripeHook, false],
+                  ] as [string, string, boolean, boolean][]
+                ).map(([k, v, ok, need]) => (
+                  <div key={k} className="mb-1.5 flex items-baseline gap-2">
+                    <span className={`text-[13px] ${ok ? "text-grn" : need ? "text-org" : "text-dim2"}`}>
+                      {ok ? "✓" : need ? "！" : "−"}
+                    </span>
+                    <span className="min-w-0 flex-1 text-[12.5px] text-dim">{k}</span>
+                    <span className={`shrink-0 text-[12.5px] ${ok ? "text-txt" : need ? "text-org" : "text-dim2"}`}>
+                      {v}
+                    </span>
+                  </div>
+                ))}
+                <div className="mt-2 border-t border-line pt-2 text-[11.5px] leading-relaxed text-dim2">
+                  「！」が残っていると、まだ売れません。カード払いの2つは、
+                  無くても請求書払いで売れます。詳しくは docs/11・docs/12。
+                </div>
               </div>
             )}
 

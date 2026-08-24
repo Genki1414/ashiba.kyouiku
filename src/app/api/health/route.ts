@@ -3,6 +3,8 @@ import { getServiceClient, getDevEnrollmentId } from "@/lib/supabase/server";
 import { currentEnrollment } from "@/lib/enrollment";
 import { currentUser } from "@/lib/supabase/session";
 import { LATEST } from "@/content/changelog";
+import { missingSeller } from "@/content/legal";
+import { ownerEmails } from "@/lib/owner";
 
 /* 接続確認。/setup 画面がこれを見て、何が足りないかを表示する。
    鍵そのものは返さない（設定されているかどうかだけ）。 */
@@ -42,6 +44,20 @@ export async function GET() {
   /* いま動いているのがどの版か。新しい版が届いているかを見る目印 */
   const appVersion = LATEST;
 
+  /* 売るために要る設定。空のままだと売れない（特商法の表示義務・入金の確認） */
+  const sell = {
+    /* 運営の画面を開ける人。0人だと入金の確認ができない */
+    owners: ownerEmails().length,
+    /* 1人あたりの単価。未設定だと仮の値になる */
+    unitPrice: !!process.env.SEAT_UNIT_PRICE,
+    /* カード払い。無くても請求書払いで売れる */
+    stripeKey: !!process.env.STRIPE_SECRET_KEY,
+    stripeHook: !!process.env.STRIPE_WEBHOOK_SECRET,
+    siteUrl: !!(process.env.NEXT_PUBLIC_SITE_URL || process.env.VERCEL_URL),
+    /* 特商法の表記で、まだ空の項目 */
+    sellerMissing: missingSeller(),
+  };
+
   if (!supabase || !enrollmentId) {
     return NextResponse.json({
       mode: "local",
@@ -49,6 +65,7 @@ export async function GET() {
       env,
       auth,
       appVersion,
+      sell,
       message: !supabase
         ? "Supabase 未設定です。視聴記録はブラウザ内（localStorage）に保存されます。"
         : "ログインしていないので、視聴記録はブラウザ内（localStorage）に保存されます。",
@@ -123,6 +140,7 @@ export async function GET() {
     env,
     auth,
     appVersion,
+    sell,
     checks,
     message: ok
       ? "Supabase に接続できています。視聴記録・照合ログ・受験記録はサーバに保存されます。"

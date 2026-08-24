@@ -93,6 +93,38 @@ console.log("OK: 権限が無ければ申込みも入金も通らない");
 }
 console.log("OK: Stripe の知らせは署名が要る");
 
+/* ── 売るために要る表記 ── */
+for (const [url, testid, name] of [
+  ["/legal/tokushoho", "tokushoho", "特定商取引法に基づく表記"],
+  ["/legal/terms", "terms", "利用規約"],
+  ["/legal/privacy", "privacy", "個人情報の取扱い"],
+]) {
+  await page.goto(BASE + url);
+  await dismiss();
+  await page.waitForSelector(`[data-testid="${testid}"]`, { timeout: 8000 });
+  const t = await page.locator(`[data-testid="${testid}"]`).innerText();
+  check(t.replace(/\s+/g, "").length > 200, `${name} に中身がある（${t.length}字）`);
+  check((await page.getByTestId("legal-nav").count()) === 1, `${name} から3ページを行き来できる`);
+}
+await page.screenshot({ path: `${SC}/order-03-legal.png` });
+console.log("OK: 特商法・利用規約・個人情報の3ページ");
+
+/* 未設定の欄は「未設定」と出す。埋め忘れたまま売らないように */
+await page.goto(`${BASE}/legal/tokushoho`);
+await dismiss();
+await page.waitForSelector('[data-testid="tokushoho"]');
+const miss = await page.getByTestId("tokushoho-missing").count();
+console.log(`   （未設定の欄 ${miss}件）`);
+
+/* ホームから読める（登録していない人も買う前に読む） */
+await page.goto(BASE);
+await dismiss();
+await page.waitForSelector("text=実務トレーニング");
+for (const href of ["/legal/tokushoho", "/legal/terms", "/legal/privacy"]) {
+  check((await page.locator(`a[href="${href}"]`).count()) >= 1, `ホームから ${href} へ行ける`);
+}
+console.log("OK: ホームから表記へ行ける");
+
 await browser.close();
 if (ng) { console.error(`\n${ng} 件失敗`); process.exit(1); }
 console.log("ALL OK");

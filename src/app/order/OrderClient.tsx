@@ -220,6 +220,17 @@ export function OrderClient() {
           <br />
           <strong className="text-dim">修了証は入金の確認が済んでから</strong>出せるようになります。
         </div>
+        <div className="mt-3 border-t border-line pt-3 text-[11.5px] leading-relaxed text-dim2">
+          申し込むと{" "}
+          <Link href="/legal/terms" className="text-cyan no-underline">利用規約</Link>{" "}
+          と{" "}
+          <Link href="/legal/privacy" className="text-cyan no-underline">個人情報の取扱い</Link>{" "}
+          に同意したものとします。
+          <br />
+          <Link href="/legal/tokushoho" className="text-cyan no-underline">
+            特定商取引法に基づく表記
+          </Link>
+        </div>
       </div>
 
       {/* これまでの申込み */}

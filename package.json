@@ -17,6 +17,7 @@
     "test:roster": "tsx tests/roster.ts",
     "test:tenant": "tsx tests/tenant.ts",
     "test:pricing": "tsx tests/pricing.ts",
+    "test:legal": "tsx tests/legal.ts",
     "test:admindb": "tsx tests/admin-db.mts",
     "test:record": "tsx tests/record.ts",
     "test:authgate": "tsx tests/auth-gate.ts",

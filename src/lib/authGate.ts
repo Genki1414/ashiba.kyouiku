@@ -8,6 +8,8 @@
      こちらのログインを持っていない人が開く。名前は伏せ字にしてある
    ・Stripe からの入金の知らせ（/api/stripe/webhook）。
      向こうはログインを持たない。代わりに署名を確かめる
+   ・特商法の表記・利用規約・個人情報の扱い（/legal/…）。
+     買う前に、まだ登録していない人が読むもの
    ・画面を動かす部品（/_next/ と、拡張子で分かるもの） */
 
 const OPEN = [
@@ -18,6 +20,7 @@ const OPEN = [
   "/verify",
   "/api/verify-cert",
   "/api/stripe/webhook",
+  "/legal",
   "/manifest.webmanifest",
   "/sw.js",
 ];
