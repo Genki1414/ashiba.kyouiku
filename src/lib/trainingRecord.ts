@@ -1,8 +1,10 @@
 "use client";
 
-/* 実務トレーニングの記録を端末に置く。
-   いまはログインが無く、誰がやっているか分からないので端末内だけ。
-   ログインを入れたら、ここから Supabase へ送るようにする。 */
+/* 実務トレーニングの記録。
+
+   端末に置くのが本体（間違いノートと章の一覧はこちらを見る。圏外でも動く）。
+   あわせてサーバへも1行送る。教育担当者が誰の分か見られるようにするため。
+   サーバが未設定・圏外のときは黙って端末だけで続ける。 */
 
 import {
   addAttempt,
@@ -44,7 +46,31 @@ export function saveAttempt(
 ): Attempt {
   const a = toAttempt(r, { at: opt.at ?? new Date().toISOString(), tutorial: opt.tutorial, sk: opt.sk });
   write(addAttempt(readRecord(), ch, a));
+  void sendAttempt(ch, a);
   return a;
+}
+
+/** サーバにも1行残す。失敗しても画面は止めない（記録より先へ進むことを優先する） */
+async function sendAttempt(ch: ChapterId, a: Attempt) {
+  try {
+    await fetch("/api/training", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        chapter: ch,
+        tutorial: a.tutorial,
+        sk: a.sk,
+        skill: a.skill,
+        score: a.score,
+        sec: a.sec,
+        hints: a.hints,
+        asks: a.asks,
+        errs: a.errs,
+      }),
+    });
+  } catch {
+    /* 圏外・未設定。端末の記録は残っている */
+  }
 }
 
 /** 記録を消す */

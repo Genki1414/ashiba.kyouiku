@@ -7,6 +7,9 @@ import { LATEST } from "@/content/changelog";
 /* 接続確認。/setup 画面がこれを見て、何が足りないかを表示する。
    鍵そのものは返さない（設定されているかどうかだけ）。 */
 
+/** この版のアプリが必要とするデータベースの版（supabase/migrations の最後の番号） */
+const NEED_SCHEMA = "0007";
+
 export async function GET() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
   const hasAnon = !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -89,7 +92,13 @@ export async function GET() {
         "版が読めません。supabase/apply-all.sql を SQL Editor で実行してください",
       );
     }
-    return `${data} まで入っている`;
+    const now = String(data ?? "");
+    if (now < NEED_SCHEMA) {
+      throw new Error(
+        `いま ${now}。${NEED_SCHEMA} が要ります。supabase/apply-all.sql を SQL Editor でもう一度実行してください`,
+      );
+    }
+    return `${now} まで入っている`;
   });
 
   await check("rpc", async () => {

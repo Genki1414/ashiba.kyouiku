@@ -1,9 +1,12 @@
 import Link from "next/link";
 import { getCurriculum } from "@/lib/curriculum";
 import { AccountBar } from "@/components/AccountBar";
+import { currentAdmin } from "@/lib/admin";
 
 export default async function Home() {
   const cur = await getCurriculum();
+  /* 教育担当者にだけ、担当者の画面への入口を出す */
+  const admin = await currentAdmin();
   return (
     <main>
       <div className="tape" />
@@ -39,10 +42,25 @@ export default async function Home() {
           <div className="mt-2 text-[12px] leading-relaxed text-dim">
             作業員を動かして足場を組む。手を間違えると親方に叱られる。
             <br />
-            第1章 段取りと根がらみ（第2章以降は準備中）
+            第1章 段取りと根がらみ／第2章 高所作業／第3章 火打とシート
           </div>
         </Link>
 
+        {admin && (
+          <Link
+            href="/admin"
+            className="block rounded-xl border border-line bg-panel p-5 no-underline"
+            data-testid="home-admin"
+          >
+            <div className="text-[11px] font-extrabold tracking-widest text-grn">教育担当者</div>
+            <div className="mt-1 text-[17px] font-black text-txt">受講の進み具合と修了証</div>
+            <div className="mt-2 text-[12px] leading-relaxed text-dim">
+              誰がどこまで進んだかを見て、修了証を出す。
+              <br />
+              {admin.companyName}
+            </div>
+          </Link>
+        )}
       </div>
     </main>
   );

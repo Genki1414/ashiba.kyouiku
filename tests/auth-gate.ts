@@ -50,6 +50,12 @@ const shut = [
   "/api/verify-log",
   "/api/cert",
   "/edu/cert",
+  "/admin",
+  "/api/admin/summary",
+  "/api/admin/setup",
+  "/api/admin/cert",
+  "/api/admin/role",
+  "/api/training",
 ];
 for (const p of shut) check(!isOpenPath(p), `止める: ${p}`);
 

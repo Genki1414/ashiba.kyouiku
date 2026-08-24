@@ -20,22 +20,80 @@ const ident = (s) => {
   return `"${s}"`;
 };
 
-/** ?col=eq.value 形式のフィルタを WHERE へ */
+const SKIP = ["select", "on_conflict", "columns", "order", "limit", "offset"];
+
+/** in.("a","b") の中身を分ける。PostgREST は特別な字が入るものを " で囲む */
+function splitIn(src) {
+  const out = [];
+  let cur = "";
+  let q = false;
+  for (let i = 0; i < src.length; i++) {
+    const c = src[i];
+    if (q) {
+      if (c === "\\") { cur += src[++i] ?? ""; continue; }
+      if (c === '"') { q = false; continue; }
+      cur += c;
+    } else if (c === '"') q = true;
+    else if (c === ",") { out.push(cur); cur = ""; }
+    else cur += c;
+  }
+  if (cur !== "" || src.endsWith(",")) out.push(cur);
+  return out;
+}
+
+/** ?col=eq.value / is.null / in.(…) 形式のフィルタを WHERE へ */
 function whereFrom(params, start) {
   const parts = [];
   const vals = [];
+  const ph = (v) => { vals.push(v); return `$${start + vals.length - 1}`; };
   for (const [k, v] of params) {
-    if (k === "select" || k === "on_conflict" || k === "columns" || k === "order" || k === "limit") continue;
-    const m = /^eq\.(.*)$/s.exec(v);
-    if (!m) throw new Error(`未対応のフィルタ: ${k}=${v}`);
-    vals.push(m[1]);
-    parts.push(`${ident(k)} = $${start + vals.length - 1}`);
+    if (SKIP.includes(k)) continue;
+    let m;
+    if ((m = /^eq\.(.*)$/s.exec(v))) {
+      parts.push(`${ident(k)} = ${ph(m[1])}`);
+    } else if ((m = /^is\.(.*)$/s.exec(v))) {
+      const t = m[1];
+      if (t !== "null" && t !== "true" && t !== "false") throw new Error(`未対応の is: ${t}`);
+      parts.push(`${ident(k)} is ${t}`);
+    } else if ((m = /^in\.\((.*)\)$/s.exec(v))) {
+      const items = m[1] === "" ? [] : splitIn(m[1]);
+      /* 空の in は「どれにも当たらない」。ここを落とすと全件返ってしまう */
+      parts.push(items.length ? `${ident(k)} in (${items.map(ph).join(", ")})` : "false");
+    } else {
+      throw new Error(`未対応のフィルタ: ${k}=${v}`);
+    }
   }
   return { sql: parts.length ? ` where ${parts.join(" and ")}` : "", vals };
 }
 
+/** ?order=col.asc / col.desc と ?limit=n */
+function tailFrom(u) {
+  let sql = "";
+  const order = u.searchParams.get("order");
+  if (order) {
+    const cols = order.split(",").map((o) => {
+      const [c, ...rest] = o.split(".");
+      const dir = rest.includes("desc") ? "desc" : "asc";
+      const nulls = rest.includes("nullsfirst") ? " nulls first"
+        : rest.includes("nullslast") ? " nulls last" : "";
+      return `${ident(c)} ${dir}${nulls}`;
+    });
+    sql += ` order by ${cols.join(", ")}`;
+  }
+  const limit = u.searchParams.get("limit");
+  if (limit) {
+    if (!/^\d+$/.test(limit)) throw new Error(`不正な limit: ${limit}`);
+    sql += ` limit ${limit}`;
+  }
+  return sql;
+}
+
 const selectList = (sel) =>
   !sel || sel === "*" ? "*" : sel.split(",").map((s) => ident(s.trim())).join(", ");
+
+/* jsonb の列には JSON 文字列で渡す。
+   そのまま配列を渡すと pg が Postgres の配列として送ってしまう */
+const val = (v) => (v !== null && typeof v === "object" ? JSON.stringify(v) : v);
 
 const body = (req) =>
   new Promise((res) => {
@@ -78,7 +136,10 @@ const server = createServer(async (req, res) => {
     if (req.method === "GET" || req.method === "HEAD") {
       const w = whereFrom(params, 1);
       const sel = selectList(u.searchParams.get("select"));
-      const r = await client.query(`select ${sel} from public.${ident(name)}${w.sql}`, w.vals);
+      const r = await client.query(
+        `select ${sel} from public.${ident(name)}${w.sql}${tailFrom(u)}`,
+        w.vals,
+      );
       await client.query("commit");
       const wantCount = (req.headers.prefer ?? "").includes("count=exact");
       const headers = wantCount
@@ -103,7 +164,7 @@ const server = createServer(async (req, res) => {
       const values = list
         .map((_, ri) => `(${cols.map((_, ci) => `$${ri * cols.length + ci + 1}`).join(", ")})`)
         .join(", ");
-      const flat = list.flatMap((row) => cols.map((c) => row[c]));
+      const flat = list.flatMap((row) => cols.map((c) => val(row[c])));
       const onConflict = u.searchParams.get("on_conflict");
       const upsert = onConflict
         ? ` on conflict (${onConflict.split(",").map(ident).join(", ")}) do update set ${cols
@@ -127,7 +188,7 @@ const server = createServer(async (req, res) => {
         `update public.${ident(name)} set ${cols
           .map((c, i) => `${ident(c)} = $${i + 1}`)
           .join(", ")}${w.sql} returning *`,
-        [...cols.map((c) => patch[c]), ...w.vals],
+        [...cols.map((c) => val(patch[c])), ...w.vals],
       );
       await client.query("commit");
       return send(200, r.rows);
