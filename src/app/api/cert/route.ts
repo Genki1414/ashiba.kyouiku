@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase/server";
 import { currentEnrollment } from "@/lib/enrollment";
 import { getCurriculum } from "@/lib/curriculum";
-import { certNo, eligible } from "@/lib/cert";
-import { issuerName, issuerResponsible } from "@/lib/issuer";
+import { eligible } from "@/lib/cert";
+import { issuerOf } from "@/lib/tenant";
 
 /* 修了証。
    GET  … 出せるかどうかと、載せる中身を返す
@@ -80,6 +80,8 @@ async function gather(): Promise<Gathered> {
     .maybeSingle();
 
   const issuedAt = cert?.issued_at ? new Date(cert.issued_at as string) : new Date();
+  /* 番号は発行するまで決まらない（データベースで採る）。
+     先に見せてしまうと、出したものと違う番号を見せることになる */
   return {
     ok: true,
     enrollmentId: who.enrollmentId,
@@ -89,7 +91,7 @@ async function gather(): Promise<Gathered> {
     exam: { score: (exam?.score as number) ?? 0, total: (exam?.total as number) ?? 0 },
     subjects,
     issuedAt,
-    no: (cert?.cert_no as string) ?? certNo(who.enrollmentId, issuedAt),
+    no: (cert?.cert_no as string) ?? "",
     already: (cert?.cert_no as string) ?? null,
   };
 }
@@ -97,6 +99,8 @@ async function gather(): Promise<Gathered> {
 export async function GET() {
   const r = await gather();
   if (!r.ok) return NextResponse.json({ ok: false, reason: r.reason }, { status: r.status });
+  /* 名義は「その人の所属事業者」から取る。外販なので会社ごとに違う */
+  const issuer = await issuerOf(r.enrollmentId);
   return NextResponse.json({
     ok: true,
     issued: !!r.already,
@@ -106,8 +110,8 @@ export async function GET() {
     date: r.issuedAt.toISOString(),
     exam: r.exam,
     subjects: r.subjects,
-    company: issuerName(),
-    responsible: issuerResponsible(),
+    company: issuer.name,
+    responsible: issuer.responsible,
   });
 }
 
@@ -132,12 +136,21 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, issued: true, certNo: r.already });
   }
 
+  /* 番号はデータベースで採る。ぶつからないように通し番号にしてある */
+  const { data: no, error: noErr } = await supabase.rpc("next_cert_no");
+  if (noErr || typeof no !== "string") {
+    return NextResponse.json(
+      { ok: false, reason: "証明番号を採れませんでした。apply-all.sql を流し直してください。" },
+      { status: 500 },
+    );
+  }
+
   const { error } = await supabase
     .from("certificates")
-    .insert({ enrollment_id: r.enrollmentId, cert_no: r.no });
+    .insert({ enrollment_id: r.enrollmentId, cert_no: no });
   if (error) {
     /* 入金前などで断られた場合。理由をそのまま伝える */
     return NextResponse.json({ ok: false, reason: error.message }, { status: 409 });
   }
-  return NextResponse.json({ ok: true, issued: true, certNo: r.no });
+  return NextResponse.json({ ok: true, issued: true, certNo: no });
 }

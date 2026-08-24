@@ -15,6 +15,7 @@
     "test:changelog": "tsx tests/changelog.ts",
     "test:demoscenes": "tsx tests/demo-scenes.ts",
     "test:roster": "tsx tests/roster.ts",
+    "test:tenant": "tsx tests/tenant.ts",
     "test:admindb": "tsx tests/admin-db.mts",
     "test:record": "tsx tests/record.ts",
     "test:authgate": "tsx tests/auth-gate.ts",

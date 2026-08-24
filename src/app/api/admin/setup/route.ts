@@ -1,13 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase/server";
 import { currentUser } from "@/lib/supabase/session";
-import { noAdminYet } from "@/lib/admin";
+import { newJoinCode } from "@/training/joinCode";
 
-/* 最初の教育担当者を決める。
-   まだ担当者が1人も居ないときだけ通す。2人目からは担当者の画面で任命する。
+/* 事業者を新しく作り、作った人が最初の教育担当者になる。
 
-   ここで事業者（会社）も1社作り、まだどこにも属していない人を全員そこへ入れる。
-   ログインした人がばらばらに宙に浮いたままだと、担当者から誰も見えないため。 */
+   この仕組みは外販するので、事業者はいくつでも並ぶ。
+   「まだどこにも属していない人」だけが作れる。
+   すでにどこかに属している人は、その会社の担当者に頼んでもらう
+   （勝手に会社を増やして自社の名簿を分断させないため）。 */
+
+type Body = { company?: string; responsible?: string };
 
 export async function POST(req: NextRequest) {
   const supabase = getServiceClient();
@@ -21,38 +24,53 @@ export async function POST(req: NextRequest) {
   if (!user) {
     return NextResponse.json({ ok: false, reason: "ログインしてください。" }, { status: 401 });
   }
-  if (!(await noAdminYet())) {
+
+  const { data: me } = await supabase
+    .from("users")
+    .select("id, company_id")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (!me) {
+    return NextResponse.json({ ok: false, reason: "受講者の登録が見つかりません。" }, { status: 409 });
+  }
+  if (me.company_id) {
     return NextResponse.json(
-      { ok: false, reason: "すでに教育担当者が居ます。担当者の画面から任命してください。" },
+      { ok: false, reason: "すでに事業者に属しています。担当者にしてもらってください。" },
       { status: 409 },
     );
   }
 
-  const body = (await req.json().catch(() => ({}))) as { company?: string };
+  const body = (await req.json().catch(() => ({}))) as Body;
   const name = (body.company ?? "").trim();
+  const responsible = (body.responsible ?? "").trim();
   if (!name) {
     return NextResponse.json({ ok: false, reason: "事業者名を入れてください。" }, { status: 400 });
   }
 
-  /* すでに1社だけあるならそれを使う。無ければ作る */
-  const { data: exist } = await supabase.from("companies").select("id").limit(2);
-  let companyId = (exist ?? []).length === 1 ? ((exist ?? [])[0].id as string) : null;
-  if (!companyId) {
+  /* 参加コードはまれにぶつかる。ぶつかったら取り直す */
+  let companyId: string | null = null;
+  let code = "";
+  for (let i = 0; i < 5 && !companyId; i++) {
+    code = newJoinCode();
     const { data, error } = await supabase
       .from("companies")
-      .insert({ name })
+      .insert({
+        name,
+        responsible_name: responsible || null,
+        join_code: code,
+        created_by: user.id,
+      })
       .select("id")
       .single();
-    if (error || !data) {
-      return NextResponse.json({ ok: false, reason: error?.message ?? "作れません" }, { status: 500 });
+    if (data?.id) companyId = data.id as string;
+    else if (error && !`${error.message}`.includes("join_code")) {
+      return NextResponse.json({ ok: false, reason: error.message }, { status: 500 });
     }
-    companyId = data.id as string;
-  } else {
-    await supabase.from("companies").update({ name }).eq("id", companyId);
+  }
+  if (!companyId) {
+    return NextResponse.json({ ok: false, reason: "作れませんでした。もう一度お試しください。" }, { status: 500 });
   }
 
-  /* まだどこにも属していない人を、この会社へ入れる */
-  await supabase.from("users").update({ company_id: companyId }).is("company_id", null);
   const { error } = await supabase
     .from("users")
     .update({ role: "admin", company_id: companyId })
@@ -60,5 +78,5 @@ export async function POST(req: NextRequest) {
   if (error) {
     return NextResponse.json({ ok: false, reason: error.message }, { status: 500 });
   }
-  return NextResponse.json({ ok: true, company: name });
+  return NextResponse.json({ ok: true, company: name, joinCode: code });
 }

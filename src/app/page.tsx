@@ -1,12 +1,10 @@
 import Link from "next/link";
 import { getCurriculum } from "@/lib/curriculum";
 import { AccountBar } from "@/components/AccountBar";
-import { currentAdmin } from "@/lib/admin";
+import { HomeCards } from "@/components/HomeCards";
 
 export default async function Home() {
   const cur = await getCurriculum();
-  /* 教育担当者にだけ、担当者の画面への入口を出す */
-  const admin = await currentAdmin();
   return (
     <main>
       <div className="tape" />
@@ -46,21 +44,8 @@ export default async function Home() {
           </div>
         </Link>
 
-        {admin && (
-          <Link
-            href="/admin"
-            className="block rounded-xl border border-line bg-panel p-5 no-underline"
-            data-testid="home-admin"
-          >
-            <div className="text-[11px] font-extrabold tracking-widest text-grn">教育担当者</div>
-            <div className="mt-1 text-[17px] font-black text-txt">受講の進み具合と修了証</div>
-            <div className="mt-2 text-[12px] leading-relaxed text-dim">
-              誰がどこまで進んだかを見て、修了証を出す。
-              <br />
-              {admin.companyName}
-            </div>
-          </Link>
-        )}
+        {/* 立場によって出すもの（参加コード／教育担当者）*/}
+        <HomeCards />
       </div>
     </main>
   );

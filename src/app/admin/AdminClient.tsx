@@ -17,7 +17,14 @@ import type { LearnerRow } from "@/training/roster";
 type Totals = { people: number; done: number; issued: number; waiting: number };
 
 type Loaded =
-  | { kind: "ok"; company: string; rows: LearnerRow[]; totals: Totals }
+  | {
+      kind: "ok";
+      company: string;
+      responsible: string;
+      joinCode: string;
+      rows: LearnerRow[];
+      totals: Totals;
+    }
   | { kind: "setup"; reason: string }
   | { kind: "ng"; reason: string; signIn?: boolean };
 
@@ -33,13 +40,24 @@ export function AdminClient() {
   const [busy, setBusy] = useState<string | null>(null);
   const [note, setNote] = useState<string>("");
   const [company, setCompany] = useState("");
+  const [resp, setResp] = useState("");
+  const [edit, setEdit] = useState(false);
 
   const load = useCallback(async () => {
     try {
       const res = await fetch("/api/admin/summary", { cache: "no-store" });
       const j = await res.json();
       if (res.ok && j.ok) {
-        setSt({ kind: "ok", company: j.company ?? "", rows: j.rows ?? [], totals: j.totals });
+        setSt({
+          kind: "ok",
+          company: j.company ?? "",
+          responsible: j.responsible ?? "",
+          joinCode: j.joinCode ?? "",
+          rows: j.rows ?? [],
+          totals: j.totals,
+        });
+        setCompany(j.company ?? "");
+        setResp(j.responsible ?? "");
         return;
       }
       if (j.canSetup) {
@@ -79,11 +97,12 @@ export function AdminClient() {
           <Link href="/" className="backlink text-[13px] text-dim no-underline">
             ← ホーム
           </Link>
-          <h1 className="mt-2 text-[18px] font-black">教育担当者を決める</h1>
+          <h1 className="mt-2 text-[18px] font-black">事業者を作る</h1>
           <p className="mt-1 text-[12px] leading-relaxed text-dim">
-            まだ教育担当者が居ません。いまログインしている人が最初の担当者になります。
+            この教材は事業者ごとに使います。いまログインしている人が、
+            その事業者の最初の教育担当者になります。
             <br />
-            事業者名は修了証には出ません（修了証の名義は設定で決めます）。
+            ここで入れた名前が、そのまま<strong className="text-txt">修了証の名義</strong>になります。
           </p>
         </div>
         <div className="mx-5 rounded-xl border border-line bg-panel p-4">
@@ -95,17 +114,28 @@ export function AdminClient() {
             className="mb-3 w-full rounded-lg border border-line bg-bg px-3 py-2.5 text-[14px]"
             data-testid="admin-company"
           />
+          <label className="mb-1 block text-[11px] tracking-[2px] text-dim">
+            教育実施責任者（あとからでも可）
+          </label>
+          <input
+            value={resp}
+            onChange={(e) => setResp(e.target.value)}
+            placeholder="山田 太郎"
+            className="mb-3 w-full rounded-lg border border-line bg-bg px-3 py-2.5 text-[14px]"
+            data-testid="admin-responsible"
+          />
           <Btn
             tone="y"
             dis={!company.trim()}
             testid="admin-setup"
             onClick={async () => {
               setBusy("setup");
-              if (await post("/api/admin/setup", { company: company.trim() })) await load();
+              if (await post("/api/admin/setup", { company: company.trim(), responsible: resp.trim() }))
+                await load();
               setBusy(null);
             }}
           >
-            {busy === "setup" ? "決めています…" : "この事業者で始める"}
+            {busy === "setup" ? "作っています…" : "この事業者で始める"}
           </Btn>
           {note && <div className="mt-3 text-[12px] text-red">{note}</div>}
         </div>
@@ -172,11 +202,97 @@ export function AdminClient() {
         ))}
       </div>
 
+      {/* 修了証の名義と、受講者に配る参加コード */}
+      <div className="mx-5 mt-3 rounded-xl border border-line bg-panel p-4">
+        <div className="mb-2 text-[11px] tracking-[2px] text-dim">修了証の名義</div>
+        {edit ? (
+          <>
+            <input
+              value={company}
+              onChange={(e) => setCompany(e.target.value)}
+              className="mb-2 w-full rounded-lg border border-line bg-bg px-3 py-2 text-[13.5px]"
+              data-testid="admin-company"
+            />
+            <input
+              value={resp}
+              onChange={(e) => setResp(e.target.value)}
+              placeholder="教育実施責任者"
+              className="mb-2 w-full rounded-lg border border-line bg-bg px-3 py-2 text-[13.5px]"
+              data-testid="admin-responsible"
+            />
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                className="rounded-lg border border-line p-2 text-[12px] text-dim"
+                onClick={() => { setCompany(st.company); setResp(st.responsible); setEdit(false); }}
+              >
+                やめる
+              </button>
+              <Btn
+                tone="y"
+                dis={!company.trim()}
+                testid="admin-company-save"
+                onClick={async () => {
+                  setBusy("company");
+                  if (await post("/api/admin/company", { name: company.trim(), responsible: resp.trim() })) {
+                    setEdit(false);
+                    await load();
+                  }
+                  setBusy(null);
+                }}
+              >
+                {busy === "company" ? "直しています…" : "直す"}
+              </Btn>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="text-[14px] font-black">{st.company}</div>
+            <div className="mt-0.5 text-[12.5px] text-dim">
+              教育実施責任者　
+              {st.responsible ? (
+                <span className="text-txt">{st.responsible}</span>
+              ) : (
+                <span className="text-yel">未設定（修了証は空欄で出ます）</span>
+              )}
+            </div>
+            <button
+              className="mt-2 w-full rounded-lg border border-line p-1.5 text-[11.5px] text-dim"
+              data-testid="admin-company-edit"
+              onClick={() => setEdit(true)}
+            >
+              名義を直す
+            </button>
+          </>
+        )}
+
+        <div className="mt-4 border-t border-line pt-3">
+          <div className="mb-1 text-[11px] tracking-[2px] text-dim">受講者に配る参加コード</div>
+          <div className="font-mono text-[20px] font-black tracking-[4px] text-yel" data-testid="admin-joincode">
+            {st.joinCode || "—"}
+          </div>
+          <div className="mt-1 text-[11.5px] leading-relaxed text-dim">
+            受講する人に登録してもらい、このコードを入れてもらうと名簿に並びます。
+            コードが漏れたら作り直してください（前のコードは使えなくなります）。
+          </div>
+          <button
+            className="mt-2 w-full rounded-lg border border-line p-1.5 text-[11.5px] text-dim2"
+            data-testid="admin-newcode"
+            onClick={async () => {
+              setBusy("code");
+              if (await post("/api/admin/company", { newCode: true })) await load();
+              setBusy(null);
+            }}
+          >
+            {busy === "code" ? "作り直しています…" : "参加コードを作り直す"}
+          </button>
+        </div>
+      </div>
+
       {note && <div className="mx-5 mt-3 text-[12px] text-red">{note}</div>}
 
       {!rows.length && (
         <p className="mx-5 mt-5 text-[13px] leading-relaxed text-dim">
-          まだ受講者が居ません。受講する人にログインしてもらうと、ここに出ます。
+          まだ受講者が居ません。受講する人に登録してもらい、上の参加コードを入れてもらうと、ここに並びます。
         </p>
       )}
 

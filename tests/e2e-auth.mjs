@@ -18,12 +18,14 @@ const check = (c, m) => { if (!c) { console.error("NG:", m); ng++; } };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 /* Supabase を設定した状態のサーバを立てる。
-   他の試験と .next がぶつからないよう、置き場所を分ける */
+   他の試験と組み立て物がぶつからないよう、置き場所（distDir）を分ける。
+   同じ .next を2台で共有すると片方が壊れ、あとの試験が落ちる。 */
 const server = spawn("npx", ["next", "dev", "-p", String(PORT)], {
   stdio: "ignore",
   detached: true,
   env: {
     ...process.env,
+    NEXT_DIST_DIR: ".next-auth-test",
     NEXT_PUBLIC_SUPABASE_URL: "https://fake-abcdefgh.supabase.co",
     NEXT_PUBLIC_SUPABASE_ANON_KEY: "fake-anon-key-for-test",
   },

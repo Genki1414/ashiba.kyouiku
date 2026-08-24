@@ -73,6 +73,13 @@ await raw.query(
     [PEOPLE],
   );
   check(made.rowCount === 4, `登録すると受講者の行ができる（いま ${made.rowCount}）`);
+  /* 外販なので、登録しただけの人はどこの事業者にも属さない。
+     属していないと、修了証をどの会社の名義で出すか決まらない */
+  const stray = await raw.query(
+    "select count(*)::int as n from public.users where id = any($1::uuid[]) and company_id is not null",
+    [PEOPLE],
+  );
+  check(stray.rows[0].n === 0, `登録しただけでは事業者に入らない（いま ${stray.rows[0].n}人）`);
   check(
     made.rows.some((r) => r.name === "鈴木"),
     "登録のときの氏名がそのまま入る",
@@ -83,7 +90,26 @@ await raw.query(
   );
 }
 
-await must("事業者を作る", db.from("companies").insert({ id: CO, name: "点検用工業" }).select("id"));
+await must(
+  "事業者を作る（名義と参加コードごと）",
+  db.from("companies").insert({
+    id: CO,
+    name: "点検用工業",
+    responsible_name: "点検 太郎",
+    join_code: "ABCD2345",
+    created_by: U1,
+  }).select("id"),
+);
+{
+  /* 参加コードは事業者ごとに1つ。他社と同じにはできない */
+  const { error } = await db.from("companies").insert({ name: "よその会社", join_code: "ABCD2345" });
+  check(!!error, "同じ参加コードは2社で使えない");
+}
+{
+  /* 受講者はコードで自分の事業者を見つける */
+  const { data } = await db.from("companies").select("id, name").eq("join_code", "ABCD2345").maybeSingle();
+  check(data?.id === CO, "参加コードから事業者を引ける");
+}
 await must(
   "受講者を会社に入れる",
   db.from("users").update({ company_id: CO }).in("id", [U1, U2, U3]).select("id"),
@@ -192,6 +218,31 @@ check(tanaka.lessonsPassed === 3 && !tanaka.canIssue, "田中はまだ出せな�
 check(aoki.admin && aoki.enrollmentId === null, "担当者は受講が無くても並ぶ");
 check(rosterTotals(rows).waiting === 1, "未発行は1人");
 
+/* ── 修了証の名義は、その人の所属事業者から取る（外販なので会社ごとに違う）── */
+{
+  const en2 = await must("受講の持ち主", db.from("enrollments").select("user_id").eq("id", E2).maybeSingle());
+  const owner2 = await must("持ち主の所属", db.from("users").select("company_id").eq("id", en2!.user_id as string).maybeSingle());
+  const issuer = await must(
+    "所属事業者の名義を引ける",
+    db.from("companies").select("name, responsible_name").eq("id", owner2!.company_id as string).maybeSingle(),
+  );
+  check(issuer?.name === "点検用工業", `事業者名（${issuer?.name}）`);
+  check(issuer?.responsible_name === "点検 太郎", `教育実施責任者（${issuer?.responsible_name}）`);
+}
+
+/* ── 証明番号は、ぶつからない通し番号 ── */
+{
+  const nos = new Set<string>();
+  for (let i = 0; i < 5; i++) {
+    const { data, error } = await db.rpc("next_cert_no");
+    if (error) { ng++; console.error("NG: 証明番号を採れない", error.message); break; }
+    nos.add(String(data));
+  }
+  check(nos.size === 5, `5回採って全部違う（いま ${nos.size}通り）`);
+  const one = [...nos][0] ?? "";
+  check(/^AT-\d{6}-\d{5}$/.test(one), `形が合っている（${one}）`);
+}
+
 /* ── /api/admin/cert と同じ問い合わせ ── */
 const en = await must("受講の持ち主を引ける", db.from("enrollments").select("id, user_id").eq("id", E2).maybeSingle());
 const owner = await must("持ち主の所属を引ける", db.from("users").select("company_id").eq("id", en!.user_id as string).maybeSingle());
@@ -203,21 +254,24 @@ const passedExam = await must(
 );
 check(!!passedExam, "合格の記録が見つかる");
 
+const certNo1 = String((await db.rpc("next_cert_no")).data);
 await must(
   "修了証を出せる",
   db.from("certificates").insert({
-    enrollment_id: E2, cert_no: "2601-9001", issued_at: "2026-01-05T00:00:00Z", issued_by: U1,
+    enrollment_id: E2, cert_no: certNo1, issued_at: "2026-01-05T00:00:00Z", issued_by: U1,
   }).select("id"),
 );
 {
-  const { error } = await db.from("certificates").insert({ enrollment_id: E2, cert_no: "2601-9002" });
+  const { error } = await db.from("certificates").insert({
+    enrollment_id: E2, cert_no: String((await db.rpc("next_cert_no")).data),
+  });
   check(!!error, "有効な修了証は1受講に1枚まで");
 }
 const live = await must(
   "有効な修了証だけ引ける",
   db.from("certificates").select("cert_no").eq("enrollment_id", E2).is("revoked_at", null).maybeSingle(),
 );
-check(live?.cert_no === "2601-9001", "出した1枚が読める");
+check(live?.cert_no === certNo1, "出した1枚が読める");
 
 await must(
   "取り消せる",
@@ -230,7 +284,9 @@ const kept = await db.from("certificates").select("cert_no").eq("enrollment_id",
 check((kept.data ?? []).length === 1, "取り消しても記録は残る");
 await must(
   "取り消したあとは出し直せる",
-  db.from("certificates").insert({ enrollment_id: E2, cert_no: "2601-9003" }).select("id"),
+  db.from("certificates").insert({
+    enrollment_id: E2, cert_no: String((await db.rpc("next_cert_no")).data),
+  }).select("id"),
 );
 
 /* ── /api/admin/role と同じ問い合わせ ── */
@@ -240,12 +296,19 @@ check((admins.count ?? 0) === 2, `担当者が2人になった（いま ${admins
 await must("戻せる", db.from("users").update({ role: "learner" }).eq("id", U2).select("id"));
 
 /* ── 所属の無い人をまとめて入れる（最初の1人を決めるとき）── */
-/* 事業者がちょうど1社のときは、登録した時点でトリガがそこへ入れる。
-   2社以上あると決められないので空のまま。その人を担当者がまとめて入れる */
-await raw.query("update public.users set company_id = null where id = $1", [ORPHAN]);
-await must("まとめて所属させる", db.from("users").update({ company_id: CO }).is("company_id", null).select("id"));
-const fixed = await db.from("users").select("company_id").eq("id", ORPHAN).maybeSingle();
-check(fixed.data?.company_id === CO, "所属の無い人が会社に入る");
+/* ── 参加コードで事業者に入る（/api/join と同じ手順）── */
+{
+  const co = await must(
+    "コードから事業者を探す",
+    db.from("companies").select("id").eq("join_code", "ABCD2345").maybeSingle(),
+  );
+  await must(
+    "その人を入れる",
+    db.from("users").update({ company_id: co!.id as string }).eq("id", ORPHAN).select("id"),
+  );
+  const fixed = await db.from("users").select("company_id").eq("id", ORPHAN).maybeSingle();
+  check(fixed.data?.company_id === CO, "参加コードを入れた人が名簿に入る");
+}
 
 await raw.end();
 

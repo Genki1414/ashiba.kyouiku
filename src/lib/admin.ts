@@ -11,6 +11,10 @@ export type Admin = {
   userId: string;
   companyId: string;
   companyName: string;
+  /** 修了証に載る教育実施責任者。決めていなければ空 */
+  responsible: string;
+  /** 受講者を自社へ入れるための合言葉 */
+  joinCode: string;
 };
 
 /** いまログインしている人が担当者なら、その人と事業者を返す。違えば null */
@@ -30,23 +34,29 @@ export async function currentAdmin(): Promise<Admin | null> {
   const companyId = data.company_id as string;
   const { data: company } = await supabase
     .from("companies")
-    .select("name")
+    .select("name, responsible_name, join_code")
     .eq("id", companyId)
     .maybeSingle();
   return {
     userId: user.id,
     companyId,
     companyName: (company?.name as string) ?? "",
+    responsible: (company?.responsible_name as string) ?? "",
+    joinCode: (company?.join_code as string) ?? "",
   };
 }
 
-/** まだ担当者が1人も居ないか。最初の1人を決めるときだけ通す */
-export async function noAdminYet(): Promise<boolean> {
+/** その人がまだどこの事業者にも属していないか。
+    属していなければ、自分の事業者を作れる（＝新しく使い始める人） */
+export async function canCreateCompany(): Promise<boolean> {
   const supabase = getServiceClient();
   if (!supabase) return false;
-  const { count } = await supabase
+  const user = await currentUser();
+  if (!user) return false;
+  const { data } = await supabase
     .from("users")
-    .select("id", { count: "exact", head: true })
-    .eq("role", "admin");
-  return (count ?? 0) === 0;
+    .select("company_id")
+    .eq("id", user.id)
+    .maybeSingle();
+  return !!data && !data.company_id;
 }

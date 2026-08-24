@@ -138,10 +138,29 @@ export function CertClient() {
       </Link>
       <h1 className="mt-2 text-[19px] font-black">修了証</h1>
       <p className="mt-1.5 text-[12.5px] leading-relaxed text-dim">
-        証明番号 <span className="font-mono text-txt">{info.certNo}</span>
-        <br />
-        {info.issued ? "発行済みです。" : "内容を確かめてから発行してください。"}
+        {info.certNo ? (
+          <>
+            証明番号 <span className="font-mono text-txt">{info.certNo}</span>
+            <br />
+          </>
+        ) : null}
+        {info.issued
+          ? "発行済みです。"
+          : "内容を確かめてから発行してください。証明番号は発行したときに決まります。"}
       </p>
+
+      {/* 名義が決まっていないと、空欄のまま刷ることになる */}
+      {!info.company && (
+        <div className="mt-3 rounded-lg border border-yel bg-[#1A1F14] px-3.5 py-3 text-[12.5px] leading-relaxed text-yel">
+          事業者が決まっていないので、修了証の名義が空欄になります。
+          <br />
+          会社の教育担当者から参加コードをもらって{" "}
+          <Link href="/join" className="underline">
+            こちらで入れて
+          </Link>
+          ください。空欄のまま刷って手で書き入れても構いません。
+        </div>
+      )}
 
       {/* 氏名と生年月日はここで直せる。修了証に載る名前だから */}
       <div className="mt-4 grid gap-3">

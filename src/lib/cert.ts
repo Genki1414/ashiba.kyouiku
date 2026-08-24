@@ -27,24 +27,17 @@ export function eligible(r: Requirement): Eligibility {
 }
 
 /* ── 証明番号 ──────────────────────────────
-   AT-西暦月-下4桁。あとから照会できるように、
-   受講ごとに1つだけ決まる形にしてある（同じ受講なら何度作っても同じ番号）。 */
+   AT-西暦月-通し番号。番号はデータベースで採る（0008 の next_cert_no）。
 
-/** 受講のIDから、変わらない4桁を作る */
-function digits(seed: string): string {
-  let h = 5381;
-  for (let i = 0; i < seed.length; i++) h = ((h << 5) + h + seed.charCodeAt(i)) >>> 0;
-  return String(h % 10000).padStart(4, "0");
-}
+   もとは受講IDから4桁を作っていたが、この仕組みは外販するので
+   受講の数がひと月で1万を超えると必ずぶつかる。ぶつかると
+   cert_no の一意制約に当たって、修了証が発行できなくなる。
+   採番をデータベースに任せて、ぶつからないようにした。
 
-export function certNo(enrollmentId: string, issuedAt: Date): string {
-  const y = issuedAt.getFullYear();
-  const m = String(issuedAt.getMonth() + 1).padStart(2, "0");
-  return `AT-${y}${m}-${digits(enrollmentId)}`;
-}
+   古い4桁の番号も照会できるように、桁は幅を持たせてある。 */
 
 /** 証明番号の形が合っているか（照会の入り口で見る） */
-export const CERT_NO_RE = /^AT-\d{6}-\d{4}$/;
+export const CERT_NO_RE = /^AT-\d{6}-\d{4,8}$/;
 export const isCertNo = (s: string): boolean => CERT_NO_RE.test(s.trim().toUpperCase());
 
 /** 修了証に載る中身 */

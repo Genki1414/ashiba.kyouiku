@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase/server";
 import { currentAdmin } from "@/lib/admin";
 import { getCurriculum } from "@/lib/curriculum";
-import { certNo, eligible } from "@/lib/cert";
+import { eligible } from "@/lib/cert";
 
 /* 教育担当者が修了証を出す／取り消す。
 
@@ -86,12 +86,18 @@ export async function POST(req: NextRequest) {
   const v = eligible({ lessons, lessonsPassed, examPassed: !!exam });
   if (!v.ok) return NextResponse.json({ ok: false, reason: v.reason }, { status: 409 });
 
-  const at = new Date();
-  const no = certNo(id, at);
+  /* 番号はデータベースで採る。ぶつからないように通し番号にしてある */
+  const { data: no, error: noErr } = await supabase.rpc("next_cert_no");
+  if (noErr || typeof no !== "string") {
+    return NextResponse.json(
+      { ok: false, reason: "証明番号を採れませんでした。apply-all.sql を流し直してください。" },
+      { status: 500 },
+    );
+  }
   const { error } = await supabase.from("certificates").insert({
     enrollment_id: id,
     cert_no: no,
-    issued_at: at.toISOString(),
+    issued_at: new Date().toISOString(),
     issued_by: admin.userId,
   });
   if (error) return NextResponse.json({ ok: false, reason: error.message }, { status: 409 });

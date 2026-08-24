@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase/server";
-import { currentAdmin, noAdminYet } from "@/lib/admin";
+import { canCreateCompany, currentAdmin } from "@/lib/admin";
 import { currentUser } from "@/lib/supabase/session";
 import { getCurriculum } from "@/lib/curriculum";
 import { buildRoster, rosterTotals } from "@/training/roster";
@@ -19,17 +19,17 @@ export async function GET() {
 
   const admin = await currentAdmin();
   if (!admin) {
-    /* まだ担当者が1人も居ないときは、最初の1人を決める案内を出す */
-    const first = await noAdminYet();
+    /* まだどこの事業者にも属していない人は、自分の事業者を作れる */
+    const fresh = await canCreateCompany();
     const user = await currentUser();
     return NextResponse.json(
       {
         ok: false,
         mode: "supabase",
-        canSetup: first && !!user,
+        canSetup: fresh,
         signedIn: !!user,
-        reason: first
-          ? "まだ教育担当者が決まっていません。"
+        reason: fresh
+          ? "まだ事業者が決まっていません。"
           : "教育担当者だけが見られる画面です。",
       },
       { status: 403 },
@@ -48,6 +48,8 @@ export async function GET() {
     return NextResponse.json({
       ok: true,
       company: admin.companyName,
+      responsible: admin.responsible,
+      joinCode: admin.joinCode,
       rows: [],
       totals: rosterTotals([]),
       lessonsTotal,
@@ -90,6 +92,8 @@ export async function GET() {
   return NextResponse.json({
     ok: true,
     company: admin.companyName,
+    responsible: admin.responsible,
+    joinCode: admin.joinCode,
     rows,
     totals: rosterTotals(rows),
     lessonsTotal,
