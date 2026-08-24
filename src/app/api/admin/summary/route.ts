@@ -48,7 +48,6 @@ export async function GET() {
     return NextResponse.json({
       ok: true,
       company: admin.companyName,
-      responsible: admin.responsible,
       joinCode: admin.joinCode,
       rows: [],
       totals: rosterTotals([]),
@@ -92,7 +91,6 @@ export async function GET() {
   return NextResponse.json({
     ok: true,
     company: admin.companyName,
-    responsible: admin.responsible,
     joinCode: admin.joinCode,
     rows,
     totals: rosterTotals(rows),

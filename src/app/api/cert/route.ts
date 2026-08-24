@@ -3,7 +3,7 @@ import { getServiceClient } from "@/lib/supabase/server";
 import { currentEnrollment } from "@/lib/enrollment";
 import { getCurriculum } from "@/lib/curriculum";
 import { eligible } from "@/lib/cert";
-import { issuerOf } from "@/lib/tenant";
+import { issuerName, issuerResponsible } from "@/lib/issuer";
 
 /* 修了証。
    GET  … 出せるかどうかと、載せる中身を返す
@@ -99,8 +99,6 @@ async function gather(): Promise<Gathered> {
 export async function GET() {
   const r = await gather();
   if (!r.ok) return NextResponse.json({ ok: false, reason: r.reason }, { status: r.status });
-  /* 名義は「その人の所属事業者」から取る。外販なので会社ごとに違う */
-  const issuer = await issuerOf(r.enrollmentId);
   return NextResponse.json({
     ok: true,
     issued: !!r.already,
@@ -110,8 +108,10 @@ export async function GET() {
     date: r.issuedAt.toISOString(),
     exam: r.exam,
     subjects: r.subjects,
-    company: issuer.name,
-    responsible: issuer.responsible,
+    /* 名義は決まっている。教育を実施したのは東北三上機材。
+       受講者がどの会社の人かは、名簿の分け方であって名義ではない */
+    company: issuerName(),
+    responsible: issuerResponsible(),
   });
 }
 

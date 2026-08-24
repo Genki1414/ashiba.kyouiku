@@ -54,7 +54,7 @@ if (has.ng) {
 /* ── 中身は API で守る。画面の出し分けに頼らない ── */
 for (const [url, body] of [
   ["/api/admin/summary", null],
-  ["/api/admin/setup", { company: "勝手に作った会社", responsible: "誰か" }],
+  ["/api/admin/setup", { company: "勝手に作った会社" }],
   ["/api/admin/company", { name: "勝手に変えた社名" }],
   ["/api/join", { code: "ABCD2345" }],
   ["/api/admin/cert", { enrollmentId: "00000000-0000-0000-0000-000000000000", action: "issue" }],

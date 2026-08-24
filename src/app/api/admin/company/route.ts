@@ -4,10 +4,10 @@ import { currentAdmin } from "@/lib/admin";
 import { newJoinCode } from "@/training/joinCode";
 
 /* 事業者の設定。教育担当者だけ。
-   ・修了証に載せる名義（事業者名・教育実施責任者）
+   ・事業者名（名簿を分ける単位。修了証の名義ではない）
    ・参加コードの配り直し（漏れたときに新しくする） */
 
-type Body = { name?: string; responsible?: string; newCode?: boolean };
+type Body = { name?: string; newCode?: boolean };
 
 export async function POST(req: NextRequest) {
   const supabase = getServiceClient();
@@ -29,10 +29,6 @@ export async function POST(req: NextRequest) {
     }
     patch.name = v;
   }
-  if (typeof body.responsible === "string") {
-    patch.responsible_name = body.responsible.trim() || null;
-  }
-
   if (body.newCode) {
     /* まれにぶつかる。ぶつかったら取り直す */
     for (let i = 0; i < 5; i++) {

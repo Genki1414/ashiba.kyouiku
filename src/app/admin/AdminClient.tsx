@@ -17,14 +17,7 @@ import type { LearnerRow } from "@/training/roster";
 type Totals = { people: number; done: number; issued: number; waiting: number };
 
 type Loaded =
-  | {
-      kind: "ok";
-      company: string;
-      responsible: string;
-      joinCode: string;
-      rows: LearnerRow[];
-      totals: Totals;
-    }
+  | { kind: "ok"; company: string; joinCode: string; rows: LearnerRow[]; totals: Totals }
   | { kind: "setup"; reason: string }
   | { kind: "ng"; reason: string; signIn?: boolean };
 
@@ -40,7 +33,6 @@ export function AdminClient() {
   const [busy, setBusy] = useState<string | null>(null);
   const [note, setNote] = useState<string>("");
   const [company, setCompany] = useState("");
-  const [resp, setResp] = useState("");
   const [edit, setEdit] = useState(false);
 
   const load = useCallback(async () => {
@@ -51,13 +43,11 @@ export function AdminClient() {
         setSt({
           kind: "ok",
           company: j.company ?? "",
-          responsible: j.responsible ?? "",
           joinCode: j.joinCode ?? "",
           rows: j.rows ?? [],
           totals: j.totals,
         });
         setCompany(j.company ?? "");
-        setResp(j.responsible ?? "");
         return;
       }
       if (j.canSetup) {
@@ -102,7 +92,8 @@ export function AdminClient() {
             この教材は事業者ごとに使います。いまログインしている人が、
             その事業者の最初の教育担当者になります。
             <br />
-            ここで入れた名前が、そのまま<strong className="text-txt">修了証の名義</strong>になります。
+            事業者名は<strong className="text-txt">名簿を分けるため</strong>のものです。
+            修了証の名義（東北三上機材株式会社）とは別です。
           </p>
         </div>
         <div className="mx-5 rounded-xl border border-line bg-panel p-4">
@@ -114,24 +105,13 @@ export function AdminClient() {
             className="mb-3 w-full rounded-lg border border-line bg-bg px-3 py-2.5 text-[14px]"
             data-testid="admin-company"
           />
-          <label className="mb-1 block text-[11px] tracking-[2px] text-dim">
-            教育実施責任者（あとからでも可）
-          </label>
-          <input
-            value={resp}
-            onChange={(e) => setResp(e.target.value)}
-            placeholder="山田 太郎"
-            className="mb-3 w-full rounded-lg border border-line bg-bg px-3 py-2.5 text-[14px]"
-            data-testid="admin-responsible"
-          />
           <Btn
             tone="y"
             dis={!company.trim()}
             testid="admin-setup"
             onClick={async () => {
               setBusy("setup");
-              if (await post("/api/admin/setup", { company: company.trim(), responsible: resp.trim() }))
-                await load();
+              if (await post("/api/admin/setup", { company: company.trim() })) await load();
               setBusy(null);
             }}
           >
@@ -202,9 +182,9 @@ export function AdminClient() {
         ))}
       </div>
 
-      {/* 修了証の名義と、受講者に配る参加コード */}
+      {/* 事業者の名前と、受講者に配る参加コード */}
       <div className="mx-5 mt-3 rounded-xl border border-line bg-panel p-4">
-        <div className="mb-2 text-[11px] tracking-[2px] text-dim">修了証の名義</div>
+        <div className="mb-2 text-[11px] tracking-[2px] text-dim">事業者（名簿の分け方）</div>
         {edit ? (
           <>
             <input
@@ -213,17 +193,10 @@ export function AdminClient() {
               className="mb-2 w-full rounded-lg border border-line bg-bg px-3 py-2 text-[13.5px]"
               data-testid="admin-company"
             />
-            <input
-              value={resp}
-              onChange={(e) => setResp(e.target.value)}
-              placeholder="教育実施責任者"
-              className="mb-2 w-full rounded-lg border border-line bg-bg px-3 py-2 text-[13.5px]"
-              data-testid="admin-responsible"
-            />
             <div className="grid grid-cols-2 gap-2">
               <button
                 className="rounded-lg border border-line p-2 text-[12px] text-dim"
-                onClick={() => { setCompany(st.company); setResp(st.responsible); setEdit(false); }}
+                onClick={() => { setCompany(st.company); setEdit(false); }}
               >
                 やめる
               </button>
@@ -233,7 +206,7 @@ export function AdminClient() {
                 testid="admin-company-save"
                 onClick={async () => {
                   setBusy("company");
-                  if (await post("/api/admin/company", { name: company.trim(), responsible: resp.trim() })) {
+                  if (await post("/api/admin/company", { name: company.trim() })) {
                     setEdit(false);
                     await load();
                   }
@@ -247,21 +220,18 @@ export function AdminClient() {
         ) : (
           <>
             <div className="text-[14px] font-black">{st.company}</div>
-            <div className="mt-0.5 text-[12.5px] text-dim">
-              教育実施責任者　
-              {st.responsible ? (
-                <span className="text-txt">{st.responsible}</span>
-              ) : (
-                <span className="text-yel">未設定（修了証は空欄で出ます）</span>
-              )}
-            </div>
             <button
               className="mt-2 w-full rounded-lg border border-line p-1.5 text-[11.5px] text-dim"
               data-testid="admin-company-edit"
               onClick={() => setEdit(true)}
             >
-              名義を直す
+              事業者名を直す
             </button>
+            <div className="mt-2 text-[11.5px] leading-relaxed text-dim2">
+              修了証の名義は{" "}
+              <span className="text-dim">東北三上機材株式会社／中川元基</span>{" "}
+              で決まっています。ここの名前は修了証には出ません。
+            </div>
           </>
         )}
 

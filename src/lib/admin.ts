@@ -11,8 +11,6 @@ export type Admin = {
   userId: string;
   companyId: string;
   companyName: string;
-  /** 修了証に載る教育実施責任者。決めていなければ空 */
-  responsible: string;
   /** 受講者を自社へ入れるための合言葉 */
   joinCode: string;
 };
@@ -34,14 +32,13 @@ export async function currentAdmin(): Promise<Admin | null> {
   const companyId = data.company_id as string;
   const { data: company } = await supabase
     .from("companies")
-    .select("name, responsible_name, join_code")
+    .select("name, join_code")
     .eq("id", companyId)
     .maybeSingle();
   return {
     userId: user.id,
     companyId,
     companyName: (company?.name as string) ?? "",
-    responsible: (company?.responsible_name as string) ?? "",
     joinCode: (company?.join_code as string) ?? "",
   };
 }

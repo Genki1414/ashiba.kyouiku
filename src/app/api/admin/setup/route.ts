@@ -10,7 +10,7 @@ import { newJoinCode } from "@/training/joinCode";
    すでにどこかに属している人は、その会社の担当者に頼んでもらう
    （勝手に会社を増やして自社の名簿を分断させないため）。 */
 
-type Body = { company?: string; responsible?: string };
+type Body = { company?: string };
 
 export async function POST(req: NextRequest) {
   const supabase = getServiceClient();
@@ -42,7 +42,6 @@ export async function POST(req: NextRequest) {
 
   const body = (await req.json().catch(() => ({}))) as Body;
   const name = (body.company ?? "").trim();
-  const responsible = (body.responsible ?? "").trim();
   if (!name) {
     return NextResponse.json({ ok: false, reason: "事業者名を入れてください。" }, { status: 400 });
   }
@@ -56,7 +55,6 @@ export async function POST(req: NextRequest) {
       .from("companies")
       .insert({
         name,
-        responsible_name: responsible || null,
         join_code: code,
         created_by: user.id,
       })

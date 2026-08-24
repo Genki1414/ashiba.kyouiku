@@ -95,7 +95,6 @@ await must(
   db.from("companies").insert({
     id: CO,
     name: "点検用工業",
-    responsible_name: "点検 太郎",
     join_code: "ABCD2345",
     created_by: U1,
   }).select("id"),
@@ -218,16 +217,11 @@ check(tanaka.lessonsPassed === 3 && !tanaka.canIssue, "田中はまだ出せな�
 check(aoki.admin && aoki.enrollmentId === null, "担当者は受講が無くても並ぶ");
 check(rosterTotals(rows).waiting === 1, "未発行は1人");
 
-/* ── 修了証の名義は、その人の所属事業者から取る（外販なので会社ごとに違う）── */
+/* ── 事業者は「名簿を分ける単位」。修了証の名義とは別（名義は決まっている）── */
 {
   const en2 = await must("受講の持ち主", db.from("enrollments").select("user_id").eq("id", E2).maybeSingle());
   const owner2 = await must("持ち主の所属", db.from("users").select("company_id").eq("id", en2!.user_id as string).maybeSingle());
-  const issuer = await must(
-    "所属事業者の名義を引ける",
-    db.from("companies").select("name, responsible_name").eq("id", owner2!.company_id as string).maybeSingle(),
-  );
-  check(issuer?.name === "点検用工業", `事業者名（${issuer?.name}）`);
-  check(issuer?.responsible_name === "点検 太郎", `教育実施責任者（${issuer?.responsible_name}）`);
+  check(owner2?.company_id === CO, "受講者がどの事業者の人か引ける");
 }
 
 /* ── 証明番号は、ぶつからない通し番号 ── */
