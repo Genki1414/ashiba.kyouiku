@@ -3,6 +3,7 @@
 
 import { CERT_NO_RE, certNo, eligible, isCertNo, totalLabel } from "../src/lib/cert";
 import { CERT_MIN_H, CERT_W, certHeight } from "../src/components/edu/drawCert";
+import { ISSUER_NAME, ISSUER_RESPONSIBLE, issuerName, issuerResponsible } from "../src/lib/issuer";
 
 let ok = 0;
 let ng = 0;
@@ -10,6 +11,22 @@ const check = (c: boolean, label: string, extra?: string) => {
   if (c) ok++;
   else { ng++; console.error(`NG  ${label}${extra ? `\n    ${extra}` : ""}`); }
 };
+
+console.log("── 発行名義 ──");
+check(ISSUER_NAME === "東北三上機材株式会社", "事業者名が入っている", ISSUER_NAME);
+check(ISSUER_RESPONSIBLE === "中川元基", "教育実施責任者が入っている", ISSUER_RESPONSIBLE);
+check(issuerName() === ISSUER_NAME, "設定が無ければそのまま使う");
+check(issuerResponsible() === ISSUER_RESPONSIBLE, "責任者も同じ");
+{
+  /* Vercel の環境変数で上書きできる（会社が変わったとき） */
+  process.env.CERT_ISSUER_NAME = "別の会社";
+  process.env.CERT_ISSUER_RESPONSIBLE = "別の人";
+  check(issuerName() === "別の会社", "環境変数があればそちらを使う");
+  check(issuerResponsible() === "別の人", "責任者も上書きできる");
+  delete process.env.CERT_ISSUER_NAME;
+  delete process.env.CERT_ISSUER_RESPONSIBLE;
+  check(issuerName() === ISSUER_NAME, "外せば元に戻る");
+}
 
 console.log("── 出せるかどうか ──");
 check(eligible({ lessons: 13, lessonsPassed: 13, examPassed: true }).ok, "全部済んでいれば出せる");

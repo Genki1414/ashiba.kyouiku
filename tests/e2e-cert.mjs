@@ -68,8 +68,9 @@ const drawn = await page.evaluate(() => {
     certNo: "AT-202608-1234",
     examScore: 18,
     examTotal: 20,
-    company: "",
-    responsible: "",
+    /* 決まった名義。src/lib/issuer.ts と同じもの */
+    company: "東北三上機材株式会社",
+    responsible: "中川元基",
     subjects: [
       { id: 1, name: "足場及び作業の方法に関する知識", min: 180 },
       { id: 2, name: "工事用設備、機械、器具、作業環境等に関する知識", min: 30 },

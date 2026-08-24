@@ -3,6 +3,7 @@ import { getServiceClient } from "@/lib/supabase/server";
 import { currentEnrollment } from "@/lib/enrollment";
 import { getCurriculum } from "@/lib/curriculum";
 import { certNo, eligible } from "@/lib/cert";
+import { issuerName, issuerResponsible } from "@/lib/issuer";
 
 /* 修了証。
    GET  … 出せるかどうかと、載せる中身を返す
@@ -105,8 +106,8 @@ export async function GET() {
     date: r.issuedAt.toISOString(),
     exam: r.exam,
     subjects: r.subjects,
-    company: process.env.CERT_ISSUER_NAME ?? "",
-    responsible: process.env.CERT_ISSUER_RESPONSIBLE ?? "",
+    company: issuerName(),
+    responsible: issuerResponsible(),
   });
 }
 
