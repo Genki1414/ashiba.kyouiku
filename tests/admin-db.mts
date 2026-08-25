@@ -742,6 +742,56 @@ check(codes.every((c) => /^[2-9A-HJKMNP-Z]{12}$/.test(c)), `12文字・読み違
   await db.rpc("join_company", { p_user: U3, p_company: CO });
 }
 
+/* ②-4b 修了証を触れるのは「受けさせた会社」。
+   人がいまどこに居るかで見ると、
+     ・辞めた人の修了証を、受けさせた会社が出せなくなる
+     ・よそへ移った人の記録を、移った先の会社が触れてしまう
+   修了証はその教育を行った事業者の名義で出るので、どちらも困る */
+{
+  const other = "aaaaaaaa-0000-0000-0000-0000000000c3";
+  await raw.query("delete from public.companies where id = $1", [other]);
+  await raw.query(
+    "insert into public.companies (id, name, join_code) values ($1, '転職先工業', 'YYYY8765')",
+    [other],
+  );
+
+  /* /api/admin/cert が見ているもの（受講が持つ会社）と、
+     見てはいけないもの（人がいまどこに居るか）を、両方引いてみる */
+  const seen = async (enrollmentId: string) => {
+    const { data: en } = await db
+      .from("enrollments")
+      .select("id, user_id, company_id")
+      .eq("id", enrollmentId)
+      .maybeSingle();
+    const { data: u } = await db
+      .from("users")
+      .select("company_id")
+      .eq("id", en?.user_id as string)
+      .maybeSingle();
+    return { byEnrollment: en?.company_id ?? null, byUser: u?.company_id ?? null };
+  };
+
+  const before = await seen(E2);
+  check(before.byEnrollment === CO, `受けた会社が受講に入っている（${before.byEnrollment}）`);
+
+  /* 鈴木（U2）が転職する */
+  await db.rpc("join_company", { p_user: U2, p_company: other });
+  const after = await seen(E2);
+  check(after.byEnrollment === CO, "転職しても、受けた会社は変わらない");
+  check(after.byUser === other, `いまの所属は移る（${after.byUser}）`);
+  check(
+    after.byEnrollment !== after.byUser,
+    "この2つは食い違う。人の側で見ると、転職先が前の会社の記録を触れてしまう",
+  );
+
+  /* 元の会社に戻す。あとの試験がこの人を使う */
+  await db.rpc("join_company", { p_user: U2, p_company: CO });
+  await raw.query("delete from public.memberships where company_id = $1", [other]);
+  await raw.query("delete from public.companies where id = $1", [other]);
+  const back = await seen(E2);
+  check(back.byEnrollment === CO && back.byUser === CO, "戻した");
+}
+
 /* ②-5 元帳は事業者ごとに分かれている。
    よその会社の記録が混ざると、そのまま監督署に出してしまう */
 {

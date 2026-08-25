@@ -28,20 +28,31 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, reason: "受講が指定されていません。" }, { status: 400 });
   }
 
-  /* その受講が自社のものか。ここを飛ばすと他社の修了証を出せてしまう */
+  /* その受講が自社のものか。ここを飛ばすと他社の修了証を出せてしまう。
+
+     見るのは「受けた人がいまどこに居るか」ではなく、
+     **どの会社の席で受けたか**（enrollments.company_id）。
+     人の側で見ると、
+       ・辞めた人の修了証を、受けさせた会社が出せなくなる（取り消しも）
+       ・よそへ移った人の記録を、移った先の会社が触れてしまう
+     どちらも困る。修了証はその教育を行った事業者の名義で出るもの。 */
   const { data: en } = await supabase
     .from("enrollments")
-    .select("id, user_id")
+    .select("id, user_id, course_id, company_id")
     .eq("id", id)
     .maybeSingle();
-  const { data: owner } = en
-    ? await supabase
-        .from("users")
-        .select("company_id")
-        .eq("id", en.user_id as string)
-        .maybeSingle()
-    : { data: null };
-  if (!en || owner?.company_id !== admin.companyId) {
+
+  /* 0012 より前の受講で、会社が入っていないものだけ、人の側で見る（受け皿） */
+  let ownerCompany = (en?.company_id as string | null) ?? null;
+  if (en && !ownerCompany) {
+    const { data: owner } = await supabase
+      .from("users")
+      .select("company_id")
+      .eq("id", en.user_id as string)
+      .maybeSingle();
+    ownerCompany = (owner?.company_id as string | null) ?? null;
+  }
+  if (!en || ownerCompany !== admin.companyId) {
     return NextResponse.json({ ok: false, reason: "自社の受講者ではありません。" }, { status: 403 });
   }
 
@@ -66,13 +77,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, certNo: already.cert_no as string, issued: true });
   }
 
-  /* どの講座の受講かは、受講の行が持っている */
-  const { data: enr } = await supabase
-    .from("enrollments")
-    .select("course_id")
-    .eq("id", id)
-    .maybeSingle();
-  const cur = await getCurriculum((enr?.course_id as string) ?? "");
+  /* どの講座の受講かは、受講の行が持っている（上で読んである） */
+  const cur = await getCurriculum((en.course_id as string) ?? "");
   if (!cur) {
     return NextResponse.json({ ok: false, reason: "講座が分かりません。" }, { status: 409 });
   }

@@ -128,6 +128,25 @@ console.log("── 元帳を返す2か所 ──");
   );
 }
 
+console.log("── 担当者が触れる範囲 ──");
+{
+  /* 「自社ぶんだけ」を、どの列で見ているか。
+     人の側（users.company_id）で見ると、辞めた人・移った人でずれる */
+  const cert = read("src/app/api/admin/cert/route.ts");
+  check(/company_id.*\)\s*$|select\("id, user_id, course_id, company_id"\)/m.test(cert)
+        || cert.includes('"id, user_id, course_id, company_id"'),
+    "修了証は、受講が持つ会社を読む");
+  check(/ownerCompany !== admin\.companyId/.test(cert),
+    "修了証は、受けさせた会社と突き合わせる");
+
+  const summary = read("src/app/api/admin/summary/route.ts");
+  for (const t of ["memberships", "enrollments"]) {
+    const at = summary.indexOf(`.from("${t}")`);
+    check(at > 0 && summary.slice(at, at + 400).includes("admin.companyId"),
+      `名簿の ${t} は自社で絞る`);
+  }
+}
+
 console.log("── /api/member が返す形 ──");
 {
   /* 受講者側。state が3つとも返っていないと、許可待ちが出ない */
