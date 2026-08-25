@@ -194,7 +194,9 @@ export function OwnerClient() {
       <div className="mt-8">
         <div className="mb-2 text-[11px] tracking-[2px] text-dim">無償利用の事業者</div>
         <div className="mb-2 text-[11.5px] leading-relaxed text-dim2">
-          受講コードが無くても修了証を出せる事業者です。試用や社内利用のときだけ立ててください。
+          受講コードが無くても、学科と実務トレーニングを受けられて、修了証も出せる事業者です。
+          試用や社内利用のときだけ立ててください。押すと切り替わります。
+          切ると、その事業者の人は受講コードを入れるまで教材を開けなくなります。
         </div>
         <div className="grid gap-2">
           {companies.map((c) => (
@@ -211,7 +213,7 @@ export function OwnerClient() {
                   setBusy(null);
                 }}
               >
-                {c.trial ? "無償利用" : "有償"}
+                {c.trial ? "無償利用 中" : "有償"}
               </button>
             </div>
           ))}

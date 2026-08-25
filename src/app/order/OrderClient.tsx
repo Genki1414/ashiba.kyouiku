@@ -31,6 +31,7 @@ type Code = {
   usedBy: string | null;
   usedAt: string | null;
   expiresAt: string | null;
+  certified: boolean;
 };
 
 type Loaded = {
@@ -175,7 +176,7 @@ export function OrderClient() {
       {note && <div className="mt-3 rounded-lg border border-yel bg-[#1A1F14] px-3.5 py-3 text-[12.5px] leading-relaxed text-yel">{note}</div>}
 
       {/* 買った受講コード。ここに文字が出ないと受講者に配れない */}
-      <CodeList codes={st.codes} />
+      <CodeList codes={st.codes} onChange={load} />
 
       {/* 申し込む */}
       <div className="mt-5 rounded-xl border border-line bg-panel p-4">
@@ -299,9 +300,12 @@ export function OrderClient() {
    数だけ出しても受講者に配れないので、コードの文字そのものを出す。
    紙に書き写すことがあるので 4桁ずつ区切って、読み違えの無い字だけで作ってある。
    まだ配っていないものが上に来る（次に配るのはそれなので）。 */
-function CodeList({ codes }: { codes: Code[] }) {
+function CodeList({ codes, onChange }: { codes: Code[]; onChange: () => Promise<void> }) {
   const [open, setOpen] = useState(false);
   const [done, setDone] = useState<string>("");
+  /* 取り消しは戻せないので、二度押しにする */
+  const [asking, setAsking] = useState<string>("");
+  const [busy, setBusy] = useState<string>("");
 
   const free = codes.filter((c) => !c.usedAt);
   const used = codes.filter((c) => c.usedAt);
@@ -314,6 +318,29 @@ function CodeList({ codes }: { codes: Code[] }) {
   const copy = async (text: string, label: string) => {
     const ok = await writeClipboard(text);
     setDone(ok ? `${label}を写しました。` : "この端末では写せません。画面を見ながら書き取ってください。");
+  };
+
+  /* 引き換えを取り消して、もう一度配れるようにする。
+     受講の記録は消えない（その人が別のコードを入れれば続きから受けられる） */
+  const release = async (code: string) => {
+    setBusy(code);
+    try {
+      const res = await fetch("/api/admin/seat", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ code }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok || !j.ok) {
+        setDone(j.reason ?? "取り消せませんでした。");
+        return;
+      }
+      setDone("引き換えを取り消しました。もう一度配れます。");
+      setAsking("");
+      await onChange();
+    } finally {
+      setBusy("");
+    }
   };
 
   return (
@@ -331,7 +358,7 @@ function CodeList({ codes }: { codes: Code[] }) {
         で入れます。1つのコードは1人しか使えません。
       </p>
 
-      {done && <div className="mt-2 text-[11.5px] text-grn">{done}</div>}
+      {done && <div className="mt-2 text-[11.5px] leading-relaxed text-grn" data-testid="order-code-note">{done}</div>}
 
       <div className="mt-3 grid gap-1.5">
         {show.map((c) => (
@@ -358,13 +385,40 @@ function CodeList({ codes }: { codes: Code[] }) {
                     : `未使用（入金待ち）　期限 ${day(c.expiresAt) || "—"}`}
               </div>
             </div>
-            {!c.usedAt && (
+            {!c.usedAt ? (
               <button
                 onClick={() => void copy(showSeatCode(c.code), "コード")}
                 className="shrink-0 rounded-lg border border-line px-2.5 py-1.5 text-[11px] text-dim"
                 data-testid="order-code-copy"
               >
                 写す
+              </button>
+            ) : c.certified ? (
+              /* 修了証を出した人の席は戻さない。戻すと席の無い修了証が残る */
+              <span className="shrink-0 text-[10.5px] text-dim2">修了証あり</span>
+            ) : asking === c.code ? (
+              <span className="flex shrink-0 items-center gap-1.5">
+                <button
+                  onClick={() => void release(c.code)}
+                  className="rounded-lg border border-red px-2 py-1.5 text-[11px] text-ng-tx"
+                  data-testid="order-code-release-yes"
+                >
+                  {busy === c.code ? "…" : "取り消す"}
+                </button>
+                <button
+                  onClick={() => setAsking("")}
+                  className="rounded-lg border border-line px-2 py-1.5 text-[11px] text-dim"
+                >
+                  やめる
+                </button>
+              </span>
+            ) : (
+              <button
+                onClick={() => { setDone(""); setAsking(c.code); }}
+                className="shrink-0 rounded-lg border border-line px-2.5 py-1.5 text-[11px] text-dim"
+                data-testid="order-code-release"
+              >
+                取り消す
               </button>
             )}
           </div>
@@ -393,6 +447,9 @@ function CodeList({ codes }: { codes: Code[] }) {
 
       <div className="mt-2 text-[11.5px] leading-relaxed text-dim2">
         入金がまだでも受講は始められます。<strong className="text-dim">修了証は入金の確認が済んでから</strong>出せます。
+        <br />
+        違う人が入れてしまったときは「取り消す」で戻せます。
+        修了証を出したあとは戻せません（先に修了証を取り消してください）。
       </div>
     </div>
   );

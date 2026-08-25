@@ -61,7 +61,8 @@ if (orderForm) {
   const CODES = [
     { code: "ABCD23456789", orderId: "o1", status: "paid", usedBy: null, usedAt: null, expiresAt: "2027-08-01T00:00:00Z" },
     { code: "KMNP23456789", orderId: "o1", status: "pending", usedBy: null, usedAt: null, expiresAt: "2027-08-01T00:00:00Z" },
-    { code: "QRST23456789", orderId: "o1", status: "paid", usedBy: "田中", usedAt: "2026-08-20T00:00:00Z", expiresAt: "2027-08-01T00:00:00Z" },
+    { code: "QRST23456789", orderId: "o1", status: "paid", usedBy: "田中", usedAt: "2026-08-20T00:00:00Z", expiresAt: "2027-08-01T00:00:00Z", certified: false },
+    { code: "TUVW23456789", orderId: "o1", status: "paid", usedBy: "鈴木", usedAt: "2026-08-20T00:00:00Z", expiresAt: "2027-08-01T00:00:00Z", certified: true },
   ];
   await page.route("**/api/order", (route) =>
     route.request().method() === "GET"
@@ -69,7 +70,7 @@ if (orderForm) {
           json: {
             ok: true, company: "点検用工業", unitPrice: 3000,
             orders: [{ id: "o1", seats: 3, unit_price: 3000, amount: 9900, method: "invoice", status: "paid", due_date: null, paid_at: "2026-08-20T00:00:00Z", created_at: "2026-08-19T00:00:00Z" }],
-            seats: { total: 3, used: 1, paid: 3 },
+            seats: { total: 4, used: 2, paid: 4 },
             codes: CODES,
           },
         })
@@ -79,12 +80,17 @@ if (orderForm) {
   await dismiss();
   await page.getByTestId("order-codes").waitFor({ timeout: 8000 });
   const rows = page.getByTestId("order-code");
-  check((await rows.count()) === 3, `3枚とも出る（${await rows.count()}）`);
+  check((await rows.count()) === 4, `4枚とも出る（${await rows.count()}）`);
   const first = (await rows.first().innerText()).replace(/\s+/g, "");
   check(/^ABCD-2345-6789/.test(first), `未使用が先で、4桁ずつ区切って出る（${first}）`);
-  const last = (await rows.last().innerText()).replace(/\s+/g, "");
-  check(/田中/.test(last), `使った人の名前が出る（${last}）`);
+  const all = (await rows.allInnerTexts()).map((t) => t.replace(/\s+/g, ""));
+  check(all.some((t) => /田中が使用/.test(t)), `使った人の名前が出る（${all.join(" | ")}）`);
+  check(all.some((t) => /鈴木が使用.*修了証あり/.test(t)), "修了証を出した席は、その旨が出る");
   check((await page.getByTestId("order-code-copy").count()) === 2, "写せるのは未使用のぶんだけ");
+  /* 違う人が入れてしまったときに戻せる。ただし修了証を出した人の席は戻せない */
+  check((await page.getByTestId("order-code-release").count()) === 1, "取り消せるのは、修了証を出していない使用済みのぶんだけ");
+  await page.getByTestId("order-code-release").click();
+  check(await page.getByTestId("order-code-release-yes").isVisible(), "取り消しは二度押しで確かめる");
   check(await page.getByTestId("order-codes-copyall").isVisible(), "まとめて写すボタンが出る");
   await page.screenshot({ path: `${SC}/order-01b-codes.png`, fullPage: true });
   await page.unroute("**/api/order");

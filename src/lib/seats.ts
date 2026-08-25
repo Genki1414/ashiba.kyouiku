@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { normalizeJoinCode } from "@/training/joinCode";
 
 /* 受講コード（席）の発行。
 
@@ -49,6 +50,8 @@ export type SeatRow = {
   usedBy: string | null;
   usedAt: string | null;
   expiresAt: string | null;
+  /** 修了証を出した人の席か。出していたら引き換えは取り消せない */
+  certified: boolean;
 };
 
 /** 注文の席を、配れる形（コードの文字そのもの）で返す。
@@ -64,7 +67,7 @@ export async function listSeats(
 
   const { data } = await supabase
     .from("seats")
-    .select("code, order_id, used_by, used_at, expires_at")
+    .select("id, code, order_id, used_by, used_at, expires_at")
     .in("order_id", ids);
   const rows = data ?? [];
 
@@ -76,6 +79,30 @@ export async function listSeats(
     for (const u of users ?? []) names.set(u.id as string, (u.name as string) ?? "");
   }
 
+  /* 修了証を出した人の席は取り消せない。どれがそうかをここで見ておく */
+  const usedSeatIds = rows.filter((r) => r.used_by).map((r) => r.id as string);
+  const certifiedSeats = new Set<string>();
+  if (usedSeatIds.length) {
+    const { data: ens } = await supabase
+      .from("enrollments")
+      .select("id, seat_id")
+      .in("seat_id", usedSeatIds);
+    const bySeat = new Map<string, string>();
+    for (const e of ens ?? []) bySeat.set(e.id as string, e.seat_id as string);
+    const eids = [...bySeat.keys()];
+    if (eids.length) {
+      const { data: certs } = await supabase
+        .from("certificates")
+        .select("enrollment_id, revoked_at")
+        .in("enrollment_id", eids);
+      for (const c of certs ?? []) {
+        if (c.revoked_at) continue;
+        const seatId = bySeat.get(c.enrollment_id as string);
+        if (seatId) certifiedSeats.add(seatId);
+      }
+    }
+  }
+
   const out: SeatRow[] = rows.map((r) => ({
     code: (r.code as string) ?? "",
     orderId: (r.order_id as string) ?? "",
@@ -83,6 +110,7 @@ export async function listSeats(
     usedBy: r.used_by ? (names.get(r.used_by as string) ?? "受講者") : null,
     usedAt: (r.used_at as string | null) ?? null,
     expiresAt: (r.expires_at as string | null) ?? null,
+    certified: certifiedSeats.has(r.id as string),
   }));
 
   /* 未使用が先。同じ組の中では、期限の近いものから配る */
@@ -90,4 +118,76 @@ export async function listSeats(
     if (!!a.usedAt !== !!b.usedAt) return a.usedAt ? 1 : -1;
     return `${a.expiresAt ?? ""}`.localeCompare(`${b.expiresAt ?? ""}`) || a.code.localeCompare(b.code);
   });
+}
+
+/* 引き換えを取り消す。
+
+   間違った人がコードを入れてしまった、受講前に辞めた、といったときに
+   担当者が席を戻せるようにする。戻さないと、買った枚数が減ったまま
+   どうにもできない（在庫が0なら手の打ちようがない）。
+
+   ただし修了証を出した人の席は戻さない。
+   戻すと、席の無い修了証が残る（0009 の決まりに反する）。
+   その人の分は、先に修了証を取り消してもらう。
+
+   受講の記録（視聴時間・試験）は消さない。
+   その人がまた別のコードを入れれば、続きから受けられる。 */
+export type Release = { ok: true; code: string } | { ok: false; reason: string };
+
+export async function releaseSeat(
+  supabase: SupabaseClient,
+  rawCode: string,
+  companyId: string,
+): Promise<Release> {
+  const code = normalizeJoinCode(rawCode);
+  if (!code) return { ok: false, reason: "受講コードを入れてください。" };
+
+  const { data: seat } = await supabase
+    .from("seats")
+    .select("id, order_id, used_by")
+    .eq("code", code)
+    .maybeSingle();
+  if (!seat?.id) return { ok: false, reason: "そのコードの受講コードがありません。" };
+
+  /* よその事業者の席は触らせない */
+  const { data: order } = await supabase
+    .from("orders")
+    .select("company_id")
+    .eq("id", seat.order_id as string)
+    .maybeSingle();
+  if (!order || order.company_id !== companyId) {
+    return { ok: false, reason: "よその事業者の受講コードです。" };
+  }
+  if (!seat.used_by) return { ok: false, reason: "その受講コードは、まだ使われていません。" };
+
+  const { data: ens } = await supabase
+    .from("enrollments")
+    .select("id")
+    .eq("seat_id", seat.id as string);
+  const eids = (ens ?? []).map((e) => e.id as string);
+  if (eids.length) {
+    const { data: certs } = await supabase
+      .from("certificates")
+      .select("id, revoked_at")
+      .in("enrollment_id", eids);
+    if ((certs ?? []).some((c) => !c.revoked_at)) {
+      return {
+        ok: false,
+        reason: "修了証を出した人の受講コードは取り消せません。先に修了証を取り消してください。",
+      };
+    }
+    const { error: unlink } = await supabase
+      .from("enrollments")
+      .update({ seat_id: null })
+      .eq("seat_id", seat.id as string);
+    if (unlink) return { ok: false, reason: "取り消せませんでした。もう一度試してください。" };
+  }
+
+  const { error } = await supabase
+    .from("seats")
+    .update({ used_by: null, used_at: null })
+    .eq("id", seat.id as string);
+  if (error) return { ok: false, reason: "取り消せませんでした。もう一度試してください。" };
+
+  return { ok: true, code };
 }

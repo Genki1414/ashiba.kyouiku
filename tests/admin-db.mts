@@ -13,7 +13,7 @@
 import pg from "pg";
 import { createClient } from "@supabase/supabase-js";
 import { buildRoster, rosterTotals } from "@/training/roster";
-import { listSeats } from "@/lib/seats";
+import { listSeats, releaseSeat } from "@/lib/seats";
 import { learnFor } from "@/lib/entitleQuery";
 
 const URL = process.env.SHIM_URL ?? "http://127.0.0.1:54321";
@@ -466,6 +466,56 @@ await raw.query("update public.enrollments set seat_id = null where id = $1", [E
     "update public.orders set status = 'paid', paid_at = null where id = $1", [orderId],
   ).then(() => ({ error: null })).catch((e: Error) => ({ error: e }));
   check(!!error, "入金済みなのに入金日時が無い行は入らない");
+}
+
+/* ⑦ 引き換えの取り消し。
+   違う人がコードを入れてしまったとき、担当者が席を戻せないと
+   買った枚数が減ったままどうにもできない */
+{
+  /* 使っていない席は戻せない */
+  const notUsed = await releaseSeat(db, codes[2], CO);
+  check(!notUsed.ok, `まだ使われていない席は戻せない（${JSON.stringify(notUsed)}）`);
+
+  /* 無いコードも断る */
+  const none = await releaseSeat(db, "ZZZZZZZZZZZZ", CO);
+  check(!none.ok, "無いコードは断る");
+
+  /* よその事業者の席は触らせない */
+  const other = await releaseSeat(db, codes[0], "aaaaaaaa-0000-0000-0000-0000000000ff");
+  check(!other.ok && /よその/.test(other.reason), `よその事業者の席は戻せない（${JSON.stringify(other)}）`);
+
+  /* 修了証を出した人の席は戻せない（席の無い修了証が残ってしまう） */
+  await raw.query("update public.enrollments set seat_id = (select id from public.seats where code = $1) where id = $2", [codes[1], E2]);
+  await raw.query("delete from public.certificates where enrollment_id = $1", [E2]);
+  await must("修了証を出す", db.from("certificates").insert({
+    enrollment_id: E2, cert_no: String((await db.rpc("next_cert_no")).data),
+  }).select("id"));
+  await raw.query("update public.seats set used_by = $1, used_at = now() where code = $2", [U2, codes[1]]);
+  const certified = await releaseSeat(db, codes[1], CO);
+  check(!certified.ok && /修了証/.test(certified.reason), `修了証を出した人の席は戻せない（${JSON.stringify(certified)}）`);
+
+  /* 取り消したあとなら戻せる */
+  await raw.query("update public.certificates set revoked_at = now() where enrollment_id = $1", [E2]);
+  const after = await releaseSeat(db, codes[1], CO);
+  check(after.ok, `修了証を取り消したあとなら戻せる（${JSON.stringify(after)}）`);
+
+  /* 使っていた人の席が空き、受講の紐付けも外れる */
+  const s1 = await db.from("seats").select("used_by, used_at").eq("code", codes[1]).maybeSingle();
+  check(!s1.data?.used_by && !s1.data?.used_at, "戻した席は未使用になる");
+  const e1 = await db.from("enrollments").select("seat_id").eq("id", E2).maybeSingle();
+  check(!e1.data?.seat_id, "受講の紐付けも外れる");
+
+  /* 戻した席は、もう一度配れる */
+  const { error } = await db.rpc("redeem_seat", { p_code: codes[1], p_user: U2 });
+  check(!error, `戻した受講コードは、もう一度使える（${error?.message ?? "ok"}）`);
+
+  /* 4桁区切りで入れても通る（画面に出しているのはその形） */
+  await raw.query("update public.companies set trial = false where id = $1", [CO]);
+  const dashed = await releaseSeat(db, `${codes[1].slice(0, 4)}-${codes[1].slice(4, 8)}-${codes[1].slice(8)}`, CO);
+  check(dashed.ok, `区切りを入れたコードでも戻せる（${JSON.stringify(dashed)}）`);
+  const gone = await learnFor(db, U2);
+  check(!gone.ok, "席を戻された人は、もう受講できない");
+  await raw.query("update public.companies set trial = true where id = $1", [CO]);
 }
 
 await raw.end();
