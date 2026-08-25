@@ -143,21 +143,25 @@ export async function GET(req: NextRequest) {
     : { data: [] as { id: string; name: string; email: string | null; role: string }[] };
   const users = (users0 ?? []).map((u) => ({ ...u, active: activeIds.has(u.id as string) }));
   const ids = users.map((u) => u.id as string);
+
+  /* 画面に出すものは、名簿が空でも埋まっていても同じ形で返す。
+     ここを2か所に分けて書くと、片方に足した項目がもう片方から抜ける。
+     申し込みが担当者の画面に出なかったのは、それが理由だった */
+  const base = {
+    ok: true as const,
+    company: admin.companyName,
+    joinCode: admin.joinCode,
+    seats: { total: seats.total, used: seats.used, paid: paidSeats.total },
+    lessonsTotal,
+    course: { id: course.id, short: course.short, name: course.name },
+    courses,
+    requests,
+    rejected,
+    member,
+  };
+
   if (!ids.length) {
-    return NextResponse.json({
-      ok: true,
-      company: admin.companyName,
-      joinCode: admin.joinCode,
-      seats: { total: seats.total, used: seats.used, paid: paidSeats.total },
-      rows: [],
-      totals: rosterTotals([]),
-      lessonsTotal,
-      course: { id: course.id, short: course.short, name: course.name },
-      courses,
-      requests,
-      rejected,
-      member,
-    });
+    return NextResponse.json({ ...base, rows: [], totals: rosterTotals([]) });
   }
 
   /* 受講は「この会社の席で受けたもの」に限る。
@@ -198,13 +202,5 @@ export async function GET(req: NextRequest) {
     lessons,
   });
 
-  return NextResponse.json({
-    ok: true,
-    company: admin.companyName,
-    joinCode: admin.joinCode,
-    seats: { total: seats.total, used: seats.used, paid: paidSeats.total },
-    rows,
-    totals: rosterTotals(rows),
-    lessonsTotal,
-  });
+  return NextResponse.json({ ...base, rows, totals: rosterTotals(rows) });
 }
