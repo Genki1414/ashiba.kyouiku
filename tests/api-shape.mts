@@ -147,6 +147,17 @@ console.log("── 担当者が触れる範囲 ──");
   }
 }
 
+console.log("── 修了証の名義 ──");
+{
+  /* 名義は東北三上機材で固定。受講する会社の名前は載せない。
+     載せると、特別教育を実施していない会社の名前で紙が出てしまう */
+  const src = read("src/app/api/cert/route.ts");
+  check(/company:\s*issuerName\(\)/.test(src), "修了証の事業者名は issuerName() から取る");
+  check(/responsible:\s*issuerResponsible\(\)/.test(src), "責任者も同じところから取る");
+  check(!/company:\s*(admin\.|co\.|.*companyName)/.test(src),
+    "受講者の会社名を事業者名として載せていない");
+}
+
 console.log("── /api/member が返す形 ──");
 {
   /* 受講者側。state が3つとも返っていないと、許可待ちが出ない */

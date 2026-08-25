@@ -18,6 +18,14 @@ check(ISSUER_NAME === "東北三上機材株式会社", "事業者名が決ま�
 check(ISSUER_RESPONSIBLE === "中川元基", "教育実施責任者が決まっている", ISSUER_RESPONSIBLE);
 check(issuerName() === ISSUER_NAME, "設定が無ければそのまま使う");
 check(issuerResponsible() === ISSUER_RESPONSIBLE, "責任者も同じ");
+/* 名義は受講者の会社では決まらない。どの事業者の受講者でも同じ1つ。
+   特別教育を実施しているのはこの仕組みなので、
+   受講する会社の名前が載ると、実施していない会社の名前で出ることになる */
+check(
+  typeof issuerName() === "string" && issuerName().length > 0,
+  "名義は1つに決まっていて、受講者の会社では変わらない",
+  issuerName(),
+);
 {
   /* 会社や責任者が変わったら、環境変数で上書きできる */
   process.env.CERT_ISSUER_NAME = "別の会社";
