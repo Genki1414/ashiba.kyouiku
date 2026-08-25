@@ -272,6 +272,21 @@ export function AdminClient() {
         </div>
 
         <div className="mt-4 border-t border-line pt-3">
+          <div className="mb-1 text-[11px] tracking-[2px] text-dim">本人が受けた証拠</div>
+          <div className="text-[11.5px] leading-relaxed text-dim2">
+            受講中に「画面の前に本人が居たか」を確かめた記録です。
+            監督署や元請に聞かれたときは、これを出してください。
+          </div>
+          <Link
+            href="/admin/check"
+            className="mt-2 block rounded-lg border border-line p-2.5 text-center text-[13px] text-txt no-underline"
+            data-testid="admin-check"
+          >
+            照合の記録を見る
+          </Link>
+        </div>
+
+        <div className="mt-4 border-t border-line pt-3">
           <div className="mb-1 text-[11px] tracking-[2px] text-dim">受講者に配る参加コード</div>
           <div className="font-mono text-[20px] font-black tracking-[4px] text-yel" data-testid="admin-joincode">
             {st.joinCode || "—"}

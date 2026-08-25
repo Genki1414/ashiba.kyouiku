@@ -15,6 +15,7 @@ import { createClient } from "@supabase/supabase-js";
 import { buildRoster, rosterTotals } from "@/training/roster";
 import { listSeats, releaseSeat } from "@/lib/seats";
 import { learnFor } from "@/lib/entitleQuery";
+import { buildCheck, checkTotals } from "@/training/verifyLog";
 
 const URL = process.env.SHIM_URL ?? "http://127.0.0.1:54321";
 const PG_URL = process.env.PG_URL ?? "postgres://postgres@127.0.0.1:55432/appdb";
@@ -559,6 +560,55 @@ await raw.query("update public.enrollments set seat_id = null where id = $1", [E
     enrollment_id: E2, lesson_id: "1-1", result: "ok", reason: null,
   }).select("id");
   check(!okRow.error, "通ったときは理由なしで入る");
+
+  const bothNull = await db.from("verify_logs").insert({
+    enrollment_id: E2, lesson_id: "1-1", result: "ng", reason: null,
+  });
+  check(!!bothNull.error, "止まったのに理由が無い行は入らない");
+}
+
+/* ⑨ 照合の記録の画面（/api/admin/verify と同じ問い合わせ）。
+   これが「本人が受けた証拠」。監督署に聞かれたとき事業者が出すもの */
+{
+  await raw.query("delete from public.verify_logs");
+  await raw.query(
+    `insert into public.verify_logs (enrollment_id, lesson_id, result, reason, created_at) values
+       ($1,'1-1','ok',null, now() - interval '2 hours'),
+       ($1,'1-1','ok',null, now() - interval '1 hour'),
+       ($1,'1-2','ng','not_me', now() - interval '30 minutes'),
+       ($2,'1-1','ng','blocked', now() - interval '10 minutes'),
+       ($1,'1-2','ng','no_face', now() - interval '400 days')`,
+    [E2, E3],
+  );
+
+  /* 直近90日ぶんだけ読む（古い1件は落ちる） */
+  const since = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+  const logs = await must(
+    "照合の記録を期間で絞って引ける",
+    db.from("verify_logs")
+      .select("enrollment_id, lesson_id, result, reason, created_at")
+      .in("enrollment_id", [E2, E3])
+      .gte("created_at", since)
+      .order("created_at", { ascending: false })
+      .limit(5000),
+  );
+  check((logs ?? []).length === 4, `90日より古い記録は出ない（いま ${(logs ?? []).length} 件）`);
+
+  const people = await must("自社の受講者", db.from("users").select("id, name, email").eq("company_id", CO));
+  const ens = await must("受講", db.from("enrollments").select("id, user_id").in("user_id", (people ?? []).map((u) => u.id as string)));
+
+  const rows = buildCheck({
+    users: (people ?? []) as never,
+    enrollments: (ens ?? []) as never,
+    logs: (logs ?? []) as never,
+  });
+  const suzukiCheck = rows.find((r) => r.name === "鈴木")!;
+  const tanakaCheck = rows.find((r) => r.name === "田中")!;
+  check(suzukiCheck.ok === 2 && suzukiCheck.ng === 1, `鈴木は通った2回・止まった1回（${suzukiCheck.ok}/${suzukiCheck.ng}）`);
+  check(suzukiCheck.reasons[0].reason === "not_me", "鈴木が止まった理由は別人");
+  check(tanakaCheck.ng === 1 && tanakaCheck.reasons[0].reason === "blocked", "田中はカメラを遮られて止まった");
+  check(rows[0].ng >= rows[rows.length - 1].ng, "止まった人が上に来る");
+  check(checkTotals(rows).stopped === 2, "止まった人は2人");
 }
 
 await raw.end();

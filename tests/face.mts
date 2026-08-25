@@ -8,7 +8,7 @@
    実行: npx tsx tests/face.mts */
 
 import { H, W, judgeLook, look } from "@/lib/face";
-import { FAIL_LIMIT, START, step, type Tick } from "@/lib/verifyGate";
+import { CHECK_INTERVAL_MS, FAIL_LIMIT, ID_EVERY, OK_EVERY, START, step, type Tick } from "@/lib/verifyGate";
 
 let ok = 0;
 let ng = 0;
@@ -143,6 +143,13 @@ function runTicks(list: Tick[]): number | null {
   check(runTicks([OK, OK, ng2("not_me")]) === 3, "通ったあとでも、別人なら その場で止める");
   check(step(START, ng2("no_face")).miss === 1, "外れた回は数える");
   check(step({ miss: 1, stop: null }, OK).miss === 0, "通れば数え直す");
+
+  /* 控えを残す回は、必ず本人照合をした回であること。
+     倍数でなくなると、顔があっただけの回を「本人を確認」と書くことになる */
+  check(OK_EVERY % ID_EVERY === 0,
+    `控えを残す回は本人照合の回と重なる（${OK_EVERY} は ${ID_EVERY} の倍数）`);
+  check((CHECK_INTERVAL_MS * ID_EVERY) / 1000 === 30, "本人照合は30秒ごと");
+  check((CHECK_INTERVAL_MS * OK_EVERY) / 1000 === 300, "控えは5分ごと");
 }
 
 console.log("\n── まとめ ──");

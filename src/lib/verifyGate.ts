@@ -14,6 +14,20 @@ import type { VerifyReason } from "./face";
      1分ものあいだ別人が受講できてしまう
    ・通れば数え直す */
 
+/** 何秒ごとに見るか */
+export const CHECK_INTERVAL_MS = 3000;
+
+/** 何回に1回、本人かどうかまで見るか（3秒×10＝30秒ごと） */
+export const ID_EVERY = 10;
+
+/* 何回に1回、通っていることの控えをサーバへ残すか（3秒×100＝5分ごと）。
+
+   OK_EVERY は ID_EVERY の倍数にしておくこと。
+   そうしておくと、控えを残す回は必ず本人照合をした回になり、
+   記録に「本人を確認」と書ける。倍数でなくなると、
+   顔があっただけの回を「本人を確認」と書くことになる。 */
+export const OK_EVERY = 100;
+
 /** 2回続けて外れたら止める */
 export const FAIL_LIMIT = 2;
 

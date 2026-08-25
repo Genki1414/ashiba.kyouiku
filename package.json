@@ -15,6 +15,7 @@
     "test:changelog": "tsx tests/changelog.ts",
     "test:demoscenes": "tsx tests/demo-scenes.ts",
     "test:roster": "tsx tests/roster.ts",
+    "test:verifylog": "tsx tests/verify-log.ts",
     "test:tenant": "tsx tests/tenant.ts",
     "test:pricing": "tsx tests/pricing.mts",
     "test:legal": "tsx tests/legal.ts",

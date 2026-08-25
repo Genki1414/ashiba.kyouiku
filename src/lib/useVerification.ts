@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useCamera } from "@/lib/camera";
 import { detectFace, REASON_MSG, type VerifyReason, type VerifyResult } from "@/lib/face";
 import { countFaces, isSamePerson, loadFace, readFace } from "@/lib/faceModel";
-import { START, step, type Gate } from "@/lib/verifyGate";
+import { CHECK_INTERVAL_MS, ID_EVERY, OK_EVERY, START, step, type Gate } from "@/lib/verifyGate";
 
 /* 受講中の照合。
    - カメラあり：3秒間隔で照合し、2回連続で失敗したら停止（SPEC 5章）
@@ -22,12 +22,6 @@ import { START, step, type Gate } from "@/lib/verifyGate";
 /** 照合が通っているときの表示。CamWindow もこの文字で色を変える */
 export const OK_STATE = "在席を確認";
 
-const CHECK_INTERVAL_MS = 3000;
-/* モデルを回すのは重い（手元の計測で、顔の有無 約0.27秒／本人照合 約0.6秒）。
-   顔の有無は毎回まわす。間引くと止まらなくなるので、ここは削れない。
-   本人照合だけ間引く。 */
-/** 何回に1回、本人かどうかまで見るか（3秒×10＝30秒ごと） */
-const ID_EVERY = 10;
 const PRESENCE_INTERVAL_MS = 10 * 60 * 1000;
 
 export type VerifyStop = { kind: "presence" | "fail"; message: string } | null;
@@ -103,6 +97,7 @@ export function useVerification({
          画面の前に人が居るかどうかで、本人かどうかではない
          （本人確認は受講の準備で、顔写真と公的書類を登録するとき） */
       setCamState(r.ok ? OK_STATE : r.msg);
+      if (r.ok && turn.current % OK_EVERY === 0) logOk(lessonId);
       gate.current = step(gate.current, r);
       if (gate.current.stop) {
         const why = gate.current.stop;
@@ -196,6 +191,15 @@ async function whoIsThere(
      次に受講の準備を通ると、そこで登録し直される */
   if (!registered?.length) return { ok: true };
   return isSamePerson(registered, descriptor) ? { ok: true } : fail("not_me");
+}
+
+/** 通っていることの控え。5分に1回だけ */
+function logOk(lessonId: string) {
+  fetch("/api/verify-log", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ lessonId, ok: true }),
+  }).catch(() => {});
 }
 
 function logFail(lessonId: string, reason: VerifyReason) {

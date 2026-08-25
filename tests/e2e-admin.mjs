@@ -128,6 +128,47 @@ const homeAdmin = await page.getByTestId("home-admin").count();
 check(homeAdmin === (has.list ? 1 : 0), `ホームの入口は担当者にだけ出る（${homeAdmin}）`);
 console.log("OK: ホームの入口");
 
+/* ── 照合の記録（本人が受けた証拠）──
+   ここに Supabase が無いので、返事だけ差し替えて画面を見る。
+   監督署に聞かれたときに事業者が出すものなので、
+   誰が・いつ・なぜ止まったかが読める形になっているかを見る。 */
+{
+  const row = (name, ok, ng, reasons, rows) => ({
+    userId: name, name, email: `${name}@x`, ok, ng, reasons,
+    first: "2026-08-25T09:00:00Z", last: "2026-08-25T11:30:00Z", rows,
+  });
+  await page.route("**/api/admin/verify*", (r) => r.fulfill({ json: {
+    ok: true, company: "点検用工業", days: 90, capped: false,
+    rows: [
+      row("田中", 12, 2,
+        [{ reason: "not_me", label: "登録した人と違う", n: 1 },
+         { reason: "blocked", label: "カメラが遮られている", n: 1 }],
+        [{ at: "2026-08-25T11:30:00Z", lesson: "1-2", ok: false, why: "登録した人と違う" },
+         { at: "2026-08-25T10:00:00Z", lesson: "1-1", ok: false, why: "カメラが遮られている" },
+         { at: "2026-08-25T09:00:00Z", lesson: "1-1", ok: true, why: null }]),
+      row("鈴木", 30, 0, [],
+        [{ at: "2026-08-25T09:05:00Z", lesson: "1-1", ok: true, why: null }]),
+    ],
+    totals: { people: 2, ok: 42, ng: 2, stopped: 1 },
+  }}));
+  await page.goto(`${BASE}/admin/check`);
+  await dismiss();
+  await page.getByTestId("check").waitFor({ timeout: 8000 });
+  check((await page.getByTestId("check-row").count()) === 2, "受講者ごとに並ぶ");
+  const first = (await page.getByTestId("check-row").first().innerText()).replace(/\s+/g, "");
+  check(/田中/.test(first) && /2回止まった/.test(first), `止まった人が上に来る（${first.slice(0, 40)}）`);
+  check(/登録した人と違う/.test(first), "止まった理由が日本語で出る");
+  const second = (await page.getByTestId("check-row").last().innerText()).replace(/\s+/g, "");
+  check(/止まらず受講/.test(second), "一度も止まらなかった人は、その旨が出る");
+  await page.getByTestId("check-detail").first().click();
+  await page.waitForTimeout(200);
+  check(/2026\/08\/2511:30/.test((await page.getByTestId("check-row").first().innerText()).replace(/\s+/g, "")),
+    "明細に日時が出る");
+  await page.screenshot({ path: `${SC}/admin-04-check.png`, fullPage: true });
+  await page.unroute("**/api/admin/verify*");
+  console.log("OK: 照合の記録");
+}
+
 await browser.close();
 if (ng) { console.error(`\n${ng} 件失敗`); process.exit(1); }
 console.log("ALL OK");
