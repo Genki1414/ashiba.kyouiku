@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase/server";
 import { currentOwner } from "@/lib/owner";
-import { COURSES } from "@/content/courses";
+import { companyRecords } from "@/lib/records";
 
 /* 本部（この仕組みを売っている側）の元帳。
 
@@ -19,11 +19,6 @@ import { COURSES } from "@/content/courses";
 
    companyId を付けると、その事業者ぶんの中身を返す。
    付けなければ、事業者の一覧と全体の数字。 */
-
-type Row = Record<string, unknown>;
-
-const nameOf = (rows: Row[] | null, key = "id", val = "name") =>
-  new Map((rows ?? []).map((r) => [r[key] as string, (r[val] as string) ?? ""]));
 
 export async function GET(req: NextRequest) {
   const supabase = getServiceClient();
@@ -49,10 +44,12 @@ async function all(supabase: NonNullable<ReturnType<typeof getServiceClient>>) {
     .order("created_at");
   const companies = cos ?? [];
 
-  const [{ data: mems }, { data: ens }, { data: ords }] = await Promise.all([
+  const [{ data: mems }, { data: ens }, { data: ords }, { count: users }] = await Promise.all([
     supabase.from("memberships").select("company_id, approved_at, left_at"),
     supabase.from("enrollments").select("id, company_id, user_id"),
     supabase.from("orders").select("company_id, amount, status"),
+    /* 登録した人の数。事業者と紐付いていない人もふくむ（登録しただけの人） */
+    supabase.from("users").select("id", { count: "exact", head: true }),
   ]);
 
   /* 修了証は受講にぶら下がっている。会社ごとに数えるため、受講から引く */
@@ -110,11 +107,20 @@ async function all(supabase: NonNullable<ReturnType<typeof getServiceClient>>) {
     ...(acc.get(c.id as string) ?? zero()),
   }));
 
+  /* 在籍している人。1人1社なので、事業者ごとの在籍を足せばよい */
+  const linked = rows.reduce((n, r) => n + r.active, 0);
+
   return NextResponse.json({
     ok: true,
     companies: rows,
     totals: {
+      /* 登録した事業者の数と、登録した人の数。
+         「いくつ・何人まで来たか」が、まずここで分かるようにする */
       companies: rows.length,
+      users: users ?? 0,
+      /* 登録はしたが、まだどこの事業者にも入っていない人 */
+      loose: Math.max(0, (users ?? 0) - linked),
+      linked,
       trial: rows.filter((r) => r.trial).length,
       learners: rows.reduce((n, r) => n + r.learners, 0),
       certs: rows.reduce((n, r) => n + r.certs, 0),
@@ -137,116 +143,9 @@ async function one(
     return NextResponse.json({ ok: false, reason: "その事業者がありません。" }, { status: 404 });
   }
 
-  /* この会社に関わった人は2通り。
-     ① 紐付いた（いまも、過去も）
-     ② この会社の席で受けた
-     どちらか一方だけで引くと、抜け落ちる人が出る */
-  const [{ data: mems }, { data: ens }] = await Promise.all([
-    supabase
-      .from("memberships")
-      .select("user_id, requested_at, approved_at, left_at")
-      .eq("company_id", companyId),
-    supabase
-      .from("enrollments")
-      .select("id, user_id, course_id, seat_id, started_at, completed_at, closed_at, created_at")
-      .eq("company_id", companyId),
-  ]);
-  const memberships = mems ?? [];
-  const enrolls = ens ?? [];
-
-  const ids = [...new Set([
-    ...memberships.map((m) => m.user_id as string),
-    ...enrolls.map((e) => e.user_id as string),
-  ])];
-  const { data: us } = ids.length
-    ? await supabase.from("users").select("id, name, email").in("id", ids)
-    : { data: [] as Row[] };
-  const users = us ?? [];
-
-  const eids = enrolls.map((e) => e.id as string);
-  const grab = async (table: string, cols: string) => {
-    if (!eids.length) return [] as Row[];
-    const { data } = await supabase.from(table).select(cols).in("enrollment_id", eids);
-    return (data ?? []) as unknown as Row[];
-  };
-  const [progress, exams, certs] = await Promise.all([
-    grab("progress", "enrollment_id, lesson_id, watched_sec, quiz_passed_at"),
-    grab("exams", "enrollment_id, score, total, passed, created_at"),
-    grab("certificates", "enrollment_id, cert_no, issued_at, revoked_at"),
-  ]);
-
-  /* 受けた席の受講コード。どのコードで受けたかは、後から問われる */
-  const seatIds = [...new Set(enrolls.map((e) => e.seat_id as string | null).filter(Boolean))] as string[];
-  const { data: seats } = seatIds.length
-    ? await supabase.from("seats").select("id, code").in("id", seatIds)
-    : { data: [] as Row[] };
-  const codeOf = nameOf(seats as Row[], "id", "code");
-
-  const uName = nameOf(users as Row[]);
-  const uMail = nameOf(users as Row[], "id", "email");
-  const courseName = new Map(COURSES.map((c) => [c.id, c.short]));
-
-  /* 人ごとに、紐付きの状態と、受けたものを並べる */
-  const memOf = new Map<string, Row>();
-  for (const m of memberships) {
-    const k = m.user_id as string;
-    const cur = memOf.get(k);
-    /* 開いているものを優先。無ければいちばん新しいもの */
-    if (!cur || (!m.left_at && cur.left_at) || `${m.requested_at}` > `${cur.requested_at}`) {
-      memOf.set(k, m as Row);
-    }
-  }
-
-  const people = ids.map((id) => {
-    const m = memOf.get(id);
-    const state = !m
-      ? "つながっていない"
-      : m.left_at
-        ? "退職"
-        : m.approved_at
-          ? "在籍"
-          : "申し込み中";
-
-    const mine = enrolls.filter((e) => e.user_id === id).map((e) => {
-      const eid = e.id as string;
-      const prog = progress.filter((p) => p.enrollment_id === eid);
-      const exam = exams
-        .filter((x) => x.enrollment_id === eid)
-        .sort((a, b) => `${b.created_at}`.localeCompare(`${a.created_at}`))[0] ?? null;
-      const cert = certs.filter((c) => c.enrollment_id === eid && !c.revoked_at)[0] ?? null;
-      return {
-        id: eid,
-        course: courseName.get(e.course_id as string) ?? (e.course_id as string) ?? "",
-        seatCode: codeOf.get((e.seat_id as string) ?? "") ?? "",
-        lessonsPassed: prog.filter((p) => !!p.quiz_passed_at).length,
-        watchedSec: prog.reduce((n, p) => n + ((p.watched_sec as number) ?? 0), 0),
-        exam: exam
-          ? { score: exam.score as number, total: exam.total as number, passed: exam.passed === true }
-          : null,
-        cert: cert ? { no: cert.cert_no as string, at: cert.issued_at as string } : null,
-        startedAt: (e.started_at as string) ?? null,
-        completedAt: (e.completed_at as string) ?? null,
-        /* 取り消した受講。消さずに閉じてある */
-        closedAt: (e.closed_at as string) ?? null,
-        createdAt: (e.created_at as string) ?? null,
-      };
-    });
-
-    return {
-      userId: id,
-      name: uName.get(id) ?? "",
-      email: uMail.get(id) ?? "",
-      state,
-      requestedAt: (m?.requested_at as string) ?? null,
-      approvedAt: (m?.approved_at as string) ?? null,
-      leftAt: (m?.left_at as string) ?? null,
-      records: mine,
-    };
-  });
-
-  /* 在籍 → 申し込み中 → 退職 の順。同じ状態なら名前順 */
-  const rank = (s: string) => (s === "在籍" ? 0 : s === "申し込み中" ? 1 : s === "退職" ? 2 : 3);
-  people.sort((a, b) => rank(a.state) - rank(b.state) || a.name.localeCompare(b.name, "ja"));
+  /* 中身の組み立ては、その会社の担当者が見るものと同じ（src/lib/records.ts）。
+     2か所に書くと、片方に足した項目がもう片方から抜ける */
+  const { people, totals } = await companyRecords(supabase, companyId);
 
   return NextResponse.json({
     ok: true,
@@ -258,11 +157,6 @@ async function one(
       createdAt: co.created_at as string,
     },
     people,
-    totals: {
-      people: people.length,
-      active: people.filter((p) => p.state === "在籍").length,
-      gone: people.filter((p) => p.state === "退職").length,
-      certs: people.reduce((n, p) => n + p.records.filter((r) => r.cert).length, 0),
-    },
+    totals,
   });
 }

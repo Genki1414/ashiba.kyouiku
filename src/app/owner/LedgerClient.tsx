@@ -74,7 +74,9 @@ const tone = (state: string) =>
 
 export function LedgerClient({ onNote }: { onNote: (s: string) => void }) {
   const [cos, setCos] = useState<Co[] | null>(null);
-  const [totals, setTotals] = useState({ companies: 0, trial: 0, learners: 0, certs: 0, sales: 0 });
+  const [totals, setTotals] = useState({
+    companies: 0, users: 0, loose: 0, linked: 0, trial: 0, learners: 0, certs: 0, sales: 0,
+  });
   const [open, setOpen] = useState<string | null>(null);
   const [detail, setDetail] = useState<Detail | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -89,7 +91,9 @@ export function LedgerClient({ onNote }: { onNote: (s: string) => void }) {
         return;
       }
       setCos(j.companies ?? []);
-      setTotals(j.totals ?? { companies: 0, trial: 0, learners: 0, certs: 0, sales: 0 });
+      setTotals(
+        j.totals ?? { companies: 0, users: 0, loose: 0, linked: 0, trial: 0, learners: 0, certs: 0, sales: 0 },
+      );
     } catch {
       onNote("つながりません。");
     }
@@ -139,19 +143,26 @@ export function LedgerClient({ onNote }: { onNote: (s: string) => void }) {
 
   return (
     <div data-testid="owner-ledger">
-      <div className="mt-4 grid grid-cols-4 gap-2" data-testid="ledger-totals">
+      {/* いくつの事業者に、何人まで来たか。まずここで分かるようにする */}
+      <div className="mt-4 grid grid-cols-3 gap-2" data-testid="ledger-totals">
         {[
-          { t: "事業者", v: String(totals.companies) },
-          { t: "無償利用", v: String(totals.trial) },
-          { t: "受講した人", v: String(totals.learners) },
-          { t: "修了証", v: String(totals.certs) },
+          { t: "事業者", v: String(totals.companies), s: `無償利用 ${totals.trial}` },
+          { t: "登録した人", v: String(totals.users), s: `未所属 ${totals.loose}` },
+          { t: "在籍している人", v: String(totals.linked), s: "" },
+          { t: "受講した人", v: String(totals.learners), s: "" },
+          { t: "修了証", v: String(totals.certs), s: "" },
+          { t: "売上（税込）", v: yen(totals.sales), s: "" },
         ].map((x) => (
-          <div key={x.t} className="rounded-xl border border-line bg-panel px-1.5 py-3 text-center">
+          <div key={x.t} className="rounded-xl border border-line bg-panel px-1.5 py-2.5 text-center">
             <div className="text-[10px] text-dim">{x.t}</div>
             <div className="text-[15px] font-black">{x.v}</div>
+            {x.s && <div className="text-[9.5px] text-dim2">{x.s}</div>}
           </div>
         ))}
       </div>
+      <p className="mt-1.5 text-[10.5px] leading-relaxed text-dim2">
+        「登録した人」は、ログインを作った人ぜんぶ。まだどこの事業者にも入っていない人（未所属）もふくみます。
+      </p>
 
       <input
         value={q}

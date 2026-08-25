@@ -7,6 +7,7 @@ import { Bar } from "@/components/ui/Bar";
 import { dur, hm } from "@/components/ui/format";
 import { CHAPTERS } from "@/training/chapters";
 import type { LearnerRow } from "@/training/roster";
+import { PastRecords } from "./PastRecords";
 
 /* 教育担当者の画面。
 
@@ -629,6 +630,9 @@ export function AdminClient() {
           </div>
         ))}
       </div>
+
+      {/* 名簿から外した人のぶんは、ここから出す */}
+      <PastRecords />
     </main>
   );
 }

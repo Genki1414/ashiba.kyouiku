@@ -61,6 +61,8 @@ for (const [url, body] of [
   ["/api/admin/role", { userId: "00000000-0000-0000-0000-000000000000", admin: true }],
   /* 本部の元帳。ここが漏れると、よその事業者の受講記録まで見えてしまう */
   ["/api/owner/ledger", null],
+  /* 事業者ぶんの元帳。担当者でなければ出さない */
+  ["/api/admin/past", null],
   ["/api/owner/orders", null],
 ]) {
   const r = await page.evaluate(

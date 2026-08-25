@@ -105,6 +105,29 @@ console.log("── /api/admin/summary が返す形 ──");
   }
 }
 
+console.log("── 元帳を返す2か所 ──");
+{
+  /* 本部と、その会社の担当者。同じものを見せる。
+     どちらかで組み立て直すと、片方に足した項目がもう片方から抜ける */
+  for (const p of ["src/app/api/owner/ledger/route.ts", "src/app/api/admin/past/route.ts"]) {
+    const src = read(p);
+    check(/companyRecords\(/.test(src), `${p} は共通の組み立てを使う`);
+    check(!/\.from\("progress"\)/.test(src), `${p} は受講の中身を自分で引き直さない`);
+  }
+  /* よその事業者を指せる道を作らない。
+     担当者側が事業者の番号を外から受け取ると、書き換えて
+     よその会社の記録を引ける。受け取らないことを、字で見る */
+  const past = read("src/app/api/admin/past/route.ts");
+  check(!/searchParams/.test(past), "担当者側は URL から事業者を受け取らない");
+  check(/export async function GET\(\)/.test(past), "担当者側の GET は引数を取らない");
+  check(!/export async function POST/.test(past), "担当者側は読むだけ（POST を持たない）");
+  check(/currentAdmin\(\)/.test(past), "担当者側は currentAdmin() で事業者を決める");
+  check(
+    /companyRecords\(supabase, admin\.companyId\)/.test(past),
+    "担当者側は自分の事業者ぶんだけを引く",
+  );
+}
+
 console.log("── /api/member が返す形 ──");
 {
   /* 受講者側。state が3つとも返っていないと、許可待ちが出ない */

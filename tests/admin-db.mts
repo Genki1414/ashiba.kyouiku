@@ -15,6 +15,7 @@ import { createClient } from "@supabase/supabase-js";
 import { buildRoster, rosterTotals } from "@/training/roster";
 import { listSeats, releaseSeat } from "@/lib/seats";
 import { learnFor } from "@/lib/entitleQuery";
+import { companyRecords } from "@/lib/records";
 import { buildCheck, checkTotals } from "@/training/verifyLog";
 
 const URL = process.env.SHIM_URL ?? "http://127.0.0.1:54321";
@@ -716,8 +717,45 @@ check(codes.every((c) => /^[2-9A-HJKMNP-Z]{12}$/.test(c)), `12文字・読み違
     "辞めた人は在籍には出ない",
   );
 
+  /* 組み立てた形も見る。本部（/api/owner/ledger）と
+     その会社の担当者（/api/admin/past）は、同じものを使う */
+  const led = await companyRecords(db, CO);
+  const t = led.people.find((p) => p.userId === U3);
+  check(!!t, "辞めた人が元帳の一覧に入る");
+  check(t?.state === "退職", `辞めた人の状態は退職（いま ${t?.state}）`);
+  check(!!t?.leftAt, "いつ辞めたかが入る");
+  check((t?.records.length ?? 0) >= 1, `辞めた人の受講記録が残る（いま ${t?.records.length}件）`);
+  check(led.totals.gone >= 1, `退職の数が出る（いま ${led.totals.gone}人）`);
+  check(
+    led.people.every((p) => p.name.length > 0 || p.email.length > 0),
+    "誰の記録かが分かる（氏名かメールが入る）",
+  );
+  /* 在籍が上、退職が下。監督署に出すときに並びが揃っていないと読めない */
+  const order = led.people.map((p) => p.state);
+  const first = order.indexOf("退職");
+  check(
+    first === -1 || !order.slice(first).includes("在籍"),
+    `在籍が先で退職が後（${order.join("・")}）`,
+  );
+
   /* 戻す。あとの試験がこの人を使う */
   await db.rpc("join_company", { p_user: U3, p_company: CO });
+}
+
+/* ②-5 元帳は事業者ごとに分かれている。
+   よその会社の記録が混ざると、そのまま監督署に出してしまう */
+{
+  const other = "aaaaaaaa-0000-0000-0000-0000000000c2";
+  await raw.query("delete from public.companies where id = $1", [other]);
+  await raw.query(
+    "insert into public.companies (id, name, join_code) values ($1, 'よその工業', 'ZZZZ9876')",
+    [other],
+  );
+  const mine = await companyRecords(db, CO);
+  const theirs = await companyRecords(db, other);
+  check(theirs.people.length === 0, `関わりの無い事業者は空（いま ${theirs.people.length}人）`);
+  check(mine.people.length > 0, `自分の事業者ぶんは出る（いま ${mine.people.length}人）`);
+  await raw.query("delete from public.companies where id = $1", [other]);
 }
 
 /* ③ 入金前は修了証を出せない */
