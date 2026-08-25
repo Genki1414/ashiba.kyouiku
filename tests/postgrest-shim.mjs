@@ -197,6 +197,19 @@ const server = createServer(async (req, res) => {
       return send(200, r.rows);
     }
 
+    if (req.method === "DELETE") {
+      /* アプリが消すのは、受講コードの引き換えを取り消すときだけ
+         （その人の学科と実務の記録をやり直しにする） */
+      const w = whereFrom(params, 1);
+      const r = await client.query(
+        `delete from public.${ident(name)}${w.sql} returning *`,
+        w.vals,
+      );
+      await client.query("commit");
+      if (single) return send(200, r.rows[0] ?? null);
+      return send(200, r.rows);
+    }
+
     await client.query("rollback");
     return send(405, { message: `未対応のメソッド: ${req.method}` });
   } catch (e) {

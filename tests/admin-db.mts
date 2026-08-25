@@ -515,6 +515,21 @@ await raw.query("update public.enrollments set seat_id = null where id = $1", [E
   const e1 = await db.from("enrollments").select("seat_id").eq("id", E2).maybeSingle();
   check(!e1.data?.seat_id, "受講の紐付けも外れる");
 
+  /* 学科と実務の記録は消えて、最初からになる。
+     残すと、買い直した席で法定時間を引き継げてしまう */
+  for (const t of ["progress", "exams", "training_attempts", "verify_logs"]) {
+    const { data } = await db.from(t).select("id").eq("enrollment_id", E2);
+    check((data ?? []).length === 0, `${t} が消えて最初からになる（いま ${(data ?? []).length} 件）`);
+  }
+  /* 修了証の控えは残す。出した書類の記録なので消してはいけない */
+  const kept = await db.from("certificates").select("id, revoked_at").eq("enrollment_id", E2);
+  check((kept.data ?? []).length > 0, "取り消した修了証の控えは残る");
+  check((kept.data ?? []).every((c) => c.revoked_at), "残っているのは取り消し済みのものだけ");
+
+  /* よその人の記録は消さない */
+  const elses = await db.from("progress").select("id").eq("enrollment_id", E3);
+  check((elses.data ?? []).length > 0, `他人の学科の記録は消さない（${(elses.data ?? []).length} 件）`);
+
   /* 戻した席は、もう一度配れる */
   const { error } = await db.rpc("redeem_seat", { p_code: codes[1], p_user: U2 });
   check(!error, `戻した受講コードは、もう一度使える（${error?.message ?? "ok"}）`);

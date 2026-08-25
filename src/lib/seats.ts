@@ -130,8 +130,14 @@ export async function listSeats(
    戻すと、席の無い修了証が残る（0009 の決まりに反する）。
    その人の分は、先に修了証を取り消してもらう。
 
-   受講の記録（視聴時間・試験）は消さない。
-   その人がまた別のコードを入れれば、続きから受けられる。 */
+   戻すときは、その席で受けた学科と実務の記録も消して、
+   受講そのものを最初からにする。
+   残すと、次にその席を配られた人（あるいは同じ人）が、
+   前の続きから始まってしまう。買い直した席で法定時間を
+   引き継げるなら、席を売る意味が無くなる。
+
+   修了証の行だけは残す（取り消した分も含めて）。
+   出した書類の控えなので、消してはいけない。 */
 export type Release = { ok: true; code: string } | { ok: false; reason: string };
 
 export async function releaseSeat(
@@ -176,9 +182,16 @@ export async function releaseSeat(
         reason: "修了証を出した人の受講コードは取り消せません。先に修了証を取り消してください。",
       };
     }
+    /* その席で受けた記録を消す。次の人は最初からになる。
+       修了証（取り消した分も）は控えなので消さない */
+    for (const table of ["progress", "exams", "training_attempts", "verify_logs"]) {
+      const { error } = await supabase.from(table).delete().in("enrollment_id", eids);
+      if (error) return { ok: false, reason: "取り消せませんでした。もう一度試してください。" };
+    }
+
     const { error: unlink } = await supabase
       .from("enrollments")
-      .update({ seat_id: null })
+      .update({ seat_id: null, started_at: new Date().toISOString() })
       .eq("seat_id", seat.id as string);
     if (unlink) return { ok: false, reason: "取り消せませんでした。もう一度試してください。" };
   }

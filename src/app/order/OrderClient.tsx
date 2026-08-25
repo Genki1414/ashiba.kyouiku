@@ -335,7 +335,7 @@ function CodeList({ codes, onChange }: { codes: Code[]; onChange: () => Promise<
         setDone(j.reason ?? "取り消せませんでした。");
         return;
       }
-      setDone("引き換えを取り消しました。もう一度配れます。");
+      setDone("引き換えを取り消しました。その人の学科と実務の記録も消えて、最初からになります。このコードはもう一度配れます。");
       setAsking("");
       await onChange();
     } finally {
@@ -449,6 +449,8 @@ function CodeList({ codes, onChange }: { codes: Code[]; onChange: () => Promise<
         入金がまだでも受講は始められます。<strong className="text-dim">修了証は入金の確認が済んでから</strong>出せます。
         <br />
         違う人が入れてしまったときは「取り消す」で戻せます。
+        <strong className="text-dim">取り消すと、その人の学科と実務の記録も消えて最初からになります。</strong>
+        買い直した席で法定時間を引き継げないようにするためです。
         修了証を出したあとは戻せません（先に修了証を取り消してください）。
       </div>
     </div>

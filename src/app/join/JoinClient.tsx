@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Btn } from "@/components/ui/Btn";
 import { codeKind, normalizeJoinCode } from "@/training/joinCode";
+import { wipeDevice } from "@/lib/device";
 
 /* コードを入れて自分の事業者に入る。
 
@@ -34,6 +35,11 @@ export function JoinClient() {
         setNote(j.reason ?? "入れませんでした。");
         return;
       }
+      /* 受講コードを入れたら、その時点で受講は始めからになる。
+         サーバ側の記録は取り消しのときに消しているので、
+         端末に残っている分（受講の準備・実務の成績・間違いノート・途中経過）も
+         ここで消す。残すと前の続きから始まってしまう */
+      if (j.kind === "seat") wipeDevice();
       setDone({ company: j.company ?? "", kind: j.kind ?? "join" });
       router.refresh();
     } catch {

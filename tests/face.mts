@@ -8,6 +8,7 @@
    実行: npx tsx tests/face.mts */
 
 import { H, W, judgeLook, look } from "@/lib/face";
+import { FAIL_LIMIT, START, step, type Tick } from "@/lib/verifyGate";
 
 let ok = 0;
 let ng = 0;
@@ -104,6 +105,44 @@ const flat = (v: number): Uint8Array => new Uint8Array(W * H).fill(v);
   check(p.sd < 8, `手で塞ぐと ばらつきは 8 未満（${p.sd.toFixed(1)}）`);
   check(h.sd > 30, `人が写っていれば ばらつきは 30 以上（${h.sd.toFixed(1)}）`);
   check(look(flat(100), flat(100)).motion === 0, "同じ絵なら動きはゼロ");
+}
+
+/* ── 何回外れたら止めるか ──
+   ここが甘いと、外れているのに いつまでも止まらない。
+   実際そうなっていた（顔があるかを2回に1回しか見ていなかったので、
+   外れた回と見ていない回が交互になり、2回続けて外れることが無かった）。 */
+const OK: Tick = { ok: true };
+const ng2 = (reason: "no_face" | "multi_face" | "blocked" | "no_motion" | "not_me"): Tick =>
+  ({ ok: false, reason });
+
+/** 並びを流して、何回目で止まるかを返す。止まらなければ null */
+function runTicks(list: Tick[]): number | null {
+  let g = START;
+  for (let i = 0; i < list.length; i++) {
+    g = step(g, list[i]);
+    if (g.stop) return i + 1;
+  }
+  return null;
+}
+
+{
+  check(FAIL_LIMIT === 2, "2回続けて外れたら止める");
+  check(runTicks([ng2("no_face"), ng2("no_face")]) === 2, "顔が2回続けて無ければ止まる");
+  check(runTicks([ng2("blocked"), ng2("no_face")]) === 2, "理由が違っても、2回続けて外れれば止まる");
+  check(runTicks([ng2("no_face")]) === null, "1回だけなら止めない（顔を掻いた、横を向いた）");
+  check(runTicks([ng2("no_face"), OK, ng2("no_face"), OK]) === null,
+    "1回おきに外れるのは止めない（人は居る）");
+
+  /* いちばん困っていた形。外れた回と、見ていない回が交互になっていた */
+  const alternating: Tick[] = [];
+  for (let i = 0; i < 20; i++) alternating.push(i % 2 === 0 ? ng2("no_face") : OK);
+  check(runTicks(alternating) === null,
+    "交互に外れる並びでは止まらない ＝ 顔の有無を間引くと止まらなくなる");
+
+  check(runTicks([ng2("not_me")]) === 1, "別人と分かったら、その1回で止める");
+  check(runTicks([OK, OK, ng2("not_me")]) === 3, "通ったあとでも、別人なら その場で止める");
+  check(step(START, ng2("no_face")).miss === 1, "外れた回は数える");
+  check(step({ miss: 1, stop: null }, OK).miss === 0, "通れば数え直す");
 }
 
 console.log("\n── まとめ ──");
