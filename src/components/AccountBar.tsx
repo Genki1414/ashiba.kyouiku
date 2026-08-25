@@ -51,7 +51,7 @@ export function AccountBar() {
       {asking ? (
         <span className="ml-auto flex items-center gap-2">
           <button onClick={out} className="rounded border border-red px-2 py-1 text-ng-tx" data-testid="signout-yes">
-            出る
+            ログアウトする
           </button>
           <button onClick={() => setAsking(false)} className="rounded border border-line px-2 py-1 text-dim">
             やめる
