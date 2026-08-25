@@ -112,8 +112,9 @@ function trainingOf(rows: RawAttempt[]): ChapterResult[] {
 /** 一覧を組み立てる。
     修了証を出せるのにまだ出していない人が上（担当者がやることはそこなので）、
     次に在籍している人、そのあとは名前順。
-    抜けた人（退職・転職）は下に置く。消さないのは、教育を行った事業者が
-    その記録を3年保存する決まりだから。 */
+    抜けた人（退職・転職）は下に置く。名簿から消さないのは、
+    その会社が「誰に受けさせたか」を後から示せるようにするため。
+    受けた記録そのものは、教育を行っているこの仕組みの側に残る。 */
 export function buildRoster(inp: RosterInput): LearnerRow[] {
   const lessonsTotal = inp.lessons.length;
   const requiredSec = inp.lessons.reduce((n, l) => n + l.legal_min * 60, 0);

@@ -64,7 +64,7 @@ export async function GET(req: NextRequest) {
   /* 名簿に出す人は2通り。
      ① いま在籍している人（memberships の left_at が空）
      ② 抜けたが、この会社の席で受けた記録がある人（退職・転職）
-     ②を消すと、教育を行った事業者が記録を出せなくなる（3年保存の決まり） */
+     ②を消すと、その会社が「誰に受けさせたか」を後から示せなくなる */
   const { data: active } = await supabase
     .from("memberships")
     .select("user_id")
@@ -95,6 +95,8 @@ export async function GET(req: NextRequest) {
     .from("enrollments")
     .select("user_id")
     .eq("company_id", admin.companyId);
+  /* 閉じた受講（取り消したもの）も、その会社と関わりがあった証なので
+     名簿には出す。ただし進み具合は、開いている受講だけで見る */
   const allIds = [...new Set([...activeIds, ...(past ?? []).map((e) => e.user_id as string)])];
 
   const { data: users0 } = allIds.length
@@ -124,7 +126,8 @@ export async function GET(req: NextRequest) {
     .select("id, user_id")
     .in("user_id", ids)
     .eq("course_id", course.id)
-    .eq("company_id", admin.companyId);
+    .eq("company_id", admin.companyId)
+    .is("closed_at", null);
   const eids = (enrollments ?? []).map((e) => e.id as string);
 
   const pick = async (

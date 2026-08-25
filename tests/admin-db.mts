@@ -626,6 +626,11 @@ await raw.query("update public.enrollments set seat_id = null where id = $1", [E
 
   /* 取り消したあとなら戻せる */
   await raw.query("update public.certificates set revoked_at = now() where enrollment_id = $1", [E2]);
+  /* 受講中の記録も入れておく。取り消しで消えないことを見るため */
+  await raw.query(
+    "insert into public.verify_logs (enrollment_id, lesson_id, result, reason) values ($1,'ashiba:1-1','ng','no_face')",
+    [E2],
+  );
   const after = await releaseSeat(db, codes[1], CO);
   check(after.ok, `修了証を取り消したあとなら戻せる（${JSON.stringify(after)}）`);
 
@@ -635,13 +640,25 @@ await raw.query("update public.enrollments set seat_id = null where id = $1", [E
   const e1 = await db.from("enrollments").select("seat_id").eq("id", E2).maybeSingle();
   check(!e1.data?.seat_id, "受講の紐付けも外れる");
 
-  /* 学科と実務の記録は消えて、最初からになる。
-     残すと、買い直した席で法定時間を引き継げてしまう */
+  /* 記録は消さない。特別教育を行っているのはこの仕組みの運営なので、
+     行った教育の記録は、こちら側に残っていなければならない */
+  const closed = await db.from("enrollments").select("closed_at, seat_id").eq("id", E2).maybeSingle();
+  check(!!closed.data?.closed_at, "取り消した受講は閉じる（消さない）");
+  check(!closed.data?.seat_id, "席の紐付けは外れる");
   for (const t of ["progress", "exams", "training_attempts", "verify_logs"]) {
     const { data } = await db.from(t).select("id").eq("enrollment_id", E2);
-    check((data ?? []).length === 0, `${t} が消えて最初からになる（いま ${(data ?? []).length} 件）`);
+    check((data ?? []).length > 0, `${t} の記録は残る（${(data ?? []).length} 件）`);
   }
-  /* 修了証の控えは残す。出した書類の記録なので消してはいけない */
+
+  /* もう一度受けると、新しい受講が0から始まる */
+  const fresh = await db.rpc("enrollment_for", { p_user: U2, p_course: "ashiba" });
+  check(!fresh.error && fresh.data && fresh.data !== E2,
+    `次に受けるときは新しい受講（${fresh.data}）`);
+  const zero = await db.from("progress").select("id").eq("enrollment_id", fresh.data as string);
+  check((zero.data ?? []).length === 0, "新しい受講は0から始まる");
+  const both = await db.from("enrollments").select("id").eq("user_id", U2).eq("course_id", "ashiba");
+  check((both.data ?? []).length === 2, "閉じた受講と、新しい受講の2件が残る");
+  /* 修了証の控えも残す。出した書類の記録なので消してはいけない */
   const kept = await db.from("certificates").select("id, revoked_at").eq("enrollment_id", E2);
   check((kept.data ?? []).length > 0, "取り消した修了証の控えは残る");
   check((kept.data ?? []).every((c) => c.revoked_at), "残っているのは取り消し済みのものだけ");

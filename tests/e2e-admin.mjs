@@ -115,9 +115,13 @@ await page.getByTestId("join-code").fill("abcd2345");
 check(!(await go.isDisabled()), "小文字8文字なら押せる");
 await page.screenshot({ path: `${SC}/admin-02-join.png` });
 await go.click();
-await page.waitForTimeout(600);
+/* 決まった時間で待つと、遅い端末で取りこぼす。出るまで待つ */
+await page.getByTestId("join-note").waitFor({ timeout: 8000 }).catch(() => {});
 const joinNote = await page.getByTestId("join-note").count();
 check(joinNote === 1, "つながらない・見つからないときは理由を出す");
+
+/* 会社をさがす道も出ている（コードを渡されていない人のため） */
+check(await page.getByTestId("join-search").isVisible(), "会社をさがして申し込む道が出る");
 console.log("OK: 参加コードの画面");
 
 /* ── ホームに担当者の入口は、担当者にだけ出る ── */

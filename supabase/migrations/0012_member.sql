@@ -35,6 +35,11 @@ create table if not exists public.memberships (
   constraint memberships_dates check (left_at is null or left_at >= requested_at)
 );
 
+-- 途中の形で作ってしまった場合の受け皿（列が無ければ足す）
+alter table public.memberships add column if not exists requested_at timestamptz not null default now();
+alter table public.memberships add column if not exists approved_at  timestamptz;
+alter table public.memberships add column if not exists left_at      timestamptz;
+
 -- 在籍中（許可が下りていて、まだ抜けていない）は1人1社
 create unique index if not exists memberships_active_one_idx
   on public.memberships (user_id) where approved_at is not null and left_at is null;
