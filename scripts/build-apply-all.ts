@@ -31,7 +31,7 @@ const out = `-- ═════════════════════�
 -- 足場トレーニング Supabase 初期化（このファイルを SQL Editor に貼って実行）
 --
 -- 中身:
---   1. マイグレーション 0001_init / 0002_rls / 0003_rules / 0004_auth / 0005_cert / 0006_version / 0007_admin / 0008_tenant / 0009_order / 0010_verify / 0011_course
+--   1. マイグレーション 0001_init / 0002_rls / 0003_rules / 0004_auth / 0005_cert / 0006_version / 0007_admin / 0008_tenant / 0009_order / 0010_verify / 0011_course / 0012_member
 --   2. lessons（単元の規定時間）${lessonCount}件を投入
 --
 -- 何度実行しても壊れないように書いてある（作成済みなら飛ばす）。
@@ -59,6 +59,8 @@ ${read("supabase/migrations/0009_order.sql")}
 ${read("supabase/migrations/0010_verify.sql")}
 
 ${read("supabase/migrations/0011_course.sql")}
+
+${read("supabase/migrations/0012_member.sql")}
 
 -- ═══════════════════════════════════════════════════════════
 -- 4. lessons（curriculum.json の単元ID・題名・規定時間の写し）

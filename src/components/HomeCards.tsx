@@ -50,10 +50,10 @@ export function HomeCards() {
         data-testid="home-join"
       >
         <div className="text-[11px] font-extrabold tracking-widest text-yel">はじめに</div>
-        <div className="mt-1 text-[15px] font-black text-txt">参加コードを入れる</div>
+        <div className="mt-1 text-[15px] font-black text-txt">会社とつなぐ</div>
         <div className="mt-1 text-[12px] leading-relaxed text-dim">
-          会社の教育担当者から渡された8文字を入れてください。
-          入れないと、修了証をどの会社の名義で出すか決まりません。
+          自分の会社をさがして申し込むか、担当者から渡されたコードを入れてください。
+          つながっていないと、名簿に載らず、修了証も出せません。
         </div>
       </Link>,
     );

@@ -23,6 +23,8 @@ export type LearnerRow = {
   email: string | null;
   /** 教育担当者か */
   admin: boolean;
+  /** その会社を抜けているか（退職・転職）。記録は残す */
+  left: boolean;
   /** 学科：合格した単元 */
   lessonsPassed: number;
   lessonsTotal: number;
@@ -50,6 +52,8 @@ export type RawUser = {
   name: string;
   email: string | null;
   role: string;
+  /** その会社に在籍しているか。抜けた人も、受けた記録があれば名簿に残る */
+  active?: boolean;
 };
 export type RawEnrollment = { id: string; user_id: string };
 export type RawProgress = {
@@ -107,7 +111,9 @@ function trainingOf(rows: RawAttempt[]): ChapterResult[] {
 
 /** 一覧を組み立てる。
     修了証を出せるのにまだ出していない人が上（担当者がやることはそこなので）、
-    そのあとは名前順。 */
+    次に在籍している人、そのあとは名前順。
+    抜けた人（退職・転職）は下に置く。消さないのは、教育を行った事業者が
+    その記録を3年保存する決まりだから。 */
 export function buildRoster(inp: RosterInput): LearnerRow[] {
   const lessonsTotal = inp.lessons.length;
   const requiredSec = inp.lessons.reduce((n, l) => n + l.legal_min * 60, 0);
@@ -155,6 +161,7 @@ export function buildRoster(inp: RosterInput): LearnerRow[] {
       name: u.name,
       email: u.email,
       admin: u.role === "admin",
+      left: u.active === false,
       lessonsPassed,
       lessonsTotal,
       watchedSec,
@@ -174,7 +181,12 @@ export function buildRoster(inp: RosterInput): LearnerRow[] {
   });
 
   const waiting = (r: LearnerRow) => (r.canIssue && !r.cert ? 0 : 1);
-  return rows.sort((a, b) => waiting(a) - waiting(b) || a.name.localeCompare(b.name, "ja"));
+  return rows.sort(
+    (a, b) =>
+      Number(a.left) - Number(b.left) ||
+      waiting(a) - waiting(b) ||
+      a.name.localeCompare(b.name, "ja"),
+  );
 }
 
 const cmpAt = (a: { created_at: string }, b: { created_at: string }) =>
@@ -183,7 +195,9 @@ const cmpAt = (a: { created_at: string }, b: { created_at: string }) =>
 /** 一覧の上に出す数字 */
 export function rosterTotals(rows: LearnerRow[]) {
   return {
-    people: rows.length,
+    /* 数えるのは在籍している人。抜けた人は記録として残るだけ */
+    people: rows.filter((r) => !r.left).length,
+    left: rows.filter((r) => r.left).length,
     /* 学科を終えた人（全単元＋修了試験） */
     done: rows.filter((r) => r.canIssue).length,
     /* 修了証を出した人 */

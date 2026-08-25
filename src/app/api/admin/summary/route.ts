@@ -57,15 +57,51 @@ export async function GET(req: NextRequest) {
     .eq("company_id", admin.companyId)
     .eq("course_id", course.id);
   const paidIds = (myOrders ?? []).filter((o) => o.status === "paid").map((o) => o.id as string);
-  const allIds = (myOrders ?? []).map((o) => o.id as string);
-  const seats = await seatCounts(supabase, allIds);
+  const orderIds = (myOrders ?? []).map((o) => o.id as string);
+  const seats = await seatCounts(supabase, orderIds);
   const paidSeats = await seatCounts(supabase, paidIds);
 
-  const { data: users } = await supabase
-    .from("users")
-    .select("id, name, email, role")
+  /* 名簿に出す人は2通り。
+     ① いま在籍している人（memberships の left_at が空）
+     ② 抜けたが、この会社の席で受けた記録がある人（退職・転職）
+     ②を消すと、教育を行った事業者が記録を出せなくなる（3年保存の決まり） */
+  const { data: active } = await supabase
+    .from("memberships")
+    .select("user_id")
+    .eq("company_id", admin.companyId)
+    .is("left_at", null);
+  const activeIds = new Set((active ?? []).map((m) => m.user_id as string));
+
+  /* 参加の申し込み（まだ許可していない）。担当者がやることなので、先に返す */
+  const { data: waiting } = await supabase
+    .from("memberships")
+    .select("user_id, requested_at")
+    .eq("company_id", admin.companyId)
+    .is("approved_at", null)
+    .is("left_at", null);
+  const wantIds = (waiting ?? []).map((m) => m.user_id as string);
+  const { data: wantUsers } = wantIds.length
+    ? await supabase.from("users").select("id, name, email").in("id", wantIds)
+    : { data: [] as { id: string; name: string; email: string | null }[] };
+  const askedAt = new Map((waiting ?? []).map((m) => [m.user_id as string, m.requested_at as string]));
+  const requests = (wantUsers ?? []).map((u) => ({
+    userId: u.id as string,
+    name: (u.name as string) ?? "",
+    email: (u.email as string) ?? null,
+    at: askedAt.get(u.id as string) ?? null,
+  }));
+
+  const { data: past } = await supabase
+    .from("enrollments")
+    .select("user_id")
     .eq("company_id", admin.companyId);
-  const ids = (users ?? []).map((u) => u.id as string);
+  const allIds = [...new Set([...activeIds, ...(past ?? []).map((e) => e.user_id as string)])];
+
+  const { data: users0 } = allIds.length
+    ? await supabase.from("users").select("id, name, email, role").in("id", allIds)
+    : { data: [] as { id: string; name: string; email: string | null; role: string }[] };
+  const users = (users0 ?? []).map((u) => ({ ...u, active: activeIds.has(u.id as string) }));
+  const ids = users.map((u) => u.id as string);
   if (!ids.length) {
     return NextResponse.json({
       ok: true,
@@ -77,14 +113,18 @@ export async function GET(req: NextRequest) {
       lessonsTotal,
       course: { id: course.id, short: course.short, name: course.name },
       courses,
+      requests,
     });
   }
 
+  /* 受講は「この会社の席で受けたもの」に限る。
+     よその会社で受けた記録が、こちらの名簿に出てはいけない */
   const { data: enrollments } = await supabase
     .from("enrollments")
     .select("id, user_id")
     .in("user_id", ids)
-    .eq("course_id", course.id);
+    .eq("course_id", course.id)
+    .eq("company_id", admin.companyId);
   const eids = (enrollments ?? []).map((e) => e.id as string);
 
   const pick = async (
@@ -104,7 +144,7 @@ export async function GET(req: NextRequest) {
   ]);
 
   const rows = buildRoster({
-    users: (users ?? []) as never,
+    users: users as never,
     enrollments: (enrollments ?? []) as never,
     progress: progress as never,
     exams: exams as never,

@@ -16,9 +16,12 @@ import type { LearnerRow } from "@/training/roster";
 
    見えるのは自社の受講者だけ。判断はすべてサーバ（/api/admin/*）で行う。 */
 
-type Totals = { people: number; done: number; issued: number; waiting: number };
+type Totals = { people: number; left: number; done: number; issued: number; waiting: number };
 
 type CourseTab = { id: string; short: string; name: string };
+
+/** 参加の申し込み。許可するまで名簿には入らない */
+type Request = { userId: string; name: string; email: string | null; at: string | null };
 
 type Loaded =
   | {
@@ -31,6 +34,8 @@ type Loaded =
       /* いま見ている講座と、切り替えられる講座 */
       course: CourseTab | null;
       courses: CourseTab[];
+      /* 参加の申し込み。担当者がやることなので上に出す */
+      requests: Request[];
     }
   | { kind: "setup"; reason: string }
   | { kind: "ng"; reason: string; signIn?: boolean };
@@ -50,6 +55,8 @@ export function AdminClient() {
   const [edit, setEdit] = useState(false);
   /* 名簿も受講コードも講座ごと。どの講座を見ているか */
   const [courseId, setCourseId] = useState<string>("");
+  /* 退職した人を隠すか。既定は出す（記録として残っているため） */
+  const [hideLeft, setHideLeft] = useState(false);
 
   const load = useCallback(async (course?: string) => {
     try {
@@ -66,6 +73,7 @@ export function AdminClient() {
           totals: j.totals,
           course: j.course ?? null,
           courses: j.courses ?? [],
+          requests: j.requests ?? [],
         });
         setCompany(j.company ?? "");
         if (j.course?.id) setCourseId(j.course.id as string);
@@ -170,11 +178,15 @@ export function AdminClient() {
     );
   }
 
-  /* ── 一覧 ── */
-  const rows = [...st.rows].sort((a, b) => {
-    const key = (r: LearnerRow) => (r.canIssue && !r.cert ? 0 : r.canIssue ? 1 : 2);
-    return key(a) - key(b) || a.name.localeCompare(b.name, "ja");
-  });
+  /* ── 一覧 ──
+     退職した人は下。消さないのは、教育を行った事業者が
+     その記録を3年保存する決まりだから */
+  const rows = [...st.rows]
+    .filter((r) => !hideLeft || !r.left)
+    .sort((a, b) => {
+      const key = (r: LearnerRow) => (r.canIssue && !r.cert ? 0 : r.canIssue ? 1 : 2);
+      return Number(a.left) - Number(b.left) || key(a) - key(b) || a.name.localeCompare(b.name, "ja");
+    });
 
   return (
     <main className="pb-10">
@@ -226,6 +238,54 @@ export function AdminClient() {
           </div>
         ))}
       </div>
+
+      {/* 参加の申し込み。ここが担当者のいちばん先にやること */}
+      {!!st.requests.length && (
+        <div className="mx-5 mt-3 rounded-xl border border-yel bg-[#1A1F14] p-4" data-testid="admin-requests">
+          <div className="text-[11px] font-extrabold tracking-[2px] text-yel">
+            参加の申し込み {st.requests.length} 件
+          </div>
+          <p className="mt-1 text-[11.5px] leading-relaxed text-dim">
+            自社の人か確かめてから許可してください。許可すると名簿に入り、受講できるようになります。
+          </p>
+          <div className="mt-2.5 grid gap-2">
+            {st.requests.map((q) => (
+              <div key={q.userId} className="rounded-lg border border-line bg-panel p-3" data-testid="admin-request">
+                <div className="text-[14px] font-black">{q.name}</div>
+                {q.email && <div className="mt-0.5 truncate text-[11px] text-dim2">{q.email}</div>}
+                {q.at && <div className="mt-0.5 text-[10.5px] text-dim2">{day(q.at)} 申し込み</div>}
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  <Btn
+                    tone="y"
+                    dis={busy === q.userId}
+                    testid="admin-approve"
+                    onClick={async () => {
+                      setBusy(q.userId);
+                      if (await post("/api/admin/member", { userId: q.userId, action: "approve" }))
+                        await load(courseId);
+                      setBusy(null);
+                    }}
+                  >
+                    許可する
+                  </Btn>
+                  <button
+                    className="rounded-lg border border-line p-2.5 text-[12.5px] text-dim"
+                    data-testid="admin-reject"
+                    onClick={async () => {
+                      setBusy(q.userId);
+                      if (await post("/api/admin/member", { userId: q.userId, action: "reject" }))
+                        await load(courseId);
+                      setBusy(null);
+                    }}
+                  >
+                    断る
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* 事業者の名前と、受講者に配る参加コード */}
       <div className="mx-5 mt-3 rounded-xl border border-line bg-panel p-4">
@@ -328,7 +388,9 @@ export function AdminClient() {
           </div>
           <div className="mt-1 text-[11.5px] leading-relaxed text-dim">
             席を使わずに名簿へ入れるコードです（担当者や、見学だけの人）。
-            受講する人には受講コードを渡してください。
+            <strong className="text-dim">渡した相手はそのまま名簿に入ります</strong>
+            （コードを渡した時点で認めたことになるので、許可は要りません）。
+            自分でさがして申し込んできた人は、上の「参加の申し込み」で許可してください。
             漏れたら作り直せます（前のコードは使えなくなります）。
           </div>
           <button
@@ -347,9 +409,25 @@ export function AdminClient() {
 
       {note && <div className="mx-5 mt-3 text-[12px] text-red">{note}</div>}
 
+      {/* 退職した人の出し入れ */}
+      {!!st.totals.left && (
+        <button
+          onClick={() => setHideLeft((v) => !v)}
+          className="mx-5 mt-3 block rounded-lg border border-line px-3 py-1.5 text-[11.5px] text-dim2"
+          data-testid="admin-hide-left"
+        >
+          {hideLeft ? `退職した ${st.totals.left} 人も出す` : `退職した ${st.totals.left} 人を隠す`}
+        </button>
+      )}
+
       {!rows.length && (
         <p className="mx-5 mt-5 text-[13px] leading-relaxed text-dim">
-          まだ受講者が居ません。受講する人に登録してもらい、上の参加コードを入れてもらうと、ここに並びます。
+          まだ受講者が居ません。
+          <br />
+          <strong className="text-dim">登録しただけでは、ここには並びません。</strong>
+          受講する人に上の<span className="text-yel">参加コード</span>を渡して、
+          ホームの「参加コードを入れる」から入れてもらってください。
+          受講コード（12文字）を渡した場合は、それを入れれば同じように並びます。
         </p>
       )}
 
@@ -358,6 +436,11 @@ export function AdminClient() {
           <div key={r.userId} className="rounded-xl border border-line bg-panel p-4" data-testid="admin-row">
             <div className="flex items-baseline gap-2">
               <div className="min-w-0 flex-1 truncate text-[15px] font-black">{r.name}</div>
+              {r.left && (
+                <span className="rounded border border-line px-1.5 py-0.5 text-[10px] text-dim2" data-testid="admin-left">
+                  退職
+                </span>
+              )}
               {r.admin && (
                 <span className="rounded border border-cyan px-1.5 py-0.5 text-[10px] text-cyan">担当者</span>
               )}
@@ -473,6 +556,25 @@ export function AdminClient() {
                 </div>
               )}
             </div>
+
+            {/* 在籍の出し入れ。退職しても記録は消さない */}
+            <button
+              className="mt-2 w-full rounded-lg border border-line p-1.5 text-[11px] text-dim2"
+              data-testid="admin-member"
+              onClick={async () => {
+                setBusy(r.userId);
+                if (
+                  await post("/api/admin/member", {
+                    userId: r.userId,
+                    action: r.left ? "rejoin" : "leave",
+                  })
+                )
+                  await load(courseId);
+                setBusy(null);
+              }}
+            >
+              {r.left ? "在籍に戻す" : "退職にする（記録は残ります）"}
+            </button>
 
             {/* 担当者にする／戻す */}
             <button

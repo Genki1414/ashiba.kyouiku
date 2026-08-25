@@ -64,16 +64,14 @@ export async function POST(req: NextRequest) {
   if (!co) {
     return NextResponse.json({ ok: false, reason: "そのコードの事業者がありません。" }, { status: 404 });
   }
-  if (me?.company_id && me.company_id !== co.id) {
-    return NextResponse.json(
-      { ok: false, reason: "すでに別の事業者に属しています。担当者に頼んでください。" },
-      { status: 409 },
-    );
-  }
-  const { error } = await supabase
-    .from("users")
-    .update({ company_id: co.id as string })
-    .eq("id", user.id);
+  /* よその会社に居た人でも、そのまま移れる（転職）。
+     前の会社の在籍は閉じるが、そこで受けた記録は前の会社に残る
+     （受講が「どの会社の席で受けたか」を持っているため） */
+  const { error } = await supabase.rpc("join_company", {
+    p_user: user.id,
+    p_company: co.id as string,
+  });
   if (error) return NextResponse.json({ ok: false, reason: error.message }, { status: 500 });
-  return NextResponse.json({ ok: true, kind: "join", company: co.name as string });
+  const moved = !!me?.company_id && me.company_id !== co.id;
+  return NextResponse.json({ ok: true, kind: "join", company: co.name as string, moved });
 }

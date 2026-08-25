@@ -121,12 +121,17 @@ await must(
   "受講者を会社に入れる",
   db.from("users").update({ company_id: CO }).in("id", [U1, U2, U3]).select("id"),
 );
+/* 在籍も起こす。本番では join_company / redeem_seat を通るので必ず立つ */
+for (const u of [U1, U2, U3]) {
+  const r = await db.rpc("join_company", { p_user: u, p_company: CO });
+  if (r.error) { ng++; console.error("NG: 在籍を起こす", r.error.message); } else ok++;
+}
 await must("担当者を決める", db.from("users").update({ role: "admin" }).eq("id", U1).select("id"));
 await must(
   "受講を作る",
   db.from("enrollments").insert([
-    { id: E2, user_id: U2, course_id: "ashiba" },
-    { id: E3, user_id: U3, course_id: "ashiba" },
+    { id: E2, user_id: U2, course_id: "ashiba", company_id: CO },
+    { id: E3, user_id: U3, course_id: "ashiba", company_id: CO },
   ]).select("id"),
 );
 
@@ -207,6 +212,94 @@ await must(
   /* 有る講座なら、取れなければ作って返す */
   const got = await db.rpc("enrollment_for", { p_user: U2, p_course: "ashiba" });
   check(!got.error && got.data === E2, `その人・その講座の受講を返す（${got.data}）`);
+}
+
+/* ── 在籍（0012）──
+   人は辞めるし、よその会社へ移る。移っても、前の会社で受けた記録は
+   前の会社に残らないと困る（教育を行った事業者が3年保存する決まり） */
+{
+  const mem = await must("在籍を引ける",
+    db.from("memberships").select("user_id, company_id, approved_at, left_at").eq("company_id", CO));
+  check((mem ?? []).length >= 3, `在籍が起きている（${(mem ?? []).length}件）`);
+  check((mem ?? []).every((m) => !m.left_at), "はじめは全員が在籍中");
+  check((mem ?? []).every((m) => m.approved_at), "既にいる人は許可済みとして起こす");
+
+  /* ① 受講者が自分で申し込む。この時点ではまだ入っていない */
+  const asked = await db.rpc("request_membership", { p_user: ORPHAN, p_company: CO });
+  check(!asked.error, `申し込める（${asked.error?.message ?? "ok"}）`);
+  const pend = await db.from("memberships").select("approved_at").eq("user_id", ORPHAN).eq("company_id", CO).maybeSingle();
+  check(!!pend.data && !pend.data.approved_at, "申し込んだだけでは許可が下りていない");
+  const notYet = await db.from("users").select("company_id").eq("id", ORPHAN).maybeSingle();
+  check(!notYet.data?.company_id, "許可が下りるまで、所属は空のまま");
+
+  /* 二度押しても増えない */
+  await db.rpc("request_membership", { p_user: ORPHAN, p_company: CO });
+  const once = await db.from("memberships").select("id").eq("user_id", ORPHAN).is("left_at", null);
+  check((once.data ?? []).length === 1, "二度申し込んでも1件");
+
+  /* ② 会社が許可する */
+  const okd = await db.rpc("join_company", { p_user: ORPHAN, p_company: CO });
+  check(!okd.error, "許可できる");
+  const now2 = await db.from("memberships").select("approved_at").eq("user_id", ORPHAN).eq("company_id", CO).maybeSingle();
+  check(!!now2.data?.approved_at, "許可した日が入る");
+  const joined = await db.from("users").select("company_id").eq("id", ORPHAN).maybeSingle();
+  check(joined.data?.company_id === CO, "許可されて名簿に入る");
+
+  /* ③ 断る（＝申し込みを閉じる）。許可は要らない */
+  await db.rpc("leave_company", { p_user: ORPHAN, p_company: CO });
+  await db.rpc("request_membership", { p_user: ORPHAN, p_company: CO });
+  await db.rpc("leave_company", { p_user: ORPHAN, p_company: CO });
+  const closed = await db.from("memberships").select("id").eq("user_id", ORPHAN).is("left_at", null);
+  check((closed.data ?? []).length === 0, "断れば、開いている申し込みは無くなる");
+  const hist = await db.from("memberships").select("id").eq("user_id", ORPHAN);
+  check((hist.data ?? []).length >= 2, "断った記録は残る");
+
+  /* 無い会社には申し込めない */
+  const nope = await db.rpc("request_membership", {
+    p_user: ORPHAN, p_company: "aaaaaaaa-0000-0000-0000-0000000000fe",
+  });
+  check(!!nope.error, "無い事業者には申し込めない");
+
+  /* 退職。記録は消さない */
+  const bye = await db.rpc("leave_company", { p_user: U3, p_company: CO });
+  check(!bye.error, `退職にできる（${bye.error?.message ?? "ok"}）`);
+  const after = await db.from("memberships").select("left_at").eq("user_id", U3).eq("company_id", CO).maybeSingle();
+  check(!!after.data?.left_at, "抜けた日が入る");
+  const u3 = await db.from("users").select("company_id").eq("id", U3).maybeSingle();
+  check(!u3.data?.company_id, "いまの所属は空になる");
+  const kept = await db.from("enrollments").select("company_id").eq("id", E3).maybeSingle();
+  check(kept.data?.company_id === CO, "受けた記録は、その会社に残る");
+
+  /* 戻す */
+  const back = await db.rpc("join_company", { p_user: U3, p_company: CO });
+  check(!back.error, "在籍に戻せる");
+  const again = await db.from("memberships").select("id").eq("user_id", U3).is("left_at", null);
+  check((again.data ?? []).length === 1, "在籍中は1件だけ");
+
+  /* 転職。よその会社のコードを入れたら、前の在籍は閉じる */
+  const other = await must("よその会社",
+    db.from("companies").insert({ name: "よその工業", responsible_name: "山田" }).select("id").single());
+  const moved = await db.rpc("join_company", { p_user: U3, p_company: other!.id as string });
+  check(!moved.error, "よその会社へ移れる");
+  const nowIn = await db.from("memberships").select("company_id, left_at").eq("user_id", U3).is("left_at", null);
+  check((nowIn.data ?? []).length === 1 && nowIn.data![0].company_id === other!.id,
+    "在籍中はよその会社1件だけ");
+  /* 出たり入ったりしているので、開いている在籍が無いことで見る */
+  const oldOne = await db.from("memberships").select("id").eq("user_id", U3).eq("company_id", CO).is("left_at", null);
+  check((oldOne.data ?? []).length === 0, "前の会社の在籍は閉じている");
+  const stillMine = await db.from("enrollments").select("company_id").eq("id", E3).maybeSingle();
+  check(stillMine.data?.company_id === CO, "移っても、前の会社で受けた記録は前の会社のまま");
+
+  /* 元に戻しておく（あとの点検のため） */
+  await db.rpc("join_company", { p_user: U3, p_company: CO });
+  await raw.query("delete from public.memberships where company_id = $1", [other!.id]);
+  await raw.query("delete from public.companies where id = $1", [other!.id]);
+
+  /* 無い会社には入れない */
+  const bad = await db.rpc("join_company", {
+    p_user: U3, p_company: "aaaaaaaa-0000-0000-0000-0000000000ff",
+  });
+  check(!!bad.error, "無い事業者には入れない");
 }
 
 /* ── src/lib/admin.ts と同じ問い合わせ ── */

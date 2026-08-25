@@ -59,6 +59,9 @@ function whereFrom(params, start) {
       const items = m[1] === "" ? [] : splitIn(m[1]);
       /* 空の in は「どれにも当たらない」。ここを落とすと全件返ってしまう */
       parts.push(items.length ? `${ident(k)} in (${items.map(ph).join(", ")})` : "false");
+    } else if ((m = /^ilike\.(.*)$/s.exec(v))) {
+      /* 事業者さがし。大文字小文字を区別しない当たり */
+      parts.push(`${ident(k)} ilike ${ph(m[1])}`);
     } else if ((m = /^(gte|lte|gt|lt)\.(.*)$/s.exec(v))) {
       /* 期間で絞る（照合の記録を「直近◯日ぶん」で読むため） */
       const op = { gte: ">=", lte: "<=", gt: ">", lt: "<" }[m[1]];

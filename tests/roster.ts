@@ -34,14 +34,15 @@ const base = (o: Partial<RosterInput> = {}): RosterInput => ({
   ...o,
 });
 
-const U = (id: string, name: string, role = "learner") => ({ id, name, email: `${id}@x`, role });
+const U = (id: string, name: string, role = "learner", active = true) =>
+  ({ id, name, email: `${id}@x`, role, active });
 const E = (id: string, user: string) => ({ id, user_id: user });
 
 /* ── 誰も居ない ── */
 {
   const rows = buildRoster(base());
   eq(rows.length, 0, "受講者が居なければ空");
-  eq(rosterTotals(rows), { people: 0, done: 0, issued: 0, waiting: 0 }, "数字も0");
+  eq(rosterTotals(rows), { people: 0, left: 0, done: 0, issued: 0, waiting: 0 }, "数字も0");
 }
 
 /* ── 学科の進み具合 ── */
@@ -112,7 +113,7 @@ const E = (id: string, user: string) => ({ id, user_id: user });
   eq(issued.cert, { no: "2601-0001", at: "2026-01-03T00:00:00Z" }, "出した修了証が入る");
   eq(issued.now, null, "全単元を終えていれば「いまここ」は出さない");
   check(issued.canIssue, "出したあとも「出せる人」ではある");
-  eq(rosterTotals([issued]), { people: 1, done: 1, issued: 1, waiting: 0 }, "出したら未発行は0");
+  eq(rosterTotals([issued]), { people: 1, left: 0, done: 1, issued: 1, waiting: 0 }, "出したら未発行は0");
 }
 
 /* ── 実務トレーニング。本番の最高点で見る ── */
@@ -203,9 +204,25 @@ const E = (id: string, user: string) => ({ id, user_id: user });
       enrollment_id: x.e.id, cert_no: "2601-0001", issued_at: "2026-01-03T00:00:00Z",
     })),
   }));
-  eq(rosterTotals(rows), { people: 3, done: 3, issued: 1, waiting: 2 }, "未発行が2人と分かる");
+  eq(rosterTotals(rows), { people: 3, left: 0, done: 3, issued: 1, waiting: 2 }, "未発行が2人と分かる");
   /* 担当者がやることは「出せるのにまだ出していない人」。そこを上に置く */
   eq(rows.map((r) => r.name), ["い", "う", "あ"], "未発行が上、そのあと名前順");
+}
+
+/* ── 退職した人 ──
+   消さないのは、教育を行った事業者がその記録を3年保存する決まりだから */
+{
+  const rows = buildRoster(base({
+    users: [U("u1", "在籍A"), U("u2", "退職B", "learner", false), U("u3", "在籍C")],
+    enrollments: [E("e1", "u1"), E("e2", "u2"), E("e3", "u3")],
+    progress: [P("e2", "L1", 1800, "2026-01-01T00:00:00Z")],
+  }));
+  eq(rows.map((r) => r.name), ["在籍A", "在籍C", "退職B"], "退職した人は下に来る");
+  check(rows.find((r) => r.name === "退職B")!.left, "退職の印が付く");
+  check(!rows.find((r) => r.name === "在籍A")!.left, "在籍している人には付かない");
+  eq(rows.find((r) => r.name === "退職B")!.lessonsPassed, 1, "退職しても記録は残る");
+  eq(rosterTotals(rows).people, 2, "受講者の数は在籍している人だけ");
+  eq(rosterTotals(rows).left, 1, "退職した人の数も分かる");
 }
 
 console.log("\n── まとめ ──");
