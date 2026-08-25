@@ -232,6 +232,19 @@ await must(
   const notYet = await db.from("users").select("company_id").eq("id", ORPHAN).maybeSingle();
   check(!notYet.data?.company_id, "許可が下りるまで、所属は空のまま");
 
+  /* 申し込んだだけの人は、名簿の「在籍」に入ってはいけない。
+     ここを left_at だけで見ていたので、許可前から在籍になっていた */
+  {
+    const asActive = await must(
+      "在籍を引く（/api/admin/summary と同じ）",
+      db.from("memberships").select("user_id")
+        .eq("company_id", CO).not("approved_at", "is", null).is("left_at", null),
+    );
+    const ids = (asActive ?? []).map((m) => m.user_id as string);
+    check(!ids.includes(ORPHAN), "申し込んだだけの人は在籍に入らない");
+    check(ids.includes(U2), "許可済みの人は在籍に入る");
+  }
+
   /* 二度押しても増えない */
   await db.rpc("request_membership", { p_user: ORPHAN, p_company: CO });
   const once = await db.from("memberships").select("id").eq("user_id", ORPHAN).is("left_at", null);

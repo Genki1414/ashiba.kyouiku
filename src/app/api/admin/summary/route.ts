@@ -62,13 +62,17 @@ export async function GET(req: NextRequest) {
   const paidSeats = await seatCounts(supabase, paidIds);
 
   /* 名簿に出す人は2通り。
-     ① いま在籍している人（memberships の left_at が空）
+     ① いま在籍している人
      ② 抜けたが、この会社の席で受けた記録がある人（退職・転職）
-     ②を消すと、その会社が「誰に受けさせたか」を後から示せなくなる */
+     ②を消すと、その会社が「誰に受けさせたか」を後から示せなくなる
+
+     在籍かどうかは「許可が下りていて、まだ抜けていない」で見る。
+     left_at だけで見ると、**まだ許可していない申し込みまで在籍になる**。 */
   const { data: active } = await supabase
     .from("memberships")
     .select("user_id")
     .eq("company_id", admin.companyId)
+    .not("approved_at", "is", null)
     .is("left_at", null);
   const activeIds = new Set((active ?? []).map((m) => m.user_id as string));
 

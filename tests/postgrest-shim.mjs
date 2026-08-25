@@ -59,6 +59,9 @@ function whereFrom(params, start) {
       const items = m[1] === "" ? [] : splitIn(m[1]);
       /* 空の in は「どれにも当たらない」。ここを落とすと全件返ってしまう */
       parts.push(items.length ? `${ident(k)} in (${items.map(ph).join(", ")})` : "false");
+    } else if ((m = /^not\.is\.(null|true|false)$/s.exec(v))) {
+      /* 「まだ許可していない申し込み」を名簿から外すのに使う */
+      parts.push(`${ident(k)} is not ${m[1]}`);
     } else if ((m = /^ilike\.(.*)$/s.exec(v))) {
       /* 事業者さがし。大文字小文字を区別しない当たり */
       parts.push(`${ident(k)} ilike ${ph(m[1])}`);
