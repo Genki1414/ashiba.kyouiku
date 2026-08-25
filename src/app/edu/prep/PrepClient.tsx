@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Btn } from "@/components/ui/Btn";
 import { useCamera } from "@/lib/camera";
 import { toFeature } from "@/lib/face";
-import { readPrep, writePrep, type PrepState } from "@/lib/prep";
+import { loadPrep, prepUid, readPrep, writePrep, type PrepState } from "@/lib/prep";
 
 export function PrepClient() {
   const router = useRouter();
@@ -14,19 +14,28 @@ export function PrepClient() {
   const dest = back ? `/edu/${back}` : "/edu";
   const [prep, setPrep] = useState<PrepState | null>(null);
   const [step, setStep] = useState<"consent" | "enroll">("consent");
+  /* 準備は人ごとに分けて持つ。誰として使っているかが分かるまで書けない */
+  const [uid, setUid] = useState<string | null>(null);
 
   useEffect(() => {
-    const p = readPrep();
-    setPrep(p);
-    if (p.consentedAt) setStep("enroll");
+    let alive = true;
+    void (async () => {
+      const id = await prepUid();
+      const p = await loadPrep();
+      if (!alive) return;
+      setUid(id);
+      setPrep(p);
+      if (p.consentedAt) setStep("enroll");
+    })();
+    return () => { alive = false; };
   }, []);
 
-  if (!prep) return null;
+  if (!prep || !uid) return null;
 
   const save = (patch: Partial<PrepState>) => {
     const next = { ...prep, ...patch };
     setPrep(next);
-    writePrep(next);
+    writePrep(next, uid);
     return next;
   };
 
@@ -70,7 +79,7 @@ export function PrepClient() {
           prep={prep}
           save={save}
           onDone={() => {
-            sendEnrollment(readPrep());
+            sendEnrollment(readPrep(uid));
             router.push(dest);
           }}
         />

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { getBrowserClient } from "@/lib/supabase/browser";
+import { claimDevice, wipeDevice } from "@/lib/device";
 
 /* いま誰として使っているか。ログインしていなければ何も出さない。
    端末を人に渡すときに、ここからログアウトできる。 */
@@ -15,6 +16,12 @@ export function AccountBar() {
     supabase.auth.getUser().then(({ data }) => {
       const u = data.user;
       if (!u) return;
+      /* 別の画面でログインし直したときの取りこぼしを、ここで拾う。
+         人が変わっていれば端末の記録を消して、読み直す */
+      if (claimDevice(u.id)) {
+        window.location.reload();
+        return;
+      }
       const name = (u.user_metadata?.name as string) || "";
       setWho({ name, email: u.email ?? "" });
     });
@@ -25,6 +32,10 @@ export function AccountBar() {
   const out = async () => {
     const supabase = getBrowserClient();
     await supabase?.auth.signOut();
+    /* 端末を次の人に渡すためのボタン。
+       受講の準備（氏名・顔の特徴量）も、視聴時間も、ここで消す */
+    wipeDevice();
+    claimDevice(null);
     window.location.href = "/login";
   };
 

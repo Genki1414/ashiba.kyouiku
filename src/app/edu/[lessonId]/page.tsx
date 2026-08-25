@@ -2,6 +2,11 @@ import { notFound } from "next/navigation";
 import { getLesson, getLessonOrder } from "@/lib/curriculum";
 import { LessonClient } from "./LessonClient";
 
+/* 作り置き（静的生成）はしない。
+   出来上がった単元の頁が置いてあると、受講コードの見張り（layout）を
+   通さずに教材の文章が返ってしまう */
+export const dynamic = "force-dynamic";
+
 /* 受講画面の入口（サーバ側）。教材の取得と前後の単元の解決 */
 export default async function LessonPage({
   params,
@@ -22,9 +27,4 @@ export default async function LessonPage({
       nextId={i < order.length - 1 ? order[i + 1] : null}
     />
   );
-}
-
-export async function generateStaticParams() {
-  const order = await getLessonOrder();
-  return order.map((lessonId) => ({ lessonId }));
 }

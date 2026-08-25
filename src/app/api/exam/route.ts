@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getExamPool, getQuestionsByIds, EXAM_N, EXAM_PASS } from "@/lib/examPool";
 import { getServiceClient } from "@/lib/supabase/server";
 import { currentEnrollment } from "@/lib/enrollment";
+import { canLearn } from "@/lib/entitle";
 
 /* 修了試験。
    GET  … プールから20問を無作為に選び、正解を除いて返す。
@@ -19,6 +20,11 @@ function sign(payload: string): string {
 }
 
 export async function GET() {
+  /* 出題も売り物のうち。受講コードの無い人には出さない */
+  const may = await canLearn();
+  if (!may.ok) {
+    return NextResponse.json({ error: "受講コードが要ります" }, { status: 403 });
+  }
   const pool = await getExamPool();
   const a = [...pool];
   for (let i = a.length - 1; i > 0; i--) {

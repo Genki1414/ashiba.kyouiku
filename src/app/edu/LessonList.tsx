@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { loadProgress, type ProgressState } from "@/lib/progressClient";
-import { readPrep, prepDone, type PrepState } from "@/lib/prep";
+import { loadPrep, prepDone, type PrepState } from "@/lib/prep";
 import { Bar } from "@/components/ui/Bar";
 import { hm } from "@/components/ui/format";
 
@@ -21,7 +21,10 @@ export function LessonList({
   const [prep, setPrep] = useState<PrepState | null>(null);
 
   useEffect(() => {
-    setPrep(readPrep());
+    /* 準備は人ごとに分けて持っている。誰として使っているかを見てから読む */
+    let alive = true;
+    void loadPrep().then((p) => { if (alive) setPrep(p); });
+    return () => { alive = false; };
   }, []);
 
   useEffect(() => {

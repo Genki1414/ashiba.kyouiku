@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getBrowserClient } from "@/lib/supabase/browser";
+import { claimDevice } from "@/lib/device";
 import { Btn } from "@/components/ui/Btn";
 
 /* メールと合言葉でログインする。
@@ -77,6 +78,10 @@ export function LoginClient() {
         });
         if (error) throw error;
       }
+      /* 端末を人から人へ渡して使う。前の人の記録が残っていたら、ここで消す
+         （前の人の氏名・視聴時間を引き継がせない） */
+      const { data: me } = await supabase.auth.getUser();
+      claimDevice(me.user?.id ?? null);
       /* サーバ側のクッキーを確実に見せるため、まるごと読み直す */
       window.location.href = next;
     } catch (e) {

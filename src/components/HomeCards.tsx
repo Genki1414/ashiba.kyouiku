@@ -11,7 +11,7 @@ import Link from "next/link";
 
    ホームを静的なまま置いておきたいので、ここから聞く（AccountBar と同じ）。 */
 
-type Me = { admin: boolean; owner: boolean; needsJoin: boolean; company: string };
+type Me = { admin: boolean; owner: boolean; needsJoin: boolean; canLearn: boolean; company: string };
 
 export function HomeCards() {
   const [me, setMe] = useState<Me | null>(null);
@@ -22,7 +22,14 @@ export function HomeCards() {
       .then((r) => (r.ok ? r.json() : null))
       .then((j) => {
         if (alive && j?.ok)
-          setMe({ admin: !!j.admin, owner: !!j.owner, needsJoin: !!j.needsJoin, company: j.company ?? "" });
+          setMe({
+            admin: !!j.admin,
+            owner: !!j.owner,
+            needsJoin: !!j.needsJoin,
+            /* 古い応答（canLearn が無い）は、止めずに通す */
+            canLearn: j.canLearn !== false,
+            company: j.company ?? "",
+          });
       })
       .catch(() => {
         /* 圏外・未設定。何も出さない */
@@ -47,6 +54,24 @@ export function HomeCards() {
         <div className="mt-1 text-[12px] leading-relaxed text-dim">
           会社の教育担当者から渡された8文字を入れてください。
           入れないと、修了証をどの会社の名義で出すか決まりません。
+        </div>
+      </Link>,
+    );
+  }
+
+  if (!me.canLearn && !me.needsJoin) {
+    cards.push(
+      <Link
+        key="seat"
+        href="/join"
+        className="block rounded-xl border border-yel bg-[#1A1F14] p-4 no-underline"
+        data-testid="home-seat"
+      >
+        <div className="text-[11px] font-extrabold tracking-widest text-yel">受講するには</div>
+        <div className="mt-1 text-[15px] font-black text-txt">受講コードを入れる</div>
+        <div className="mt-1 text-[12px] leading-relaxed text-dim">
+          学科と実務トレーニングは、受講コード（12文字）を入れると開きます。
+          会社の教育担当者から受け取ってください。
         </div>
       </Link>,
     );

@@ -14,7 +14,7 @@ import { QuizView } from "@/components/edu/QuizView";
 import { LockedNotice } from "@/components/edu/LockedNotice";
 import { Bar } from "@/components/ui/Bar";
 import { hm } from "@/components/ui/format";
-import { readPrep, prepDone } from "@/lib/prep";
+import { loadPrep, prepDone } from "@/lib/prep";
 import { useVerification } from "@/lib/useVerification";
 import { CamWindow } from "@/components/edu/CamWindow";
 import { VerifyModal } from "@/components/edu/VerifyModal";
@@ -44,12 +44,16 @@ export function LessonClient({
   /* 受講の準備（同意・本人確認）が済んでいなければ先にそちらへ */
   const [prepState, setPrepState] = useState<"checking" | "cam" | "nocam">("checking");
   useEffect(() => {
-    const p = readPrep();
-    if (!prepDone(p)) {
-      router.replace(`/edu/prep?back=${lesson.id}`);
-      return;
-    }
-    setPrepState(p.skipped ? "nocam" : "cam");
+    let alive = true;
+    void loadPrep().then((p) => {
+      if (!alive) return;
+      if (!prepDone(p)) {
+        router.replace(`/edu/prep?back=${lesson.id}`);
+        return;
+      }
+      setPrepState(p.skipped ? "nocam" : "cam");
+    });
+    return () => { alive = false; };
   }, [lesson.id, router]);
 
   /* 開発時のみ：E2Eテストから状態を動かせるように store を window へ出す */

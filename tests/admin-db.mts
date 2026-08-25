@@ -14,6 +14,7 @@ import pg from "pg";
 import { createClient } from "@supabase/supabase-js";
 import { buildRoster, rosterTotals } from "@/training/roster";
 import { listSeats } from "@/lib/seats";
+import { learnFor } from "@/lib/entitleQuery";
 
 const URL = process.env.SHIM_URL ?? "http://127.0.0.1:54321";
 const PG_URL = process.env.PG_URL ?? "postgres://postgres@127.0.0.1:55432/appdb";
@@ -385,6 +386,37 @@ check(codes.every((c) => /^[2-9A-HJKMNP-Z]{12}$/.test(c)), `12文字・読み違
   check(rows.every((r) => !!r.expiresAt), "期限が付く");
   const none = await listSeats(db, []);
   check(none.length === 0, "注文が無ければ空");
+}
+
+/* ②'' 受講コードを引き換えた人だけが、学科と実務トレーニングを開ける。
+   ここを通してしまうと、登録しただけの人に教材が全部見えてしまう */
+{
+  /* いまは無償利用の会社なので、席が無くても開ける（試用・社内利用） */
+  await raw.query("update public.companies set trial = true where id = $1", [CO]);
+  const t = await learnFor(db, U2);
+  check(t.ok && t.by === "trial", `無償利用の会社の人は開ける（${JSON.stringify(t)}）`);
+
+  /* 有償に戻すと、席を引き換えた人だけになる */
+  await raw.query("update public.companies set trial = false where id = $1", [CO]);
+  const yes = await learnFor(db, U3); // codes[0] を引き換え済み
+  check(yes.ok && yes.by === "seat", `席を引き換えた人は開ける（${JSON.stringify(yes)}）`);
+
+  const no = await learnFor(db, U2); // 名簿には居るが席が無い
+  check(!no.ok && no.why === "seat", `席が無ければ開けない（${JSON.stringify(no)}）`);
+  check(!no.ok && no.company === "点検用工業", "断るときも、どの会社に居るかは出す");
+
+  /* 参加コードで名簿に入っただけでは受講できない。
+     担当者（role=admin）でも同じ。登録すれば誰でも担当者になれてしまうため */
+  await raw.query("update public.users set role = 'admin' where id = $1", [U2]);
+  const adm = await learnFor(db, U2);
+  check(!adm.ok, "担当者でも、席が無ければ開けない");
+  await raw.query("update public.users set role = 'learner' where id = $1", [U2]);
+
+  /* どこの会社にも属していない人（登録しただけ） */
+  const lone = await learnFor(db, ORPHAN);
+  check(!lone.ok && lone.why === "seat", `登録しただけでは開けない（${JSON.stringify(lone)}）`);
+
+  await raw.query("update public.companies set trial = true where id = $1", [CO]);
 }
 
 /* ③ 入金前は修了証を出せない */

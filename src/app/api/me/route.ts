@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { currentAdmin } from "@/lib/admin";
 import { myCompany, needsJoin } from "@/lib/tenant";
 import { currentOwner } from "@/lib/owner";
+import { canLearn } from "@/lib/entitle";
 
 /* いまの自分の立場。ホームの出し分けに使う。
 
@@ -11,12 +12,16 @@ import { currentOwner } from "@/lib/owner";
 export async function GET() {
   const owner = await currentOwner();
   const admin = await currentAdmin();
+  /* 受講コードを持っているか。持っていない人に学科の札を押させると、
+     開いた先で断られるだけなので、ホームで先に知らせる */
+  const learn = await canLearn();
   if (admin) {
     return NextResponse.json({
       ok: true,
       admin: true,
       owner: !!owner,
       needsJoin: false,
+      canLearn: learn.ok,
       company: admin.companyName,
     });
   }
@@ -26,6 +31,7 @@ export async function GET() {
     admin: false,
     owner: !!owner,
     needsJoin: join,
+    canLearn: learn.ok,
     company: co?.name ?? "",
   });
 }
