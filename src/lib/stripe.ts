@@ -15,9 +15,15 @@ export function getStripe(): Stripe | null {
 /** カード払いを出してよいか */
 export const hasStripe = (): boolean => !!process.env.STRIPE_SECRET_KEY;
 
-/** 支払い後の戻り先。Vercel の URL を使う */
+/** 支払い後の戻り先。
+
+    サーバでしか使わないので NEXT_PUBLIC_ は要らない（SITE_URL）。
+    以前 NEXT_PUBLIC_SITE_URL と案内したので、そちらも読む。
+    どちらも無ければ Vercel が入れる VERCEL_URL を使うが、
+    これは配信ごとに変わる住所なので、本番は SITE_URL を決めておくこと。 */
 export function siteUrl(): string {
-  const v = process.env.NEXT_PUBLIC_SITE_URL || process.env.VERCEL_URL;
+  const v =
+    process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || process.env.VERCEL_URL;
   if (!v) return "http://localhost:3000";
   return v.startsWith("http") ? v : `https://${v}`;
 }

@@ -53,7 +53,8 @@ export async function GET() {
     /* カード払い。無くても請求書払いで売れる */
     stripeKey: !!process.env.STRIPE_SECRET_KEY,
     stripeHook: !!process.env.STRIPE_WEBHOOK_SECRET,
-    siteUrl: !!(process.env.NEXT_PUBLIC_SITE_URL || process.env.VERCEL_URL),
+    /* 本番の住所。決めていないと、支払い後の戻り先が配信ごとに変わる */
+    siteUrl: !!(process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL),
     /* 特商法の表記で、まだ空の項目 */
     sellerMissing: missingSeller(),
   };

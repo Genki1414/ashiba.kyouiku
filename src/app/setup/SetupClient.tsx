@@ -183,7 +183,7 @@ export function SetupClient() {
                   [
                     ["運営のメール（OWNER_EMAILS）", h.sell.owners ? `${h.sell.owners}人` : "未設定", h.sell.owners > 0, true],
                     ["単価（SEAT_UNIT_PRICE）", h.sell.unitPrice ? "設定済み" : "未設定（仮の値）", h.sell.unitPrice, true],
-                    ["本番のURL（NEXT_PUBLIC_SITE_URL）", h.sell.siteUrl ? "設定済み" : "未設定", h.sell.siteUrl, true],
+                    ["本番のURL（SITE_URL）", h.sell.siteUrl ? "設定済み" : "未設定（配信ごとの住所を使う）", h.sell.siteUrl, true],
                     ["特商法の表記", h.sell.sellerMissing.length ? `${h.sell.sellerMissing.join("・")}が空` : "そろっている", h.sell.sellerMissing.length === 0, true],
                     ["カード払い（STRIPE_SECRET_KEY）", h.sell.stripeKey ? "設定済み" : "未設定（請求書払いのみ）", h.sell.stripeKey, false],
                     ["カードの入金確認（STRIPE_WEBHOOK_SECRET）", h.sell.stripeHook ? "設定済み" : "未設定", h.sell.stripeHook, false],

@@ -21,6 +21,14 @@ export type Release = {
 
 export const RELEASES: Release[] = [
   {
+    v: "2026-08-22-22",
+    d: "2026年8月22日",
+    title: "本番のURLの設定名を直した",
+    items: [
+      { k: "直した", t: "支払い後の戻り先はサーバでしか使わないので、NEXT_PUBLIC_SITE_URL ではなく SITE_URL にした。Vercel の警告が出なくなる" },
+    ],
+  },
+  {
     v: "2026-08-22-21",
     d: "2026年8月22日",
     title: "申込み画面の金額が、実際の請求額と食い違っていた",
