@@ -1,11 +1,12 @@
 import { LegalPage } from "@/components/legal/Page";
 import { tokushoho } from "@/content/legal";
+import { unitPrice } from "@/lib/price.server";
 
 export const metadata = { title: "特定商取引法に基づく表記" };
 
 /* 特定商取引法に基づく表記。買う前に誰でも読めるところに置く */
 export default function TokushohoPage() {
-  const items = tokushoho();
+  const items = tokushoho(unitPrice());
   return (
     <LegalPage title="特定商取引法に基づく表記" updated="2026年8月24日">
       <dl className="grid gap-0" data-testid="tokushoho">

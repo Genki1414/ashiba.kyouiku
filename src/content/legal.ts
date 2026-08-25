@@ -8,7 +8,7 @@
    埋まっていない項目は画面に「未設定」と出ます。
    /setup でも、どれが空かが分かります。 */
 
-import { TAX_RATE, unitPrice } from "@/lib/pricing";
+import { TAX_RATE } from "@/lib/pricing";
 
 export type Item = { k: string; v: string; env: string; note?: string };
 
@@ -44,10 +44,10 @@ export function missingSeller(): string[] {
 
 const yen = (n: number) => `${n.toLocaleString("ja-JP")}円`;
 
-/** 特定商取引法に基づく表記。順番も決まりに沿って並べる */
-export function tokushoho(): Item[] {
+/** 特定商取引法に基づく表記。順番も決まりに沿って並べる。
+    単価はサーバから渡す（環境変数を読むのは src/lib/price.server.ts だけ） */
+export function tokushoho(price: number): Item[] {
   const s = seller();
-  const price = unitPrice();
   const tax = Math.floor(price * TAX_RATE);
   return [
     { k: "販売事業者", v: s.name, env: "SELLER_NAME" },

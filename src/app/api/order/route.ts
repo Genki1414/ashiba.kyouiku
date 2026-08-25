@@ -3,6 +3,7 @@ import { getServiceClient } from "@/lib/supabase/server";
 import { currentAdmin } from "@/lib/admin";
 import { issueSeats, seatCounts } from "@/lib/seats";
 import { dueDate, quote } from "@/lib/pricing";
+import { unitPrice } from "@/lib/price.server";
 
 /* 申込み。教育担当者だけ。
 
@@ -34,6 +35,9 @@ export async function GET() {
   return NextResponse.json({
     ok: true,
     company: admin.companyName,
+    /* 単価はサーバだけが持つ（SEAT_UNIT_PRICE は NEXT_PUBLIC_ ではない）。
+       画面で計算させると、見せる金額と請求する金額が食い違う */
+    unitPrice: unitPrice(),
     orders: orders ?? [],
     seats: { total: counts.total, used: counts.used, paid: paid.total },
   });
@@ -48,7 +52,7 @@ export async function POST(req: NextRequest) {
 
   const b = (await req.json().catch(() => ({}))) as Body;
   const method = b.method === "card" ? "card" : "invoice";
-  const q = quote(Number(b.seats));
+  const q = quote(Number(b.seats), unitPrice());
   if (!q) {
     return NextResponse.json({ ok: false, reason: "人数を確かめてください。" }, { status: 400 });
   }

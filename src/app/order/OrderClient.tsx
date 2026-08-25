@@ -25,6 +25,8 @@ type Order = {
 
 type Loaded = {
   company: string;
+  /* 単価はサーバから受け取る。ここで計算すると請求額と食い違う */
+  unitPrice: number;
   orders: Order[];
   seats: { total: number; used: number; paid: number };
 };
@@ -60,7 +62,12 @@ export function OrderClient() {
         setNg(j.reason ?? "開けません。");
         return;
       }
-      setSt({ company: j.company ?? "", orders: j.orders ?? [], seats: j.seats });
+      setSt({
+        company: j.company ?? "",
+        unitPrice: Number(j.unitPrice) || 0,
+        orders: j.orders ?? [],
+        seats: j.seats,
+      });
       setNg("");
     } catch {
       setNg("つながりません。電波の届く所でもう一度。");
@@ -79,7 +86,6 @@ export function OrderClient() {
     if (params.get("cancelled")) setNote("お支払いをやめました。注文は入金待ちのまま残っています。");
   }, [params]);
 
-  const q = quote(seats);
 
   const order = async (method: "card" | "invoice") => {
     setBusy(true);
@@ -128,6 +134,9 @@ export function OrderClient() {
     );
   }
   if (!st) return null;
+
+  /* 単価はサーバの値で計算する。実際に請求されるのと同じ額を見せるため */
+  const q = quote(seats, st.unitPrice);
 
   return (
     <main className="px-5 py-8 pb-12">

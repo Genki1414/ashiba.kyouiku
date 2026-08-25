@@ -1,10 +1,19 @@
 /* 値段の計算。画面にもデータベースにも触らない、ただの計算。
+   画面（クライアント）からも読む。
 
-   単価はげんきさんが決めるもの。ここに書いてある数字は仮置きで、
-   Vercel の環境変数 SEAT_UNIT_PRICE（税抜・円）で上書きできる。 */
+   単価そのものは、ここでは読まない。読むのは src/lib/price.server.ts。
+   SEAT_UNIT_PRICE は NEXT_PUBLIC_ ではないので、ブラウザからは見えない。
+   ここで読むと、画面に出す金額と実際に請求する金額が食い違う。 */
 
 /** 1人ぶんの受講コードの値段（税抜・円）。仮置き */
 export const DEFAULT_UNIT_PRICE = 3000;
+
+/** 設定に書かれた単価を読む。おかしければ仮置きの値。
+    環境変数そのものを読むのはサーバだけ（src/lib/price.server.ts） */
+export function parseUnitPrice(raw: string | undefined): number {
+  const v = Number(raw);
+  return Number.isFinite(v) && v >= 0 && `${raw}`.trim() !== "" ? Math.round(v) : DEFAULT_UNIT_PRICE;
+}
 
 /** 消費税 */
 export const TAX_RATE = 0.1;
@@ -24,13 +33,10 @@ export type Quote = {
   total: number;
 };
 
-export function unitPrice(): number {
-  const v = Number(process.env.SEAT_UNIT_PRICE);
-  return Number.isFinite(v) && v >= 0 ? Math.round(v) : DEFAULT_UNIT_PRICE;
-}
-
-/** 人数から金額を出す。人数がおかしければ null */
-export function quote(seats: number, price = unitPrice()): Quote | null {
+/** 人数から金額を出す。単価は必ず渡す（サーバが持っている値）。
+    人数がおかしければ null */
+export function quote(seats: number, price: number): Quote | null {
+  if (!Number.isFinite(price) || price < 0) return null;
   if (!Number.isInteger(seats) || seats < 1 || seats > MAX_SEATS) return null;
   const subtotal = price * seats;
   const tax = Math.floor(subtotal * TAX_RATE);

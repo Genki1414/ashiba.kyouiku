@@ -36,7 +36,7 @@ clear();
 
 console.log("── 特商法の表記 ──");
 {
-  const items = tokushoho();
+  const items = tokushoho(3000);
   /* 決まりで載せるもの */
   for (const k of [
     "販売事業者", "代表者", "所在地", "電話番号", "メールアドレス",
@@ -54,7 +54,7 @@ console.log("── 特商法の表記 ──");
 {
   /* 未設定の欄は、値が空のまま返る（画面が「未設定」と出せるように） */
   clear();
-  const items = tokushoho();
+  const items = tokushoho(3000);
   check(items.find((i) => i.k === "所在地")!.v === "", "空の欄は空のまま返す");
   check(items.find((i) => i.k === "販売事業者")!.v !== "", "既定のある欄は埋まっている");
 }
