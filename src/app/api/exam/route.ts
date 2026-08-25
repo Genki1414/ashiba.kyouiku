@@ -19,20 +19,21 @@ function sign(payload: string): string {
   return createHmac("sha256", SECRET).update(payload).digest("base64url");
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const courseId = req.nextUrl.searchParams.get("courseId") ?? "";
   /* 出題も売り物のうち。受講コードの無い人には出さない */
   const may = await canLearn();
   if (!may.ok) {
     return NextResponse.json({ error: "受講コードが要ります" }, { status: 403 });
   }
-  const pool = await getExamPool();
+  const pool = await getExamPool(courseId);
   const a = [...pool];
   for (let i = a.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [a[i], a[j]] = [a[j], a[i]];
   }
   const qs = a.slice(0, Math.min(EXAM_N, a.length));
-  const payload = JSON.stringify({ ids: qs.map((q) => q.id), iat: Date.now() });
+  const payload = JSON.stringify({ course: courseId, ids: qs.map((q) => q.id), iat: Date.now() });
   const token = `${Buffer.from(payload).toString("base64url")}.${sign(payload)}`;
   return NextResponse.json({
     token,
@@ -55,11 +56,11 @@ export async function POST(req: NextRequest) {
   if (sign(payload) !== sig) {
     return NextResponse.json({ error: "トークンの検証に失敗しました" }, { status: 400 });
   }
-  const { ids, iat } = JSON.parse(payload) as { ids: string[]; iat: number };
+  const { course: courseId, ids, iat } = JSON.parse(payload) as { course: string; ids: string[]; iat: number };
   if (Date.now() - iat > TOKEN_TTL_MS) {
     return NextResponse.json({ error: "試験の有効時間を過ぎました。もう一度始めてください" }, { status: 400 });
   }
-  const qs = await getQuestionsByIds(ids);
+  const qs = await getQuestionsByIds(courseId, ids);
   if (!qs || answers.length !== qs.length) {
     return NextResponse.json({ error: "回答の形式が不正です" }, { status: 400 });
   }
@@ -76,7 +77,7 @@ export async function POST(req: NextRequest) {
   let mode: "supabase" | "local" = "local";
   let attempt = 1;
   const supabase = getServiceClient();
-  const who = await currentEnrollment();
+  const who = await currentEnrollment(courseId);
   const enrollmentId = who?.enrollmentId ?? null;
   if (supabase && enrollmentId) {
     const { count } = await supabase

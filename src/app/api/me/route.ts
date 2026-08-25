@@ -3,6 +3,7 @@ import { currentAdmin } from "@/lib/admin";
 import { myCompany, needsJoin } from "@/lib/tenant";
 import { currentOwner } from "@/lib/owner";
 import { canLearn } from "@/lib/entitle";
+import { readyCourses } from "@/content/courses";
 
 /* いまの自分の立場。ホームの出し分けに使う。
 
@@ -22,6 +23,7 @@ export async function GET() {
       owner: !!owner,
       needsJoin: false,
       canLearn: learn.ok,
+      courses: readyCourses().length,
       company: admin.companyName,
     });
   }
@@ -32,6 +34,7 @@ export async function GET() {
     owner: !!owner,
     needsJoin: join,
     canLearn: learn.ok,
+    courses: readyCourses().length,
     company: co?.name ?? "",
   });
 }

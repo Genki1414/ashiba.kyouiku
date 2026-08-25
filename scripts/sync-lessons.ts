@@ -15,7 +15,7 @@ if (!url || !key) {
 }
 
 const cur = CurriculumSchema.parse(
-  JSON.parse(readFileSync(path.join(process.cwd(), "content", "curriculum.json"), "utf-8")),
+  JSON.parse(readFileSync(path.join(process.cwd(), "content", "courses", "ashiba.json"), "utf-8")),
 );
 
 const rows = cur.subjects.flatMap((s, si) =>

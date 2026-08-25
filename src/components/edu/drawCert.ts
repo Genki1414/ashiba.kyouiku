@@ -48,8 +48,15 @@ export function drawCert(cv: HTMLCanvasElement, c: CertData) {
   ctx.textAlign = "center";
   ctx.font = `500 22px ${JP}`;
   ctx.fillText("特 別 教 育 修 了 証", W / 2, 118);
-  ctx.font = `700 40px ${JP}`;
-  ctx.fillText("足場の組立て等の業務に係る特別教育", W / 2, 178);
+  /* 表題は講座の正式名称。長い名前でも枠に収まるよう、はみ出す分だけ縮める */
+  const title = c.courseName || "特別教育";
+  let size = 40;
+  ctx.font = `700 ${size}px ${JP}`;
+  while (size > 22 && ctx.measureText(title).width > W - 200) {
+    size -= 2;
+    ctx.font = `700 ${size}px ${JP}`;
+  }
+  ctx.fillText(title, W / 2, 178);
   ctx.strokeStyle = "#1A1D21";
   ctx.lineWidth = 3;
   ctx.beginPath();

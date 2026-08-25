@@ -19,6 +19,7 @@ type Info = {
   date: string;
   exam: { score: number; total: number };
   subjects: { id: number; name: string; min: number }[];
+  course: { id: string; name: string; basis: string };
   company: string;
   responsible: string;
 };
@@ -29,7 +30,7 @@ const jpDate = (iso: string) => {
   return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`;
 };
 
-export function CertClient() {
+export function CertClient({ courseId }: { courseId: string }) {
   const cv = useRef<HTMLCanvasElement>(null);
   const [info, setInfo] = useState<Info | null>(null);
   const [reason, setReason] = useState<string | null>(null);
@@ -40,7 +41,7 @@ export function CertClient() {
 
   const load = useCallback(async () => {
     try {
-      const r = await fetch("/api/cert");
+      const r = await fetch(`/api/cert?courseId=${encodeURIComponent(courseId)}`);
       const j = await r.json();
       if (!r.ok || !j.ok) {
         setReason(j.reason ?? "修了証はまだ出せません。");
@@ -61,6 +62,7 @@ export function CertClient() {
   useEffect(() => {
     if (!info || !cv.current) return;
     const data: CertData = {
+      courseName: info.course?.name ?? "",
       name,
       birth: birth ? jpDate(birth) : "",
       date: jpDate(info.date),
@@ -85,7 +87,7 @@ export function CertClient() {
       const r = await fetch("/api/cert", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, birth }),
+        body: JSON.stringify({ courseId, name, birth }),
       });
       const j = await r.json();
       if (!r.ok || !j.ok) {
@@ -112,7 +114,7 @@ export function CertClient() {
     return (
       <main className="px-5 py-8">
         <div className="tape -mx-5 mb-6" />
-        <Link href="/edu" className="backlink text-[13px] text-dim no-underline">
+        <Link href={`/edu/${courseId}`} className="backlink text-[13px] text-dim no-underline">
           ← 科目一覧
         </Link>
         <h1 className="mt-2 text-[19px] font-black">修了証</h1>
@@ -133,7 +135,7 @@ export function CertClient() {
   return (
     <main className="px-5 py-8" data-testid="cert">
       <div className="tape -mx-5 mb-6" />
-      <Link href="/edu" className="backlink text-[13px] text-dim no-underline">
+      <Link href={`/edu/${courseId}`} className="backlink text-[13px] text-dim no-underline">
         ← 科目一覧
       </Link>
       <h1 className="mt-2 text-[19px] font-black">修了証</h1>

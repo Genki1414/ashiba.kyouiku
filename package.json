@@ -39,6 +39,8 @@
     "test:e2e:record": "node tests/e2e-record.mjs",
     "test:e2e:admin": "node tests/e2e-admin.mjs",
     "test:e2e:order": "node tests/e2e-order.mjs",
+    "test:e2e:lesson": "node tests/e2e-lesson.mjs",
+    "test:e2e:prepexam": "node tests/e2e-prep-exam.mjs",
     "test:e2e:face": "node tests/e2e-face.mjs",
     "test:e2e:resume": "node tests/e2e-resume.mjs",
     "test:e2e:catalog": "node tests/e2e-catalog-demo.mjs",

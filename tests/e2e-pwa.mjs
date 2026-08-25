@@ -75,7 +75,7 @@ await page.waitForFunction(() => navigator.serviceWorker.controller !== null, { 
   .catch(() => check(false, "圏外の仕込みが入らない"));
 
 /* 何画面か開いて、端末に写しておく */
-const WARM = ["/training", "/edu", "/training/catalog"];
+const WARM = ["/training", "/edu/ashiba", "/training/catalog"];
 for (const u of WARM) { await page.goto(BASE + u); await page.waitForTimeout(600); }
 const cached = await page.evaluate(async () => {
   const c = await caches.open("ashiba-v1");

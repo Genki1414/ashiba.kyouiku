@@ -1,15 +1,16 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase/server";
 import { canCreateCompany, currentAdmin } from "@/lib/admin";
 import { currentUser } from "@/lib/supabase/session";
-import { getCurriculum } from "@/lib/curriculum";
 import { buildRoster, rosterTotals } from "@/training/roster";
 import { seatCounts } from "@/lib/seats";
+import { findCourse, readyCourses } from "@/content/courses";
+import { getLessonList } from "@/lib/curriculum";
 
 /* 教育担当者の画面に出す一覧。
    担当者でなければ何も返さない。画面の出し分けではなく、ここで止める。 */
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const supabase = getServiceClient();
   if (!supabase) {
     return NextResponse.json(
@@ -37,18 +38,24 @@ export async function GET() {
     );
   }
 
-  const cur = await getCurriculum();
+  /* どの講座の名簿かを決める。指定が無ければ、いちばん上の講座 */
+  const wanted = req.nextUrl.searchParams.get("courseId");
+  const course = findCourse(wanted) ?? readyCourses()[0] ?? null;
+  if (!course) {
+    return NextResponse.json({ ok: false, reason: "講座がありません。" }, { status: 404 });
+  }
   /* 単元は順番どおり。担当者の画面に「いま何番目の途中か」を出すため */
-  const lessons = cur.subjects.flatMap((s) =>
-    s.lessons.map((l) => ({ id: l.id, title: l.title, legal_min: l.legal_min })),
-  );
+  const lessons = await getLessonList(course.id);
   const lessonsTotal = lessons.length;
+  /* 画面の切り替え用に、受けられる講座を一緒に返す */
+  const courses = readyCourses().map((c) => ({ id: c.id, short: c.short, name: c.name }));
 
   /* 受講コード（席）の残り。買った数が足りているかを担当者に見せる */
   const { data: myOrders } = await supabase
     .from("orders")
     .select("id, status")
-    .eq("company_id", admin.companyId);
+    .eq("company_id", admin.companyId)
+    .eq("course_id", course.id);
   const paidIds = (myOrders ?? []).filter((o) => o.status === "paid").map((o) => o.id as string);
   const allIds = (myOrders ?? []).map((o) => o.id as string);
   const seats = await seatCounts(supabase, allIds);
@@ -68,13 +75,16 @@ export async function GET() {
       rows: [],
       totals: rosterTotals([]),
       lessonsTotal,
+      course: { id: course.id, short: course.short, name: course.name },
+      courses,
     });
   }
 
   const { data: enrollments } = await supabase
     .from("enrollments")
     .select("id, user_id")
-    .in("user_id", ids);
+    .in("user_id", ids)
+    .eq("course_id", course.id);
   const eids = (enrollments ?? []).map((e) => e.id as string);
 
   const pick = async (

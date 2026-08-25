@@ -84,9 +84,9 @@ const audit = async (name) => {
 /* ── そのまま開ける画面 ── */
 const PAGES = [
   ["home", "/"],
-  ["edu-list", "/edu"],
-  ["edu-prep", "/edu/prep"],
-  ["edu-exam", "/edu/exam"],
+  ["edu-list", "/edu/ashiba"],
+  ["edu-prep", "/edu/ashiba/prep"],
+  ["edu-exam", "/edu/ashiba/exam"],
   ["training", "/training"],
   ["catalog", "/training/catalog"],
   ["demo", "/training/demo"],
@@ -103,7 +103,7 @@ for (const [name, url] of PAGES) {
 
 /* ── 受講画面（単元の中） ── */
 console.log("── 受講画面 ──");
-await page.goto(`${BASE}/edu/1-1`);
+await page.goto(`${BASE}/edu/ashiba/1-1`);
 await dismissNotice();
 await audit("lesson-01-narration");
 

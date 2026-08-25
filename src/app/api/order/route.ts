@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase/server";
 import { currentAdmin } from "@/lib/admin";
 import { issueSeats, listSeats, seatCounts } from "@/lib/seats";
+import { findCourse, readyCourses } from "@/content/courses";
 import { dueDate, quote } from "@/lib/pricing";
 import { unitPrice } from "@/lib/price.server";
 
@@ -12,7 +13,7 @@ import { unitPrice } from "@/lib/price.server";
 
    金額はサーバで計算する。画面から送られてきた金額は見ない。 */
 
-type Body = { seats?: number; method?: "card" | "invoice"; billTo?: string; note?: string };
+type Body = { courseId?: string; seats?: number; method?: "card" | "invoice"; billTo?: string; note?: string };
 
 export async function GET() {
   const supabase = getServiceClient();
@@ -23,7 +24,7 @@ export async function GET() {
 
   const { data: orders } = await supabase
     .from("orders")
-    .select("id, seats, unit_price, amount, method, status, due_date, paid_at, created_at")
+    .select("id, course_id, seats, unit_price, amount, method, status, due_date, paid_at, created_at")
     .eq("company_id", admin.companyId)
     .order("created_at", { ascending: false });
 
@@ -34,7 +35,11 @@ export async function GET() {
   /* コードの文字そのもの。数だけ返しても、担当者は受講者に配れない */
   const codes = await listSeats(
     supabase,
-    (orders ?? []).map((o) => ({ id: o.id as string, status: o.status as string })),
+    (orders ?? []).map((o) => ({
+      id: o.id as string,
+      status: o.status as string,
+      course_id: o.course_id as string,
+    })),
   );
 
   return NextResponse.json({
@@ -46,6 +51,8 @@ export async function GET() {
     orders: orders ?? [],
     seats: { total: counts.total, used: counts.used, paid: paid.total },
     codes,
+    /* 受講コードは講座ごと。どれを買うかを選んでもらう */
+    courses: readyCourses().map((c) => ({ id: c.id, short: c.short, name: c.name })),
   });
 }
 
@@ -57,6 +64,11 @@ export async function POST(req: NextRequest) {
   }
 
   const b = (await req.json().catch(() => ({}))) as Body;
+  /* 受講コードは1講座ぶん。どの講座の席かをここで決める */
+  const course = findCourse(b.courseId) ?? readyCourses()[0] ?? null;
+  if (!course) {
+    return NextResponse.json({ ok: false, reason: "講座がありません。" }, { status: 400 });
+  }
   const method = b.method === "card" ? "card" : "invoice";
   const q = quote(Number(b.seats), unitPrice());
   if (!q) {
@@ -68,6 +80,7 @@ export async function POST(req: NextRequest) {
     .from("orders")
     .insert({
       company_id: admin.companyId,
+      course_id: course.id,
       seats: q.seats,
       unit_price: q.unitPrice,
       amount: q.total,
@@ -91,6 +104,7 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({
     ok: true,
     orderId: order.id,
+    course: { id: course.id, short: course.short },
     method,
     quote: q,
     seatsIssued: made,

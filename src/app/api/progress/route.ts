@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase/server";
 import { currentEnrollment } from "@/lib/enrollment";
 import { getLesson } from "@/lib/curriculum";
+import { lessonKey } from "@/content/courses";
 
 /* 視聴時間の同期。
    クライアントは「前回同期からの再生秒数」を送るだけで、
@@ -11,17 +12,18 @@ import { getLesson } from "@/lib/curriculum";
 
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
+  const courseId = typeof body?.courseId === "string" ? body.courseId : "";
   const lessonId = typeof body?.lessonId === "string" ? body.lessonId : null;
   const deltaSec = Number.isInteger(body?.deltaSec) ? (body.deltaSec as number) : null;
   if (!lessonId || deltaSec === null || deltaSec < 0 || deltaSec > 300) {
     return NextResponse.json({ error: "不正なリクエストです" }, { status: 400 });
   }
-  if (!(await getLesson(lessonId))) {
+  if (!(await getLesson(courseId, lessonId))) {
     return NextResponse.json({ error: "単元が見つかりません" }, { status: 404 });
   }
 
   const supabase = getServiceClient();
-  const who = await currentEnrollment();
+  const who = await currentEnrollment(courseId);
   if (!supabase || !who) {
     return NextResponse.json({ mode: "local" });
   }
@@ -29,7 +31,7 @@ export async function POST(req: NextRequest) {
 
   const { data, error } = await supabase.rpc("sync_watched_sec", {
     p_enrollment_id: enrollmentId,
-    p_lesson_id: lessonId,
+    p_lesson_id: lessonKey(courseId, lessonId),
     p_delta_sec: deltaSec,
   });
   if (error) {
@@ -39,11 +41,12 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET(req: NextRequest) {
+  const courseId = req.nextUrl.searchParams.get("courseId") ?? "";
   const lessonId = req.nextUrl.searchParams.get("lessonId");
   if (!lessonId) return NextResponse.json({ error: "lessonId が必要です" }, { status: 400 });
 
   const supabase = getServiceClient();
-  const who = await currentEnrollment();
+  const who = await currentEnrollment(courseId);
   if (!supabase || !who) {
     return NextResponse.json({ mode: "local" });
   }
@@ -53,7 +56,7 @@ export async function GET(req: NextRequest) {
   // 最初の同期でも開いてからの実経過ぶんが正しく加算される）
   const { data, error } = await supabase.rpc("touch_progress", {
     p_enrollment_id: enrollmentId,
-    p_lesson_id: lessonId,
+    p_lesson_id: lessonKey(courseId, lessonId),
   });
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });

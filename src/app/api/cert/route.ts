@@ -4,6 +4,7 @@ import { currentEnrollment } from "@/lib/enrollment";
 import { getCurriculum } from "@/lib/curriculum";
 import { eligible } from "@/lib/cert";
 import { issuerName, issuerResponsible } from "@/lib/issuer";
+import { findCourse } from "@/content/courses";
 
 /* 修了証。
    GET  … 出せるかどうかと、載せる中身を返す
@@ -12,7 +13,7 @@ import { issuerName, issuerResponsible } from "@/lib/issuer";
    出せるかどうかの判断はサーバで行う。
    クライアントの言い分で修了証を出さないため。 */
 
-type Body = { name?: string; birth?: string };
+type Body = { name?: string; birth?: string; courseId?: string };
 
 type Gathered =
   | { ok: false; status: number; reason: string }
@@ -24,13 +25,18 @@ type Gathered =
       birth: string;
       exam: { score: number; total: number };
       subjects: { id: number; name: string; min: number }[];
+      course: { id: string; name: string; basis: string };
       issuedAt: Date;
       no: string;
       already: string | null;
     };
 
-async function gather(): Promise<Gathered> {
-  const cur = await getCurriculum();
+async function gather(courseId: string): Promise<Gathered> {
+  const course = findCourse(courseId);
+  const cur = course ? await getCurriculum(courseId) : null;
+  if (!course || !cur) {
+    return { ok: false, status: 404, reason: "その講座はありません。" };
+  }
   const subjects = cur.subjects.map((s) => ({
     id: s.id,
     name: s.name,
@@ -39,7 +45,7 @@ async function gather(): Promise<Gathered> {
   const lessons = cur.subjects.reduce((n, s) => n + s.lessons.length, 0);
 
   const supabase = getServiceClient();
-  const who = await currentEnrollment();
+  const who = await currentEnrollment(courseId);
   if (!supabase || !who) {
     return {
       ok: false,
@@ -90,14 +96,15 @@ async function gather(): Promise<Gathered> {
     birth: (user?.birth_date as string) ?? "",
     exam: { score: (exam?.score as number) ?? 0, total: (exam?.total as number) ?? 0 },
     subjects,
+    course: { id: course.id, name: course.name, basis: course.basis },
     issuedAt,
     no: (cert?.cert_no as string) ?? "",
     already: (cert?.cert_no as string) ?? null,
   };
 }
 
-export async function GET() {
-  const r = await gather();
+export async function GET(req: NextRequest) {
+  const r = await gather(req.nextUrl.searchParams.get("courseId") ?? "");
   if (!r.ok) return NextResponse.json({ ok: false, reason: r.reason }, { status: r.status });
   return NextResponse.json({
     ok: true,
@@ -108,6 +115,8 @@ export async function GET() {
     date: r.issuedAt.toISOString(),
     exam: r.exam,
     subjects: r.subjects,
+    /* 修了証には、どの特別教育かを載せる。講座は増えていく */
+    course: r.course,
     /* 名義は決まっている。教育を実施したのは東北三上機材。
        受講者がどの会社の人かは、名簿の分け方であって名義ではない */
     company: issuerName(),
@@ -117,7 +126,7 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const body = (await req.json().catch(() => ({}))) as Body;
-  const r = await gather();
+  const r = await gather(typeof body.courseId === "string" ? body.courseId : "");
   if (!r.ok) return NextResponse.json({ ok: false, reason: r.reason }, { status: r.status });
 
   const supabase = getServiceClient()!;

@@ -18,6 +18,8 @@ import type { LearnerRow } from "@/training/roster";
 
 type Totals = { people: number; done: number; issued: number; waiting: number };
 
+type CourseTab = { id: string; short: string; name: string };
+
 type Loaded =
   | {
       kind: "ok";
@@ -26,6 +28,9 @@ type Loaded =
       seats: { total: number; used: number; paid: number };
       rows: LearnerRow[];
       totals: Totals;
+      /* いま見ている講座と、切り替えられる講座 */
+      course: CourseTab | null;
+      courses: CourseTab[];
     }
   | { kind: "setup"; reason: string }
   | { kind: "ng"; reason: string; signIn?: boolean };
@@ -43,10 +48,13 @@ export function AdminClient() {
   const [note, setNote] = useState<string>("");
   const [company, setCompany] = useState("");
   const [edit, setEdit] = useState(false);
+  /* 名簿も受講コードも講座ごと。どの講座を見ているか */
+  const [courseId, setCourseId] = useState<string>("");
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (course?: string) => {
     try {
-      const res = await fetch("/api/admin/summary", { cache: "no-store" });
+      const q = course ? `?courseId=${encodeURIComponent(course)}` : "";
+      const res = await fetch(`/api/admin/summary${q}`, { cache: "no-store" });
       const j = await res.json();
       if (res.ok && j.ok) {
         setSt({
@@ -56,8 +64,11 @@ export function AdminClient() {
           seats: j.seats ?? { total: 0, used: 0, paid: 0 },
           rows: j.rows ?? [],
           totals: j.totals,
+          course: j.course ?? null,
+          courses: j.courses ?? [],
         });
         setCompany(j.company ?? "");
+        if (j.course?.id) setCourseId(j.course.id as string);
         return;
       }
       if (j.canSetup) {
@@ -121,7 +132,7 @@ export function AdminClient() {
             testid="admin-setup"
             onClick={async () => {
               setBusy("setup");
-              if (await post("/api/admin/setup", { company: company.trim() })) await load();
+              if (await post("/api/admin/setup", { company: company.trim() })) await load(courseId);
               setBusy(null);
             }}
           >
@@ -176,6 +187,30 @@ export function AdminClient() {
         <p className="mt-1 text-[12px] text-dim">{st.company}</p>
       </div>
 
+      {/* 講座の切り替え。名簿も受講コードも講座ごとに分かれている。
+          1つしか無いあいだは、選ぶ物が無いので出さない */}
+      {st.courses.length > 1 && (
+        <div className="mx-5 mb-3 flex flex-wrap gap-2" data-testid="admin-courses">
+          {st.courses.map((c) => (
+            <button
+              key={c.id}
+              onClick={() => { setCourseId(c.id); void load(c.id); }}
+              className={`rounded-lg border px-3 py-1.5 text-[12px] ${
+                st.course?.id === c.id ? "border-yel bg-[#1A1F14] text-yel" : "border-line text-dim2"
+              }`}
+              data-testid="admin-course-tab"
+            >
+              {c.short}
+            </button>
+          ))}
+        </div>
+      )}
+      {st.course && (
+        <p className="mx-5 mb-2 text-[11.5px] leading-relaxed text-dim2" data-testid="admin-course-name">
+          {st.course.name}の名簿と受講コードです
+        </p>
+      )}
+
       <div className="mx-5 grid grid-cols-4 gap-2" data-testid="admin-totals">
         {[
           { t: "受講者", v: st.totals.people },
@@ -218,7 +253,7 @@ export function AdminClient() {
                   setBusy("company");
                   if (await post("/api/admin/company", { name: company.trim() })) {
                     setEdit(false);
-                    await load();
+                    await load(courseId);
                   }
                   setBusy(null);
                 }}
@@ -263,7 +298,7 @@ export function AdminClient() {
             </div>
           )}
           <Link
-            href="/order"
+            href={st.course ? `/order?courseId=${st.course.id}` : "/order"}
             className="mt-2 block rounded-lg border border-yel bg-yel p-2.5 text-center text-[13px] font-extrabold text-bg no-underline"
             data-testid="admin-order"
           >
@@ -301,7 +336,7 @@ export function AdminClient() {
             data-testid="admin-newcode"
             onClick={async () => {
               setBusy("code");
-              if (await post("/api/admin/company", { newCode: true })) await load();
+              if (await post("/api/admin/company", { newCode: true })) await load(courseId);
               setBusy(null);
             }}
           >
@@ -411,7 +446,7 @@ export function AdminClient() {
                     onClick={async () => {
                       setBusy(r.userId);
                       if (await post("/api/admin/cert", { enrollmentId: r.enrollmentId, action: "revoke" }))
-                        await load();
+                        await load(courseId);
                       setBusy(null);
                     }}
                   >
@@ -426,7 +461,7 @@ export function AdminClient() {
                   onClick={async () => {
                     setBusy(r.userId);
                     if (await post("/api/admin/cert", { enrollmentId: r.enrollmentId, action: "issue" }))
-                      await load();
+                      await load(courseId);
                     setBusy(null);
                   }}
                 >
@@ -445,7 +480,7 @@ export function AdminClient() {
               data-testid="admin-role"
               onClick={async () => {
                 setBusy(r.userId);
-                if (await post("/api/admin/role", { userId: r.userId, admin: !r.admin })) await load();
+                if (await post("/api/admin/role", { userId: r.userId, admin: !r.admin })) await load(courseId);
                 setBusy(null);
               }}
             >

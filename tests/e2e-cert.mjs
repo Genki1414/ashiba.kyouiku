@@ -24,7 +24,7 @@ const dismissNotice = async () => {
 };
 
 /* ── 出せないときは、なぜ出せないかを言う ── */
-await page.goto(`${BASE}/edu/cert`);
+await page.goto(`${BASE}/edu/ashiba/cert`);
 await dismissNotice();
 await page.getByTestId("cert-reason").waitFor({ timeout: 6000 })
   .catch(() => check(false, "出せない理由が出る"));
@@ -52,7 +52,7 @@ await page.screenshot({ path: `${SC}/cert-02-verify.png` });
 console.log("OK: 照会の画面が使える");
 
 /* ── 様式（見本を描く）── */
-await page.goto(`${BASE}/edu/cert`);
+await page.goto(`${BASE}/edu/ashiba/cert`);
 await page.waitForTimeout(800);
 const drawn = await page.evaluate(() => {
   const f = window.__drawCert;

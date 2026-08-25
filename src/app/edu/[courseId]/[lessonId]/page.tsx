@@ -13,21 +13,22 @@ export const dynamic = "force-dynamic";
 export default async function LessonPage({
   params,
 }: {
-  params: Promise<{ lessonId: string }>;
+  params: Promise<{ courseId: string; lessonId: string }>;
 }) {
   /* 教材の本文を作る前に、もう一度見張る。
      上の layout でも見ているが、ここが売り物そのものなので二重にする */
   const may = await canLearn();
   if (!may.ok) return <NeedSeat why={may.why} company={may.company} />;
 
-  const { lessonId } = await params;
-  const found = await getLesson(lessonId);
+  const { courseId, lessonId } = await params;
+  const found = await getLesson(courseId, lessonId);
   if (!found) notFound();
 
-  const order = await getLessonOrder();
+  const order = await getLessonOrder(courseId);
   const i = order.indexOf(lessonId);
   return (
     <LessonClient
+      courseId={courseId}
       subject={found.subject}
       lesson={found.lesson}
       prevId={i > 0 ? order[i - 1] : null}

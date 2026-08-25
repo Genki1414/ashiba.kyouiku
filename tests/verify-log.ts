@@ -1,7 +1,7 @@
 /* 照合の記録のまとめの試験。画面もデータベースも要らない。
    実行: npx tsx tests/verify-log.ts */
 
-import { buildCheck, checkTotals, REASON_LABEL, type RawLog } from "@/training/verifyLog";
+import { buildCheck, checkTotals, REASON_LABEL, shortLesson, type RawLog } from "@/training/verifyLog";
 
 let ok = 0;
 let ng = 0;
@@ -11,7 +11,7 @@ const eq = (a: unknown, b: unknown, m: string) =>
 
 const U = (id: string, name: string) => ({ id, name, email: `${id}@x` });
 const E = (id: string, user: string) => ({ id, user_id: user });
-const L = (en: string, at: string, reason: string | null, lesson = "1-1"): RawLog => ({
+const L = (en: string, at: string, reason: string | null, lesson = "ashiba:1-1"): RawLog => ({
   enrollment_id: en, lesson_id: lesson, result: reason ? "ng" : "ok", reason, created_at: at,
 });
 
@@ -44,6 +44,7 @@ const L = (en: string, at: string, reason: string | null, lesson = "1-1"): RawLo
   eq(r.last, "2026-08-01T09:22:00Z", "おわりの記録");
   eq(r.rows[0].at, "2026-08-01T09:22:00Z", "明細は新しい順");
   eq(r.rows[0].why, REASON_LABEL.no_face, "明細にも理由を日本語で");
+  eq(r.rows[0].lesson, "1-1", "単元は番号だけ出す（講座の頭は外す）");
   eq(r.rows.at(-1)!.ok, true, "通った回も明細に出す（受けた証になる）");
   eq(r.rows.at(-1)!.why, null, "通った回に理由は付けない");
 }
@@ -102,6 +103,13 @@ const L = (en: string, at: string, reason: string | null, lesson = "1-1"): RawLo
   const rows = buildCheck({ users: [U("u1", "山田")], enrollments: [], logs: [] });
   eq(rows[0].ok + rows[0].ng, 0, "記録が無い人は0");
   eq(checkTotals(rows).people, 0, "受講者の数は、記録がある人だけ数える");
+}
+
+/* ── 単元IDから講座の頭を外す ── */
+{
+  eq(shortLesson("ashiba:1-1"), "1-1", "講座の頭を外す");
+  eq(shortLesson("1-1"), "1-1", "頭が無ければそのまま（古い記録）");
+  eq(shortLesson(null), null, "単元が無ければ null");
 }
 
 console.log("\n── まとめ ──");

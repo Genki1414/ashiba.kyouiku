@@ -1,10 +1,15 @@
 import Link from "next/link";
-import { getCurriculum } from "@/lib/curriculum";
+import { COURSES } from "@/content/courses";
+import { loadedCourses } from "@/lib/curriculum";
 import { AccountBar } from "@/components/AccountBar";
 import { HomeCards } from "@/components/HomeCards";
 
+export const dynamic = "force-dynamic";
+
 export default async function Home() {
-  const cur = await getCurriculum();
+  /* 特別教育は種類が増えていく。受けられるものを並べる */
+  const ready = await loadedCourses();
+  const soon = COURSES.filter((c) => !c.ready);
   return (
     <main>
       <div className="tape" />
@@ -13,23 +18,27 @@ export default async function Home() {
         <div className="text-[11px] tracking-[3px] text-yel font-extrabold">ASHIBA TRAINING</div>
         <h1 className="mt-2 text-[22px] font-black leading-snug">足場の教育アプリ</h1>
         <p className="mt-2 text-[13px] leading-relaxed text-dim">
-          労働安全衛生法にもとづく特別教育（学科6時間）と、実務トレーニング。
+          労働安全衛生法にもとづく学科と、実務トレーニング。
         </p>
       </div>
 
       <div className="grid gap-3 px-5 pb-10">
-        <Link
-          href="/edu"
-          className="block rounded-xl border border-yel bg-panel p-5 no-underline"
-        >
-          <div className="text-[11px] font-extrabold tracking-widest text-yel">特別教育（学科）</div>
-          <div className="mt-1 text-[17px] font-black text-txt">{cur.meta.title}</div>
-          <div className="mt-2 text-[12px] leading-relaxed text-dim">
-            {cur.meta.basis}
-            <br />
-            4科目13単元・計{Math.round(cur.meta.total_min / 60)}時間
-          </div>
-        </Link>
+        {ready.map((c) => (
+          <Link
+            key={c.id}
+            href={`/edu/${c.id}`}
+            className="block rounded-xl border border-yel bg-panel p-5 no-underline"
+            data-testid="home-course"
+          >
+            <div className="text-[11px] font-extrabold tracking-widest text-yel">特別教育（学科）</div>
+            <div className="mt-1 text-[17px] font-black leading-snug text-txt">{c.name}</div>
+            <div className="mt-2 text-[12px] leading-relaxed text-dim">
+              {c.basis}
+              <br />
+              学科 計{Math.round(c.totalMin / 60)}時間
+            </div>
+          </Link>
+        ))}
 
         <Link
           href="/training"
@@ -43,6 +52,18 @@ export default async function Home() {
             第1章 段取りと根がらみ／第2章 高所作業／第3章 火打とシート
           </div>
         </Link>
+
+        {/* これから増える講座。何が来るのかが分かるように名前だけ出す */}
+        {!!soon.length && (
+          <div className="rounded-xl border border-line bg-bg p-4" data-testid="home-soon">
+            <div className="text-[11px] tracking-[2px] text-dim">これから増える特別教育</div>
+            <ul className="mt-1.5 grid gap-1 text-[12.5px] leading-relaxed text-dim2">
+              {soon.map((c) => (
+                <li key={c.id}>・{c.name}（準備中）</li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         {/* 立場によって出すもの（参加コード／教育担当者／運営）*/}
         <HomeCards />

@@ -2,14 +2,16 @@
    実行手順:
      npm run dev -- -p 3100
      node tests/e2e-prep-exam.mjs
-   カメラは Chromium のフェイクデバイスを使う。 */
+   カメラは Chromium の偽デバイスに、本物の顔が写った映像を食わせる
+   （tests/faces/face.y4m）。作り物の縞模様では顔検出が通らないので、
+   ここを偽物のままにすると「本人確認が効いているか」を試験できない。 */
 import { chromium } from "playwright-core";
 import { readFileSync } from "node:fs";
 
 /* 合格経路の検証用：正解表は教材ファイルから作る（サーバは正解を返さないため） */
 const answerKey = (() => {
   const map = new Map();
-  const cur = JSON.parse(readFileSync("content/curriculum.json", "utf-8"));
+  const cur = JSON.parse(readFileSync("content/courses/ashiba.json", "utf-8"));
   for (const s of cur.subjects) for (const l of s.lessons) for (const q of l.quiz) map.set(q.q, q.ok);
   const extra = JSON.parse(readFileSync("content/exam-extra.json", "utf-8"));
   for (const q of extra.questions) map.set(q.q, q.ok);
@@ -22,7 +24,11 @@ const die = (msg) => { console.error("NG:", msg); process.exit(1); };
 
 const browser = await chromium.launch({
   executablePath: process.env.PW_CHROMIUM ?? "/opt/pw-browsers/chromium-1194/chrome-linux/chrome",
-  args: ["--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream"],
+  args: [
+    "--use-fake-device-for-media-stream",
+    "--use-fake-ui-for-media-stream",
+    `--use-file-for-fake-video-capture=${process.cwd()}/tests/faces/face.y4m`,
+  ],
 });
 const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
 await ctx.grantPermissions(["camera"]);
@@ -38,9 +44,9 @@ const dismissNotice = async () => {
   if (await b.count()) { await b.click(); await page.waitForTimeout(200); }
 };
 
-await page.goto(`${BASE}/edu/1-1`);
+await page.goto(`${BASE}/edu/ashiba/1-1`);
 await dismissNotice();
-await page.waitForURL("**/edu/prep?back=1-1");
+await page.waitForURL("**/edu/ashiba/prep?back=1-1");
 await page.waitForSelector("text=カメラの使用について");
 console.log("OK: 準備前は受講画面に入れず、同意画面へ");
 await page.screenshot({ path: `${SC}/p2-01-consent.png` });
@@ -52,31 +58,38 @@ await page.waitForSelector("text=本人確認");
 await page.getByTestId("cam-start").click();
 await page.waitForSelector("video", { timeout: 10000 });
 await page.waitForTimeout(800);
-await page.getByTestId("capture-face").click();
+/* モデルが落ちてくるまで、顔の登録はできない */
+await page.getByTestId("capture-face").click({ timeout: 60000 });
 await page.waitForSelector("text=登録用の画像です。");
+/* 顔として読み取れたか。読み取れていなければ「撮り直してください」が出る */
+if (await page.getByTestId("prep-ng").count()) {
+  die(`顔を読み取れなかった（${await page.getByTestId("prep-ng").innerText()}）`);
+}
 await page.getByTestId("capture-id").click();
 await page.getByTestId("who-name").fill("試験 太郎");
 await page.getByTestId("who-birth").fill("1990-04-01");
 await page.screenshot({ path: `${SC}/p2-02-enroll.png` });
-const feature = await page.evaluate(() => JSON.parse(localStorage.getItem("ashiba.prep")).faceFeature?.length ?? 0);
-if (feature !== 1024) die(`顔特徴量が端末内に無い（length=${feature}）`);
-console.log("OK: 顔写真→特徴量（端末内・1024次元）、書類、受講者情報を登録");
+const feature = await page.evaluate(
+  () => JSON.parse(localStorage.getItem("ashiba.prep:local") ?? "{}").faceDescriptor?.length ?? 0,
+);
+if (feature !== 128) die(`顔の特徴量が端末内に無い（length=${feature}）`);
+console.log("OK: 本物の顔から特徴量128を取り出して端末内に登録（書類・受講者情報も）");
 
 // 3) 受講開始 → 受講画面（カメラ窓が出る）
 await page.getByTestId("prep-done").click();
-await page.waitForURL("**/edu/1-1");
+await page.waitForURL("**/edu/ashiba/1-1");
 await page.waitForSelector("text=再生すると、ナレーションが始まります。");
 await page.getByRole("button", { name: "再生する" }).click();
-// フェイクカメラの映像で照合が回り、「本人を確認」になる
-await page.waitForSelector("text=本人を確認", { timeout: 20000 });
-console.log("OK: 受講中の照合（3秒間隔）が動き、本人を確認");
+// 偽カメラに流した本物の顔で照合が回り、「在席を確認」になる
+await page.waitForSelector("text=在席を確認", { timeout: 20000 });
+console.log("OK: 受講中の照合が動き、在席を確認");
 await page.screenshot({ path: `${SC}/p2-03-lesson-cam.png` });
 // 視聴時間も進む
 await page.waitForFunction(() => window.__lessonStore.getState().watchedSec >= 2, null, { timeout: 15000 });
 await page.getByRole("button", { name: "一時停止" }).click();
 
 // 4) 修了試験：全単元合格前はロック
-await page.goto(`${BASE}/edu/exam`);
+await page.goto(`${BASE}/edu/ashiba/exam`);
 await page.waitForSelector("text=まだ受験できません");
 console.log("OK: 全単元合格前は修了試験がロック");
 await page.screenshot({ path: `${SC}/p2-04-exam-locked.png` });
@@ -121,7 +134,7 @@ if (!passed) {
   await page.getByRole("button", { name: "もう一度受験する" }).click();
 }
 else {
-  await page.goto(`${BASE}/edu/exam`);
+  await page.goto(`${BASE}/edu/ashiba/exam`);
   await page.getByTestId("exam-start").click();
 }
 for (let q = 0; q < 20; q++) {

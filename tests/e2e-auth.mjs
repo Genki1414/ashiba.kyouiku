@@ -41,7 +41,7 @@ for (let i = 0; i < 90; i++) {
 if (!up) { console.error("NG: サーバが立たない"); process.exit(1); }
 
 /* ── 入れない道 ── */
-const shut = ["/", "/training", "/training/ch1", "/edu", "/edu/1-1", "/edu/exam", "/setup", "/updates"];
+const shut = ["/", "/training", "/training/ch1", "/edu", "/edu/ashiba", "/edu/ashiba/1-1", "/edu/ashiba/exam", "/setup", "/updates"];
 for (const u of shut) {
   const r = await fetch(BASE + u, { redirect: "manual" });
   check(r.status === 307 || r.status === 302, `${u} は素通しにならない（${r.status}）`);

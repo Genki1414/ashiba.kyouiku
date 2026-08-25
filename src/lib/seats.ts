@@ -46,6 +46,8 @@ export type SeatRow = {
   orderId: string;
   /** 元の注文の状態。未入金でも受講は始められるが、修了証は出ない */
   status: string;
+  /** どの講座の席か。受講コードは1講座ぶん */
+  courseId: string;
   /** 使った人の氏名。まだなら null */
   usedBy: string | null;
   usedAt: string | null;
@@ -59,11 +61,12 @@ export type SeatRow = {
     使っていないものを先に出す（担当者が次に配るのはそれなので）。 */
 export async function listSeats(
   supabase: SupabaseClient,
-  orders: { id: string; status: string }[],
+  orders: { id: string; status: string; course_id?: string }[],
 ): Promise<SeatRow[]> {
   const ids = orders.map((o) => o.id);
   if (!ids.length) return [];
   const statusOf = new Map(orders.map((o) => [o.id, o.status]));
+  const courseOf = new Map(orders.map((o) => [o.id, o.course_id ?? ""]));
 
   const { data } = await supabase
     .from("seats")
@@ -107,6 +110,7 @@ export async function listSeats(
     code: (r.code as string) ?? "",
     orderId: (r.order_id as string) ?? "",
     status: statusOf.get(r.order_id as string) ?? "pending",
+    courseId: courseOf.get(r.order_id as string) ?? "",
     usedBy: r.used_by ? (names.get(r.used_by as string) ?? "受講者") : null,
     usedAt: (r.used_at as string | null) ?? null,
     expiresAt: (r.expires_at as string | null) ?? null,

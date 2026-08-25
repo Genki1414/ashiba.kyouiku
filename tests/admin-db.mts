@@ -125,17 +125,19 @@ await must("担当者を決める", db.from("users").update({ role: "admin" }).e
 await must(
   "受講を作る",
   db.from("enrollments").insert([
-    { id: E2, user_id: U2 },
-    { id: E3, user_id: U3 },
+    { id: E2, user_id: U2, course_id: "ashiba" },
+    { id: E3, user_id: U3, course_id: "ashiba" },
   ]).select("id"),
 );
 
 /* 単元の番号は curriculum.json から入っている本物を使う（progress は lessons を参照する） */
 const lessonRows = await raw.query<{ lesson_id: string }>(
-  "select lesson_id from public.lessons order by sort_order",
+  "select lesson_id from public.lessons where course_id = 'ashiba' order by sort_order",
 );
 const lessons = lessonRows.rows.map((r) => r.lesson_id);
 check(lessons.length === 13, `単元が13件入っている（いま ${lessons.length}）`);
+check(lessons.every((l) => l.startsWith("ashiba:")),
+  `単元IDに講座が付いている（${lessons[0]}）`);
 
 /* 学科：鈴木は13単元すべて合格、田中は3単元 */
 await must(
@@ -182,6 +184,29 @@ await must(
     enrollment_id: E2, chapter: "ch1", skill: 120, score: 0, sec: 0, passed: false,
   });
   check(!!error, "技能点が100を超える行は入らない");
+}
+
+/* ── 講座（0011）──
+   特別教育は種類が増えていく。取り違えると別の講座の記録が混ざる */
+{
+  const courses = await must("講座を引ける", db.from("courses").select("id, name"));
+  check((courses ?? []).some((c) => c.id === "ashiba"), "足場の講座が入っている");
+
+  const l = await must("単元は講座ごと",
+    db.from("lessons").select("lesson_id, course_id").eq("course_id", "ashiba").limit(1));
+  check((l ?? [])[0]?.lesson_id?.toString().startsWith("ashiba:"), "単元IDに講座が付く");
+
+  /* 受講は1人1講座につき1件。同じ講座で2件は作れない */
+  const dup = await db.from("enrollments").insert({ user_id: U2, course_id: "ashiba" });
+  check(!!dup.error, "同じ人・同じ講座で受講は2件作れない");
+
+  /* 無い講座は断る */
+  const bad = await db.rpc("enrollment_for", { p_user: U2, p_course: "nonsense" });
+  check(!!bad.error, "無い講座の受講は作れない");
+
+  /* 有る講座なら、取れなければ作って返す */
+  const got = await db.rpc("enrollment_for", { p_user: U2, p_course: "ashiba" });
+  check(!got.error && got.data === E2, `その人・その講座の受講を返す（${got.data}）`);
 }
 
 /* ── src/lib/admin.ts と同じ問い合わせ ── */
@@ -330,7 +355,7 @@ console.log("");
 const ord = await must(
   "注文を作れる",
   db.from("orders").insert({
-    company_id: CO, seats: 3, unit_price: 3000, amount: 9900,
+    company_id: CO, course_id: "ashiba", seats: 3, unit_price: 3000, amount: 9900,
     method: "invoice", status: "pending",
     due_date: "2026-09-30", ordered_by: U1, bill_to: "点検用工業 経理部",
   }).select("id").single(),
@@ -386,7 +411,7 @@ check(codes.every((c) => /^[2-9A-HJKMNP-Z]{12}$/.test(c)), `12文字・読み違
 /* ②' 買った受講コードを、配れる形で取り出せる。
    数だけ返しても担当者は受講者に配れない（コードの文字が要る） */
 {
-  const rows = await listSeats(db, [{ id: orderId, status: "pending" }]);
+  const rows = await listSeats(db, [{ id: orderId, status: "pending", course_id: "ashiba" }]);
   check(rows.length === 3, `席を3枚とも取り出せる（${rows.length}）`);
   check(rows.every((r) => /^[2-9A-HJKMNP-Z]{12}$/.test(r.code)), "コードの文字そのものが返る");
   check(!rows[0].usedAt && !rows[1].usedAt, "まだ配っていないものが先に出る");
@@ -394,6 +419,7 @@ check(codes.every((c) => /^[2-9A-HJKMNP-Z]{12}$/.test(c)), `12文字・読み違
   check(u?.code === codes[0], "使用済みの行が使った席と一致する");
   check(u?.usedBy === "田中", `使った人の氏名が出る（${u?.usedBy}）`);
   check(rows.every((r) => r.status === "pending"), "元の注文の状態が付く");
+  check(rows.every((r) => r.courseId === "ashiba"), "どの講座の席かが付く");
   check(rows.every((r) => !!r.expiresAt), "期限が付く");
   const none = await listSeats(db, []);
   check(none.length === 0, "注文が無ければ空");
@@ -547,22 +573,22 @@ await raw.query("update public.enrollments set seat_id = null where id = $1", [E
 /* ⑧ 受講中の照合の記録。理由に「別人」を足した（0010） */
 {
   const en = await db.from("verify_logs").insert({
-    enrollment_id: E2, lesson_id: "1-1", result: "ng", reason: "not_me",
+    enrollment_id: E2, lesson_id: "ashiba:1-1", result: "ng", reason: "not_me",
   }).select("id");
   check(!en.error, `別人として記録できる（${en.error?.message ?? "ok"}）`);
 
   const bad = await db.from("verify_logs").insert({
-    enrollment_id: E2, lesson_id: "1-1", result: "ng", reason: "nonsense",
+    enrollment_id: E2, lesson_id: "ashiba:1-1", result: "ng", reason: "nonsense",
   });
   check(!!bad.error, "知らない理由は入らない");
 
   const okRow = await db.from("verify_logs").insert({
-    enrollment_id: E2, lesson_id: "1-1", result: "ok", reason: null,
+    enrollment_id: E2, lesson_id: "ashiba:1-1", result: "ok", reason: null,
   }).select("id");
   check(!okRow.error, "通ったときは理由なしで入る");
 
   const bothNull = await db.from("verify_logs").insert({
-    enrollment_id: E2, lesson_id: "1-1", result: "ng", reason: null,
+    enrollment_id: E2, lesson_id: "ashiba:1-1", result: "ng", reason: null,
   });
   check(!!bothNull.error, "止まったのに理由が無い行は入らない");
 }
@@ -573,11 +599,11 @@ await raw.query("update public.enrollments set seat_id = null where id = $1", [E
   await raw.query("delete from public.verify_logs");
   await raw.query(
     `insert into public.verify_logs (enrollment_id, lesson_id, result, reason, created_at) values
-       ($1,'1-1','ok',null, now() - interval '2 hours'),
-       ($1,'1-1','ok',null, now() - interval '1 hour'),
-       ($1,'1-2','ng','not_me', now() - interval '30 minutes'),
-       ($2,'1-1','ng','blocked', now() - interval '10 minutes'),
-       ($1,'1-2','ng','no_face', now() - interval '400 days')`,
+       ($1,'ashiba:1-1','ok',null, now() - interval '2 hours'),
+       ($1,'ashiba:1-1','ok',null, now() - interval '1 hour'),
+       ($1,'ashiba:1-2','ng','not_me', now() - interval '30 minutes'),
+       ($2,'ashiba:1-1','ng','blocked', now() - interval '10 minutes'),
+       ($1,'ashiba:1-2','ng','no_face', now() - interval '400 days')`,
     [E2, E3],
   );
 

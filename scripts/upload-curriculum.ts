@@ -1,4 +1,4 @@
-/* content/curriculum.json（正本）を Supabase Storage へ写す。
+/* content/courses/ashiba.json（正本）を Supabase Storage へ写す。
    アプリはビルド同梱の content/ を読むが、Storage を配信元にする場合に使う。
    実行: npm run upload:curriculum */
 
@@ -13,7 +13,7 @@ if (!url || !key) {
   process.exit(1);
 }
 
-const body = readFileSync(path.join(process.cwd(), "content", "curriculum.json"));
+const body = readFileSync(path.join(process.cwd(), "content", "courses", "ashiba.json"));
 const supabase = createClient(url, key, { auth: { persistSession: false } });
 
 const bucket = "content";
@@ -25,4 +25,4 @@ if (error) {
   console.error("アップロードに失敗:", error.message);
   process.exit(1);
 }
-console.log("OK  content/curriculum.json を Storage へアップロード");
+console.log("OK  content/courses/ashiba.json を Storage へアップロード");

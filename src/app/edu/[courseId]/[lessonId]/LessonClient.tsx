@@ -25,11 +25,14 @@ const SYNC_INTERVAL_SEC = 15;
    段の遷移（narr → fig → case → quiz）と、
    「再生中のみ進む時計」（ナレーション再生中＋図解・事例の表示中に加算）を持つ。 */
 export function LessonClient({
+  courseId,
   subject,
   lesson,
   prevId,
   nextId,
 }: {
+  /** どの講座の単元か。記録はこれで分かれる */
+  courseId: string;
   subject: Subject;
   lesson: Lesson;
   prevId: string | null;
@@ -50,14 +53,14 @@ export function LessonClient({
     void loadPrep().then((p) => {
       if (!alive) return;
       if (!prepDone(p)) {
-        router.replace(`/edu/prep?back=${lesson.id}`);
+        router.replace(`/edu/${courseId}/prep?back=${lesson.id}`);
         return;
       }
       setRegistered(p.faceDescriptor);
       setPrepState(p.skipped ? "nocam" : "cam");
     });
     return () => { alive = false; };
-  }, [lesson.id, router]);
+  }, [courseId, lesson.id, router]);
 
   /* 開発時のみ：E2Eテストから状態を動かせるように store を window へ出す */
   useEffect(() => {
@@ -70,7 +73,7 @@ export function LessonClient({
   useEffect(() => {
     s.reset(lesson.id);
     let alive = true;
-    loadProgress(lesson.id).then((p) => {
+    loadProgress(courseId, lesson.id).then((p) => {
       if (!alive) return;
       useLessonStore.getState().set({
         mode: p.mode,
@@ -83,7 +86,7 @@ export function LessonClient({
       alive = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lesson.id]);
+  }, [courseId, lesson.id]);
 
   /* 受講中の照合（カメラあり）／在席確認（カメラなし） */
   const verification = useVerification({
@@ -119,9 +122,9 @@ export function LessonClient({
     const st = useLessonStore.getState();
     const sent = st.pendingSec;
     if (sent <= 0) return;
-    const r = await syncDelta(lesson.id, sent, st.watchedSec);
+    const r = await syncDelta(courseId, lesson.id, sent, st.watchedSec);
     useLessonStore.getState().flushed(r.watchedSec, sent, r.mode);
-  }, [lesson.id]);
+  }, [courseId, lesson.id]);
 
   useEffect(() => {
     const id = setInterval(flush, SYNC_INTERVAL_SEC * 1000);
@@ -146,7 +149,7 @@ export function LessonClient({
     setPassError(null);
     await flush();
     const st = useLessonStore.getState();
-    const r = await markQuizPassed(lesson.id, needSec, st.watchedSec);
+    const r = await markQuizPassed(courseId, lesson.id, needSec, st.watchedSec);
     if (r.ok) st.set({ quizPassedAt: r.quizPassedAt });
     else setPassError(r.error ?? "合格を記録できませんでした");
   }, [lesson.id, needSec, flush]);
@@ -163,7 +166,7 @@ export function LessonClient({
     <div className="pb-10">
       {/* ヘッダ */}
       <div className="flex items-center gap-2.5 border-b border-line px-4 py-2.5">
-        <Link href="/edu" className="backlink-bar text-[16px] text-dim no-underline">
+        <Link href={`/edu/${courseId}`} className="backlink-bar text-[16px] text-dim no-underline">
           ←
         </Link>
         <div className="min-w-0 flex-1">
@@ -304,7 +307,7 @@ export function LessonClient({
       <div className="mt-6 grid grid-cols-2 gap-2 px-4">
         {prevId ? (
           <Link
-            href={`/edu/${prevId}`}
+            href={`/edu/${courseId}/${prevId}`}
             className="rounded-lg border border-line p-3 text-center text-[13px] text-dim no-underline"
           >
             ← 前の単元
@@ -314,7 +317,7 @@ export function LessonClient({
         )}
         {nextId ? (
           <Link
-            href={`/edu/${nextId}`}
+            href={`/edu/${courseId}/${nextId}`}
             className="rounded-lg border border-line p-3 text-center text-[13px] text-dim no-underline"
           >
             次の単元 →

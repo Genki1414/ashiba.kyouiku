@@ -42,6 +42,8 @@ export const isCertNo = (s: string): boolean => CERT_NO_RE.test(s.trim().toUpper
 
 /** 修了証に載る中身 */
 export type CertData = {
+  /** どの特別教育か。表題に出る。講座は増えていくので、決め打ちにしない */
+  courseName: string;
   name: string;
   birth: string;
   /** 修了日（画面に出す形） */

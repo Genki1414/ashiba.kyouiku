@@ -66,7 +66,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, certNo: already.cert_no as string, issued: true });
   }
 
-  const cur = await getCurriculum();
+  /* どの講座の受講かは、受講の行が持っている */
+  const { data: enr } = await supabase
+    .from("enrollments")
+    .select("course_id")
+    .eq("id", id)
+    .maybeSingle();
+  const cur = await getCurriculum((enr?.course_id as string) ?? "");
+  if (!cur) {
+    return NextResponse.json({ ok: false, reason: "講座が分かりません。" }, { status: 409 });
+  }
   const lessons = cur.subjects.reduce((n, s) => n + s.lessons.length, 0);
 
   const { data: prog } = await supabase

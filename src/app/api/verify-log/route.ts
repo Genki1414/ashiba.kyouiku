@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase/server";
 import { currentEnrollment } from "@/lib/enrollment";
+import { lessonKey } from "@/content/courses";
 
 /* 照合ログ。画像は受け取らない・保存しない。
 
@@ -14,6 +15,7 @@ const REASONS = ["no_face", "multi_face", "blocked", "no_motion", "not_me"] as c
 
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
+  const courseId = typeof body?.courseId === "string" ? body.courseId : "";
   const lessonId = typeof body?.lessonId === "string" ? body.lessonId : null;
   const reason = REASONS.includes(body?.reason) ? (body.reason as (typeof REASONS)[number]) : null;
   const ok = body?.ok === true;
@@ -23,14 +25,14 @@ export async function POST(req: NextRequest) {
   }
 
   const supabase = getServiceClient();
-  const who = await currentEnrollment();
+  const who = await currentEnrollment(courseId);
   const enrollmentId = who?.enrollmentId ?? null;
   if (!supabase || !enrollmentId) {
     return NextResponse.json({ mode: "local" });
   }
   const { error } = await supabase.from("verify_logs").insert({
     enrollment_id: enrollmentId,
-    lesson_id: lessonId,
+    lesson_id: lessonKey(courseId, lessonId),
     result: ok ? "ok" : "ng",
     reason: ok ? null : reason,
   });

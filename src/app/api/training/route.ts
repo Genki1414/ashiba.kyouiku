@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase/server";
 import { currentEnrollment } from "@/lib/enrollment";
+import { TRAINING_COURSE } from "@/content/courses";
 import { CHAPTERS } from "@/training/chapters";
 import { PASS } from "@/training/score";
 
@@ -27,7 +28,7 @@ const num = (v: unknown, max: number) =>
 
 export async function POST(req: NextRequest) {
   const supabase = getServiceClient();
-  const who = supabase ? await currentEnrollment() : null;
+  const who = supabase ? await currentEnrollment(TRAINING_COURSE) : null;
   if (!supabase || !who) {
     return NextResponse.json({ ok: true, mode: "local" });
   }

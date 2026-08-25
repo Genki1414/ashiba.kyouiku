@@ -11,10 +11,10 @@ type LessonRow = { id: string; title: string; legal_min: number; figures: number
 type SubjectRow = { id: number; name: string; legal_min: number; lessons: LessonRow[] };
 
 export function LessonList({
-  meta,
+  course,
   subjects,
 }: {
-  meta: { title: string; basis: string };
+  course: { id: string; name: string; basis: string };
   subjects: SubjectRow[];
 }) {
   const [prog, setProg] = useState<Record<string, ProgressState>>({});
@@ -31,13 +31,13 @@ export function LessonList({
     let alive = true;
     (async () => {
       const ids = subjects.flatMap((s) => s.lessons.map((l) => l.id));
-      const entries = await Promise.all(ids.map(async (id) => [id, await loadProgress(id)] as const));
+      const entries = await Promise.all(ids.map(async (id) => [id, await loadProgress(course.id, id)] as const));
       if (alive) setProg(Object.fromEntries(entries));
     })();
     return () => {
       alive = false;
     };
-  }, [subjects]);
+  }, [subjects, course.id]);
 
   const mode = Object.values(prog)[0]?.mode;
   const allIds = subjects.flatMap((sub) => sub.lessons.map((l) => l.id));
@@ -51,8 +51,8 @@ export function LessonList({
         <Link href="/" className="backlink text-[13px] text-dim no-underline">
           ← ホーム
         </Link>
-        <h1 className="mt-2 text-[18px] font-black leading-snug">{meta.title}</h1>
-        <p className="mt-1 text-[11px] leading-relaxed text-dim">{meta.basis}</p>
+        <h1 className="mt-2 text-[18px] font-black leading-snug">{course.name}</h1>
+        <p className="mt-1 text-[11px] leading-relaxed text-dim">{course.basis}</p>
         {mode === "local" && (
           <p className="mt-2 inline-block rounded border border-org px-1.5 py-0.5 text-[11px] text-org">
             端末内記録（Supabase 未設定のため、視聴記録はこの端末にだけ保存されます）
@@ -63,7 +63,7 @@ export function LessonList({
       {prep && (
         <div className="mb-4 px-5">
           <Link
-            href="/edu/prep"
+            href={`/edu/${course.id}/prep`}
             className={`block rounded-xl border bg-panel p-3.5 no-underline ${
               prepDone(prep) ? (prep.skipped ? "border-org" : "border-grn") : "border-yel"
             }`}
@@ -109,7 +109,7 @@ export function LessonList({
               return (
                 <Link
                   key={l.id}
-                  href={`/edu/${l.id}`}
+                  href={`/edu/${course.id}/${l.id}`}
                   className={`block rounded-xl border bg-panel p-3.5 no-underline ${
                     done ? "border-grn" : "border-line"
                   }`}
@@ -142,7 +142,7 @@ export function LessonList({
       <div className="px-5">
         {allDone ? (
           <Link
-            href="/edu/exam"
+            href={`/edu/${course.id}/exam`}
             className="block rounded-xl border border-yel bg-panel p-4 no-underline"
           >
             <div className="text-[11px] font-extrabold tracking-widest text-yel">修了試験</div>
@@ -160,7 +160,7 @@ export function LessonList({
 
         {/* 修了証。試験に受かっていれば出せる */}
         <Link
-          href="/edu/cert"
+          href={`/edu/${course.id}/cert`}
           className="mt-2 block rounded-lg border border-line p-3 text-center text-[12.5px] text-dim no-underline"
         >
           修了証を見る

@@ -8,7 +8,7 @@ import { useCamera } from "@/lib/camera";
 import { countFaces, faceDistance, loadFace, readFace, SAME_FACE } from "@/lib/faceModel";
 import { loadPrep, prepUid, readPrep, writePrep, type PrepState } from "@/lib/prep";
 
-export function PrepClient() {
+export function PrepClient({ courseId }: { courseId: string }) {
   const router = useRouter();
   /* 点検（tests/e2e-face.mjs）から、本物の判定をそのまま呼べるようにする。
      本番では出さない */
@@ -20,7 +20,7 @@ export function PrepClient() {
     }
   }, []);
   const back = useSearchParams().get("back");
-  const dest = back ? `/edu/${back}` : "/edu";
+  const dest = back ? `/edu/${courseId}/${back}` : `/edu/${courseId}`;
   const [prep, setPrep] = useState<PrepState | null>(null);
   const [step, setStep] = useState<"consent" | "enroll">("consent");
   /* 準備は人ごとに分けて持つ。誰として使っているかが分かるまで書けない */
@@ -54,6 +54,7 @@ export function PrepClient() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        courseId,
         consented: !!p.consentedAt,
         faceRegistered: p.faceRegistered,
         idDocument: p.idDocument,
@@ -67,7 +68,7 @@ export function PrepClient() {
     <main className="pb-10">
       <div className="tape" />
       <div className="px-4 pt-4">
-        <Link href="/edu" className="backlink text-[13px] text-dim no-underline">
+        <Link href={`/edu/${courseId}`} className="backlink text-[13px] text-dim no-underline">
           ← 科目一覧
         </Link>
       </div>

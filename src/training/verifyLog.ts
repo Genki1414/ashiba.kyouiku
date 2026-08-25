@@ -25,6 +25,7 @@ export type RawLog = {
 
 export type LogRow = {
   at: string;
+  /** 単元番号。講座の頭（ashiba:）は外して出す */
   lesson: string | null;
   ok: boolean;
   /** 止まった理由。日本語に直したもの */
@@ -100,7 +101,7 @@ export function buildCheck(inp: CheckInput): CheckRow[] {
       last: logs[0]?.created_at ?? null,
       rows: logs.slice(0, limit).map((l) => ({
         at: l.created_at,
-        lesson: l.lesson_id,
+        lesson: shortLesson(l.lesson_id),
         ok: l.result === "ok",
         why: l.result === "ok" ? null : (REASON_LABEL[l.reason ?? ""] ?? l.reason),
       })),
@@ -120,4 +121,11 @@ export function checkTotals(rows: CheckRow[]) {
     /* 1度でも止まった人。担当者が事情を聞く相手 */
     stopped: rows.filter((r) => r.ng > 0).length,
   };
+}
+
+/** 'ashiba:1-1' → '1-1'。画面には単元番号だけ出す */
+export function shortLesson(id: string | null): string | null {
+  if (!id) return null;
+  const i = id.indexOf(":");
+  return i >= 0 ? id.slice(i + 1) : id;
 }

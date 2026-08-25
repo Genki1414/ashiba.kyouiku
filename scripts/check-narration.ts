@@ -8,7 +8,7 @@ import { CurriculumSchema } from "../src/types/curriculum";
 
 const root = process.cwd();
 const cur = CurriculumSchema.parse(
-  JSON.parse(readFileSync(path.join(root, "content", "curriculum.json"), "utf-8")),
+  JSON.parse(readFileSync(path.join(root, "content", "courses", "ashiba.json"), "utf-8")),
 );
 const csv = readFileSync(path.join(root, "content", "narration-all.csv"), "utf-8");
 

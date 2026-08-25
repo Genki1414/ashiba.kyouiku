@@ -18,7 +18,7 @@ type ExamResult = {
 
 const TRIES_KEY = "ashiba.examTries";
 
-export function ExamClient({ lessonIds }: { lessonIds: string[] }) {
+export function ExamClient({ courseId, lessonIds }: { courseId: string; lessonIds: string[] }) {
   const [gate, setGate] = useState<"loading" | "locked" | "ready">("loading");
   const [remain, setRemain] = useState(0);
   const [token, setToken] = useState<string | null>(null);
@@ -32,7 +32,7 @@ export function ExamClient({ lessonIds }: { lessonIds: string[] }) {
   useEffect(() => {
     let alive = true;
     (async () => {
-      const ps = await Promise.all(lessonIds.map((id) => loadProgress(id)));
+      const ps = await Promise.all(lessonIds.map((id) => loadProgress(courseId, id)));
       if (!alive) return;
       const missing = ps.filter((p) => !p.quizPassedAt).length;
       setRemain(missing);
@@ -41,12 +41,12 @@ export function ExamClient({ lessonIds }: { lessonIds: string[] }) {
     return () => {
       alive = false;
     };
-  }, [lessonIds]);
+  }, [courseId, lessonIds]);
 
   const start = async () => {
     setError(null);
     try {
-      const res = await fetch("/api/exam");
+      const res = await fetch(`/api/exam?courseId=${encodeURIComponent(courseId)}`);
       const j = await res.json();
       if (!res.ok) throw new Error(j.error);
       setToken(j.token);
@@ -88,7 +88,7 @@ export function ExamClient({ lessonIds }: { lessonIds: string[] }) {
     <main className="pb-10">
       <div className="tape" />
       <div className="flex items-center gap-2.5 px-4 py-3">
-        <Link href="/edu" className="backlink-bar text-[15px] text-dim no-underline">
+        <Link href={`/edu/${courseId}`} className="backlink-bar text-[15px] text-dim no-underline">
           ←
         </Link>
         <div className="text-[14px] font-extrabold">修了試験</div>
@@ -109,7 +109,7 @@ export function ExamClient({ lessonIds }: { lessonIds: string[] }) {
               残り {remain} 単元です。
             </div>
           </div>
-          <Link href="/edu" className="mt-3 block rounded-lg border border-line p-3 text-center text-[13px] text-dim no-underline">
+          <Link href={`/edu/${courseId}`} className="mt-3 block rounded-lg border border-line p-3 text-center text-[13px] text-dim no-underline">
             科目一覧へ戻る
           </Link>
         </div>
@@ -203,7 +203,7 @@ export function ExamClient({ lessonIds }: { lessonIds: string[] }) {
           <div className="mt-4 grid gap-2">
             {result.passed ? (
               <Link
-                href="/edu/cert"
+                href={`/edu/${courseId}/cert`}
                 className="rounded-lg border border-yel bg-yel p-3.5 text-center text-[14px] font-extrabold text-bg no-underline"
               >
                 修了証を出す
@@ -214,7 +214,7 @@ export function ExamClient({ lessonIds }: { lessonIds: string[] }) {
               </Btn>
             )}
             <Link
-              href="/edu"
+              href={`/edu/${courseId}`}
               className="rounded-lg border border-line p-3 text-center text-[13px] text-dim no-underline"
             >
               科目一覧へ戻る

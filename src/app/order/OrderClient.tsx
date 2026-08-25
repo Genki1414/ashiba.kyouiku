@@ -12,8 +12,11 @@ import { showSeatCode } from "@/training/joinCode";
    人数を決めて、カードか請求書かを選ぶ。
    金額はサーバでもう一度計算する。ここに出るのは目安。 */
 
+type CourseTab = { id: string; short: string; name: string };
+
 type Order = {
   id: string;
+  course_id: string;
   seats: number;
   unit_price: number;
   amount: number;
@@ -32,6 +35,7 @@ type Code = {
   usedAt: string | null;
   expiresAt: string | null;
   certified: boolean;
+  courseId: string;
 };
 
 type Loaded = {
@@ -42,6 +46,8 @@ type Loaded = {
   seats: { total: number; used: number; paid: number };
   /* 受講コードの文字そのもの。これが無いと担当者は配れない */
   codes: Code[];
+  /* 受講コードは1講座ぶん。どの講座を買うかを選ぶ */
+  courses: CourseTab[];
 };
 
 const day = (s: string | null) => {
@@ -62,6 +68,7 @@ export function OrderClient() {
   const [ng, setNg] = useState<string>("");
   const [note, setNote] = useState<string>("");
   const [seats, setSeats] = useState(10);
+  const [courseId, setCourseId] = useState("");
   const [billTo, setBillTo] = useState("");
   const [memo, setMemo] = useState("");
   const [busy, setBusy] = useState(false);
@@ -81,6 +88,7 @@ export function OrderClient() {
         orders: j.orders ?? [],
         seats: j.seats,
         codes: j.codes ?? [],
+        courses: j.courses ?? [],
       });
       setNg("");
     } catch {
@@ -100,6 +108,13 @@ export function OrderClient() {
     if (params.get("cancelled")) setNote("お支払いをやめました。注文は入金待ちのまま残っています。");
   }, [params]);
 
+  /* 講座は、担当者の画面から渡されたものを既定にする。無ければ先頭 */
+  useEffect(() => {
+    if (courseId || !st?.courses.length) return;
+    const want = params.get("courseId");
+    setCourseId(st.courses.find((c) => c.id === want)?.id ?? st.courses[0].id);
+  }, [st, params, courseId]);
+
 
   const order = async (method: "card" | "invoice") => {
     setBusy(true);
@@ -108,7 +123,7 @@ export function OrderClient() {
       const res = await fetch("/api/order", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ seats, method, billTo, note: memo }),
+        body: JSON.stringify({ courseId, seats, method, billTo, note: memo }),
       });
       const j = await res.json().catch(() => ({}));
       if (!res.ok || !j.ok) {
@@ -176,10 +191,37 @@ export function OrderClient() {
       {note && <div className="mt-3 rounded-lg border border-yel bg-[#1A1F14] px-3.5 py-3 text-[12.5px] leading-relaxed text-yel">{note}</div>}
 
       {/* 買った受講コード。ここに文字が出ないと受講者に配れない */}
-      <CodeList codes={st.codes} onChange={load} />
+      <CodeList codes={st.codes} courses={st.courses} onChange={load} />
 
       {/* 申し込む */}
       <div className="mt-5 rounded-xl border border-line bg-panel p-4">
+        {/* 受講コードは1講座ぶん。どの講座の席を買うかを先に決める */}
+        {st.courses.length > 1 ? (
+          <>
+            <label className="mb-1 block text-[11px] tracking-[2px] text-dim">講座</label>
+            <div className="mb-4 grid gap-1.5" data-testid="order-courses">
+              {st.courses.map((c) => (
+                <button
+                  key={c.id}
+                  onClick={() => setCourseId(c.id)}
+                  className={`rounded-lg border px-3 py-2.5 text-left text-[13px] ${
+                    courseId === c.id ? "border-yel bg-[#1A1F14] text-yel" : "border-line text-dim"
+                  }`}
+                  data-testid="order-course"
+                >
+                  {c.name}
+                </button>
+              ))}
+            </div>
+          </>
+        ) : (
+          st.courses[0] && (
+            <div className="mb-4 text-[12px] leading-relaxed text-dim2" data-testid="order-course-one">
+              <span className="text-dim">{st.courses[0].name}</span> の受講コードです。
+            </div>
+          )
+        )}
+
         <label className="mb-1 block text-[11px] tracking-[2px] text-dim">人数</label>
         <div className="flex items-center gap-2">
           <button
@@ -282,6 +324,8 @@ export function OrderClient() {
                   </span>
                 </div>
                 <div className="mt-1 text-[11.5px] text-dim2">
+                  {st.courses.length > 1 &&
+                    `${st.courses.find((c) => c.id === o.course_id)?.short ?? o.course_id}　`}
                   {o.method === "card" ? "カード" : "請求書"}　{day(o.created_at)} 申込
                   {o.due_date && o.status === "pending" ? `　支払期限 ${day(o.due_date)}` : ""}
                   {o.paid_at ? `　${day(o.paid_at)} 入金` : ""}
@@ -300,7 +344,15 @@ export function OrderClient() {
    数だけ出しても受講者に配れないので、コードの文字そのものを出す。
    紙に書き写すことがあるので 4桁ずつ区切って、読み違えの無い字だけで作ってある。
    まだ配っていないものが上に来る（次に配るのはそれなので）。 */
-function CodeList({ codes, onChange }: { codes: Code[]; onChange: () => Promise<void> }) {
+function CodeList({
+  codes,
+  courses,
+  onChange,
+}: {
+  codes: Code[];
+  courses: CourseTab[];
+  onChange: () => Promise<void>;
+}) {
   const [open, setOpen] = useState(false);
   const [done, setDone] = useState<string>("");
   /* 取り消しは戻せないので、二度押しにする */
@@ -377,6 +429,11 @@ function CodeList({ codes, onChange }: { codes: Code[]; onChange: () => Promise<
               >
                 {showSeatCode(c.code)}
               </div>
+              {courses.length > 1 && (
+                <div className="text-[10px] text-dim2">
+                  {courses.find((x) => x.id === c.courseId)?.short ?? c.courseId}
+                </div>
+              )}
               <div className="mt-0.5 text-[10.5px] text-dim2">
                 {c.usedAt
                   ? `${c.usedBy ?? "受講者"} が使用　${day(c.usedAt)}`

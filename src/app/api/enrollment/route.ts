@@ -10,7 +10,8 @@ export async function POST(req: NextRequest) {
   if (!body || typeof body !== "object") {
     return NextResponse.json({ error: "不正なリクエストです" }, { status: 400 });
   }
-  const { consented, faceRegistered, idDocument, name, birth } = body as {
+  const { courseId, consented, faceRegistered, idDocument, name, birth } = body as {
+    courseId?: string;
     consented?: boolean;
     faceRegistered?: boolean;
     idDocument?: boolean;
@@ -19,7 +20,7 @@ export async function POST(req: NextRequest) {
   };
 
   const supabase = getServiceClient();
-  const who = await currentEnrollment();
+  const who = await currentEnrollment(typeof courseId === "string" ? courseId : "");
   const enrollmentId = who?.enrollmentId ?? null;
   if (!supabase || !enrollmentId) {
     return NextResponse.json({ mode: "local" });

@@ -19,9 +19,10 @@ const browser = await chromium.launch({ executablePath: process.env.PW_CHROMIUM 
 const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
 // フェーズ2の準備ゲートを通過させる（この試験は受講画面そのものが対象）
 await ctx.addInitScript(() => {
+  /* 受講の準備は人ごとに分けて持つ。Supabase 未設定のときは "local" */
   localStorage.setItem(
-    "ashiba.prep",
-    JSON.stringify({ consentedAt: null, skipped: true, faceRegistered: false, idDocument: false, who: { name: "", birth: "", company: "" }, faceFeature: null }),
+    "ashiba.prep:local",
+    JSON.stringify({ consentedAt: null, skipped: true, faceRegistered: false, idDocument: false, who: { name: "", birth: "", company: "" }, faceDescriptor: null }),
   );
 });
 const page = await ctx.newPage();
@@ -41,15 +42,15 @@ await page.waitForSelector("text=足場の教育アプリ");
 await dismissNotice();
 await shot(page, "01-home");
 await page.click("text=特別教育（学科）");
-await page.waitForURL("**/edu");
-await page.waitForSelector('a[href="/edu/1-1"]');
-const hrefs = await page.locator('a[href^="/edu/"]').evaluateAll((as) => as.map((a) => a.getAttribute("href")));
-const cards = hrefs.filter((h) => /^\/edu\/\d+-\d+$/.test(h)).length;
+await page.waitForURL("**/edu/ashiba");
+await page.waitForSelector('a[href="/edu/ashiba/1-1"]');
+const hrefs = await page.locator('a[href^="/edu/ashiba/"]').evaluateAll((as) => as.map((a) => a.getAttribute("href")));
+const cards = hrefs.filter((h) => /^\/edu\/ashiba\/\d+-\d+$/.test(h)).length;
 if (cards !== 13) die(`一覧の単元数が ${cards}（13のはず）`);
 await shot(page, "02-list");
 
 // 2) 受講画面：ナレーション
-await page.click('a[href="/edu/1-1"]');
+await page.click('a[href="/edu/ashiba/1-1"]');
 await page.waitForSelector("text=再生すると、ナレーションが始まります。");
 await shot(page, "03-lesson-narr");
 await page.getByRole("button", { name: "再生する" }).click();

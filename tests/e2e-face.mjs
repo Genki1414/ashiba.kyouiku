@@ -29,7 +29,7 @@ const page = await browser.newPage({ viewport: { width: 390, height: 900 } });
 page.on("pageerror", (e) => { console.error("NG: pageerror", e.message); ng++; });
 
 /* 受講の準備の画面。ここに本物の判定が載っている */
-await page.goto(`${BASE}/edu/prep`);
+await page.goto(`${BASE}/edu/ashiba/prep`);
 const close = page.getByTestId("update-close");
 await close.waitFor({ timeout: 2000 }).catch(() => {});
 if (await close.count()) { await close.click(); await page.waitForTimeout(200); }

@@ -6,6 +6,7 @@ import { LATEST } from "@/content/changelog";
 import { missingSeller } from "@/content/legal";
 import { isOwnerEmail, ownerEmails } from "@/lib/owner";
 import { canLearn } from "@/lib/entitle";
+import { readyCourses } from "@/content/courses";
 
 /* 接続確認。/setup 画面がこれを見て、何が足りないかを表示する。
    鍵そのものは返さない（設定されているかどうかだけ）。 */
@@ -20,7 +21,8 @@ export async function GET() {
   const devEnrollment = getDevEnrollmentId();
   const supabase = getServiceClient();
   const user = await currentUser();
-  const who = await currentEnrollment();
+  /* 記録の宛先を確かめるだけ。いちばん上の講座で見る */
+  const who = await currentEnrollment(readyCourses()[0]?.id ?? "");
   const enrollmentId = who?.enrollmentId ?? devEnrollment;
 
   /* Vercel 上か手元か。手順の出し分けに使う（VERCEL は Vercel が自動で入れる） */
