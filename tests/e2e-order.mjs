@@ -39,9 +39,56 @@ if (orderForm) {
   await page.waitForTimeout(150);
   const b = await money();
   check(a !== b, "人数を変えると金額が変わる");
+  /* 買ったコードは、文字そのものが出ていないと配れない */
+  if (await page.getByTestId("order-codes").count()) {
+    const codes = page.getByTestId("order-code");
+    const n = await codes.count();
+    check(n > 0, "受講コードの一覧に1件以上出る");
+    const first = (await codes.first().innerText()).replace(/\s+/g, "");
+    check(/[2-9A-HJKMNP-Z]{4}-[2-9A-HJKMNP-Z]{4}-[2-9A-HJKMNP-Z]{4}/.test(first), `4桁ずつ区切って出る（${first}）`);
+    await page.screenshot({ path: `${SC}/order-01b-codes.png` });
+    console.log("OK: 受講コードの文字が出る");
+  }
   console.log("OK: 申込みの画面（担当者として開けた）");
 } else {
   console.log("OK: 担当者でなければ申込みの画面は開けない");
+}
+
+/* ── 受講コードの一覧 ──
+   ここに Supabase が無いので、返事だけ差し替えて画面を見る。
+   数だけでなく、コードの文字が出ていないと受講者に配れない。 */
+{
+  const CODES = [
+    { code: "ABCD23456789", orderId: "o1", status: "paid", usedBy: null, usedAt: null, expiresAt: "2027-08-01T00:00:00Z" },
+    { code: "KMNP23456789", orderId: "o1", status: "pending", usedBy: null, usedAt: null, expiresAt: "2027-08-01T00:00:00Z" },
+    { code: "QRST23456789", orderId: "o1", status: "paid", usedBy: "田中", usedAt: "2026-08-20T00:00:00Z", expiresAt: "2027-08-01T00:00:00Z" },
+  ];
+  await page.route("**/api/order", (route) =>
+    route.request().method() === "GET"
+      ? route.fulfill({
+          json: {
+            ok: true, company: "点検用工業", unitPrice: 3000,
+            orders: [{ id: "o1", seats: 3, unit_price: 3000, amount: 9900, method: "invoice", status: "paid", due_date: null, paid_at: "2026-08-20T00:00:00Z", created_at: "2026-08-19T00:00:00Z" }],
+            seats: { total: 3, used: 1, paid: 3 },
+            codes: CODES,
+          },
+        })
+      : route.continue(),
+  );
+  await page.goto(`${BASE}/order`);
+  await dismiss();
+  await page.getByTestId("order-codes").waitFor({ timeout: 8000 });
+  const rows = page.getByTestId("order-code");
+  check((await rows.count()) === 3, `3枚とも出る（${await rows.count()}）`);
+  const first = (await rows.first().innerText()).replace(/\s+/g, "");
+  check(/^ABCD-2345-6789/.test(first), `未使用が先で、4桁ずつ区切って出る（${first}）`);
+  const last = (await rows.last().innerText()).replace(/\s+/g, "");
+  check(/田中/.test(last), `使った人の名前が出る（${last}）`);
+  check((await page.getByTestId("order-code-copy").count()) === 2, "写せるのは未使用のぶんだけ");
+  check(await page.getByTestId("order-codes-copyall").isVisible(), "まとめて写すボタンが出る");
+  await page.screenshot({ path: `${SC}/order-01b-codes.png`, fullPage: true });
+  await page.unroute("**/api/order");
+  console.log("OK: 受講コードの文字が出る");
 }
 
 /* ── 運営の画面 ── */

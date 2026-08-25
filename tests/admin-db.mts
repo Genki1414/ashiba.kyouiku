@@ -13,6 +13,7 @@
 import pg from "pg";
 import { createClient } from "@supabase/supabase-js";
 import { buildRoster, rosterTotals } from "@/training/roster";
+import { listSeats } from "@/lib/seats";
 
 const URL = process.env.SHIM_URL ?? "http://127.0.0.1:54321";
 const PG_URL = process.env.PG_URL ?? "postgres://postgres@127.0.0.1:55432/appdb";
@@ -368,6 +369,22 @@ check(codes.every((c) => /^[2-9A-HJKMNP-Z]{12}$/.test(c)), `12文字・読み違
   const { error } = await db.rpc("redeem_seat", { p_code: codes[2], p_user: U2 });
   check(!!error && /期限/.test(error.message), `期限切れは断る（${error?.message}）`);
   await raw.query("update public.seats set expires_at = now() + interval '1 year' where code = $1", [codes[2]]);
+}
+
+/* ②' 買った受講コードを、配れる形で取り出せる。
+   数だけ返しても担当者は受講者に配れない（コードの文字が要る） */
+{
+  const rows = await listSeats(db, [{ id: orderId, status: "pending" }]);
+  check(rows.length === 3, `席を3枚とも取り出せる（${rows.length}）`);
+  check(rows.every((r) => /^[2-9A-HJKMNP-Z]{12}$/.test(r.code)), "コードの文字そのものが返る");
+  check(!rows[0].usedAt && !rows[1].usedAt, "まだ配っていないものが先に出る");
+  const u = rows.find((r) => r.usedAt);
+  check(u?.code === codes[0], "使用済みの行が使った席と一致する");
+  check(u?.usedBy === "田中", `使った人の氏名が出る（${u?.usedBy}）`);
+  check(rows.every((r) => r.status === "pending"), "元の注文の状態が付く");
+  check(rows.every((r) => !!r.expiresAt), "期限が付く");
+  const none = await listSeats(db, []);
+  check(none.length === 0, "注文が無ければ空");
 }
 
 /* ③ 入金前は修了証を出せない */

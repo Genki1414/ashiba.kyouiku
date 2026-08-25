@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Btn } from "@/components/ui/Btn";
 import { MAX_SEATS, quote, yen } from "@/lib/pricing";
+import { showSeatCode } from "@/training/joinCode";
 
 /* 申込みの画面。教育担当者だけ。
 
@@ -23,12 +24,23 @@ type Order = {
   created_at: string;
 };
 
+type Code = {
+  code: string;
+  orderId: string;
+  status: Order["status"];
+  usedBy: string | null;
+  usedAt: string | null;
+  expiresAt: string | null;
+};
+
 type Loaded = {
   company: string;
   /* 単価はサーバから受け取る。ここで計算すると請求額と食い違う */
   unitPrice: number;
   orders: Order[];
   seats: { total: number; used: number; paid: number };
+  /* 受講コードの文字そのもの。これが無いと担当者は配れない */
+  codes: Code[];
 };
 
 const day = (s: string | null) => {
@@ -67,6 +79,7 @@ export function OrderClient() {
         unitPrice: Number(j.unitPrice) || 0,
         orders: j.orders ?? [],
         seats: j.seats,
+        codes: j.codes ?? [],
       });
       setNg("");
     } catch {
@@ -160,6 +173,9 @@ export function OrderClient() {
       </div>
 
       {note && <div className="mt-3 rounded-lg border border-yel bg-[#1A1F14] px-3.5 py-3 text-[12.5px] leading-relaxed text-yel">{note}</div>}
+
+      {/* 買った受講コード。ここに文字が出ないと受講者に配れない */}
+      <CodeList codes={st.codes} />
 
       {/* 申し込む */}
       <div className="mt-5 rounded-xl border border-line bg-panel p-4">
@@ -276,4 +292,135 @@ export function OrderClient() {
       )}
     </main>
   );
+}
+
+/* 買った受講コードの一覧。
+
+   数だけ出しても受講者に配れないので、コードの文字そのものを出す。
+   紙に書き写すことがあるので 4桁ずつ区切って、読み違えの無い字だけで作ってある。
+   まだ配っていないものが上に来る（次に配るのはそれなので）。 */
+function CodeList({ codes }: { codes: Code[] }) {
+  const [open, setOpen] = useState(false);
+  const [done, setDone] = useState<string>("");
+
+  const free = codes.filter((c) => !c.usedAt);
+  const used = codes.filter((c) => c.usedAt);
+  if (!codes.length) return null;
+
+  /* 未使用が先。多いときだけ畳む（20件までは、そのまま全部出す） */
+  const all = [...free, ...used];
+  const show = open ? all : all.slice(0, 20);
+
+  const copy = async (text: string, label: string) => {
+    const ok = await writeClipboard(text);
+    setDone(ok ? `${label}を写しました。` : "この端末では写せません。画面を見ながら書き取ってください。");
+  };
+
+  return (
+    <div className="mt-5 rounded-xl border border-line bg-panel p-4" data-testid="order-codes">
+      <div className="flex items-baseline gap-2">
+        <div className="text-[11px] tracking-[2px] text-dim">受講コード</div>
+        <div className="ml-auto text-[12px]">
+          <span className="font-black text-yel">未使用 {free.length}</span>
+          <span className="text-dim2">　／　使用済み {used.length}</span>
+        </div>
+      </div>
+      <p className="mt-1 text-[11.5px] leading-relaxed text-dim2">
+        1人に1つ渡してください。受講者は{" "}
+        <Link href="/join" className="text-cyan no-underline">コードを入れる画面</Link>{" "}
+        で入れます。1つのコードは1人しか使えません。
+      </p>
+
+      {done && <div className="mt-2 text-[11.5px] text-grn">{done}</div>}
+
+      <div className="mt-3 grid gap-1.5">
+        {show.map((c) => (
+          <div
+            key={c.code}
+            className={`flex items-center gap-2 rounded-lg border px-3 py-2.5 ${
+              c.usedAt ? "border-line bg-bg" : "border-yel bg-[#1A1F14]"
+            }`}
+            data-testid="order-code"
+          >
+            <div className="min-w-0 flex-1">
+              <div
+                className={`font-mono text-[16px] font-black tracking-[2px] ${
+                  c.usedAt ? "text-dim2 line-through" : "text-yel"
+                }`}
+              >
+                {showSeatCode(c.code)}
+              </div>
+              <div className="mt-0.5 text-[10.5px] text-dim2">
+                {c.usedAt
+                  ? `${c.usedBy ?? "受講者"} が使用　${day(c.usedAt)}`
+                  : c.status === "paid"
+                    ? `未使用　期限 ${day(c.expiresAt) || "—"}`
+                    : `未使用（入金待ち）　期限 ${day(c.expiresAt) || "—"}`}
+              </div>
+            </div>
+            {!c.usedAt && (
+              <button
+                onClick={() => void copy(showSeatCode(c.code), "コード")}
+                className="shrink-0 rounded-lg border border-line px-2.5 py-1.5 text-[11px] text-dim"
+                data-testid="order-code-copy"
+              >
+                写す
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {!open && all.length > show.length && (
+        <button
+          onClick={() => setOpen(true)}
+          className="mt-2 w-full rounded-lg border border-line p-2 text-[11.5px] text-dim2"
+          data-testid="order-codes-more"
+        >
+          残り {all.length - show.length} 件も出す
+        </button>
+      )}
+
+      {!!free.length && (
+        <button
+          onClick={() => void copy(free.map((c) => showSeatCode(c.code)).join("\n"), "未使用のコード全部")}
+          className="mt-2 w-full rounded-lg border border-line p-2.5 text-[12px] text-dim"
+          data-testid="order-codes-copyall"
+        >
+          未使用 {free.length} 件をまとめて写す
+        </button>
+      )}
+
+      <div className="mt-2 text-[11.5px] leading-relaxed text-dim2">
+        入金がまだでも受講は始められます。<strong className="text-dim">修了証は入金の確認が済んでから</strong>出せます。
+      </div>
+    </div>
+  );
+}
+
+/* コードを写す。安全な接続でないと clipboard が使えない端末があるので、
+   だめなときは昔ながらのやり方で写す。それも駄目なら false を返して、
+   「書き取ってください」と出す（黙って失敗させない） */
+async function writeClipboard(text: string): Promise<boolean> {
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch {
+    /* 下のやり方を試す */
+  }
+  try {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    const ok = document.execCommand("copy");
+    document.body.removeChild(ta);
+    return ok;
+  } catch {
+    return false;
+  }
 }

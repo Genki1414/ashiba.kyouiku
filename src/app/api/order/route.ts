@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase/server";
 import { currentAdmin } from "@/lib/admin";
-import { issueSeats, seatCounts } from "@/lib/seats";
+import { issueSeats, listSeats, seatCounts } from "@/lib/seats";
 import { dueDate, quote } from "@/lib/pricing";
 import { unitPrice } from "@/lib/price.server";
 
@@ -31,6 +31,11 @@ export async function GET() {
   const counts = await seatCounts(supabase, ids);
   const paidIds = (orders ?? []).filter((o) => o.status === "paid").map((o) => o.id as string);
   const paid = await seatCounts(supabase, paidIds);
+  /* コードの文字そのもの。数だけ返しても、担当者は受講者に配れない */
+  const codes = await listSeats(
+    supabase,
+    (orders ?? []).map((o) => ({ id: o.id as string, status: o.status as string })),
+  );
 
   return NextResponse.json({
     ok: true,
@@ -40,6 +45,7 @@ export async function GET() {
     unitPrice: unitPrice(),
     orders: orders ?? [],
     seats: { total: counts.total, used: counts.used, paid: paid.total },
+    codes,
   });
 }
 

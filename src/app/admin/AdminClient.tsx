@@ -255,12 +255,17 @@ export function AdminClient() {
           <div className="mt-1 text-[11.5px] leading-relaxed text-dim2">
             修了証は受講コードが要ります。人数ぶん申し込んでください。
           </div>
+          {st.seats.total > st.seats.used && (
+            <div className="mt-1 text-[11.5px] leading-relaxed text-yel">
+              まだ配っていないコードが {st.seats.total - st.seats.used} 件あります。
+            </div>
+          )}
           <Link
             href="/order"
             className="mt-2 block rounded-lg border border-yel bg-yel p-2.5 text-center text-[13px] font-extrabold text-bg no-underline"
             data-testid="admin-order"
           >
-            受講コードを申し込む
+            {st.seats.total ? "受講コードを見る・申し込む" : "受講コードを申し込む"}
           </Link>
         </div>
 
