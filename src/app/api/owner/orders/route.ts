@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase/server";
-import { currentOwner } from "@/lib/owner";
+import { currentOwner, ownerEmails } from "@/lib/owner";
+import { currentUser } from "@/lib/supabase/session";
 import { issueSeats } from "@/lib/seats";
 
 /* 運営（売っている側）の画面。すべての事業者の注文を見て、
@@ -16,7 +17,23 @@ export async function GET() {
   }
   const owner = await currentOwner();
   if (!owner) {
-    return NextResponse.json({ ok: false, reason: "運営だけの画面です。" }, { status: 403 });
+    /* なぜ開けないかが分かるようにする。
+       自分のメールを自分に見せるだけなので、漏れる先は無い */
+    const me = await currentUser();
+    const n = ownerEmails().length;
+    return NextResponse.json(
+      {
+        ok: false,
+        reason: !me
+          ? "ログインしてください。"
+          : n === 0
+            ? "運営がまだ決まっていません。Vercel の環境変数 OWNER_EMAILS に、運営のメールを入れてください。"
+            : `いまログインしているのは ${me.email} です。この住所が OWNER_EMAILS に入っていません（いま${n}件）。住所を足すか、入っている住所でログインし直してください。`,
+        email: me?.email ?? null,
+        owners: n,
+      },
+      { status: 403 },
+    );
   }
 
   const { data: orders } = await supabase

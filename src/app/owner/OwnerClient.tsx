@@ -39,6 +39,7 @@ export function OwnerClient() {
   const [orders, setOrders] = useState<Order[] | null>(null);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [ng, setNg] = useState("");
+  const [hint, setHint] = useState("");
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
 
@@ -48,6 +49,8 @@ export function OwnerClient() {
       const j = await res.json();
       if (!res.ok || !j.ok) {
         setNg(j.reason ?? "開けません。");
+        /* 直し方が分かるように、環境変数の名前も出す */
+        setHint(j.email ? "Vercel → Settings → Environment Variables → OWNER_EMAILS" : "");
         return;
       }
       setOrders(j.orders ?? []);
@@ -79,6 +82,11 @@ export function OwnerClient() {
         <Link href="/" className="backlink text-[13px] text-dim no-underline">← ホーム</Link>
         <h1 className="mt-2 text-[18px] font-black">運営の画面</h1>
         <p className="mt-3 text-[13px] leading-relaxed text-dim" data-testid="owner-ng">{ng}</p>
+        {hint && (
+          <p className="mt-3 rounded-lg border border-line bg-panel px-3.5 py-3 font-mono text-[11.5px] leading-relaxed text-dim2">
+            {hint}
+          </p>
+        )}
       </main>
     );
   }

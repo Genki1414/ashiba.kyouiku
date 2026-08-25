@@ -4,7 +4,7 @@ import { currentEnrollment } from "@/lib/enrollment";
 import { currentUser } from "@/lib/supabase/session";
 import { LATEST } from "@/content/changelog";
 import { missingSeller } from "@/content/legal";
-import { ownerEmails } from "@/lib/owner";
+import { isOwnerEmail, ownerEmails } from "@/lib/owner";
 
 /* 接続確認。/setup 画面がこれを見て、何が足りないかを表示する。
    鍵そのものは返さない（設定されているかどうかだけ）。 */
@@ -33,8 +33,14 @@ export async function GET() {
     examSecret: !!process.env.EXAM_SECRET,
   };
 
-  /* いま誰として記録しているか。鍵やメールの中身は返さない */
+  /* いま誰として記録しているか。鍵は返さない。
+     メールは「いまログインしている本人のもの」なので返してよい
+     （OWNER_EMAILS に入れる住所を確かめるため） */
   const auth = {
+    email: user?.email ?? null,
+    /* 運営として認められているか。ここが「していない」なら、
+       OWNER_EMAILS に入れた住所と、ログインしている住所が違う */
+    owner: isOwnerEmail(user?.email),
     /* ログインを求める状態か（設定してあれば求める） */
     required: !!(url && hasAnon),
     signedIn: !!user,

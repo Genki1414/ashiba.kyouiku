@@ -18,7 +18,7 @@ type Health = {
   };
   checks?: Record<string, { ok: boolean; detail: string }>;
   /* いま誰として記録しているか */
-  auth?: { required: boolean; signedIn: boolean; enrollment: string };
+  auth?: { required: boolean; signedIn: boolean; enrollment: string; email?: string | null; owner?: boolean };
   /* この版がいつのものか。新しい版が届いているかを見る目印 */
   appVersion?: string;
   /* 売るために要る設定。空のままだと売れない */
@@ -159,6 +159,12 @@ export function SetupClient() {
                     ["ログインを求める", h.auth.required ? "求める" : "求めない", h.auth.required],
                     ["いまログインしているか", h.auth.signedIn ? "している" : "していない", h.auth.signedIn],
                     ["記録の宛先", h.auth.enrollment, h.auth.enrollment === "本人"],
+                    ["いまのメール", h.auth.email ?? "（ログインなし）", !!h.auth.email],
+                    [
+                      "運営として認める",
+                      h.auth.owner ? "認める" : "認めない（OWNER_EMAILS と違う住所）",
+                      !!h.auth.owner,
+                    ],
                   ] as const
                 ).map(([k, v, ok]) => (
                   <div key={k} className="mb-1.5 flex items-baseline gap-2">
