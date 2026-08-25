@@ -16,7 +16,7 @@ import type { LearnerRow } from "@/training/roster";
 
    見えるのは自社の受講者だけ。判断はすべてサーバ（/api/admin/*）で行う。 */
 
-type Totals = { people: number; left: number; done: number; issued: number; waiting: number };
+type Totals = { people: number; left: number; pending: number; done: number; issued: number; waiting: number };
 
 type CourseTab = { id: string; short: string; name: string };
 
@@ -482,6 +482,13 @@ export function AdminClient() {
                   退職
                 </span>
               )}
+              {/* まだ許可していない人。上の「参加の申し込み」と同じ人。
+                  退職と出すと、入ったことのない人が辞めたように見える */}
+              {r.pending && (
+                <span className="rounded border border-yel px-1.5 py-0.5 text-[10px] text-yel" data-testid="admin-pending">
+                  申し込み中
+                </span>
+              )}
               {r.admin && (
                 <span className="rounded border border-cyan px-1.5 py-0.5 text-[10px] text-cyan">担当者</span>
               )}
@@ -598,23 +605,30 @@ export function AdminClient() {
               )}
             </div>
 
-            {/* 在籍の出し入れ。退職しても記録は消さない */}
+            {/* 在籍の出し入れ。退職しても記録は消さない。
+                申し込み中の人は、ここからも許可できる */}
             <button
-              className="mt-2 w-full rounded-lg border border-line p-1.5 text-[11px] text-dim2"
+              className={`mt-2 w-full rounded-lg border p-1.5 text-[11px] ${
+                r.pending ? "border-yel text-yel" : "border-line text-dim2"
+              }`}
               data-testid="admin-member"
               onClick={async () => {
                 setBusy(r.userId);
                 if (
                   await post("/api/admin/member", {
                     userId: r.userId,
-                    action: r.left ? "rejoin" : "leave",
+                    action: r.pending ? "approve" : r.left ? "rejoin" : "leave",
                   })
                 )
                   await load(courseId);
                 setBusy(null);
               }}
             >
-              {r.left ? "在籍に戻す" : "退職にする（記録は残ります）"}
+              {r.pending
+                ? "この申し込みを許可する（名簿に入れる）"
+                : r.left
+                  ? "在籍に戻す"
+                  : "退職にする（記録は残ります）"}
             </button>
 
             {/* 担当者にする／戻す */}

@@ -42,7 +42,7 @@ const E = (id: string, user: string) => ({ id, user_id: user });
 {
   const rows = buildRoster(base());
   eq(rows.length, 0, "受講者が居なければ空");
-  eq(rosterTotals(rows), { people: 0, left: 0, done: 0, issued: 0, waiting: 0 }, "数字も0");
+  eq(rosterTotals(rows), { people: 0, left: 0, pending: 0, done: 0, issued: 0, waiting: 0 }, "数字も0");
 }
 
 /* ── 学科の進み具合 ── */
@@ -113,7 +113,7 @@ const E = (id: string, user: string) => ({ id, user_id: user });
   eq(issued.cert, { no: "2601-0001", at: "2026-01-03T00:00:00Z" }, "出した修了証が入る");
   eq(issued.now, null, "全単元を終えていれば「いまここ」は出さない");
   check(issued.canIssue, "出したあとも「出せる人」ではある");
-  eq(rosterTotals([issued]), { people: 1, left: 0, done: 1, issued: 1, waiting: 0 }, "出したら未発行は0");
+  eq(rosterTotals([issued]), { people: 1, left: 0, pending: 0, done: 1, issued: 1, waiting: 0 }, "出したら未発行は0");
 }
 
 /* ── 実務トレーニング。本番の最高点で見る ── */
@@ -204,7 +204,7 @@ const E = (id: string, user: string) => ({ id, user_id: user });
       enrollment_id: x.e.id, cert_no: "2601-0001", issued_at: "2026-01-03T00:00:00Z",
     })),
   }));
-  eq(rosterTotals(rows), { people: 3, left: 0, done: 3, issued: 1, waiting: 2 }, "未発行が2人と分かる");
+  eq(rosterTotals(rows), { people: 3, left: 0, pending: 0, done: 3, issued: 1, waiting: 2 }, "未発行が2人と分かる");
   /* 担当者がやることは「出せるのにまだ出していない人」。そこを上に置く */
   eq(rows.map((r) => r.name), ["い", "う", "あ"], "未発行が上、そのあと名前順");
 }
@@ -223,6 +223,34 @@ const E = (id: string, user: string) => ({ id, user_id: user });
   eq(rows.find((r) => r.name === "退職B")!.lessonsPassed, 1, "退職しても記録は残る");
   eq(rosterTotals(rows).people, 2, "受講者の数は在籍している人だけ");
   eq(rosterTotals(rows).left, 1, "退職した人の数も分かる");
+}
+
+/* ── まだ許可していない申し込みの人 ──
+   受講コードを使って受け始めているが、名簿への申し込みは
+   まだ許可していない、という形が起きる。
+   この人を「退職」と出すと、入ったこともないのに辞めたように見え、
+   上の「参加の申し込み」と合わせて二人居るように見える */
+{
+  const rows = buildRoster(base({
+    users: [
+      U("u1", "在籍A"),
+      { id: "u2", name: "申込B", email: "u2@x", role: "learner", active: false, pending: true },
+      U("u3", "退職C", "learner", false),
+    ],
+    enrollments: [E("e1", "u1"), E("e2", "u2"), E("e3", "u3")],
+    progress: [P("e2", "L1", 1800, "2026-01-01T00:00:00Z")],
+  }));
+  const b = rows.find((r) => r.name === "申込B")!;
+  check(b.pending, "申し込み中の印が付く");
+  check(!b.left, "申し込み中の人に「退職」は付かない");
+  eq(b.lessonsPassed, 1, "許可前でも、受けた記録は出る");
+  check(rows.find((r) => r.name === "退職C")!.left, "本当に抜けた人には退職が付く");
+  check(!rows.find((r) => r.name === "在籍A")!.pending, "在籍している人には付かない");
+
+  const t = rosterTotals(rows);
+  eq(t.people, 1, "在籍に数えるのは、許可した人だけ");
+  eq(t.pending, 1, "申し込み中の人の数が分かる");
+  eq(t.left, 1, "抜けた人に、申し込み中の人は混ざらない");
 }
 
 console.log("\n── まとめ ──");

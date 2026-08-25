@@ -25,6 +25,10 @@ export type LearnerRow = {
   admin: boolean;
   /** その会社を抜けているか（退職・転職）。記録は残す */
   left: boolean;
+  /** まだ許可していない申し込み。在籍でも退職でもない。
+      これを退職と一緒くたにすると、入ったことのない人が
+      「退職」と出て、申し込みの欄と名簿の欄に二重に並ぶ */
+  pending: boolean;
   /** 学科：合格した単元 */
   lessonsPassed: number;
   lessonsTotal: number;
@@ -54,6 +58,8 @@ export type RawUser = {
   role: string;
   /** その会社に在籍しているか。抜けた人も、受けた記録があれば名簿に残る */
   active?: boolean;
+  /** まだ許可していない申し込みの人か */
+  pending?: boolean;
 };
 export type RawEnrollment = { id: string; user_id: string };
 export type RawProgress = {
@@ -162,7 +168,8 @@ export function buildRoster(inp: RosterInput): LearnerRow[] {
       name: u.name,
       email: u.email,
       admin: u.role === "admin",
-      left: u.active === false,
+      left: u.active === false && u.pending !== true,
+      pending: u.pending === true,
       lessonsPassed,
       lessonsTotal,
       watchedSec,
@@ -196,9 +203,11 @@ const cmpAt = (a: { created_at: string }, b: { created_at: string }) =>
 /** 一覧の上に出す数字 */
 export function rosterTotals(rows: LearnerRow[]) {
   return {
-    /* 数えるのは在籍している人。抜けた人は記録として残るだけ */
-    people: rows.filter((r) => !r.left).length,
+    /* 数えるのは在籍している人。抜けた人は記録として残るだけ。
+       まだ許可していない申し込みの人も、在籍には数えない */
+    people: rows.filter((r) => !r.left && !r.pending).length,
     left: rows.filter((r) => r.left).length,
+    pending: rows.filter((r) => r.pending).length,
     /* 学科を終えた人（全単元＋修了試験） */
     done: rows.filter((r) => r.canIssue).length,
     /* 修了証を出した人 */

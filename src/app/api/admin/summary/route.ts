@@ -105,7 +105,11 @@ export async function GET(req: NextRequest) {
     .eq("company_id", admin.companyId)
     .is("approved_at", null)
     .gte("left_at", since30);
-  const refIds = [...new Set((refused ?? []).map((m) => m.user_id as string))];
+  /* いま申し込み直している人と、もう在籍している人は出さない。
+     出すと、同じ人が「参加の申し込み」と「断った申し込み」の
+     両方に並んで、二人居るように見える */
+  const refIds = [...new Set((refused ?? []).map((m) => m.user_id as string))]
+    .filter((id) => !wantIds.includes(id) && !activeIds.has(id));
   const { data: refUsers } = refIds.length
     ? await supabase.from("users").select("id, name, email").in("id", refIds)
     : { data: [] as { id: string; name: string; email: string | null }[] };
@@ -141,7 +145,14 @@ export async function GET(req: NextRequest) {
   const { data: users0 } = allIds.length
     ? await supabase.from("users").select("id, name, email, role").in("id", allIds)
     : { data: [] as { id: string; name: string; email: string | null; role: string }[] };
-  const users = (users0 ?? []).map((u) => ({ ...u, active: activeIds.has(u.id as string) }));
+  /* 申し込み中の人は「在籍」でも「退職」でもない。
+     受けた記録があれば名簿には並ぶが、退職と出してはいけない */
+  const pendingIds = new Set(wantIds);
+  const users = (users0 ?? []).map((u) => ({
+    ...u,
+    active: activeIds.has(u.id as string),
+    pending: pendingIds.has(u.id as string),
+  }));
   const ids = users.map((u) => u.id as string);
 
   /* 画面に出すものは、名簿が空でも埋まっていても同じ形で返す。
