@@ -69,9 +69,21 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, reason: "作れませんでした。もう一度お試しください。" }, { status: 500 });
   }
 
+  /* 作った人は、その事業者に在籍する。
+     users.company_id を直に書くだけでは在籍（memberships）が立たず、
+     自分が名簿に出ない。無償利用の判定も在籍で見るので、
+     ここを通しておかないと、作った本人が教材を開けない */
+  const { error: joinErr } = await supabase.rpc("join_company", {
+    p_user: user.id,
+    p_company: companyId,
+  });
+  if (joinErr) {
+    return NextResponse.json({ ok: false, reason: joinErr.message }, { status: 500 });
+  }
+
   const { error } = await supabase
     .from("users")
-    .update({ role: "admin", company_id: companyId })
+    .update({ role: "admin" })
     .eq("id", user.id);
   if (error) {
     return NextResponse.json({ ok: false, reason: error.message }, { status: 500 });

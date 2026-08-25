@@ -9,8 +9,12 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
    通すのは、
    ・受講コードを引き換えた人（seats.used_by が自分）
-   ・無償利用の事業者の人（companies.trial）
-     … 試用・社内利用。運営が /owner で立てる
+   ・無償利用の事業者に**在籍している**人（companies.trial）
+     … 試用・社内利用。運営が本部の画面で立てる。
+     在籍とは「申し込みが許可されていて、まだ抜けていない」こと。
+     申し込んだだけの人は通さない。通すと、無償利用の会社の名前を
+     探して申し込むだけで、誰でも教材が開けてしまう。
+     無償利用を切れば、その場で通らなくなる（「無償利用中のみ」）
 
    教育担当者だからといって通さない。
    登録すれば誰でも自分の事業者を作って担当者になれるので、
@@ -28,12 +32,27 @@ export type Learn =
   | { ok: false; why: "signin" | "seat"; company: string };
 
 export async function learnFor(supabase: SupabaseClient, userId: string): Promise<Learn> {
-  const { data: me } = await supabase
-    .from("users")
+  /* いま在籍している会社。許可の下りた紐付けで見る。
+     users.company_id は控えなので、そちらは後ろに置く。
+     控えだけで見ると、紐付けの決まりを直したときに食い違う */
+  const { data: mem } = await supabase
+    .from("memberships")
     .select("company_id")
-    .eq("id", userId)
+    .eq("user_id", userId)
+    .not("approved_at", "is", null)
+    .is("left_at", null)
+    .limit(1)
     .maybeSingle();
-  const companyId = (me?.company_id as string | null) ?? null;
+
+  let companyId = (mem?.company_id as string | null) ?? null;
+  if (!companyId) {
+    const { data: me } = await supabase
+      .from("users")
+      .select("company_id")
+      .eq("id", userId)
+      .maybeSingle();
+    companyId = (me?.company_id as string | null) ?? null;
+  }
 
   let company = "";
   if (companyId) {

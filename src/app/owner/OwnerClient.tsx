@@ -4,11 +4,19 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Btn } from "@/components/ui/Btn";
 import { yen } from "@/lib/pricing";
+import { LedgerClient } from "./LedgerClient";
 
-/* 運営の画面。売った先の注文をぜんぶ見て、請求書払いの入金を確認する。
+/* 本部の画面。二つある。
+
+   ① 申込みと入金 … 売った先の注文を見て、請求書払いの入金を確認する
+   ② 事業者と記録 … 事業者の一覧と、受講記録の元帳（辞めた人もふくむ）
+
+   ②が要るのは、特別教育を行っているのがこの仕組みだから。
+   受講の記録は3年保存する決まりで、受講した人が辞めても、
+   会社が使うのをやめても、こちら側に残らないと示せない。
 
    受講する会社の教育担当者とは別。
-   誰が運営かは環境変数 OWNER_EMAILS で決めてある。 */
+   誰が本部かは環境変数 OWNER_EMAILS で決めてある。 */
 
 type Order = {
   id: string;
@@ -27,8 +35,6 @@ type Order = {
   seatsUsed: number;
 };
 
-type Company = { id: string; name: string; trial: boolean };
-
 const day = (s: string | null) => {
   if (!s) return "";
   const d = new Date(s);
@@ -37,11 +43,11 @@ const day = (s: string | null) => {
 
 export function OwnerClient() {
   const [orders, setOrders] = useState<Order[] | null>(null);
-  const [companies, setCompanies] = useState<Company[]>([]);
   const [ng, setNg] = useState("");
   const [hint, setHint] = useState("");
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
+  const [tab, setTab] = useState<"orders" | "ledger">("orders");
 
   const load = useCallback(async () => {
     try {
@@ -54,7 +60,6 @@ export function OwnerClient() {
         return;
       }
       setOrders(j.orders ?? []);
-      setCompanies(j.companies ?? []);
       setNg("");
     } catch {
       setNg("つながりません。");
@@ -80,7 +85,7 @@ export function OwnerClient() {
       <main className="px-5 py-8">
         <div className="tape -mx-5 mb-6" />
         <Link href="/" className="backlink text-[13px] text-dim no-underline">← ホーム</Link>
-        <h1 className="mt-2 text-[18px] font-black">運営の画面</h1>
+        <h1 className="mt-2 text-[18px] font-black">本部の画面</h1>
         <p className="mt-3 text-[13px] leading-relaxed text-dim" data-testid="owner-ng">{ng}</p>
         {hint && (
           <p className="mt-3 rounded-lg border border-line bg-panel px-3.5 py-3 font-mono text-[11.5px] leading-relaxed text-dim2">
@@ -100,9 +105,33 @@ export function OwnerClient() {
     <main className="px-5 py-8 pb-12">
       <div className="tape -mx-5 mb-6" />
       <Link href="/" className="backlink text-[13px] text-dim no-underline">← ホーム</Link>
-      <h1 className="mt-2 text-[18px] font-black">運営の画面</h1>
-      <p className="mt-1 text-[12px] text-dim">売った先の注文と入金</p>
+      <h1 className="mt-2 text-[18px] font-black">本部の画面</h1>
 
+      {/* 申込みと入金／事業者と記録 */}
+      <div className="mt-3 flex gap-2" data-testid="owner-tabs">
+        {([
+          ["orders", "申込みと入金"],
+          ["ledger", "事業者と記録"],
+        ] as const).map(([k, t]) => (
+          <button
+            key={k}
+            onClick={() => setTab(k)}
+            className={`rounded-lg border px-3 py-1.5 text-[12px] ${
+              tab === k ? "border-yel bg-[#1A1F14] text-yel" : "border-line text-dim2"
+            }`}
+            data-testid="owner-tab"
+          >
+            {t}
+          </button>
+        ))}
+      </div>
+
+      {note && <div className="mt-3 text-[12px] text-red">{note}</div>}
+
+      {tab === "ledger" && <LedgerClient onNote={setNote} />}
+
+      {tab === "orders" && (
+      <>
       <div className="mt-4 grid grid-cols-3 gap-2" data-testid="owner-totals">
         {[
           { t: "入金待ち", v: String(waiting.length), y: waiting.length > 0 },
@@ -115,8 +144,6 @@ export function OwnerClient() {
           </div>
         ))}
       </div>
-
-      {note && <div className="mt-3 text-[12px] text-red">{note}</div>}
 
       {!orders.length && (
         <p className="mt-6 text-[13px] leading-relaxed text-dim">まだ申込みがありません。</p>
@@ -190,35 +217,11 @@ export function OwnerClient() {
         ))}
       </div>
 
-      {/* 無償利用 */}
-      <div className="mt-8">
-        <div className="mb-2 text-[11px] tracking-[2px] text-dim">無償利用の事業者</div>
-        <div className="mb-2 text-[11.5px] leading-relaxed text-dim2">
-          受講コードが無くても、学科と実務トレーニングを受けられて、修了証も出せる事業者です。
-          試用や社内利用のときだけ立ててください。押すと切り替わります。
-          切ると、その事業者の人は受講コードを入れるまで教材を開けなくなります。
-        </div>
-        <div className="grid gap-2">
-          {companies.map((c) => (
-            <div key={c.id} className="flex items-center gap-2 rounded-xl border border-line bg-panel p-3">
-              <div className="min-w-0 flex-1 truncate text-[13px]">{c.name}</div>
-              <button
-                className={`shrink-0 rounded border px-2 py-1 text-[11px] ${
-                  c.trial ? "border-yel text-yel" : "border-line text-dim2"
-                }`}
-                data-testid="owner-trial"
-                onClick={async () => {
-                  setBusy(c.id);
-                  if (await post({ action: "trial", companyId: c.id, trial: !c.trial })) await load();
-                  setBusy(null);
-                }}
-              >
-                {c.trial ? "無償利用 中" : "有償"}
-              </button>
-            </div>
-          ))}
-        </div>
-      </div>
+      {/* 無償利用の切り替えは「事業者と記録」へ移した。
+          注文のある事業者しか出せず、まだ買っていない先を
+          無償利用に立てられなかったため */}
+      </>
+      )}
     </main>
   );
 }

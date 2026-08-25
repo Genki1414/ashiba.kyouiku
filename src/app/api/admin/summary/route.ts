@@ -202,7 +202,7 @@ export async function GET(req: NextRequest) {
     pick("certificates", "enrollment_id, cert_no, issued_at, revoked_at"),
   ]);
 
-  const rows = buildRoster({
+  const rows0 = buildRoster({
     users: users as never,
     enrollments: (enrollments ?? []) as never,
     progress: progress as never,
@@ -212,6 +212,12 @@ export async function GET(req: NextRequest) {
     certs: certs.filter((c) => !c.revoked_at) as never,
     lessons,
   });
+
+  /* 抜けた人は名簿に出さない。
+     いま働いていない人が毎日の名簿に並んでいても、担当者の邪魔になる。
+     記録そのものは消していない。教育を行ったのはこの仕組みなので、
+     退職者ぶんも含めた元帳は本部の画面（/owner）から出せる */
+  const rows = rows0.filter((r) => !r.left);
 
   return NextResponse.json({ ...base, rows, totals: rosterTotals(rows) });
 }

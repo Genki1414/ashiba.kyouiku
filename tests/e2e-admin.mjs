@@ -59,6 +59,9 @@ for (const [url, body] of [
   ["/api/join", { code: "ABCD2345" }],
   ["/api/admin/cert", { enrollmentId: "00000000-0000-0000-0000-000000000000", action: "issue" }],
   ["/api/admin/role", { userId: "00000000-0000-0000-0000-000000000000", admin: true }],
+  /* 本部の元帳。ここが漏れると、よその事業者の受講記録まで見えてしまう */
+  ["/api/owner/ledger", null],
+  ["/api/owner/orders", null],
 ]) {
   const r = await page.evaluate(
     async ([u, b]) => {
@@ -69,8 +72,8 @@ for (const [url, body] of [
     },
     [url, body],
   );
-  check(r.status !== 200 || !r.body.includes('"rows"'),
-    `${url} は担当者でなければ中身を返さない（${r.status}）`);
+  check(r.status !== 200 || !(r.body.includes('"rows"') || r.body.includes('"people"') || r.body.includes('"companies"')),
+    `${url} は担当者・本部でなければ中身を返さない（${r.status}）`);
   check(r.status === 401 || r.status === 403 || r.status === 503 || r.status === 409 || r.status === 400,
     `${url} は理由の分かる断り方をする（いま ${r.status}）`);
 }

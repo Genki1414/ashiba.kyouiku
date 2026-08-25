@@ -40,17 +40,16 @@ export function NeedSeat({ why, company }: { why: "signin" | "seat"; company: st
         {company ? `（いまの所属：${company}）` : ""}
       </p>
 
+      {/* 参加コード（8文字）のことは、ここには書かない。
+         受講する人にとっては、入れても教材が開かないコードでしかない。
+         2種類あると書くと、8文字の方を試して「開かない」と詰まる。
+         配るのは担当者の側なので、案内は担当者の画面にだけ置く */}
       <div className="mt-5 rounded-xl border border-line bg-panel p-4 text-[12.5px] leading-relaxed text-dim">
-        <div className="mb-1 text-[11px] tracking-[2px] text-dim2">コードは2種類あります</div>
+        <div className="mb-1 text-[11px] tracking-[2px] text-dim2">受講コードとは</div>
         <div className="mt-2">
-          <span className="font-black text-txt">受講コード（12文字）</span>
+          <span className="font-black text-txt">12文字のコード</span>（例 ABCD-2345-6789）
           <br />
-          1人1つ。これを入れると受講できます。
-        </div>
-        <div className="mt-2.5">
-          <span className="font-black text-txt">参加コード（8文字）</span>
-          <br />
-          会社の名簿に入るだけのもの。これだけでは受講できません。
+          1人に1つ。これを入れると、学科と実務トレーニングが開きます。
         </div>
       </div>
 

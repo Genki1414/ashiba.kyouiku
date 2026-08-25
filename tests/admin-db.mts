@@ -583,6 +583,143 @@ check(codes.every((c) => /^[2-9A-HJKMNP-Z]{12}$/.test(c)), `12文字・読み違
   await raw.query("update public.companies set trial = true where id = $1", [CO]);
 }
 
+/* ②-2 無償利用は「在籍している人」だけ。
+   会社の名前は誰でも探せるので、申し込んだだけで通してしまうと、
+   無償利用の会社を見つけて申し込むだけで教材が開いてしまう。
+   抜けた人も同じ。無償利用を切れば、その場で通らなくなる */
+{
+  await raw.query("update public.companies set trial = true where id = $1", [CO]);
+
+  const inn = await learnFor(db, U2);
+  check(inn.ok && inn.by === "trial", `無償利用に在籍していれば開ける（${JSON.stringify(inn)}）`);
+
+  /* 申し込んだだけ（許可が下りていない）。控えの users.company_id も持たない */
+  await raw.query("delete from public.memberships where user_id = $1", [ORPHAN]);
+  await raw.query("update public.users set company_id = null where id = $1", [ORPHAN]);
+  const r = await db.rpc("request_membership", { p_user: ORPHAN, p_company: CO });
+  check(!r.error, `申し込みを立てられる（${r.error?.message ?? "ok"}）`);
+  const asked = await learnFor(db, ORPHAN);
+  check(!asked.ok, `申し込んだだけでは開けない（${JSON.stringify(asked)}）`);
+
+  /* 許可すれば開く */
+  await db.rpc("join_company", { p_user: ORPHAN, p_company: CO });
+  const joined = await learnFor(db, ORPHAN);
+  check(joined.ok && joined.by === "trial", `許可が下りれば開ける（${JSON.stringify(joined)}）`);
+
+  /* 抜けたら、また開かなくなる。記録は残る */
+  await db.rpc("leave_company", { p_user: ORPHAN, p_company: CO });
+  const gone = await learnFor(db, ORPHAN);
+  check(!gone.ok, `抜けたら開けない（${JSON.stringify(gone)}）`);
+  const kept = await raw.query(
+    "select count(*)::int as n from public.memberships where user_id = $1 and company_id = $2",
+    [ORPHAN, CO],
+  );
+  check(kept.rows[0].n >= 1, `抜けても紐付けの記録は消えない（いま ${kept.rows[0].n}件）`);
+
+  /* 無償利用を切ると、在籍していても開かない（「無償利用中のみ」） */
+  await raw.query("update public.companies set trial = false where id = $1", [CO]);
+  const off = await learnFor(db, U2);
+  check(!off.ok, `無償利用を切れば、在籍していても開けない（${JSON.stringify(off)}）`);
+  await raw.query("update public.companies set trial = true where id = $1", [CO]);
+}
+
+/* ②-3 事業者を作った人にも在籍が立つ。
+   users.company_id を直に書くだけだと在籍が立たず、
+   作った本人が自分の名簿にも出ず、無償利用の判定からも漏れる。
+
+   作る側（/api/admin/setup）は join_company を通すように直した。
+   ここでは 0014 の埋め戻しが、それより前に作られたぶんを拾えるかを見る */
+{
+  const n = await raw.query(
+    `select count(*)::int as n from public.memberships
+      where user_id = $1 and company_id = $2 and approved_at is not null and left_at is null`,
+    [U1, CO],
+  );
+  check(n.rows[0].n === 1, `事業者を作った担当者に在籍が立っている（いま ${n.rows[0].n}件）`);
+
+  /* 直す前の形を作る。在籍を消して、控えだけ残す */
+  await raw.query("delete from public.memberships where user_id = $1 and company_id = $2", [U1, CO]);
+  await raw.query("update public.users set company_id = $2 where id = $1", [U1, CO]);
+  const broken = await learnFor(db, U1);
+  check(
+    (await raw.query(
+      "select count(*)::int as n from public.memberships where user_id = $1", [U1],
+    )).rows[0].n === 0,
+    "直す前の形（在籍なし・控えだけ）を作れた",
+  );
+  check(broken.ok, "控えが残っていれば、直す前の形でも締め出さない（受け皿）");
+
+  /* 0014 の埋め戻し。何度流しても増えない */
+  const backfill = `
+    insert into public.memberships (user_id, company_id, approved_at)
+    select u.id, u.company_id, now() from public.users u
+     where u.company_id is not null
+       and not exists (select 1 from public.memberships m
+                        where m.user_id = u.id and m.left_at is null);
+    insert into public.memberships (user_id, company_id, approved_at)
+    select c.created_by, c.id, now() from public.companies c
+     where c.created_by is not null
+       and not exists (select 1 from public.memberships m
+                        where m.user_id = c.created_by and m.left_at is null);`;
+  await raw.query(backfill);
+  const after = await raw.query(
+    `select count(*)::int as n from public.memberships
+      where user_id = $1 and company_id = $2 and approved_at is not null and left_at is null`,
+    [U1, CO],
+  );
+  check(after.rows[0].n === 1, `埋め戻しで在籍が立つ（いま ${after.rows[0].n}件）`);
+  await raw.query(backfill);
+  const twice = await raw.query(
+    "select count(*)::int as n from public.memberships where user_id = $1 and company_id = $2",
+    [U1, CO],
+  );
+  check(twice.rows[0].n === 1, `2回流しても増えない（いま ${twice.rows[0].n}件）`);
+}
+
+/* ②-4 本部の元帳（/api/owner/ledger と同じ問い合わせ）。
+   担当者の名簿からは抜けた人を外したので、
+   辞めた人の分を後から示せるのは、ここだけになる */
+{
+  /* 田中（U3）を辞めさせる。この会社の席で受けた記録は残っているはず */
+  await db.rpc("leave_company", { p_user: U3, p_company: CO });
+
+  const { data: mems } = await db
+    .from("memberships")
+    .select("user_id, requested_at, approved_at, left_at")
+    .eq("company_id", CO);
+  const { data: ens } = await db
+    .from("enrollments")
+    .select("id, user_id, course_id, seat_id, closed_at")
+    .eq("company_id", CO);
+
+  const ids = [...new Set([
+    ...(mems ?? []).map((m) => m.user_id as string),
+    ...(ens ?? []).map((e) => e.user_id as string),
+  ])];
+  check(ids.includes(U3), "辞めた人も、元帳には出る");
+  check(
+    (ens ?? []).some((e) => e.user_id === U3),
+    "辞めた人の受講記録が、その会社ぶんとして残っている",
+  );
+  const left = (mems ?? []).find((m) => m.user_id === U3 && m.left_at);
+  check(!!left, "いつ抜けたかも残っている");
+
+  /* 担当者の名簿からは消えている（そちらは「表示しない」にした） */
+  const { data: active } = await db
+    .from("memberships")
+    .select("user_id")
+    .eq("company_id", CO)
+    .not("approved_at", "is", null)
+    .is("left_at", null);
+  check(
+    !(active ?? []).some((m) => m.user_id === U3),
+    "辞めた人は在籍には出ない",
+  );
+
+  /* 戻す。あとの試験がこの人を使う */
+  await db.rpc("join_company", { p_user: U3, p_company: CO });
+}
+
 /* ③ 入金前は修了証を出せない */
 await raw.query("update public.companies set trial = false where id = $1", [CO]);
 await raw.query("delete from public.certificates where enrollment_id = $1", [E2]);

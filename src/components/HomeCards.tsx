@@ -6,7 +6,7 @@ import Link from "next/link";
 /* ホームの出し分け。
 
    この教材は外販するので、人によって出すものが違う。
-   ・まだどこの事業者にも属していない人 … 参加コードを入れてもらう
+   ・まだどこの事業者にも属していない人 … 会社をさがして申し込んでもらう
    ・教育担当者 … 担当者の画面への入口
 
    ホームを静的なまま置いておきたいので、ここから聞く（AccountBar と同じ）。 */
@@ -123,10 +123,10 @@ export function HomeCards() {
         className="block rounded-xl border border-line bg-panel p-5 no-underline"
         data-testid="home-owner"
       >
-        <div className="text-[11px] font-extrabold tracking-widest text-cyan">運営</div>
-        <div className="mt-1 text-[17px] font-black text-txt">申込みと入金</div>
+        <div className="text-[11px] font-extrabold tracking-widest text-cyan">本部</div>
+        <div className="mt-1 text-[17px] font-black text-txt">申込みと入金／事業者と記録</div>
         <div className="mt-2 text-[12px] leading-relaxed text-dim">
-          売った先の注文をぜんぶ見る。請求書払いの入金を確認する。
+          売った先の注文と入金。事業者ごとの受講記録（辞めた人もふくむ）。
         </div>
       </Link>,
     );

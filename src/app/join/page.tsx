@@ -1,6 +1,6 @@
 import { JoinClient } from "./JoinClient";
 
-/* 参加コードで自分の事業者に入る画面 */
+/* 自分の事業者と紐付ける画面（さがして申し込む／受講コードを入れる）*/
 export default function JoinPage() {
   return <JoinClient />;
 }

@@ -59,8 +59,6 @@ export function AdminClient() {
   const [edit, setEdit] = useState(false);
   /* 名簿も受講コードも講座ごと。どの講座を見ているか */
   const [courseId, setCourseId] = useState<string>("");
-  /* 退職した人を隠すか。既定は出す（記録として残っているため） */
-  const [hideLeft, setHideLeft] = useState(false);
 
   const load = useCallback(async (course?: string) => {
     try {
@@ -185,14 +183,13 @@ export function AdminClient() {
   }
 
   /* ── 一覧 ──
-     退職した人は下。消さないのは、教育を行った事業者が
-     その記録を3年保存する決まりだから */
-  const rows = [...st.rows]
-    .filter((r) => !hideLeft || !r.left)
-    .sort((a, b) => {
-      const key = (r: LearnerRow) => (r.canIssue && !r.cert ? 0 : r.canIssue ? 1 : 2);
-      return Number(a.left) - Number(b.left) || key(a) - key(b) || a.name.localeCompare(b.name, "ja");
-    });
+     抜けた人はここには出さない（返す側で外している）。
+     記録は消していない。退職者ぶんも含めた元帳は本部が持つ。
+     上に来るのは、担当者がやること（修了証を出す）が残っている人 */
+  const rows = [...st.rows].sort((a, b) => {
+    const key = (r: LearnerRow) => (r.canIssue && !r.cert ? 0 : r.canIssue ? 1 : 2);
+    return key(a) - key(b) || a.name.localeCompare(b.name, "ja");
+  });
 
   return (
     <main className="pb-10">
@@ -450,17 +447,6 @@ export function AdminClient() {
 
       {note && <div className="mx-5 mt-3 text-[12px] text-red">{note}</div>}
 
-      {/* 退職した人の出し入れ */}
-      {!!st.totals.left && (
-        <button
-          onClick={() => setHideLeft((v) => !v)}
-          className="mx-5 mt-3 block rounded-lg border border-line px-3 py-1.5 text-[11.5px] text-dim2"
-          data-testid="admin-hide-left"
-        >
-          {hideLeft ? `退職した ${st.totals.left} 人も出す` : `退職した ${st.totals.left} 人を隠す`}
-        </button>
-      )}
-
       {!rows.length && (
         <p className="mx-5 mt-5 text-[13px] leading-relaxed text-dim">
           まだ受講者が居ません。
@@ -477,11 +463,6 @@ export function AdminClient() {
           <div key={r.userId} className="rounded-xl border border-line bg-panel p-4" data-testid="admin-row">
             <div className="flex items-baseline gap-2">
               <div className="min-w-0 flex-1 truncate text-[15px] font-black">{r.name}</div>
-              {r.left && (
-                <span className="rounded border border-line px-1.5 py-0.5 text-[10px] text-dim2" data-testid="admin-left">
-                  退職
-                </span>
-              )}
               {/* まだ許可していない人。上の「参加の申し込み」と同じ人。
                   退職と出すと、入ったことのない人が辞めたように見える */}
               {r.pending && (
@@ -617,7 +598,7 @@ export function AdminClient() {
                 if (
                   await post("/api/admin/member", {
                     userId: r.userId,
-                    action: r.pending ? "approve" : r.left ? "rejoin" : "leave",
+                    action: r.pending ? "approve" : "leave",
                   })
                 )
                   await load(courseId);
@@ -626,9 +607,7 @@ export function AdminClient() {
             >
               {r.pending
                 ? "この申し込みを許可する（名簿に入れる）"
-                : r.left
-                  ? "在籍に戻す"
-                  : "退職にする（記録は残ります）"}
+                : "退職にする（名簿から外れます。記録は残ります）"}
             </button>
 
             {/* 担当者にする／戻す */}

@@ -65,7 +65,7 @@ export default async function Home() {
           </div>
         )}
 
-        {/* 立場によって出すもの（参加コード／教育担当者／運営）*/}
+        {/* 立場によって出すもの（会社とつなぐ／教育担当者／運営）*/}
         <HomeCards />
       </div>
 
