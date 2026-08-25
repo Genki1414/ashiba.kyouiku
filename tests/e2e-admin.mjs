@@ -173,6 +173,44 @@ console.log("OK: ホームの入口");
   console.log("OK: 照合の記録");
 }
 
+/* ── マイページ ──
+   会社との紐付けを外す道が、受講者側に無いと詰む。
+   氏名も修了証に載るので、自分で直せないと出し直しになる。 */
+{
+  await page.route("**/api/mypage", (r) => r.request().method() === "GET"
+    ? r.fulfill({ json: {
+        ok: true, name: "田中 一郎", email: "tanaka@x", birth: "1990-04-01", admin: false,
+        member: { state: "active", company: { id: "c1", name: "点検用工業" } },
+        learning: [{ courseId: "ashiba", name: "足場の組立て等の業務に係る特別教育", short: "足場",
+          started: true, lessonsPassed: 3, lessonsTotal: 13, watchedSec: 6000, requiredSec: 23400,
+          examPassed: false, cert: null, hasSeat: true }],
+      } })
+    : r.continue());
+  await page.goto(`${BASE}/me`);
+  await dismiss();
+  await page.getByTestId("me").waitFor({ timeout: 8000 });
+  const t = (await page.locator("main").innerText()).replace(/\s+/g, "");
+  check(/田中一郎/.test(t), "氏名が出る");
+  check(/点検用工業/.test(t) && /在籍中/.test(t), "いまの所属と、その状態が出る");
+  check(/3\/13単元/.test(t), "受講の進み具合が出る");
+
+  /* 外すのは二度押し。押し間違いで所属が切れると受講が止まる */
+  await page.getByTestId("me-leave").click();
+  check(await page.getByTestId("me-leave-yes").isVisible(), "紐付けを外すのは二度押しで確かめる");
+  const warn = (await page.locator("main").innerText()).replace(/\s+/g, "");
+  check(/記録は消えません/.test(warn), "外しても記録が消えないことを書いてある");
+
+  /* 氏名を直せる */
+  await page.reload();
+  await dismiss();
+  await page.getByTestId("me-edit").click();
+  check(await page.getByTestId("me-name").isVisible(), "氏名を直せる");
+  check(await page.getByTestId("me-birth").isVisible(), "生年月日も直せる");
+  await page.screenshot({ path: `${SC}/admin-05-me.png`, fullPage: true });
+  await page.unroute("**/api/mypage");
+  console.log("OK: マイページ");
+}
+
 await browser.close();
 if (ng) { console.error(`\n${ng} 件失敗`); process.exit(1); }
 console.log("ALL OK");

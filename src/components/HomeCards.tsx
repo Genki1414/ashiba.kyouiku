@@ -41,6 +41,25 @@ export function HomeCards() {
 
   const cards = [];
 
+  /* マイページ。所属を外す・氏名を直す・進み具合を見るのはここから。
+     ログインしている人には必ず出す（入口が無いと辿り着けない） */
+  cards.push(
+    <Link
+      key="me"
+      href="/me"
+      className="block rounded-xl border border-line bg-panel p-4 no-underline"
+      data-testid="home-me"
+    >
+      <div className="text-[11px] font-extrabold tracking-widest text-dim">マイページ</div>
+      <div className="mt-1 text-[15px] font-black text-txt">
+        {me.company ? me.company : "会社とつながっていません"}
+      </div>
+      <div className="mt-1 text-[12px] leading-relaxed text-dim">
+        受講の進み具合、修了証、氏名の直し、所属の紐付けはここから。
+      </div>
+    </Link>,
+  );
+
   if (me.needsJoin) {
     cards.push(
       <Link

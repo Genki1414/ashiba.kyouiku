@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { getBrowserClient } from "@/lib/supabase/browser";
 import { claimDevice, wipeDevice } from "@/lib/device";
 
@@ -45,9 +46,14 @@ export function AccountBar() {
       data-testid="account-bar"
     >
       <span className="text-dim">受講者</span>
-      <span className="min-w-0 truncate font-bold" data-testid="account-name">
+      {/* 名前を押すとマイページ。所属を外すのも、氏名を直すのもそこから */}
+      <Link
+        href="/me"
+        className="min-w-0 truncate font-bold text-txt no-underline"
+        data-testid="account-name"
+      >
         {who.name || who.email}
-      </span>
+      </Link>
       {asking ? (
         <span className="ml-auto flex items-center gap-2">
           <button onClick={out} className="rounded border border-red px-2 py-1 text-ng-tx" data-testid="signout-yes">
