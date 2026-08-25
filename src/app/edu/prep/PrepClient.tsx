@@ -5,11 +5,20 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Btn } from "@/components/ui/Btn";
 import { useCamera } from "@/lib/camera";
-import { toFeature } from "@/lib/face";
+import { countFaces, faceDistance, loadFace, readFace, SAME_FACE } from "@/lib/faceModel";
 import { loadPrep, prepUid, readPrep, writePrep, type PrepState } from "@/lib/prep";
 
 export function PrepClient() {
   const router = useRouter();
+  /* 点検（tests/e2e-face.mjs）から、本物の判定をそのまま呼べるようにする。
+     本番では出さない */
+  useEffect(() => {
+    if (process.env.NODE_ENV !== "production") {
+      (window as unknown as Record<string, unknown>).__face = {
+        loadFace, readFace, countFaces, faceDistance, SAME_FACE,
+      };
+    }
+  }, []);
   const back = useSearchParams().get("back");
   const dest = back ? `/edu/${back}` : "/edu";
   const [prep, setPrep] = useState<PrepState | null>(null);
@@ -157,12 +166,27 @@ function EnrollView({
   const vRef = useRef<HTMLVideoElement>(null);
   const cRef = useRef<HTMLCanvasElement>(null);
   const [shot, setShot] = useState<string | null>(null);
+  /* 顔を見分けるモデルの支度。落ちてくるまで登録はできない */
+  const [model, setModel] = useState<"loading" | "ready" | "failed">("loading");
+  const [busy, setBusy] = useState(false);
+  const [ng, setNg] = useState<string>("");
 
   useEffect(() => {
     if (cam.stream && vRef.current) vRef.current.srcObject = cam.stream;
   }, [cam.stream]);
 
-  const capture = (kind: "face" | "id") => {
+  useEffect(() => {
+    let alive = true;
+    loadFace()
+      .then(() => alive && setModel("ready"))
+      .catch(() => alive && setModel("failed"));
+    return () => { alive = false; };
+  }, []);
+
+  /* 顔の登録は、本当に顔が写っているか見てから通す。
+     ここを素通しにすると、机でも壁でも「登録済み」になってしまい、
+     受講中の照合が意味を持たなくなる */
+  const capture = async (kind: "face" | "id") => {
     if (!cam.stream || !vRef.current || !cRef.current) return;
     const cv = cRef.current;
     // 確認表示用（保存しない）
@@ -170,11 +194,30 @@ function EnrollView({
     cv.height = 180;
     cv.getContext("2d")?.drawImage(vRef.current, 0, 0, 240, 180);
     setShot(cv.toDataURL("image/jpeg", 0.6));
-    if (kind === "face") {
-      const feature = toFeature(vRef.current, cv);
-      save({ faceRegistered: true, faceFeature: feature });
-    } else {
+    setNg("");
+    if (kind !== "face") {
       save({ idDocument: true });
+      return;
+    }
+    setBusy(true);
+    try {
+      const { count, descriptor } = await readFace(vRef.current);
+      if (count === 0 || !descriptor) {
+        setNg("顔を読み取れませんでした。明るい所で、正面を向いて撮り直してください。");
+        save({ faceRegistered: false, faceDescriptor: null });
+        return;
+      }
+      if (count > 1) {
+        setNg("複数人が写っています。お一人で撮り直してください。");
+        save({ faceRegistered: false, faceDescriptor: null });
+        return;
+      }
+      save({ faceRegistered: true, faceDescriptor: descriptor });
+    } catch {
+      setNg("顔の読み取りに失敗しました。電波の届く所でもう一度開いてください。");
+      save({ faceRegistered: false, faceDescriptor: null });
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -211,6 +254,12 @@ function EnrollView({
         <canvas ref={cRef} className="hidden" />
       </div>
 
+      {ng && (
+        <div className="mb-3 rounded-xl border border-red bg-ng-bg px-3.5 py-3 text-[12.5px] leading-relaxed text-ng-tx" data-testid="prep-ng">
+          {ng}
+        </div>
+      )}
+
       {shot && (
         <div className="mb-3 flex items-center gap-2.5 rounded-xl border border-line bg-panel p-2.5">
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -240,12 +289,22 @@ function EnrollView({
           <div className="mb-2 mt-1 text-[12px] leading-relaxed text-dim">{s.d}</div>
           <Btn
             tone={s.done ? undefined : "y"}
-            dis={!cam.stream}
-            onClick={() => capture(s.k)}
+            dis={!cam.stream || busy || (s.k === "face" && model !== "ready")}
+            onClick={() => void capture(s.k)}
             className="p-2.5 text-[13px]"
             testid={`capture-${s.k}`}
           >
-            {s.done ? "撮り直す" : cam.stream ? "撮影する" : "先にカメラを起動してください"}
+            {busy
+              ? "顔を読み取っています…"
+              : s.k === "face" && model === "loading"
+                ? "照合の支度をしています…"
+                : s.k === "face" && model === "failed"
+                  ? "照合の支度ができません（電波の届く所で開き直してください）"
+                  : s.done
+                    ? "撮り直す"
+                    : cam.stream
+                      ? "撮影する"
+                      : "先にカメラを起動してください"}
           </Btn>
         </div>
       ))}

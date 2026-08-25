@@ -2,7 +2,7 @@
 -- 足場トレーニング Supabase 初期化（このファイルを SQL Editor に貼って実行）
 --
 -- 中身:
---   1. マイグレーション 0001_init / 0002_rls / 0003_rules / 0004_auth / 0005_cert / 0006_version / 0007_admin / 0008_tenant / 0009_order
+--   1. マイグレーション 0001_init / 0002_rls / 0003_rules / 0004_auth / 0005_cert / 0006_version / 0007_admin / 0008_tenant / 0009_order / 0010_verify
 --   2. lessons（単元の規定時間）13件を投入
 --   3. 開発用の事業者・受講者・受講コード・受講（フェーズ1〜2で使う）
 --
@@ -911,6 +911,31 @@ grant execute on function public.gen_seat_code() to service_role;
 create or replace function public.schema_version()
 returns text language sql stable set search_path = public as $$
   select '0009'
+$$;
+
+grant execute on function public.schema_version() to anon, authenticated, service_role;
+
+
+-- ═══════════════════════════════════════════════════════════
+-- 0010 受講中の照合に「別人」を足す
+--
+-- これまでの照合は、明るさとばらつきしか見ていなかった。
+-- 手でレンズを塞いでも通ってしまうので、学習済みのモデルで
+-- 顔そのものを見るようにした（端末の中で動く。映像は送らない）。
+--
+-- 見分けが付くようになった分、理由がひとつ増える。
+--   not_me … 受講の準備で登録した人と違う
+--
+-- 記録するのは「外れた理由」だけ。
+-- 顔の画像も特徴量も、これまでどおりサーバへは送らない。
+-- ═══════════════════════════════════════════════════════════
+
+alter type public.verify_reason add value if not exists 'not_me';
+
+-- ── 版 ─────────────────────────────────────
+create or replace function public.schema_version()
+returns text language sql stable set search_path = public as $$
+  select '0010'
 $$;
 
 grant execute on function public.schema_version() to anon, authenticated, service_role;

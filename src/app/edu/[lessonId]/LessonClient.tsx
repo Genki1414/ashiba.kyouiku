@@ -43,6 +43,8 @@ export function LessonClient({
 
   /* 受講の準備（同意・本人確認）が済んでいなければ先にそちらへ */
   const [prepState, setPrepState] = useState<"checking" | "cam" | "nocam">("checking");
+  /* 受講の準備で登録した顔。受講中はこれと比べる（端末の中だけにある） */
+  const [registered, setRegistered] = useState<number[] | null>(null);
   useEffect(() => {
     let alive = true;
     void loadPrep().then((p) => {
@@ -51,6 +53,7 @@ export function LessonClient({
         router.replace(`/edu/prep?back=${lesson.id}`);
         return;
       }
+      setRegistered(p.faceDescriptor);
       setPrepState(p.skipped ? "nocam" : "cam");
     });
     return () => { alive = false; };
@@ -90,14 +93,19 @@ export function LessonClient({
       prepState !== "checking" &&
       (s.stage === "narr" ? s.playing : s.stage === "fig" || s.stage === "case"),
     useCam: prepState === "cam",
+    registered,
     onStop: () => useLessonStore.getState().set({ playing: false }),
   });
 
   /* 視聴時間：ナレーションは再生中のみ、図解・事例は表示中に加算（SPEC 5章）。
      照合失敗・在席確認で停止しているあいだは加算しない */
+  /* 顔を見分けるモデルが読み込めるまでは、時間を数えない。
+     見分けが付かないまま時間だけ積み上がると、受講の記録が意味を失う */
+  const watching = prepState !== "cam" || verification.model === "ready";
   const counting =
     loaded &&
     prepState !== "checking" &&
+    watching &&
     !verification.stop &&
     (s.stage === "narr" ? s.playing : s.stage === "fig" || s.stage === "case");
   useEffect(() => {
@@ -184,6 +192,18 @@ export function LessonClient({
           <CamWindow stream={verification.cam.stream} state={verification.camState} active={counting} />
           <video ref={verification.videoRef} autoPlay playsInline muted className="hidden" />
           <canvas ref={verification.canvasRef} className="hidden" />
+          {verification.model !== "ready" && (
+            <div
+              className={`border-b border-line px-4 py-2.5 text-[12px] leading-relaxed ${
+                verification.model === "failed" ? "bg-ng-bg text-ng-tx" : "bg-[#1A1F14] text-yel"
+              }`}
+              data-testid="face-model"
+            >
+              {verification.model === "failed"
+                ? "顔の照合の支度ができません。電波の届く所で開き直してください。支度ができるまで、視聴時間は加算されません。"
+                : "顔の照合の支度をしています（はじめの1回だけ、少し時間がかかります）。済むまで視聴時間は加算されません。"}
+            </div>
+          )}
           {!verification.cam.stream && (
             <div className="flex items-center justify-between gap-3 border-b border-line bg-ng-bg px-4 py-2.5">
               <span className="text-[12px] leading-snug text-ng-tx">

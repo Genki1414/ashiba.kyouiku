@@ -16,7 +16,9 @@ export type PrepState = {
   faceRegistered: boolean;
   idDocument: boolean;
   who: { name: string; birth: string; company: string };
-  faceFeature: number[] | null;
+  /* 登録した顔の特徴量（128の数）。受講中の照合はこれと比べる。
+     端末の中だけに置き、サーバへは送らない */
+  faceDescriptor: number[] | null;
 };
 
 const KEY = (uid: string) => `ashiba.prep:${uid}`;
@@ -29,7 +31,7 @@ export const emptyPrep: PrepState = {
   faceRegistered: false,
   idDocument: false,
   who: { name: "", birth: "", company: "" },
-  faceFeature: null,
+  faceDescriptor: null,
 };
 
 let uidCache: string | null = null;
@@ -90,5 +92,15 @@ export async function loadPrep(): Promise<PrepState> {
 
 /** 受講に入れる状態か（本登録済み or スキップ済み） */
 export function prepDone(p: PrepState): boolean {
-  return p.skipped || (!!p.consentedAt && p.faceRegistered && p.idDocument && !!p.who.name && !!p.who.birth);
+  return (
+    p.skipped ||
+    (!!p.consentedAt &&
+      p.faceRegistered &&
+      /* 顔の特徴量が無いと、受講中に本人かどうか比べられない。
+         登録し直してもらう（前の作りで登録した人もここに入る） */
+      !!p.faceDescriptor?.length &&
+      p.idDocument &&
+      !!p.who.name &&
+      !!p.who.birth)
+  );
 }

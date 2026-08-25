@@ -4,7 +4,7 @@ import { currentEnrollment } from "@/lib/enrollment";
 
 /* 照合ログ。失敗（ng）だけを記録する。画像は受け取らない・保存しない。 */
 
-const REASONS = ["no_face", "multi_face", "blocked", "no_motion"] as const;
+const REASONS = ["no_face", "multi_face", "blocked", "no_motion", "not_me"] as const;
 
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);

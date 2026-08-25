@@ -38,6 +38,7 @@
     "test:e2e:record": "node tests/e2e-record.mjs",
     "test:e2e:admin": "node tests/e2e-admin.mjs",
     "test:e2e:order": "node tests/e2e-order.mjs",
+    "test:e2e:face": "node tests/e2e-face.mjs",
     "test:e2e:resume": "node tests/e2e-resume.mjs",
     "test:e2e:catalog": "node tests/e2e-catalog-demo.mjs",
     "test:e2e:demo23": "node tests/e2e-demo23.mjs",
@@ -50,6 +51,7 @@
   "dependencies": {
     "@supabase/ssr": "^0.12.4",
     "@supabase/supabase-js": "^2.49.0",
+    "@vladmandic/face-api": "^1.7.15",
     "next": "^15.5.12",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

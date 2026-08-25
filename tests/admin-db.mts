@@ -528,6 +528,24 @@ await raw.query("update public.enrollments set seat_id = null where id = $1", [E
   await raw.query("update public.companies set trial = true where id = $1", [CO]);
 }
 
+/* ⑧ 受講中の照合の記録。理由に「別人」を足した（0010） */
+{
+  const en = await db.from("verify_logs").insert({
+    enrollment_id: E2, lesson_id: "1-1", result: "ng", reason: "not_me",
+  }).select("id");
+  check(!en.error, `別人として記録できる（${en.error?.message ?? "ok"}）`);
+
+  const bad = await db.from("verify_logs").insert({
+    enrollment_id: E2, lesson_id: "1-1", result: "ng", reason: "nonsense",
+  });
+  check(!!bad.error, "知らない理由は入らない");
+
+  const okRow = await db.from("verify_logs").insert({
+    enrollment_id: E2, lesson_id: "1-1", result: "ok", reason: null,
+  }).select("id");
+  check(!okRow.error, "通ったときは理由なしで入る");
+}
+
 await raw.end();
 
 console.log("\n── まとめ ──");

@@ -5,12 +5,13 @@ import { currentUser } from "@/lib/supabase/session";
 import { LATEST } from "@/content/changelog";
 import { missingSeller } from "@/content/legal";
 import { isOwnerEmail, ownerEmails } from "@/lib/owner";
+import { canLearn } from "@/lib/entitle";
 
 /* 接続確認。/setup 画面がこれを見て、何が足りないかを表示する。
    鍵そのものは返さない（設定されているかどうかだけ）。 */
 
 /** この版のアプリが必要とするデータベースの版（supabase/migrations の最後の番号） */
-const NEED_SCHEMA = "0009";
+const NEED_SCHEMA = "0010";
 
 export async function GET() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
@@ -36,8 +37,16 @@ export async function GET() {
   /* いま誰として記録しているか。鍵は返さない。
      メールは「いまログインしている本人のもの」なので返してよい
      （OWNER_EMAILS に入れる住所を確かめるため） */
+  /* 受講できるか。「コード無しで開けてしまう」を調べるときに、
+     何を根拠に通しているのかが分からないと直しようがない */
+  const learn = await canLearn();
   const auth = {
     email: user?.email ?? null,
+    /* 学科と実務トレーニングを開けるか、その根拠
+       seat=受講コードを引き換えた／trial=無償利用の事業者／
+       open=Supabase 未設定（手元で動かすとき） */
+    canLearn: learn.ok,
+    learnBy: learn.ok ? learn.by : `だめ（${learn.why}）`,
     /* 運営として認められているか。ここが「していない」なら、
        OWNER_EMAILS に入れた住所と、ログインしている住所が違う */
     owner: isOwnerEmail(user?.email),

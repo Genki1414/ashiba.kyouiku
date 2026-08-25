@@ -18,7 +18,7 @@ type Health = {
   };
   checks?: Record<string, { ok: boolean; detail: string }>;
   /* いま誰として記録しているか */
-  auth?: { required: boolean; signedIn: boolean; enrollment: string; email?: string | null; owner?: boolean };
+  auth?: { required: boolean; signedIn: boolean; enrollment: string; email?: string | null; owner?: boolean; canLearn?: boolean; learnBy?: string };
   /* この版がいつのものか。新しい版が届いているかを見る目印 */
   appVersion?: string;
   /* 売るために要る設定。空のままだと売れない */
@@ -45,6 +45,14 @@ const CHECK_LABEL: Record<string, string> = {
   schema: "apply-all.sql を流したか",
   enrollment: "受講の行",
   rpc: "視聴時間の関数（sync_watched_sec）",
+};
+
+/* 何を根拠に受講できているか。「コード無しで開けてしまう」を調べるとき、
+   ここが分からないと直しようがない */
+const LEARN_BY: Record<string, string> = {
+  seat: "受講コードを引き換えている",
+  trial: "無償利用の事業者",
+  open: "Supabase 未設定なので素通し",
 };
 
 export function SetupClient() {
@@ -160,6 +168,15 @@ export function SetupClient() {
                     ["いまログインしているか", h.auth.signedIn ? "している" : "していない", h.auth.signedIn],
                     ["記録の宛先", h.auth.enrollment, h.auth.enrollment === "本人"],
                     ["いまのメール", h.auth.email ?? "（ログインなし）", !!h.auth.email],
+                    /* 「コード無しで開けてしまう」を調べるとき、
+                       何を根拠に通しているのかが分からないと直せない */
+                    [
+                      "学科・実務を開けるか",
+                      h.auth.canLearn
+                        ? `開ける（${LEARN_BY[h.auth.learnBy ?? ""] ?? h.auth.learnBy ?? ""}）`
+                        : "開けない（受講コードが要る）",
+                      true,
+                    ],
                     [
                       "運営として認める",
                       h.auth.owner ? "認める" : "認めない（OWNER_EMAILS と違う住所）",

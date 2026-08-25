@@ -9,7 +9,7 @@
    つまり実際にはほとんどの人が 2 で見られている。
    2 が甘いと、手で塞いでも受講できてしまう。 */
 
-export type VerifyReason = "no_face" | "multi_face" | "blocked" | "no_motion";
+export type VerifyReason = "no_face" | "multi_face" | "blocked" | "no_motion" | "not_me";
 export type VerifyResult = { ok: true } | { ok: false; reason: VerifyReason; msg: string };
 
 export const REASON_MSG: Record<VerifyReason, string> = {
@@ -17,6 +17,7 @@ export const REASON_MSG: Record<VerifyReason, string> = {
   multi_face: "複数人を検出しました",
   blocked: "カメラが遮られています",
   no_motion: "動きを検出できません",
+  not_me: "登録した人と違います",
 };
 
 const ng = (reason: VerifyReason): VerifyResult => ({ ok: false, reason, msg: REASON_MSG[reason] });

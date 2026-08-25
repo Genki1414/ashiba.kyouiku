@@ -2,31 +2,49 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useCamera } from "@/lib/camera";
-import { detectFace, REASON_MSG, type VerifyReason } from "@/lib/face";
+import { detectFace, REASON_MSG, type VerifyReason, type VerifyResult } from "@/lib/face";
+import { countFaces, isSamePerson, loadFace, readFace } from "@/lib/faceModel";
 
 /* 受講中の照合。
    - カメラあり：3秒間隔で照合し、2回連続で失敗したら停止（SPEC 5章）
    - カメラなし（記録無効で見るだけ）：10分ごとに在席確認
-   失敗はサーバへ記録する（画像は送らない）。 */
+   失敗はサーバへ記録する（画像は送らない）。
+
+   3秒ごとに見るのは「顔が写っているか・何人か」。
+   本人かどうか（登録した顔と比べる）は重いので30秒ごと。
+   モデルが読み込めていないあいだは、受講そのものを始めさせない。
+   見分けが付かないまま時間だけ積み上がるのが、いちばん困るため。 */
 
 /** 照合が通っているときの表示。CamWindow もこの文字で色を変える */
 export const OK_STATE = "在席を確認";
 
 const CHECK_INTERVAL_MS = 3000;
+/* モデルを回すのは重い（手元の計測で、顔の有無 約0.27秒／本人照合 約0.6秒）。
+   毎回まわすと古い端末で受講そのものが重くなるので、間引く。
+   塞いだ・暗い・止まっている は毎回の簡易解析で捕まるので、これで足りる。 */
+/** 何回に1回、顔があるか見るか（3秒×2＝6秒ごと） */
+const MODEL_EVERY = 2;
+/** 何回に1回、本人かどうかまで見るか（3秒×10＝30秒ごと） */
+const ID_EVERY = 10;
 const FAIL_LIMIT = 2;
 const PRESENCE_INTERVAL_MS = 10 * 60 * 1000;
 
 export type VerifyStop = { kind: "presence" | "fail"; message: string } | null;
 
+export type ModelState = "off" | "loading" | "ready" | "failed";
+
 export function useVerification({
   lessonId,
   counting,
   useCam,
+  registered,
   onStop,
 }: {
   lessonId: string;
   counting: boolean;
   useCam: boolean;
+  /** 受講の準備で登録した顔の特徴量。端末の中だけにある */
+  registered: number[] | null;
   onStop: () => void; // 停止時に再生を止めてもらう
 }) {
   const cam = useCamera();
@@ -36,8 +54,22 @@ export function useVerification({
   const miss = useRef(0);
   const [stop, setStop] = useState<VerifyStop>(null);
   const [camState, setCamState] = useState("待機");
+  const [model, setModel] = useState<ModelState>("off");
+  const turn = useRef(0);
   const stopRef = useRef(stop);
   stopRef.current = stop;
+
+  /* 顔を見分けるモデルを落としてくる。
+     済むまで受講は始められない（LessonClient が counting を止める） */
+  useEffect(() => {
+    if (!useCam) { setModel("off"); return; }
+    setModel("loading");
+    let alive = true;
+    loadFace()
+      .then(() => { if (alive) setModel("ready"); })
+      .catch(() => { if (alive) setModel("failed"); });
+    return () => { alive = false; };
+  }, [useCam]);
 
   /* カメラの起動（同意済みのときだけ） */
   useEffect(() => {
@@ -55,10 +87,15 @@ export function useVerification({
 
   /* 照合ループ */
   useEffect(() => {
-    if (!counting || !useCam || !cam.stream) return;
+    if (!counting || !useCam || !cam.stream || model !== "ready") return;
     const id = setInterval(async () => {
       if (stopRef.current) return;
-      const r = await detectFace(videoRef.current, canvasRef.current, prevFrame);
+      turn.current += 1;
+      const n = turn.current;
+      const r = await checkOnce(videoRef.current, canvasRef.current, prevFrame, registered, {
+        face: n % MODEL_EVERY === 0,
+        who: n % ID_EVERY === 0,
+      });
       if (r.ok) {
         /* 「本人を確認」とは言わない。ここで見ているのは
            画面の前に人が居るかどうかで、本人かどうかではない
@@ -78,7 +115,7 @@ export function useVerification({
     }, CHECK_INTERVAL_MS);
     return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [counting, useCam, cam.stream, lessonId]);
+  }, [counting, useCam, cam.stream, lessonId, model, registered]);
 
   /* カメラ同意済みなのに映像が無いまま受講が進むのを防ぐ */
   useEffect(() => {
@@ -111,7 +148,42 @@ export function useVerification({
     setStop(null);
   };
 
-  return { cam, videoRef, canvasRef, stop, resume, camState };
+  return { cam, videoRef, canvasRef, stop, resume, camState, model };
+}
+
+/* 1回ぶんの照合。
+
+   ① 明るさとばらつき（速い）… 暗い・のっぺり・止まっている
+   ② 顔があるか、何人か（モデル）
+   ③ 登録した本人か（モデル。重いのでたまに）
+
+   ①で落ちるものは②を待たずに返す。手で塞げば①か②で必ず止まる。 */
+async function checkOnce(
+  video: HTMLVideoElement | null,
+  canvas: HTMLCanvasElement | null,
+  prevFrame: { current: Uint8Array | null },
+  registered: number[] | null,
+  run: { face: boolean; who: boolean },
+): Promise<VerifyResult> {
+  const rough = await detectFace(video, canvas, prevFrame);
+  if (!rough.ok) return rough;
+
+  const fail = (reason: VerifyReason): VerifyResult => ({ reason, ok: false, msg: REASON_MSG[reason] });
+
+  if (run.who) {
+    const { count, descriptor } = await readFace(video);
+    if (count === 0 || !descriptor) return fail("no_face");
+    if (count > 1) return fail("multi_face");
+    if (!registered?.length) return { ok: true };
+    return isSamePerson(registered, descriptor) ? { ok: true } : fail("not_me");
+  }
+
+  if (run.face) {
+    const n = await countFaces(video);
+    if (n === 0) return fail("no_face");
+    if (n > 1) return fail("multi_face");
+  }
+  return { ok: true };
 }
 
 function logFail(lessonId: string, reason: VerifyReason) {

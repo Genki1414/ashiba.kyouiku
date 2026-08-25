@@ -1,6 +1,8 @@
 import { notFound } from "next/navigation";
 import { getLesson, getLessonOrder } from "@/lib/curriculum";
 import { LessonClient } from "./LessonClient";
+import { canLearn } from "@/lib/entitle";
+import { NeedSeat } from "@/components/NeedSeat";
 
 /* 作り置き（静的生成）はしない。
    出来上がった単元の頁が置いてあると、受講コードの見張り（layout）を
@@ -13,6 +15,11 @@ export default async function LessonPage({
 }: {
   params: Promise<{ lessonId: string }>;
 }) {
+  /* 教材の本文を作る前に、もう一度見張る。
+     上の layout でも見ているが、ここが売り物そのものなので二重にする */
+  const may = await canLearn();
+  if (!may.ok) return <NeedSeat why={may.why} company={may.company} />;
+
   const { lessonId } = await params;
   const found = await getLesson(lessonId);
   if (!found) notFound();

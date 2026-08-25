@@ -155,3 +155,20 @@ Auth を入れるまでは、URL を開いた人全員が `DEV_ENROLLMENT_ID` �
 
 `NEXT_PUBLIC_` で始まる変数はブラウザへ配られる前提の値なので、Sensitive にしないでください。
 `SUPABASE_SERVICE_ROLE_KEY` と `EXAM_SECRET` はサーバだけで使うので Sensitive のままで構いません。
+
+---
+
+## 0010（受講中の照合に「別人」を足す）
+
+`supabase/apply-all.sql` を SQL Editor でもう一度実行してください。
+何度実行しても壊れません。`/setup` の「スキーマの版」が **0010** になれば済みです。
+
+足したのは1つだけです。
+
+```sql
+alter type public.verify_reason add value if not exists 'not_me';
+```
+
+受講中の照合を本物の顔検出にしたので、外れた理由に
+「登録した人と違う」が増えました。記録するのは理由だけで、
+顔の画像も特徴量も、これまでどおりサーバへは送りません。
