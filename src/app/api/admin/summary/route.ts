@@ -95,6 +95,41 @@ export async function GET(req: NextRequest) {
     at: askedAt.get(u.id as string) ?? null,
   }));
 
+  /* 断った（または間違って閉じた）申し込み。
+     押し間違いで消えたまま戻せないと、担当者はどうにもできない。
+     近いものだけ出して、やり直せるようにする */
+  const since30 = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+  const { data: refused } = await supabase
+    .from("memberships")
+    .select("user_id, left_at")
+    .eq("company_id", admin.companyId)
+    .is("approved_at", null)
+    .gte("left_at", since30);
+  const refIds = [...new Set((refused ?? []).map((m) => m.user_id as string))];
+  const { data: refUsers } = refIds.length
+    ? await supabase.from("users").select("id, name, email").in("id", refIds)
+    : { data: [] as { id: string; name: string; email: string | null }[] };
+  const refAt = new Map((refused ?? []).map((m) => [m.user_id as string, m.left_at as string]));
+  const rejected = (refUsers ?? []).map((u) => ({
+    userId: u.id as string,
+    name: (u.name as string) ?? "",
+    email: (u.email as string) ?? null,
+    at: refAt.get(u.id as string) ?? null,
+  }));
+
+  /* 在籍の内訳。「申し込んだはずの人が居ない」ときに、
+     どこへ行ったのかが分からないと直しようがないので出しておく */
+  const { data: memAll } = await supabase
+    .from("memberships")
+    .select("approved_at, left_at")
+    .eq("company_id", admin.companyId);
+  const member = {
+    active: (memAll ?? []).filter((m) => m.approved_at && !m.left_at).length,
+    waiting: (memAll ?? []).filter((m) => !m.approved_at && !m.left_at).length,
+    /* 抜けた人と、断った申し込み */
+    gone: (memAll ?? []).filter((m) => m.left_at).length,
+  };
+
   const { data: past } = await supabase
     .from("enrollments")
     .select("user_id")
@@ -120,6 +155,8 @@ export async function GET(req: NextRequest) {
       course: { id: course.id, short: course.short, name: course.name },
       courses,
       requests,
+      rejected,
+      member,
     });
   }
 

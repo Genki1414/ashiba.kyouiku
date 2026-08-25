@@ -36,6 +36,10 @@ type Loaded =
       courses: CourseTab[];
       /* 参加の申し込み。担当者がやることなので上に出す */
       requests: Request[];
+      /* 断った申し込み（直近30日）。押し間違いを戻せるように */
+      rejected: Request[];
+      /* 在籍の内訳。申し込んだはずの人が居ないときに、どこへ行ったか分かる */
+      member: { active: number; waiting: number; gone: number };
     }
   | { kind: "setup"; reason: string }
   | { kind: "ng"; reason: string; signIn?: boolean };
@@ -74,6 +78,8 @@ export function AdminClient() {
           course: j.course ?? null,
           courses: j.courses ?? [],
           requests: j.requests ?? [],
+          rejected: j.rejected ?? [],
+          member: j.member ?? { active: 0, waiting: 0, gone: 0 },
         });
         setCompany(j.company ?? "");
         if (j.course?.id) setCourseId(j.course.id as string);
@@ -287,9 +293,44 @@ export function AdminClient() {
         </div>
       )}
 
+      {/* 断った申し込み。押し間違いで消えたままにしない */}
+      {!!st.rejected.length && (
+        <div className="mx-5 mt-3 rounded-xl border border-line bg-panel p-4" data-testid="admin-rejected">
+          <div className="text-[11px] tracking-[2px] text-dim">断った申し込み（直近30日）</div>
+          <p className="mt-1 text-[11.5px] leading-relaxed text-dim2">
+            間違って断ってしまったときは、ここから許可できます。
+          </p>
+          <div className="mt-2 grid gap-1.5">
+            {st.rejected.map((q) => (
+              <div key={q.userId} className="flex items-center gap-2 rounded-lg border border-line bg-bg p-2.5">
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-[13px] font-bold">{q.name}</div>
+                  {q.email && <div className="truncate text-[10.5px] text-dim2">{q.email}</div>}
+                </div>
+                <button
+                  className="shrink-0 rounded border border-line px-2.5 py-1.5 text-[11px] text-dim"
+                  data-testid="admin-reapprove"
+                  onClick={async () => {
+                    setBusy(q.userId);
+                    if (await post("/api/admin/member", { userId: q.userId, action: "approve" }))
+                      await load(courseId);
+                    setBusy(null);
+                  }}
+                >
+                  やっぱり許可する
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* 事業者の名前と、受講者に配る参加コード */}
       <div className="mx-5 mt-3 rounded-xl border border-line bg-panel p-4">
         <div className="mb-2 text-[11px] tracking-[2px] text-dim">事業者（名簿の分け方）</div>
+        <div className="mb-2 text-[11.5px] text-dim2" data-testid="admin-member-count">
+          在籍 {st.member.active}人　／　申し込み {st.member.waiting}件　／　抜けた {st.member.gone}人
+        </div>
         {edit ? (
           <>
             <input

@@ -227,7 +227,7 @@ await must(
   /* ① 受講者が自分で申し込む。この時点ではまだ入っていない */
   const asked = await db.rpc("request_membership", { p_user: ORPHAN, p_company: CO });
   check(!asked.error, `申し込める（${asked.error?.message ?? "ok"}）`);
-  const pend = await db.from("memberships").select("approved_at").eq("user_id", ORPHAN).eq("company_id", CO).maybeSingle();
+  const pend = await db.from("memberships").select("approved_at").eq("user_id", ORPHAN).eq("company_id", CO).is("left_at", null).maybeSingle();
   check(!!pend.data && !pend.data.approved_at, "申し込んだだけでは許可が下りていない");
   const notYet = await db.from("users").select("company_id").eq("id", ORPHAN).maybeSingle();
   check(!notYet.data?.company_id, "許可が下りるまで、所属は空のまま");
@@ -245,6 +245,27 @@ await must(
     check(ids.includes(U2), "許可済みの人は在籍に入る");
   }
 
+  /* 断ったあとでも、もう一度許可できる（押し間違いを戻せる）。
+     直近30日の「断った申し込み」として画面に出す引き方 */
+  {
+    const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    await db.rpc("leave_company", { p_user: ORPHAN, p_company: CO });
+    const refused = await must(
+      "断った申し込みを引ける",
+      db.from("memberships").select("user_id")
+        .eq("company_id", CO).is("approved_at", null).gte("left_at", since),
+    );
+    check((refused ?? []).some((m) => m.user_id === ORPHAN), "断った申し込みが出る");
+    const again = await db.rpc("join_company", { p_user: ORPHAN, p_company: CO });
+    check(!again.error, "断ったあとでも許可できる");
+    const back = await db.from("memberships").select("id")
+      .eq("user_id", ORPHAN).eq("company_id", CO).not("approved_at", "is", null).is("left_at", null);
+    check((back.data ?? []).length === 1, "許可し直すと在籍に戻る");
+    /* あとの点検のため、申し込み中の状態に戻す */
+    await db.rpc("leave_company", { p_user: ORPHAN, p_company: CO });
+    await db.rpc("request_membership", { p_user: ORPHAN, p_company: CO });
+  }
+
   /* 二度押しても増えない */
   await db.rpc("request_membership", { p_user: ORPHAN, p_company: CO });
   const once = await db.from("memberships").select("id").eq("user_id", ORPHAN).is("left_at", null);
@@ -253,7 +274,7 @@ await must(
   /* ② 会社が許可する */
   const okd = await db.rpc("join_company", { p_user: ORPHAN, p_company: CO });
   check(!okd.error, "許可できる");
-  const now2 = await db.from("memberships").select("approved_at").eq("user_id", ORPHAN).eq("company_id", CO).maybeSingle();
+  const now2 = await db.from("memberships").select("approved_at").eq("user_id", ORPHAN).eq("company_id", CO).is("left_at", null).maybeSingle();
   check(!!now2.data?.approved_at, "許可した日が入る");
   const joined = await db.from("users").select("company_id").eq("id", ORPHAN).maybeSingle();
   check(joined.data?.company_id === CO, "許可されて名簿に入る");

@@ -34,15 +34,15 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  /* 参加の申し込みを許可する。よその会社に在籍していれば、そちらは閉じる（転職） */
+  /* 参加の申し込みを許可する。よその会社に在籍していれば、そちらは閉じる（転職）。
+     いちど断ったあとでも、同じ人からの申し込みがあったなら許可できる
+     （押し間違いで消したまま戻せないと、担当者はどうにもできない） */
   if (action === "approve") {
     const { data: req0 } = await supabase
       .from("memberships")
       .select("id")
       .eq("user_id", userId)
       .eq("company_id", admin.companyId)
-      .is("approved_at", null)
-      .is("left_at", null)
       .limit(1);
     if (!(req0 ?? []).length) {
       return NextResponse.json({ ok: false, reason: "その申し込みはもうありません。" }, { status: 409 });
