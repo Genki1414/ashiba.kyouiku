@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef } from "react";
+import { OK_STATE } from "@/lib/useVerification";
 
 /* 受講中の小さなカメラ窓。照合状態を枠色と帯で示す */
 export function CamWindow({
@@ -15,7 +16,7 @@ export function CamWindow({
   useEffect(() => {
     if (stream && vRef.current) vRef.current.srcObject = stream;
   }, [stream]);
-  const ok = state === "本人を確認";
+  const ok = state === OK_STATE;
   return (
     <div
       className={`fixed right-2.5 top-2.5 z-30 w-[84px] overflow-hidden rounded-lg border-2 bg-black ${

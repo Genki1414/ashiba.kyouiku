@@ -24,6 +24,7 @@
     "test:authgate": "tsx tests/auth-gate.ts",
     "test:cert": "tsx tests/cert.ts",
     "test:sfx": "tsx tests/sfx.mts",
+    "test:face": "tsx tests/face.mts",
     "test:ch1": "tsx tests/ch1-rules.ts",
     "test:e2e:ch1": "node tests/e2e-ch1.mjs",
     "test:e2e:ch1sk": "node tests/e2e-ch1-sk.mjs",

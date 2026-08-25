@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Btn } from "@/components/ui/Btn";
+import { Bar } from "@/components/ui/Bar";
+import { dur, hm } from "@/components/ui/format";
 import { CHAPTERS } from "@/training/chapters";
 import type { LearnerRow } from "@/training/roster";
 
@@ -312,14 +314,44 @@ export function AdminClient() {
             </div>
             {r.email && <div className="mt-0.5 truncate text-[11px] text-dim2">{r.email}</div>}
 
-            {/* 学科 */}
-            <div className="mt-3 flex items-baseline gap-2 text-[12.5px]">
-              <span className="w-16 shrink-0 text-dim">学科</span>
-              <span className={r.lessonsPassed >= r.lessonsTotal ? "font-bold text-grn" : ""}>
-                {r.lessonsPassed} / {r.lessonsTotal} 単元
-              </span>
+            {/* 学科。単元の数だけでは進み具合が分からないので、
+                バーと「見た時間」と「いまどこか」を出す */}
+            <div className="mt-3 rounded-lg border border-line bg-bg px-3 py-2.5" data-testid="admin-edu">
+              <div className="flex items-baseline gap-2 text-[12.5px]">
+                <span className="shrink-0 text-dim">学科</span>
+                <span className={`font-bold ${r.lessonsPassed >= r.lessonsTotal ? "text-grn" : ""}`}>
+                  {r.lessonsPassed} / {r.lessonsTotal} 単元
+                </span>
+                <span className="ml-auto text-[11.5px] text-dim2">
+                  {Math.round((r.lessonsPassed / Math.max(1, r.lessonsTotal)) * 100)}%
+                </span>
+              </div>
+              <div className="mt-1.5">
+                <Bar
+                  v={r.lessonsPassed}
+                  max={r.lessonsTotal}
+                  color={r.lessonsPassed >= r.lessonsTotal ? "var(--color-grn)" : undefined}
+                />
+              </div>
+              <div className="mt-1.5 flex items-baseline gap-2 text-[11.5px]">
+                <span className="shrink-0 text-dim2">見た時間</span>
+                <span className={r.watchedSec >= r.requiredSec ? "text-grn" : "text-dim"}>
+                  {dur(r.watchedSec)}
+                </span>
+                <span className="text-dim2">／ 法定 {dur(r.requiredSec)}</span>
+              </div>
+              {r.now ? (
+                <div className="mt-1 text-[11.5px] leading-relaxed text-dim2">
+                  {r.now.watchedSec > 0 ? "いま" : "次は"} {r.now.id}　{r.now.title}
+                  {r.now.watchedSec > 0 && (
+                    <span className="text-dim">（{hm(r.now.watchedSec)} / {r.now.needSec / 60}分）</span>
+                  )}
+                </div>
+              ) : (
+                <div className="mt-1 text-[11.5px] text-grn">全単元を終えています</div>
+              )}
             </div>
-            <div className="mt-1 flex items-baseline gap-2 text-[12.5px]">
+            <div className="mt-2 flex items-baseline gap-2 text-[12.5px]">
               <span className="w-16 shrink-0 text-dim">修了試験</span>
               {r.exam ? (
                 <span className={r.exam.passed ? "font-bold text-grn" : "text-red"}>

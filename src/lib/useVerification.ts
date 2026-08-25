@@ -9,6 +9,9 @@ import { detectFace, REASON_MSG, type VerifyReason } from "@/lib/face";
    - カメラなし（記録無効で見るだけ）：10分ごとに在席確認
    失敗はサーバへ記録する（画像は送らない）。 */
 
+/** 照合が通っているときの表示。CamWindow もこの文字で色を変える */
+export const OK_STATE = "在席を確認";
+
 const CHECK_INTERVAL_MS = 3000;
 const FAIL_LIMIT = 2;
 const PRESENCE_INTERVAL_MS = 10 * 60 * 1000;
@@ -57,7 +60,10 @@ export function useVerification({
       if (stopRef.current) return;
       const r = await detectFace(videoRef.current, canvasRef.current, prevFrame);
       if (r.ok) {
-        setCamState("本人を確認");
+        /* 「本人を確認」とは言わない。ここで見ているのは
+           画面の前に人が居るかどうかで、本人かどうかではない
+           （本人確認は受講の準備で、顔写真と公的書類を登録するとき） */
+        setCamState(OK_STATE);
         miss.current = 0;
         return;
       }

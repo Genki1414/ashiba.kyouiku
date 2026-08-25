@@ -26,6 +26,12 @@ export type LearnerRow = {
   /** 学科：合格した単元 */
   lessonsPassed: number;
   lessonsTotal: number;
+  /** 学科：見た時間の合計（秒）と、法定の合計（秒） */
+  watchedSec: number;
+  requiredSec: number;
+  /** いま受けている単元。全部終わっていれば null。
+      「あと何が残っているか」を担当者が一目で分かるようにする */
+  now: { id: string; title: string; watchedSec: number; needSec: number } | null;
   /** 修了試験。受けていなければ null */
   exam: { score: number; total: number; passed: boolean } | null;
   /** 実務トレーニング。遊べる章だけ並べる */
@@ -46,7 +52,16 @@ export type RawUser = {
   role: string;
 };
 export type RawEnrollment = { id: string; user_id: string };
-export type RawProgress = { enrollment_id: string; quiz_passed_at: string | null };
+export type RawProgress = {
+  enrollment_id: string;
+  lesson_id: string;
+  /* 見た時間。法定時間に届いているかは、これで分かる */
+  watched_sec: number;
+  quiz_passed_at: string | null;
+};
+
+/** 学科の単元（順番どおり） */
+export type RosterLesson = { id: string; title: string; legal_min: number };
 export type RawExam = {
   enrollment_id: string;
   score: number;
@@ -71,8 +86,8 @@ export type RosterInput = {
   exams: RawExam[];
   attempts: RawAttempt[];
   certs: RawCert[];
-  /** 学科の全単元数 */
-  lessonsTotal: number;
+  /** 学科の単元。順番どおりに渡すこと（「いま何番目か」を出すため） */
+  lessons: RosterLesson[];
 };
 
 /** 章ごとに、本番の最高点と回数をまとめる。チュートリアルは数えない */
@@ -90,8 +105,13 @@ function trainingOf(rows: RawAttempt[]): ChapterResult[] {
   });
 }
 
-/** 一覧を組み立てる。名前順（同じなら登録の早い順＝渡された順） */
+/** 一覧を組み立てる。
+    修了証を出せるのにまだ出していない人が上（担当者がやることはそこなので）、
+    そのあとは名前順。 */
 export function buildRoster(inp: RosterInput): LearnerRow[] {
+  const lessonsTotal = inp.lessons.length;
+  const requiredSec = inp.lessons.reduce((n, l) => n + l.legal_min * 60, 0);
+
   const rows = inp.users.map((u): LearnerRow => {
     const en = inp.enrollments.find((e) => e.user_id === u.id) ?? null;
     const id = en?.id ?? null;
@@ -99,6 +119,20 @@ export function buildRoster(inp: RosterInput): LearnerRow[] {
     const prog = id ? inp.progress.filter((p) => p.enrollment_id === id) : [];
     const passedRows = prog.filter((p) => !!p.quiz_passed_at);
     const lessonsPassed = passedRows.length;
+    const watchedSec = prog.reduce((n, p) => n + (p.watched_sec ?? 0), 0);
+
+    /* いま受けている単元＝まだ合格していない、いちばん前の単元。
+       見た時間が0なら「次はここ」、入っていれば「ここの途中」 */
+    const byLesson = new Map(prog.map((p) => [p.lesson_id, p]));
+    const nextLesson = inp.lessons.find((l) => !byLesson.get(l.id)?.quiz_passed_at) ?? null;
+    const now = nextLesson
+      ? {
+          id: nextLesson.id,
+          title: nextLesson.title,
+          watchedSec: byLesson.get(nextLesson.id)?.watched_sec ?? 0,
+          needSec: nextLesson.legal_min * 60,
+        }
+      : null;
 
     const exams = id ? inp.exams.filter((e) => e.enrollment_id === id) : [];
     /* 合格があればそれを出す。無ければいちばん新しい不合格 */
@@ -122,21 +156,25 @@ export function buildRoster(inp: RosterInput): LearnerRow[] {
       email: u.email,
       admin: u.role === "admin",
       lessonsPassed,
-      lessonsTotal: inp.lessonsTotal,
+      lessonsTotal,
+      watchedSec,
+      requiredSec,
+      now,
       exam: exam
         ? { score: exam.score, total: exam.total, passed: exam.passed }
         : null,
       training: trainingOf(attempts),
       cert: cert ? { no: cert.cert_no, at: cert.issued_at } : null,
       canIssue:
-        inp.lessonsTotal > 0 &&
-        lessonsPassed >= inp.lessonsTotal &&
+        lessonsTotal > 0 &&
+        lessonsPassed >= lessonsTotal &&
         !!exams.find((e) => e.passed),
       lastAt: times.at(-1) ?? null,
     };
   });
 
-  return rows.sort((a, b) => a.name.localeCompare(b.name, "ja"));
+  const waiting = (r: LearnerRow) => (r.canIssue && !r.cert ? 0 : 1);
+  return rows.sort((a, b) => waiting(a) - waiting(b) || a.name.localeCompare(b.name, "ja"));
 }
 
 const cmpAt = (a: { created_at: string }, b: { created_at: string }) =>

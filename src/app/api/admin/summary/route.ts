@@ -38,7 +38,11 @@ export async function GET() {
   }
 
   const cur = await getCurriculum();
-  const lessonsTotal = cur.subjects.reduce((n, s) => n + s.lessons.length, 0);
+  /* 単元は順番どおり。担当者の画面に「いま何番目の途中か」を出すため */
+  const lessons = cur.subjects.flatMap((s) =>
+    s.lessons.map((l) => ({ id: l.id, title: l.title, legal_min: l.legal_min })),
+  );
+  const lessonsTotal = lessons.length;
 
   /* 受講コード（席）の残り。買った数が足りているかを担当者に見せる */
   const { data: myOrders } = await supabase
@@ -83,7 +87,7 @@ export async function GET() {
   };
 
   const [progress, exams, attempts, certs] = await Promise.all([
-    pick("progress", "enrollment_id, quiz_passed_at"),
+    pick("progress", "enrollment_id, lesson_id, watched_sec, quiz_passed_at"),
     pick("exams", "enrollment_id, score, total, passed, created_at"),
     pick("training_attempts", "enrollment_id, chapter, tutorial, skill, passed, created_at"),
     pick("certificates", "enrollment_id, cert_no, issued_at, revoked_at"),
@@ -97,7 +101,7 @@ export async function GET() {
     attempts: attempts as never,
     /* 取り消したものは出さない */
     certs: certs.filter((c) => !c.revoked_at) as never,
-    lessonsTotal,
+    lessons,
   });
 
   return NextResponse.json({

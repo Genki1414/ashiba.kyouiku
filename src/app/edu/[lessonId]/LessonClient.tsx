@@ -187,7 +187,7 @@ export function LessonClient({
           {!verification.cam.stream && (
             <div className="flex items-center justify-between gap-3 border-b border-line bg-ng-bg px-4 py-2.5">
               <span className="text-[12px] leading-snug text-ng-tx">
-                {verification.cam.error ?? "本人確認のためカメラを使用します"}
+                {verification.cam.error ?? "受講中は、画面の前に居るかをカメラで確かめます"}
               </span>
               <button
                 onClick={verification.cam.start}

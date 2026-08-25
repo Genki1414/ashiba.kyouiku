@@ -140,9 +140,13 @@ check(lessons.length === 13, `単元が13件入っている（いま ${lessons.l
 await must(
   "視聴記録を作る",
   db.from("progress").insert([
-    ...lessons.map((l) => ({ enrollment_id: E2, lesson_id: l, quiz_passed_at: "2026-01-01T00:00:00Z" })),
-    ...lessons.slice(0, 3).map((l) => ({ enrollment_id: E3, lesson_id: l, quiz_passed_at: "2026-01-01T00:00:00Z" })),
-    ...lessons.slice(3, 5).map((l) => ({ enrollment_id: E3, lesson_id: l, quiz_passed_at: null })),
+    ...lessons.map((l) => ({ enrollment_id: E2, lesson_id: l, watched_sec: 1800, quiz_passed_at: "2026-01-01T00:00:00Z" })),
+    ...lessons.slice(0, 3).map((l) => ({ enrollment_id: E3, lesson_id: l, watched_sec: 1800, quiz_passed_at: "2026-01-01T00:00:00Z" })),
+    ...lessons.slice(3, 5).map((l, i) => ({
+      enrollment_id: E3, lesson_id: l, quiz_passed_at: null,
+      /* 4単元目は途中まで見ている。担当者の画面に「いまここ」を出すため */
+      watched_sec: i === 0 ? 600 : 0,
+    })),
   ]).select("id"),
 );
 await must(
@@ -196,7 +200,7 @@ const enrollments = await must("受講を引ける", db.from("enrollments").sele
 const eids = (enrollments ?? []).map((e) => e.id as string);
 check(eids.length === 2, `受講が2件（いま ${eids.length}）`);
 
-const progress = await must("視聴記録を引ける", db.from("progress").select("enrollment_id, quiz_passed_at").in("enrollment_id", eids));
+const progress = await must("視聴記録を引ける", db.from("progress").select("enrollment_id, lesson_id, watched_sec, quiz_passed_at").in("enrollment_id", eids));
 const exams = await must("修了試験を引ける", db.from("exams").select("enrollment_id, score, total, passed, created_at").in("enrollment_id", eids));
 const attempts = await must("実務の成績を引ける", db.from("training_attempts").select("enrollment_id, chapter, tutorial, skill, passed, created_at").in("enrollment_id", eids));
 const certs0 = await must("修了証を引ける", db.from("certificates").select("enrollment_id, cert_no, issued_at, revoked_at").in("enrollment_id", eids));
@@ -209,7 +213,8 @@ const rows = buildRoster({
   exams: (exams ?? []) as never,
   attempts: (attempts ?? []) as never,
   certs: [],
-  lessonsTotal: 13,
+  /* 本物の並びを渡す。「いま何番目の途中か」はこの順で決まる */
+  lessons: lessons.map((id, i) => ({ id, title: `単元${i + 1}`, legal_min: 30 })),
 });
 const suzuki = rows.find((r) => r.name === "鈴木")!;
 const tanaka = rows.find((r) => r.name === "田中")!;
@@ -221,6 +226,11 @@ check(suzuki.training.find((t) => t.ch === "ch1")!.best === 91, "第1章の最�
 check(suzuki.training.find((t) => t.ch === "ch1")!.times === 1, "本番の回数は1回");
 check(!suzuki.training.find((t) => t.ch === "ch2")!.passed, "第2章は55点で不合格");
 check(tanaka.lessonsPassed === 3 && !tanaka.canIssue, "田中はまだ出せない");
+check(tanaka.watchedSec === 3 * 1800 + 600, `田中の見た時間は合計で出る（${tanaka.watchedSec}秒）`);
+check(tanaka.now?.id === lessons[3] && tanaka.now?.watchedSec === 600,
+  `田中は4単元目の途中と分かる（${JSON.stringify(tanaka.now)}）`);
+check(suzuki.now === null, "全単元を終えた鈴木には「いまここ」が無い");
+check(suzuki.requiredSec === 13 * 1800, "法定の合計が入る");
 check(aoki.admin && aoki.enrollmentId === null, "担当者は受講が無くても並ぶ");
 check(rosterTotals(rows).waiting === 1, "未発行は1人");
 
