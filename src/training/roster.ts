@@ -216,3 +216,133 @@ export function rosterTotals(rows: LearnerRow[]) {
     waiting: rows.filter((r) => r.canIssue && !r.cert).length,
   };
 }
+
+/* ── 人ごとにまとめる ────────────────────────
+   buildRoster は講座ごとの一覧を作る。
+   担当者の画面は人で並ぶので、講座ぶんを1人にまとめ直す。
+
+   1人が複数の特別教育を受けるようになるため、
+   名前の下は「実務トレーニング」「受講中」「取得済み資格」の3つに畳む。
+   全部いっぺんに広げると、10人並んだだけで読めなくなる。 */
+
+/** その人の、講座ひとつぶんの状態 */
+export type CourseRow = {
+  courseId: string;
+  short: string;
+  name: string;
+  enrollmentId: string | null;
+  lessonsPassed: number;
+  lessonsTotal: number;
+  watchedSec: number;
+  requiredSec: number;
+  now: LearnerRow["now"];
+  exam: LearnerRow["exam"];
+  cert: LearnerRow["cert"];
+  canIssue: boolean;
+  lastAt: string | null;
+};
+
+export type PersonRow = {
+  userId: string;
+  name: string;
+  email: string | null;
+  admin: boolean;
+  left: boolean;
+  pending: boolean;
+  /** 実務トレーニング。章ごとの最高点。講座をまたいで一番良いものを見る */
+  training: ChapterResult[];
+  /** 受講中（受け始めていて、まだ修了証が出ていない） */
+  doing: CourseRow[];
+  /** 取得済み（修了証が出ている） */
+  done: CourseRow[];
+  /** 出せるのに、まだ出していない資格がある */
+  canIssue: boolean;
+};
+
+type Part = { course: { id: string; short: string; name: string }; rows: LearnerRow[] };
+
+/** 章ごとの成績を、講座をまたいでまとめる */
+function mergeTraining(list: ChapterResult[][]): ChapterResult[] {
+  return CHAPTERS.filter((c) => c.ready).map((c) => {
+    const mine = list.map((rs) => rs.find((r) => r.ch === c.id)).filter(Boolean) as ChapterResult[];
+    const bests = mine.map((m) => m.best).filter((b): b is number => b !== null);
+    const best = bests.length ? Math.max(...bests) : null;
+    return {
+      ch: c.id,
+      times: mine.reduce((n, m) => n + m.times, 0),
+      best,
+      passed: best !== null && best >= PASS,
+    };
+  });
+}
+
+const toCourse = (p: Part, r: LearnerRow): CourseRow => ({
+  courseId: p.course.id,
+  short: p.course.short,
+  name: p.course.name,
+  enrollmentId: r.enrollmentId,
+  lessonsPassed: r.lessonsPassed,
+  lessonsTotal: r.lessonsTotal,
+  watchedSec: r.watchedSec,
+  requiredSec: r.requiredSec,
+  now: r.now,
+  exam: r.exam,
+  cert: r.cert,
+  canIssue: r.canIssue,
+  lastAt: r.lastAt,
+});
+
+/** 講座ごとの一覧を、人ごとにまとめ直す。
+    上に来るのは、担当者がやること（修了証を出す）が残っている人 */
+export function mergePeople(parts: Part[]): PersonRow[] {
+  const byUser = new Map<string, { base: LearnerRow; parts: [Part, LearnerRow][] }>();
+  for (const p of parts) {
+    for (const r of p.rows) {
+      const cur = byUser.get(r.userId);
+      if (!cur) byUser.set(r.userId, { base: r, parts: [[p, r]] });
+      else cur.parts.push([p, r]);
+    }
+  }
+
+  const people = [...byUser.values()].map(({ base, parts: mine }): PersonRow => {
+    /* 受けている講座だけ並べる。席も進みも無いものは、まだ受けていない */
+    const taken = mine
+      .map(([p, r]) => toCourse(p, r))
+      .filter((c) => c.enrollmentId !== null || c.cert !== null);
+
+    return {
+      userId: base.userId,
+      name: base.name,
+      email: base.email,
+      admin: base.admin,
+      left: base.left,
+      pending: base.pending,
+      training: mergeTraining(mine.map(([, r]) => r.training)),
+      doing: taken.filter((c) => !c.cert),
+      done: taken.filter((c) => c.cert),
+      canIssue: taken.some((c) => c.canIssue && !c.cert),
+    };
+  });
+
+  return people.sort(
+    (a, b) =>
+      Number(a.left) - Number(b.left) ||
+      Number(b.canIssue) - Number(a.canIssue) ||
+      a.name.localeCompare(b.name, "ja"),
+  );
+}
+
+/** 人ごとの一覧の上に出す数字 */
+export function peopleTotals(rows: PersonRow[]) {
+  return {
+    people: rows.filter((r) => !r.left && !r.pending).length,
+    left: rows.filter((r) => r.left).length,
+    pending: rows.filter((r) => r.pending).length,
+    /* 受講中の資格がある人 */
+    doing: rows.filter((r) => r.doing.length).length,
+    /* 資格を取った人 */
+    issued: rows.filter((r) => r.done.length).length,
+    /* 修了証を出せるのに、まだ出していない人。担当者がやることはここ */
+    waiting: rows.filter((r) => r.canIssue).length,
+  };
+}

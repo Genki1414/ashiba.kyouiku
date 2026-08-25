@@ -1,7 +1,7 @@
 /* 教育担当者の一覧の組み立ての試験。
    画面もデータベースも要らない。 実行: npx tsx tests/roster.ts */
 
-import { buildRoster, rosterTotals, type RosterInput } from "@/training/roster";
+import { buildRoster, rosterTotals, type RosterInput, mergePeople, peopleTotals } from "@/training/roster";
 import { PASS } from "@/training/score";
 
 let ok = 0;
@@ -251,6 +251,65 @@ const E = (id: string, user: string) => ({ id, user_id: user });
   eq(t.people, 1, "在籍に数えるのは、許可した人だけ");
   eq(t.pending, 1, "申し込み中の人の数が分かる");
   eq(t.left, 1, "抜けた人に、申し込み中の人は混ざらない");
+}
+
+/* ── 人ごとにまとめる ──
+   特別教育は増えていく。1人が2つも3つも持つので、
+   名簿は人で並べて、講座ぶんを「受講中」と「取得済み」に振り分ける */
+{
+  const C1 = { id: "ashiba", short: "足場", name: "足場の組立て等" };
+  const C2 = { id: "fusegi", short: "ふせぎ", name: "よその特別教育" };
+
+  /* 田中は足場を取り終えて（修了証あり）、よその方を受けている途中 */
+  const a = buildRoster(base({
+    users: [U("u1", "田中"), U("u2", "佐藤")],
+    enrollments: [E("e1", "u1"), E("e2", "u2")],
+    progress: LESSONS.map((l) => P("e1", l.id, l.legal_min * 60, "2026-01-01T00:00:00Z")),
+    exams: [{ enrollment_id: "e1", score: 20, total: 20, passed: true, created_at: "2026-01-01T09:00:00Z" }],
+    certs: [{ enrollment_id: "e1", cert_no: "TMK-2026-0001", issued_at: "2026-01-02T00:00:00Z" }],
+  }));
+  const b = buildRoster(base({
+    users: [U("u1", "田中"), U("u2", "佐藤")],
+    /* 佐藤はこちらを受けていない（席が無い） */
+    enrollments: [E("e3", "u1")],
+    progress: [P("e3", "L1", 900, null)],
+  }));
+
+  const people = mergePeople([{ course: C1, rows: a }, { course: C2, rows: b }]);
+  eq(people.length, 2, "人の数だけ並ぶ（講座ぶんに増えない）");
+
+  const t = people.find((p) => p.name === "田中")!;
+  eq(t.done.map((c) => c.courseId), ["ashiba"], "修了証が出たものは取得済み");
+  eq(t.doing.map((c) => c.courseId), ["fusegi"], "まだのものは受講中");
+  eq(t.done[0].cert?.no, "TMK-2026-0001", "証明番号は取得済みの側に付く");
+  check(!t.canIssue, "もう出してあるものは、出せる扱いにしない");
+
+  const s2 = people.find((p) => p.name === "佐藤")!;
+  eq(s2.doing.map((c) => c.courseId), ["ashiba"], "受けていない講座は並べない");
+  eq(s2.done.length, 0, "取得済みは空");
+
+  const tt = peopleTotals(people);
+  eq(tt.people, 2, "受講者の数は人の数");
+  eq(tt.issued, 1, "資格を取った人の数");
+  eq(tt.doing, 2, "受講中の資格がある人の数");
+}
+
+/* 出せるのに出していない人が上。担当者がやることはそこなので */
+{
+  const C1 = { id: "ashiba", short: "足場", name: "足場の組立て等" };
+  const rows = buildRoster(base({
+    users: [U("u1", "あとから"), U("u2", "まだ途中")],
+    enrollments: [E("e1", "u1"), E("e2", "u2")],
+    progress: [
+      ...LESSONS.map((l) => P("e1", l.id, l.legal_min * 60, "2026-01-01T00:00:00Z")),
+      P("e2", "L1", 60, null),
+    ],
+    exams: [{ enrollment_id: "e1", score: 20, total: 20, passed: true, created_at: "2026-01-01T09:00:00Z" }],
+  }));
+  const people = mergePeople([{ course: C1, rows }]);
+  eq(people[0].name, "あとから", "修了証を出せる人が上に来る（名前順より先）");
+  check(people[0].canIssue, "その人には印が付く");
+  eq(peopleTotals(people).waiting, 1, "未発行の数が出る");
 }
 
 console.log("\n── まとめ ──");

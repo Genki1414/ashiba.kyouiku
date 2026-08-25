@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase/server";
 import { canCreateCompany, currentAdmin } from "@/lib/admin";
 import { currentUser } from "@/lib/supabase/session";
-import { buildRoster, rosterTotals } from "@/training/roster";
+import { buildRoster, mergePeople, peopleTotals } from "@/training/roster";
 import { seatCounts } from "@/lib/seats";
 import { findCourse, readyCourses } from "@/content/courses";
 import { getLessonList } from "@/lib/curriculum";
@@ -172,19 +172,22 @@ export async function GET(req: NextRequest) {
   };
 
   if (!ids.length) {
-    return NextResponse.json({ ...base, rows: [], totals: rosterTotals([]) });
+    return NextResponse.json({ ...base, rows: [], totals: peopleTotals([]) });
   }
 
   /* 受講は「この会社の席で受けたもの」に限る。
-     よその会社で受けた記録が、こちらの名簿に出てはいけない */
+     よその会社で受けた記録が、こちらの名簿に出てはいけない。
+
+     講座で絞らずにまとめて引く。1人が特別教育をいくつも受けるので、
+     講座ごとに引き直すと、講座が増えるたびに問い合わせが増える */
   const { data: enrollments } = await supabase
     .from("enrollments")
-    .select("id, user_id")
+    .select("id, user_id, course_id")
     .in("user_id", ids)
-    .eq("course_id", course.id)
     .eq("company_id", admin.companyId)
     .is("closed_at", null);
-  const eids = (enrollments ?? []).map((e) => e.id as string);
+  const allEnroll = enrollments ?? [];
+  const eids = allEnroll.map((e) => e.id as string);
 
   const pick = async (
     table: string,
@@ -201,23 +204,38 @@ export async function GET(req: NextRequest) {
     pick("training_attempts", "enrollment_id, chapter, tutorial, skill, passed, created_at"),
     pick("certificates", "enrollment_id, cert_no, issued_at, revoked_at"),
   ]);
+  /* 取り消した修了証は「取得済み」に出さない */
+  const live = certs.filter((c) => !c.revoked_at);
 
-  const rows0 = buildRoster({
-    users: users as never,
-    enrollments: (enrollments ?? []) as never,
-    progress: progress as never,
-    exams: exams as never,
-    attempts: attempts as never,
-    /* 取り消したものは出さない */
-    certs: certs.filter((c) => !c.revoked_at) as never,
-    lessons,
-  });
+  /* 講座ごとに組み立ててから、人ごとにまとめ直す。
+     講座ごとの組み立て（buildRoster）は、そのまま使う */
+  const parts = await Promise.all(
+    readyCourses().map(async (c) => {
+      const ls = c.id === course.id ? lessons : await getLessonList(c.id);
+      const mine = allEnroll.filter((e) => e.course_id === c.id);
+      const keep = new Set(mine.map((e) => e.id as string));
+      const only = (rows: Record<string, unknown>[]) =>
+        rows.filter((r) => keep.has(r.enrollment_id as string));
+      return {
+        course: { id: c.id, short: c.short, name: c.name },
+        rows: buildRoster({
+          users: users as never,
+          enrollments: mine as never,
+          progress: only(progress) as never,
+          exams: only(exams) as never,
+          attempts: only(attempts) as never,
+          certs: only(live) as never,
+          lessons: ls,
+        }),
+      };
+    }),
+  );
 
   /* 抜けた人は名簿に出さない。
      いま働いていない人が毎日の名簿に並んでいても、担当者の邪魔になる。
      記録そのものは消していない。教育を行ったのはこの仕組みなので、
-     退職者ぶんも含めた元帳は本部の画面（/owner）から出せる */
-  const rows = rows0.filter((r) => !r.left);
+     退職者ぶんも含めた元帳は、担当者の画面の下と本部の画面から出せる */
+  const rows = mergePeople(parts).filter((r) => !r.left);
 
-  return NextResponse.json({ ...base, rows, totals: rosterTotals(rows) });
+  return NextResponse.json({ ...base, rows, totals: peopleTotals(rows) });
 }

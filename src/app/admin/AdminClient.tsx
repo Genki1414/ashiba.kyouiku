@@ -3,10 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Btn } from "@/components/ui/Btn";
-import { Bar } from "@/components/ui/Bar";
-import { dur, hm } from "@/components/ui/format";
-import { CHAPTERS } from "@/training/chapters";
-import type { LearnerRow } from "@/training/roster";
+import type { PersonRow } from "@/training/roster";
+import { LearnerCard } from "./LearnerCard";
 import { PastRecords } from "./PastRecords";
 
 /* 教育担当者の画面。
@@ -17,7 +15,7 @@ import { PastRecords } from "./PastRecords";
 
    見えるのは自社の受講者だけ。判断はすべてサーバ（/api/admin/*）で行う。 */
 
-type Totals = { people: number; left: number; pending: number; done: number; issued: number; waiting: number };
+type Totals = { people: number; left: number; pending: number; doing: number; issued: number; waiting: number };
 
 type CourseTab = { id: string; short: string; name: string };
 
@@ -30,7 +28,7 @@ type Loaded =
       company: string;
       joinCode: string;
       seats: { total: number; used: number; paid: number };
-      rows: LearnerRow[];
+      rows: PersonRow[];
       totals: Totals;
       /* いま見ている講座と、切り替えられる講座 */
       course: CourseTab | null;
@@ -187,10 +185,7 @@ export function AdminClient() {
      抜けた人はここには出さない（返す側で外している）。
      記録は消していない。退職者ぶんも含めた元帳は本部が持つ。
      上に来るのは、担当者がやること（修了証を出す）が残っている人 */
-  const rows = [...st.rows].sort((a, b) => {
-    const key = (r: LearnerRow) => (r.canIssue && !r.cert ? 0 : r.canIssue ? 1 : 2);
-    return key(a) - key(b) || a.name.localeCompare(b.name, "ja");
-  });
+  const rows = st.rows;
 
   return (
     <main className="pb-10">
@@ -223,15 +218,16 @@ export function AdminClient() {
       )}
       {st.course && (
         <p className="mx-5 mb-2 text-[11.5px] leading-relaxed text-dim2" data-testid="admin-course-name">
-          {st.course.name}の名簿と受講コードです
+          受講コードの残りは「{st.course.short}」のぶんです。
+          名簿は、その人が受けている特別教育をまとめて出します。
         </p>
       )}
 
       <div className="mx-5 grid grid-cols-4 gap-2" data-testid="admin-totals">
         {[
           { t: "受講者", v: st.totals.people },
-          { t: "学科修了", v: st.totals.done },
-          { t: "修了証", v: st.totals.issued },
+          { t: "受講中", v: st.totals.doing },
+          { t: "資格取得", v: st.totals.issued },
           { t: "未発行", v: st.totals.waiting },
         ].map((x) => (
           <div key={x.t} className="rounded-xl border border-line bg-panel px-2 py-3 text-center">
@@ -461,173 +457,40 @@ export function AdminClient() {
 
       <div className="mx-5 mt-4 grid gap-3">
         {rows.map((r) => (
-          <div key={r.userId} className="rounded-xl border border-line bg-panel p-4" data-testid="admin-row">
-            <div className="flex items-baseline gap-2">
-              <div className="min-w-0 flex-1 truncate text-[15px] font-black">{r.name}</div>
-              {/* まだ許可していない人。上の「参加の申し込み」と同じ人。
-                  退職と出すと、入ったことのない人が辞めたように見える */}
-              {r.pending && (
-                <span className="rounded border border-yel px-1.5 py-0.5 text-[10px] text-yel" data-testid="admin-pending">
-                  申し込み中
-                </span>
-              )}
-              {r.admin && (
-                <span className="rounded border border-cyan px-1.5 py-0.5 text-[10px] text-cyan">担当者</span>
-              )}
-            </div>
-            {r.email && <div className="mt-0.5 truncate text-[11px] text-dim2">{r.email}</div>}
-
-            {/* 学科。単元の数だけでは進み具合が分からないので、
-                バーと「見た時間」と「いまどこか」を出す */}
-            <div className="mt-3 rounded-lg border border-line bg-bg px-3 py-2.5" data-testid="admin-edu">
-              <div className="flex items-baseline gap-2 text-[12.5px]">
-                <span className="shrink-0 text-dim">学科</span>
-                <span className={`font-bold ${r.lessonsPassed >= r.lessonsTotal ? "text-grn" : ""}`}>
-                  {r.lessonsPassed} / {r.lessonsTotal} 単元
-                </span>
-                <span className="ml-auto text-[11.5px] text-dim2">
-                  {Math.round((r.lessonsPassed / Math.max(1, r.lessonsTotal)) * 100)}%
-                </span>
-              </div>
-              <div className="mt-1.5">
-                <Bar
-                  v={r.lessonsPassed}
-                  max={r.lessonsTotal}
-                  color={r.lessonsPassed >= r.lessonsTotal ? "var(--color-grn)" : undefined}
-                />
-              </div>
-              <div className="mt-1.5 flex items-baseline gap-2 text-[11.5px]">
-                <span className="shrink-0 text-dim2">見た時間</span>
-                <span className={r.watchedSec >= r.requiredSec ? "text-grn" : "text-dim"}>
-                  {dur(r.watchedSec)}
-                </span>
-                <span className="text-dim2">／ 法定 {dur(r.requiredSec)}</span>
-              </div>
-              {r.now ? (
-                <div className="mt-1 text-[11.5px] leading-relaxed text-dim2">
-                  {r.now.watchedSec > 0 ? "いま" : "次は"} {r.now.id}　{r.now.title}
-                  {r.now.watchedSec > 0 && (
-                    <span className="text-dim">（{hm(r.now.watchedSec)} / {r.now.needSec / 60}分）</span>
-                  )}
-                </div>
-              ) : (
-                <div className="mt-1 text-[11.5px] text-grn">全単元を終えています</div>
-              )}
-            </div>
-            <div className="mt-2 flex items-baseline gap-2 text-[12.5px]">
-              <span className="w-16 shrink-0 text-dim">修了試験</span>
-              {r.exam ? (
-                <span className={r.exam.passed ? "font-bold text-grn" : "text-red"}>
-                  {r.exam.score} / {r.exam.total}　{r.exam.passed ? "合格" : "不合格"}
-                </span>
-              ) : (
-                <span className="text-dim2">まだ</span>
-              )}
-            </div>
-
-            {/* 実務トレーニング */}
-            <div className="mt-1 flex items-baseline gap-2 text-[12.5px]">
-              <span className="w-16 shrink-0 text-dim">実務</span>
-              <span className="min-w-0 flex-1">
-                {r.training.every((t) => t.times === 0) ? (
-                  <span className="text-dim2">まだ</span>
-                ) : (
-                  <span className="flex flex-wrap gap-x-3 gap-y-1">
-                    {r.training.map((t) => {
-                      const c = CHAPTERS.find((x) => x.id === t.ch)!;
-                      return (
-                        <span key={t.ch} className={t.passed ? "text-grn" : "text-dim"}>
-                          第{c.n}章 {t.best === null ? "—" : `${t.best}点`}
-                          {t.times > 1 ? `（${t.times}回）` : ""}
-                        </span>
-                      );
-                    })}
-                  </span>
-                )}
-              </span>
-            </div>
-
-            {/* 修了証 */}
-            <div className="mt-3 border-t border-line pt-3">
-              {r.cert ? (
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-                  <span className="font-mono text-[12.5px] text-grn">証明番号 {r.cert.no}</span>
-                  <span className="text-[11.5px] text-dim">{day(r.cert.at)} 発行</span>
-                  <button
-                    className="ml-auto rounded-lg border border-line px-2.5 py-1 text-[11px] text-dim"
-                    data-testid="admin-revoke"
-                    onClick={async () => {
-                      setBusy(r.userId);
-                      if (await post("/api/admin/cert", { enrollmentId: r.enrollmentId, action: "revoke" }))
-                        await load(courseId);
-                      setBusy(null);
-                    }}
-                  >
-                    取り消す
-                  </button>
-                </div>
-              ) : r.canIssue ? (
-                <Btn
-                  tone="y"
-                  testid="admin-issue"
-                  dis={busy === r.userId}
-                  onClick={async () => {
-                    setBusy(r.userId);
-                    if (await post("/api/admin/cert", { enrollmentId: r.enrollmentId, action: "issue" }))
-                      await load(courseId);
-                    setBusy(null);
-                  }}
-                >
-                  {busy === r.userId ? "発行しています…" : "修了証を発行する"}
-                </Btn>
-              ) : (
-                <div className="text-[12px] text-dim2">
-                  修了証はまだ出せません（全単元と修了試験の合格が要ります）
-                </div>
-              )}
-            </div>
-
-            {/* 在籍の出し入れ。退職しても記録は消さない。
-                申し込み中の人は、ここからも許可できる */}
-            <button
-              className={`mt-2 w-full rounded-lg border p-1.5 text-[11px] ${
-                r.pending ? "border-yel text-yel" : "border-line text-dim2"
-              }`}
-              data-testid="admin-member"
-              onClick={async () => {
-                setBusy(r.userId);
-                if (
-                  await post("/api/admin/member", {
-                    userId: r.userId,
-                    action: r.pending ? "approve" : "leave",
-                  })
-                )
-                  await load(courseId);
-                setBusy(null);
-              }}
-            >
-              {r.pending
-                ? "この申し込みを許可する（名簿に入れる）"
-                : "退職にする（名簿から外れます。記録は残ります）"}
-            </button>
-
-            {/* 担当者にする／戻す */}
-            <button
-              className="mt-2 w-full rounded-lg border border-line p-1.5 text-[11px] text-dim2"
-              data-testid="admin-role"
-              onClick={async () => {
-                setBusy(r.userId);
-                if (await post("/api/admin/role", { userId: r.userId, admin: !r.admin })) await load(courseId);
-                setBusy(null);
-              }}
-            >
-              {r.admin ? "担当者をやめてもらう" : "この人を教育担当者にする"}
-            </button>
-
-            {r.lastAt && (
-              <div className="mt-2 text-right text-[10.5px] text-dim2">最後の記録 {day(r.lastAt)}</div>
-            )}
-          </div>
+          <LearnerCard
+            key={r.userId}
+            r={r}
+            busy={busy === r.userId}
+            onIssue={async (enrollmentId) => {
+              setBusy(r.userId);
+              if (await post("/api/admin/cert", { enrollmentId, action: "issue" }))
+                await load(courseId);
+              setBusy(null);
+            }}
+            onRevoke={async (enrollmentId) => {
+              setBusy(r.userId);
+              if (await post("/api/admin/cert", { enrollmentId, action: "revoke" }))
+                await load(courseId);
+              setBusy(null);
+            }}
+            onMember={async () => {
+              setBusy(r.userId);
+              if (
+                await post("/api/admin/member", {
+                  userId: r.userId,
+                  action: r.pending ? "approve" : "leave",
+                })
+              )
+                await load(courseId);
+              setBusy(null);
+            }}
+            onRole={async () => {
+              setBusy(r.userId);
+              if (await post("/api/admin/role", { userId: r.userId, admin: !r.admin }))
+                await load(courseId);
+              setBusy(null);
+            }}
+          />
         ))}
       </div>
 
