@@ -109,6 +109,7 @@ export function LearnerCard({
   onRevoke,
   onMember,
   onRole,
+  onConfirm,
 }: {
   r: PersonRow;
   busy: boolean;
@@ -116,6 +117,8 @@ export function LearnerCard({
   onRevoke: (enrollmentId: string) => void;
   onMember: () => void;
   onRole: () => void;
+  /** よそで取った資格。現物を見たら確認済みにする */
+  onConfirm: (heldId: string, on: boolean) => void;
 }) {
   /* はじめは畳んでおく。ただし修了証を出せる人だけ「受講中」を開いておく。
      担当者がやることは、開かないと見つからないと意味がない */
@@ -142,8 +145,10 @@ export function LearnerCard({
     {
       k: "done",
       t: "取得済み資格",
-      v: r.done.length ? `${r.done.length} 件` : "なし",
-      on: !!r.done.length,
+      /* よそで取ったものも数える。担当者が見たいのは
+         「この人を現場に出せるか」で、出どころは関係ない */
+      v: r.done.length + r.held.length ? `${r.done.length + r.held.length} 件` : "なし",
+      on: !!(r.done.length + r.held.length),
       mark: false,
     },
   ];
@@ -254,9 +259,9 @@ export function LearnerCard({
       {/* ── 取得済み資格 ── */}
       {tab === "done" && (
         <div className="mt-2 grid gap-2" data-testid="admin-dones">
-          {!r.done.length ? (
+          {!r.done.length && !r.held.length ? (
             <div className="rounded-lg border border-line bg-bg p-3 text-[12px] text-dim2">
-              まだ修了証を出していません。
+              まだ資格がありません。
             </div>
           ) : (
             r.done.map((c) => (
@@ -281,6 +286,52 @@ export function LearnerCard({
                 </div>
               </div>
             ))
+          )}
+
+          {/* よそで取った資格。本人がマイページから入れたもの。
+              自己申告のままでは、事業者が確かめたことにならない。
+              紙を見たら確認済みにする */}
+          {r.held.map((h) => (
+            <div
+              key={h.id}
+              className={`rounded-lg border bg-bg p-3 ${h.confirmedAt ? "border-line" : "border-yel"}`}
+              data-testid="admin-held"
+            >
+              <div className="flex items-baseline gap-2">
+                <div className="min-w-0 flex-1 text-[12.5px] font-black leading-snug">{h.name}</div>
+                <span
+                  className={`shrink-0 rounded border px-1.5 py-0.5 text-[10px] ${
+                    h.confirmedAt ? "border-grn text-grn" : "border-yel text-yel"
+                  }`}
+                >
+                  {h.confirmedAt ? "確認済み" : "自己申告"}
+                </span>
+              </div>
+              <div className="mt-0.5 text-[11px] leading-relaxed text-dim2">
+                {h.kind}（よそで取得）
+                {h.issuer ? `　${h.issuer}` : ""}
+                {h.gotOn ? `　${day(h.gotOn)} 取得` : ""}
+                {h.certNo ? <><br />修了証番号 {h.certNo}</> : null}
+              </div>
+              <button
+                onClick={() => onConfirm(h.id, !h.confirmedAt)}
+                disabled={busy}
+                className={`mt-2 w-full rounded-lg border p-1.5 text-[11px] ${
+                  h.confirmedAt ? "border-line text-dim2" : "border-yel text-yel"
+                }`}
+                data-testid="admin-held-confirm"
+              >
+                {h.confirmedAt ? "確認を取り消す" : "修了証の現物を見た（確認済みにする）"}
+              </button>
+            </div>
+          ))}
+
+          {!!r.held.length && (
+            <div className="text-[10.5px] leading-relaxed text-dim2">
+              「よそで取得」は本人がマイページから入れたものです。この仕組みの記録ではありません。
+              同じ特別教育を受け直させる必要はありませんが、
+              就かせる前に修了証の現物を確かめてください。
+            </div>
           )}
         </div>
       )}

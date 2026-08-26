@@ -255,8 +255,22 @@ export type PersonRow = {
   doing: CourseRow[];
   /** 取得済み（修了証が出ている） */
   done: CourseRow[];
+  /** よそで取った資格（この仕組みの外）。自己申告。
+      入れ物だけ用意して、中身は返す側で足す（src/lib/quals.ts） */
+  held: HeldQual[];
   /** 出せるのに、まだ出していない資格がある */
   canIssue: boolean;
+};
+
+/** よそで取った資格。中身の作りは src/lib/quals.ts に置いてある */
+export type HeldQual = {
+  id: string;
+  name: string;
+  kind: string;
+  issuer: string;
+  gotOn: string | null;
+  certNo: string;
+  confirmedAt: string | null;
 };
 
 type Part = { course: { id: string; short: string; name: string }; rows: LearnerRow[] };
@@ -320,6 +334,7 @@ export function mergePeople(parts: Part[]): PersonRow[] {
       training: mergeTraining(mine.map(([, r]) => r.training)),
       doing: taken.filter((c) => !c.cert),
       done: taken.filter((c) => c.cert),
+      held: [],
       canIssue: taken.some((c) => c.canIssue && !c.cert),
     };
   });
@@ -340,8 +355,9 @@ export function peopleTotals(rows: PersonRow[]) {
     pending: rows.filter((r) => r.pending).length,
     /* 受講中の資格がある人 */
     doing: rows.filter((r) => r.doing.length).length,
-    /* 資格を取った人 */
-    issued: rows.filter((r) => r.done.length).length,
+    /* 資格を持っている人。よそで取ったものも数える。
+       「誰を現場に出せるか」を見るのに、出どころは関係ない */
+    issued: rows.filter((r) => r.done.length || r.held.length).length,
     /* 修了証を出せるのに、まだ出していない人。担当者がやることはここ */
     waiting: rows.filter((r) => r.canIssue).length,
   };

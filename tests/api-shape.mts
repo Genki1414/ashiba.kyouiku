@@ -147,6 +147,28 @@ console.log("── 担当者が触れる範囲 ──");
   }
 }
 
+console.log("── よそで取った資格 ──");
+{
+  /* 自己申告と「会社が確かめた」は分ける。
+     自分で確かめたことにできると、印の意味が無くなる */
+  const mine = read("src/app/api/quals/route.ts");
+  check(!/confirm/i.test(mine), "本人の側は、確認済みを立てられない");
+  check(/user\.id/.test(mine) && !/searchParams/.test(mine),
+    "本人の側は、自分の id しか使わない");
+
+  const adm = read("src/app/api/admin/qual/route.ts");
+  check(/currentAdmin\(\)/.test(adm), "確認は教育担当者だけ");
+  check(/admin\.companyId/.test(adm), "会社はログインから決める（画面から受け取らない）");
+  check(!/\bcompanyId:\s*b\./.test(adm), "会社を本文から受け取らない");
+
+  /* 在籍を数えてから立てる。よその会社が勝手な裏書きを付けられない */
+  const sql = read("supabase/migrations/0015_qual.sql");
+  check(/memberships/.test(sql) && /approved_at is not null/.test(sql),
+    "確認は、在籍している人のぶんだけ");
+  check(/confirmed_at = null/.test(sql),
+    "中身を直したら、確認済みは落ちる");
+}
+
 console.log("── 修了証の名義 ──");
 {
   /* 名義は東北三上機材で固定。受講する会社の名前は載せない。

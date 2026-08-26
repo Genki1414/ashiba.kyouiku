@@ -16,6 +16,7 @@ import { buildRoster, rosterTotals } from "@/training/roster";
 import { listSeats, releaseSeat } from "@/lib/seats";
 import { learnFor } from "@/lib/entitleQuery";
 import { companyRecords } from "@/lib/records";
+import { heldFor, heldForMany } from "@/lib/quals";
 import { buildCheck, checkTotals } from "@/training/verifyLog";
 
 const URL = process.env.SHIM_URL ?? "http://127.0.0.1:54321";
@@ -790,6 +791,101 @@ check(codes.every((c) => /^[2-9A-HJKMNP-Z]{12}$/.test(c)), `12文字・読み違
   await raw.query("delete from public.companies where id = $1", [other]);
   const back = await seen(E2);
   check(back.byEnrollment === CO && back.byUser === CO, "戻した");
+}
+
+/* ②-4c よそで取った資格（自己申告）。
+   足場の職人が持っているものは、この仕組みの外で取ったものが多い。
+   前の会社で受けた特別教育を受け直させる決まりは無いが、
+   事業者は「受けている」ことを確かめないと就かせられない */
+{
+  await raw.query("delete from public.held_quals where user_id = any($1::uuid[])", [PEOPLE]);
+
+  const add = (u: string, q: string, o: Record<string, unknown> = {}) =>
+    db.rpc("add_qual", {
+      p_user: u, p_qual: q,
+      p_label: (o.label as string) ?? null,
+      p_issuer: (o.issuer as string) ?? null,
+      p_got: (o.got as string) ?? null,
+      p_cert: (o.cert as string) ?? null,
+    });
+
+  const r1 = await add(U2, "sk-sling", { issuer: "前の会社", got: "2024-05-01", cert: "A-1" });
+  check(!r1.error, `一覧にある資格を足せる（${r1.error?.message ?? "ok"}）`);
+
+  const mine = await heldFor(db, U2);
+  check(mine.length === 1, `1件入る（いま ${mine.length}件）`);
+  check(mine[0].name.includes("玉掛け"), `名前は一覧から出す（${mine[0].name}）`);
+  check(mine[0].kind === "技能講習", `種類も出る（${mine[0].kind}）`);
+  check(mine[0].issuer === "前の会社", "どこで受けたかが残る");
+  check(mine[0].confirmedAt === null, "足しただけでは自己申告のまま");
+
+  /* 同じものを足しても増えない。書き足しになる */
+  const r2 = await add(U2, "sk-sling", { issuer: "別の教習所", got: "2024-06-01" });
+  check(!r2.error, "同じ資格をもう一度足せる（書き足し）");
+  const again = await heldFor(db, U2);
+  check(again.length === 1, `二重に増えない（いま ${again.length}件）`);
+  check(again[0].issuer === "別の教習所", "中身は新しい方になる");
+
+  /* 一覧に無いものは、名前を書かないと入らない */
+  const bad = await add(U2, "other");
+  check(!!bad.error, "その他は、名前が無ければ断る");
+  const own = await add(U2, "other", { label: "うちの独自講習" });
+  check(!own.error, `その他は名前を書けば入る（${own.error?.message ?? "ok"}）`);
+
+  /* ── 確かめる ── */
+  const held = await heldFor(db, U2);
+  const sling = held.find((h) => h.name.includes("玉掛け"))!;
+  const okc = await db.rpc("confirm_qual", {
+    p_id: sling.id, p_company: CO, p_admin: U1, p_on: true,
+  });
+  check(!okc.error && okc.data === true, `在籍している人のぶんは確かめられる（${okc.error?.message ?? "ok"}）`);
+  const after = await heldFor(db, U2);
+  check(!!after.find((h) => h.id === sling.id)?.confirmedAt, "確認済みの日が入る");
+
+  /* よその会社は押せない。押せると、自己申告に勝手な裏書きが付く */
+  const other = "aaaaaaaa-0000-0000-0000-0000000000c4";
+  await raw.query("delete from public.companies where id = $1", [other]);
+  await raw.query(
+    "insert into public.companies (id, name, join_code) values ($1, 'よその会社', 'XXXX7654')",
+    [other],
+  );
+  const ngc = await db.rpc("confirm_qual", {
+    p_id: sling.id, p_company: other, p_admin: U1, p_on: true,
+  });
+  check(!!ngc.error, "在籍していない会社は確かめられない");
+  await raw.query("delete from public.companies where id = $1", [other]);
+
+  /* 中身を書き換えたら、確かめた印は落ちる。
+     確かめたのは「そのとき見せられた紙」なので、書き換えたら確かめ直す */
+  await add(U2, "sk-sling", { issuer: "書き換えた", got: "2024-07-01" });
+  const redo = await heldFor(db, U2);
+  check(
+    redo.find((h) => h.id === sling.id)?.confirmedAt === null,
+    "中身を直すと、確認済みは落ちる",
+  );
+
+  /* ── 外す ── */
+  const drop = await db.rpc("drop_qual", { p_user: U2, p_id: sling.id });
+  check(!drop.error, `自分のぶんは外せる（${drop.error?.message ?? "ok"}）`);
+  check((await heldFor(db, U2)).length === 1, "外れた（その他だけ残る）");
+
+  /* よその人のぶんは外せない。id を書き換えても消えない */
+  const mine2 = await heldFor(db, U2);
+  await db.rpc("drop_qual", { p_user: U3, p_id: mine2[0].id });
+  check((await heldFor(db, U2)).length === 1, "よその人のぶんは外せない");
+
+  /* ── まとめて引く（名簿はこちらを使う）── */
+  await add(U3, "se-harness", { issuer: "教習所" });
+  const many = await heldForMany(db, [U2, U3, ORPHAN]);
+  check(many.get(U2)?.length === 1, `まとめて引ける・U2（${many.get(U2)?.length}）`);
+  check(many.get(U3)?.length === 1, `まとめて引ける・U3（${many.get(U3)?.length}）`);
+  check(!many.has(ORPHAN), "持っていない人は入らない");
+  check(
+    (await heldForMany(db, [])).size === 0,
+    "誰も居なければ引きに行かない",
+  );
+
+  await raw.query("delete from public.held_quals where user_id = any($1::uuid[])", [PEOPLE]);
 }
 
 /* ②-5 元帳は事業者ごとに分かれている。

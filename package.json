@@ -22,6 +22,7 @@
     "test:envusage": "tsx tests/env-usage.mts",
     "test:admindb": "tsx tests/admin-db.mts",
     "test:apishape": "tsx tests/api-shape.mts",
+    "test:quals": "tsx tests/quals.ts",
     "test:record": "tsx tests/record.ts",
     "test:authgate": "tsx tests/auth-gate.ts",
     "test:cert": "tsx tests/cert.ts",

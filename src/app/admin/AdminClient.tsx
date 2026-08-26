@@ -484,6 +484,11 @@ export function AdminClient() {
                 await load(courseId);
               setBusy(null);
             }}
+            onConfirm={async (heldId, on) => {
+              setBusy(r.userId);
+              if (await post("/api/admin/qual", { heldId, on })) await load(courseId);
+              setBusy(null);
+            }}
             onRole={async () => {
               setBusy(r.userId);
               if (await post("/api/admin/role", { userId: r.userId, admin: !r.admin }))

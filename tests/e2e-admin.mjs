@@ -63,6 +63,8 @@ for (const [url, body] of [
   ["/api/owner/ledger", null],
   /* 事業者ぶんの元帳。担当者でなければ出さない */
   ["/api/admin/past", null],
+  /* よそで取った資格の「確認済み」。担当者以外が押せると、印の意味が無くなる */
+  ["/api/admin/qual", { heldId: "00000000-0000-0000-0000-000000000000", on: true }],
   ["/api/owner/orders", null],
 ]) {
   const r = await page.evaluate(

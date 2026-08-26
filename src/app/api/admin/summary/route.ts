@@ -3,6 +3,7 @@ import { getServiceClient } from "@/lib/supabase/server";
 import { canCreateCompany, currentAdmin } from "@/lib/admin";
 import { currentUser } from "@/lib/supabase/session";
 import { buildRoster, mergePeople, peopleTotals } from "@/training/roster";
+import { heldForMany } from "@/lib/quals";
 import { seatCounts } from "@/lib/seats";
 import { findCourse, readyCourses } from "@/content/courses";
 import { getLessonList } from "@/lib/curriculum";
@@ -235,7 +236,13 @@ export async function GET(req: NextRequest) {
      いま働いていない人が毎日の名簿に並んでいても、担当者の邪魔になる。
      記録そのものは消していない。教育を行ったのはこの仕組みなので、
      退職者ぶんも含めた元帳は、担当者の画面の下と本部の画面から出せる */
-  const rows = mergePeople(parts).filter((r) => !r.left);
+  const rows0 = mergePeople(parts).filter((r) => !r.left);
+
+  /* よそで取った資格（自己申告）。この仕組みの記録ではないが、
+     担当者が「誰を現場に出せるか」を見るのに要る。
+     まとめて引く。人ごとに引くと、名簿の人数だけ問い合わせが増える */
+  const held = await heldForMany(supabase, rows0.map((r) => r.userId));
+  const rows = rows0.map((r) => ({ ...r, held: held.get(r.userId) ?? [] }));
 
   return NextResponse.json({ ...base, rows, totals: peopleTotals(rows) });
 }

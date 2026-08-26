@@ -312,6 +312,37 @@ const E = (id: string, user: string) => ({ id, user_id: user });
   eq(peopleTotals(people).waiting, 1, "未発行の数が出る");
 }
 
+/* ── よそで取った資格 ──
+   この仕組みの外で取ったものも「持っている資格」。
+   担当者が見たいのは「この人を現場に出せるか」で、出どころは関係ない */
+{
+  const C1 = { id: "ashiba", short: "足場", name: "足場の組立て等" };
+  const rows = buildRoster(base({
+    users: [U("u1", "持っている"), U("u2", "何も無い")],
+    enrollments: [E("e1", "u1"), E("e2", "u2")],
+    progress: [P("e1", "L1", 60, null), P("e2", "L1", 60, null)],
+  }));
+  const people = mergePeople([{ course: C1, rows }]);
+  eq(people.every((p) => Array.isArray(p.held)), true, "入れ物は必ずある（返す側で足す）");
+  eq(people[0].held.length, 0, "はじめは空");
+
+  /* 返す側（/api/admin/summary）が足したあとの形で数える */
+  const withHeld = people.map((p) =>
+    p.name === "持っている"
+      ? {
+          ...p,
+          held: [{
+            id: "h1", name: "玉掛け（つり上げ荷重1t以上）", kind: "技能講習",
+            issuer: "前の会社", gotOn: "2024-05-01", certNo: "", confirmedAt: null,
+          }],
+        }
+      : p,
+  );
+  const t = peopleTotals(withHeld);
+  eq(t.issued, 1, "よそで取った資格も、資格を持っている人に数える");
+  eq(t.people, 2, "受講者の数は変わらない");
+}
+
 console.log("\n── まとめ ──");
 console.log(`${ok} 件通過 / ${ng} 件失敗`);
 if (ng) process.exit(1);

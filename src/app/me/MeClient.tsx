@@ -8,6 +8,8 @@ import { dur } from "@/components/ui/format";
 import { getBrowserClient } from "@/lib/supabase/browser";
 import { claimDevice, wipeDevice } from "@/lib/device";
 
+import { HeldQuals } from "./HeldQuals";
+
 /* マイページ。受講者が自分のことを見る所。
 
    ・氏名と生年月日 … 修了証に載る。ここで直せる
@@ -348,6 +350,9 @@ export function MeClient() {
           ))}
         </div>
       </div>
+
+      {/* よそで取った資格。この仕組みの外で取ったもの */}
+      <HeldQuals />
 
       {st.admin && (
         <Link
