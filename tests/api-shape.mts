@@ -152,6 +152,20 @@ console.log("── 担当者が触れる範囲 ──");
   }
 }
 
+console.log("── 修了試験の合言葉 ──");
+{
+  /* 仮の合言葉は、このまま公開の置き場に載っている（誰でも読める）。
+     本番でそれを使うと、受けていない人でも合格の札を作れてしまう */
+  const src = read("src/app/api/exam/route.ts");
+  check(/DEV_SECRET/.test(src), "仮の合言葉に名前が付いている");
+  check(/process\.env\.VERCEL/.test(src), "本番かどうかを見ている");
+  check(/UNSAFE/.test(src), "本番で仮の合言葉なら、印を立てる");
+  /* 出すのも採点も、両方止める。片方だけだと素通りする */
+  const stops = (src.match(/if \(UNSAFE\) return unsafe\(\);/g) ?? []).length;
+  check(stops === 2, `出題と採点の両方で止める（いま ${stops}か所）`);
+  check(/503/.test(src), "止めるときは、理由の分かる断り方をする");
+}
+
 console.log("── データベースの版 ──");
 {
   /* 手で書いていたら 0010 のまま止まっていて、

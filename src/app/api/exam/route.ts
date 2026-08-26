@@ -12,14 +12,41 @@ import { canLearn } from "@/lib/entitle";
           Supabase があれば exams へ記録（attempt はサーバ側で採番）。
    正解・採点をクライアントに置かないための作り。 */
 
-const SECRET = process.env.EXAM_SECRET ?? "dev-only-exam-secret";
+/* 出題の並びを固定する合言葉。
+
+   これが漏れると、合格した形の札を自分で作れてしまう。
+   受けていない人に修了証が出る、ということ。
+
+   手元で動かすときだけ、仮のものを使う。
+   仮のものは、このまま公開の置き場に載っている（誰でも読める）ので、
+   **本番で使ってはいけない**。決めていなければ、試験そのものを止める。
+   「動くけれど守れていない」より、「動かないので気づく」ほうがよい。 */
+const DEV_SECRET = "dev-only-exam-secret";
+const SECRET = process.env.EXAM_SECRET ?? DEV_SECRET;
+/* Vercel の上にいるか（Vercel が自動で入れる） */
+const LIVE = !!process.env.VERCEL;
+const UNSAFE = LIVE && SECRET === DEV_SECRET;
+
 const TOKEN_TTL_MS = 2 * 60 * 60 * 1000; // 2時間
 
 function sign(payload: string): string {
   return createHmac("sha256", SECRET).update(payload).digest("base64url");
 }
 
+/** 合言葉を決めていない本番。試験を出さない・採点しない */
+const unsafe = () =>
+  NextResponse.json(
+    {
+      error:
+        "修了試験の合言葉（EXAM_SECRET）が決まっていません。" +
+        "このままでは、受けていない人でも合格の札を作れてしまいます。" +
+        "Vercel の環境変数に EXAM_SECRET を入れてください。",
+    },
+    { status: 503 },
+  );
+
 export async function GET(req: NextRequest) {
+  if (UNSAFE) return unsafe();
   const courseId = req.nextUrl.searchParams.get("courseId") ?? "";
   /* 出題も売り物のうち。受講コードの無い人には出さない */
   const may = await canLearn();
@@ -43,6 +70,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  if (UNSAFE) return unsafe();
   const body = await req.json().catch(() => null);
   const token = typeof body?.token === "string" ? body.token : null;
   const answers = Array.isArray(body?.answers) ? (body.answers as unknown[]) : null;

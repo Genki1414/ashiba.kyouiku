@@ -204,7 +204,8 @@ export function SetupClient() {
                 <div className="mb-2 text-[11px] tracking-[2px] text-dim">売るための設定</div>
                 {(
                   [
-                    ["運営のメール（OWNER_EMAILS）", h.sell.owners ? `${h.sell.owners}人` : "未設定", h.sell.owners > 0, true],
+                    ["修了試験の合言葉（EXAM_SECRET）", h.env?.examSecret ? "設定済み" : "未設定（本番では試験が止まります）", !!h.env?.examSecret, true],
+                    ["本部のメール（OWNER_EMAILS）", h.sell.owners ? `${h.sell.owners}人` : "未設定", h.sell.owners > 0, true],
                     ["単価（SEAT_UNIT_PRICE）", h.sell.unitPrice ? "設定済み" : "未設定（仮の値）", h.sell.unitPrice, true],
                     ["本番のURL（SITE_URL / NEXT_PUBLIC_SITE_URL）", h.sell.siteUrl ? "設定済み" : "未設定（配信ごとの住所を使う）", h.sell.siteUrl, true],
                     ["特商法の表記", h.sell.sellerMissing.length ? `${h.sell.sellerMissing.join("・")}が空` : "そろっている", h.sell.sellerMissing.length === 0, true],
