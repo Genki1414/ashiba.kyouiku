@@ -78,30 +78,31 @@ export async function companyRecords(
     ...memberships.map((m) => m.user_id as string),
     ...enrolls.map((e) => e.user_id as string),
   ])];
-  const { data: us } = ids.length
-    ? await supabase.from("users").select("id, name, email").in("id", ids)
-    : { data: [] as Row[] };
-  const users = (us ?? []) as Row[];
-
   const eids = enrolls.map((e) => e.id as string);
   const grab = async (table: string, cols: string) => {
     if (!eids.length) return [] as Row[];
     const { data } = await supabase.from(table).select(cols).in("enrollment_id", eids);
     return (data ?? []) as unknown as Row[];
   };
-  const [progress, exams, certs] = await Promise.all([
-    grab("progress", "enrollment_id, lesson_id, watched_sec, quiz_passed_at"),
-    grab("exams", "enrollment_id, score, total, passed, created_at"),
-    grab("certificates", "enrollment_id, cert_no, issued_at, revoked_at"),
-  ]);
-
   /* どの受講コードで受けたかは、後から問われる */
   const seatIds = [...new Set(
     enrolls.map((e) => e.seat_id as string | null).filter(Boolean),
   )] as string[];
-  const { data: seats } = seatIds.length
-    ? await supabase.from("seats").select("id, code").in("id", seatIds)
-    : { data: [] as Row[] };
+
+  /* ここから先はどれも、上で引いたものから決まる。まとめて聞く。
+     順に待つと、事業者を1つ開くだけで5往復する */
+  const [{ data: us }, progress, exams, certs, { data: seats }] = await Promise.all([
+    ids.length
+      ? supabase.from("users").select("id, name, email").in("id", ids)
+      : Promise.resolve({ data: [] as Row[] }),
+    grab("progress", "enrollment_id, lesson_id, watched_sec, quiz_passed_at"),
+    grab("exams", "enrollment_id, score, total, passed, created_at"),
+    grab("certificates", "enrollment_id, cert_no, issued_at, revoked_at"),
+    seatIds.length
+      ? supabase.from("seats").select("id, code").in("id", seatIds)
+      : Promise.resolve({ data: [] as Row[] }),
+  ]);
+  const users = (us ?? []) as Row[];
   const codeOf = new Map((seats ?? []).map((s) => [s.id as string, (s.code as string) ?? ""]));
 
   const uName = new Map(users.map((u) => [u.id as string, (u.name as string) ?? ""]));

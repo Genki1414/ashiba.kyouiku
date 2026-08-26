@@ -37,11 +37,9 @@ export async function GET() {
   if (!supabase || !user) {
     return NextResponse.json({ ok: false, reason: "ログインが要ります。" }, { status: 403 });
   }
-  return NextResponse.json({
-    ok: true,
-    held: await heldFor(supabase, user.id),
-    mine: await minted(supabase, user.id),
-  });
+  /* 2つとも自分のぶん。順に待つ理由がないので、まとめて聞く */
+  const [held, mine] = await Promise.all([heldFor(supabase, user.id), minted(supabase, user.id)]);
+  return NextResponse.json({ ok: true, held, mine });
 }
 
 /* この仕組みで取ったもの。取り消していない修了証だけ。
@@ -97,11 +95,8 @@ export async function POST(req: NextRequest) {
     /* 自分のぶんだけ消える（drop_qual が user_id で絞っている） */
     const { error } = await supabase.rpc("drop_qual", { p_user: user.id, p_id: id });
     if (error) return NextResponse.json({ ok: false, reason: error.message }, { status: 500 });
-    return NextResponse.json({
-      ok: true,
-      held: await heldFor(supabase, user.id),
-      mine: await minted(supabase, user.id),
-    });
+    const [held, mine] = await Promise.all([heldFor(supabase, user.id), minted(supabase, user.id)]);
+    return NextResponse.json({ ok: true, held, mine });
   }
 
   /* まとめて足せる。同じ教習機関で同じ日に何枚も取ることが多い。
@@ -161,10 +156,6 @@ export async function POST(req: NextRequest) {
       );
     }
   }
-  return NextResponse.json({
-    ok: true,
-    added: ids.length,
-    held: await heldFor(supabase, user.id),
-    mine: await minted(supabase, user.id),
-  });
+  const [held, mine] = await Promise.all([heldFor(supabase, user.id), minted(supabase, user.id)]);
+  return NextResponse.json({ ok: true, added: ids.length, held, mine });
 }

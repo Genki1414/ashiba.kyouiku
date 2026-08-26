@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { Loading } from "@/components/Loading";
 import { Btn } from "@/components/ui/Btn";
 import { Bar } from "@/components/ui/Bar";
 import { dur } from "@/components/ui/format";
@@ -143,7 +144,9 @@ export function MeClient() {
       </main>
     );
   }
-  if (!st) return null;
+  /* 読み終わるまで真っ暗にしない。押したのに何も出ないと、
+     同じ待ち時間でもずっと遅く感じる */
+  if (!st) return <Loading title="マイページ" back="/" rows={4} />;
 
   return (
     <main className="px-5 py-8 pb-12" data-testid="me">

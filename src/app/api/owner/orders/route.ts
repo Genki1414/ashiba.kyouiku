@@ -43,12 +43,19 @@ export async function GET() {
     .limit(200);
 
   const ids = [...new Set((orders ?? []).map((o) => o.company_id as string))];
-  const { data: cos } = ids.length
-    ? await supabase.from("companies").select("id, name, trial").in("id", ids)
-    : { data: [] };
-  const nameOf = new Map((cos ?? []).map((c) => [c.id as string, c.name as string]));
+  const orderIds = (orders ?? []).map((o) => o.id as string);
 
-  const { data: seats } = await supabase.from("seats").select("order_id, used_by");
+  /* 会社の名前と席は、どちらも注文から引ける。まとめて聞く。
+     席は注文で絞る。絞らないと、売れば売るほど全件を読むことになる */
+  const [{ data: cos }, { data: seats }] = await Promise.all([
+    ids.length
+      ? supabase.from("companies").select("id, name, trial").in("id", ids)
+      : Promise.resolve({ data: [] as Record<string, unknown>[] }),
+    orderIds.length
+      ? supabase.from("seats").select("order_id, used_by").in("order_id", orderIds)
+      : Promise.resolve({ data: [] as Record<string, unknown>[] }),
+  ]);
+  const nameOf = new Map((cos ?? []).map((c) => [c.id as string, c.name as string]));
   const used = new Map<string, { total: number; used: number }>();
   for (const s of seats ?? []) {
     const k = s.order_id as string;

@@ -2,7 +2,7 @@
 
    売り物なので、
    ・担当者でない人が申し込めないか
-   ・運営でない人が入金を立てられないか
+   ・本部でない人が入金を立てられないか
    ・Stripe の知らせが、署名なしで通らないか
    を、画面の出し分けではなく API の断り方で見る。
    実行: npm run dev -- -p 3100 のあと node tests/e2e-order.mjs */
@@ -97,13 +97,15 @@ if (orderForm) {
   console.log("OK: 受講コードの文字が出る");
 }
 
-/* ── 運営の画面 ── */
+/* ── 本部の画面 ── */
 await page.goto(`${BASE}/owner`);
 await dismiss();
-await page.waitForSelector("text=運営", { timeout: 8000 });
+await page.waitForSelector("text=本部の画面", { timeout: 8000 });
+/* 読んでいるあいだは枠だけ。状態を言い切るのは読み終わってから */
+await page.getByTestId("loading").waitFor({ state: "detached", timeout: 15000 }).catch(() => {});
 const ownerNg = await page.getByTestId("owner-ng").count();
 const ownerList = await page.getByTestId("owner-totals").count();
-check(ownerNg + ownerList === 1, `運営の画面も、どちらか片方（${ownerNg}/${ownerList}）`);
+check(ownerNg + ownerList === 1, `本部の画面も、どちらか片方（${ownerNg}/${ownerList}）`);
 await page.screenshot({ path: `${SC}/order-02-owner.png` });
 
 /* ── API の断り方 ── */

@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { Loading } from "@/components/Loading";
+import { keep, recall } from "@/lib/remember";
 import { Btn } from "@/components/ui/Btn";
 import type { PersonRow } from "@/training/roster";
 import { LearnerCard } from "./LearnerCard";
@@ -65,6 +67,8 @@ const day = (iso: string | null) => {
 
 export function AdminClient() {
   const [st, setSt] = useState<Loaded | null>(null);
+  /* 古いものを出しているあいだ。黙って古いものを見せない */
+  const [stale, setStale] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [note, setNote] = useState<string>("");
   const [company, setCompany] = useState("");
@@ -78,7 +82,7 @@ export function AdminClient() {
       const res = await fetch(`/api/admin/summary${q}`, { cache: "no-store" });
       const j = await res.json();
       if (res.ok && j.ok) {
-        setSt({
+        const fresh: Loaded = {
           kind: "ok",
           company: j.company ?? "",
           joinCode: j.joinCode ?? "",
@@ -91,22 +95,39 @@ export function AdminClient() {
           rejected: j.rejected ?? [],
           member: j.member ?? { active: 0, waiting: 0, gone: 0 },
           quals: j.quals ?? [],
-        });
+        };
+        setSt(fresh);
+        setStale(false);
+        /* 次に開いたとき、待たずに出せるように覚えておく */
+        keep("admin", fresh);
         setCompany(j.company ?? "");
         if (j.course?.id) setCourseId(j.course.id as string);
         return;
       }
+      setStale(false);
       if (j.canSetup) {
         setSt({ kind: "setup", reason: j.reason ?? "" });
         return;
       }
       setSt({ kind: "ng", reason: j.reason ?? "開けません。", signIn: j.signedIn === false });
     } catch {
-      setSt({ kind: "ng", reason: "つながりません。電波の届く所でもう一度開いてください。" });
+      /* 圏外。覚えているものがあれば、それを出したままにする
+         （出しっぱなしでも「古い」と画面に書いてある） */
+      setSt((was) => was ?? { kind: "ng", reason: "つながりません。電波の届く所でもう一度開いてください。" });
     }
   }, []);
 
   useEffect(() => {
+    /* 前に見た名簿を、まず出す。押した先が真っ白にならない。
+       進み具合はそのあいだに変わっているかもしれないので、
+       出しているあいだは画面に「読み直しています」と書く */
+    const seen = recall<Loaded>("admin");
+    if (seen?.kind === "ok") {
+      setSt(seen);
+      setStale(true);
+      setCompany(seen.company);
+      if (seen.course?.id) setCourseId(seen.course.id);
+    }
     void load();
   }, [load]);
 
@@ -122,7 +143,9 @@ export function AdminClient() {
     return !!j.ok;
   };
 
-  if (!st) return null;
+  /* 読み終わるまで真っ暗にしない。押したのに何も出ないと、
+     同じ待ち時間でもずっと遅く感じる */
+  if (!st) return <Loading title="教育担当者の画面" back="/" rows={4} />;
 
   /* ── まだ担当者が決まっていない ── */
   if (st.kind === "setup") {
@@ -506,6 +529,12 @@ export function AdminClient() {
           </button>
         </div>
       </div>
+
+      {stale && (
+        <div className="mx-5 mt-2 text-[11px] text-dim2" data-testid="admin-stale">
+          前に見たものを出しています。読み直しています…
+        </div>
+      )}
 
       {note && <div className="mx-5 mt-3 text-[12px] text-red">{note}</div>}
 

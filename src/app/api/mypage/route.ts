@@ -21,23 +21,52 @@ export async function GET() {
     return NextResponse.json({ ok: false, reason: "ログインが要ります。" }, { status: 403 });
   }
 
-  const { data: me } = await supabase
-    .from("users")
-    .select("name, email, birth_date, role, company_id")
-    .eq("id", user.id)
-    .maybeSingle();
+  /* 聞ける順にまとめて聞く。上から順に await すると、
+     マイページを開くだけで Supabase まで5〜6往復する */
+  const [{ data: me }, { data: mem }, { data: ens }] = await Promise.all([
+    supabase
+      .from("users")
+      .select("name, email, birth_date, role, company_id")
+      .eq("id", user.id)
+      .maybeSingle(),
+    /* 所属。許可が下りていなければ「許可待ち」 */
+    supabase
+      .from("memberships")
+      .select("company_id, approved_at")
+      .eq("user_id", user.id)
+      .is("left_at", null),
+    /* 講座ごとの進み具合。開いている受講だけを見る（取り消したものは数えない） */
+    supabase
+      .from("enrollments")
+      .select("id, course_id, seat_id")
+      .eq("user_id", user.id)
+      .is("closed_at", null),
+  ]);
 
-  /* 所属。許可が下りていなければ「許可待ち」 */
-  const { data: mem } = await supabase
-    .from("memberships")
-    .select("company_id, approved_at")
-    .eq("user_id", user.id)
-    .is("left_at", null);
   const rows = mem ?? [];
   const ids = rows.map((m) => m.company_id as string);
-  const { data: cos } = ids.length
-    ? await supabase.from("companies").select("id, name").in("id", ids)
-    : { data: [] as { id: string; name: string }[] };
+  const eids = (ens ?? []).map((e) => e.id as string);
+
+  const [{ data: cos }, { data: prog }, { data: certs }, { data: exams }] = await Promise.all([
+    ids.length
+      ? supabase.from("companies").select("id, name").in("id", ids)
+      : Promise.resolve({ data: [] as { id: string; name: string }[] }),
+    eids.length
+      ? supabase
+          .from("progress")
+          .select("enrollment_id, lesson_id, watched_sec, quiz_passed_at")
+          .in("enrollment_id", eids)
+      : Promise.resolve({ data: [] as Record<string, unknown>[] }),
+    eids.length
+      ? supabase
+          .from("certificates")
+          .select("enrollment_id, cert_no, issued_at, revoked_at")
+          .in("enrollment_id", eids)
+      : Promise.resolve({ data: [] as Record<string, unknown>[] }),
+    eids.length
+      ? supabase.from("exams").select("enrollment_id, passed").in("enrollment_id", eids)
+      : Promise.resolve({ data: [] as Record<string, unknown>[] }),
+  ]);
   const nameOf = new Map((cos ?? []).map((c) => [c.id as string, c.name as string]));
   const joined = rows.find((m) => m.approved_at);
   const member = joined
@@ -54,22 +83,6 @@ export async function GET() {
           })),
         }
       : { state: "none" as const };
-
-  /* 講座ごとの進み具合。開いている受講だけを見る（取り消したものは数えない） */
-  const { data: ens } = await supabase
-    .from("enrollments")
-    .select("id, course_id, seat_id")
-    .eq("user_id", user.id)
-    .is("closed_at", null);
-  const eids = (ens ?? []).map((e) => e.id as string);
-
-  const [{ data: prog }, { data: certs }, { data: exams }] = eids.length
-    ? await Promise.all([
-        supabase.from("progress").select("enrollment_id, lesson_id, watched_sec, quiz_passed_at").in("enrollment_id", eids),
-        supabase.from("certificates").select("enrollment_id, cert_no, issued_at, revoked_at").in("enrollment_id", eids),
-        supabase.from("exams").select("enrollment_id, passed").in("enrollment_id", eids),
-      ])
-    : [{ data: [] }, { data: [] }, { data: [] }];
 
   const learning = [];
   for (const c of readyCourses()) {

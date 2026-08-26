@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { Loading } from "@/components/Loading";
 import { Btn } from "@/components/ui/Btn";
 import { yen } from "@/lib/pricing";
 import { LedgerClient } from "./LedgerClient";
@@ -95,7 +96,9 @@ export function OwnerClient() {
       </main>
     );
   }
-  if (!orders) return null;
+  /* 読み終わるまで真っ暗にしない。押したのに何も出ないと、
+     同じ待ち時間でもずっと遅く感じる */
+  if (!orders) return <Loading title="本部の画面" back="/" rows={4} />;
 
   const waiting = orders.filter((o) => o.status === "pending" && o.method === "invoice");
   const sold = orders.filter((o) => o.status === "paid");

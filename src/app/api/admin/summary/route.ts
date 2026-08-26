@@ -51,16 +51,40 @@ export async function GET(req: NextRequest) {
   /* 画面の切り替え用に、受けられる講座を一緒に返す */
   const courses = readyCourses().map((c) => ({ id: c.id, short: c.short, name: c.name }));
 
-  /* 受講コード（席）の残り。買った数が足りているかを担当者に見せる */
-  const { data: myOrders } = await supabase
-    .from("orders")
-    .select("id, status")
-    .eq("company_id", admin.companyId)
-    .eq("course_id", course.id);
-  const paidIds = (myOrders ?? []).filter((o) => o.status === "paid").map((o) => o.id as string);
+  /* ── ここから先は、聞ける順にまとめて聞く ──
+     素直に上から順に await すると、Supabase まで18往復する。
+     東京から100msでも2秒近く待たされる。担当者は毎日開くので、
+     そこが「名簿が遅い」になる。
+
+     ・在籍は4回に分けて引いていた（在籍・申し込み・断った・内訳）。
+       会社ぶんを1回引いて、こちらで分ける
+     ・受講も、人を決めてから引き直していた。
+       会社で絞れば人は要らないので、先に引ける
+     ・席は、注文ぜんぶで1回引いて、入金済みかどうかで分ける */
+  const since30 = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+
+  const [{ data: myOrders }, { data: mems }, { data: past }, { data: openEnroll }] =
+    await Promise.all([
+      supabase
+        .from("orders")
+        .select("id, status")
+        .eq("company_id", admin.companyId)
+        .eq("course_id", course.id),
+      supabase
+        .from("memberships")
+        .select("user_id, requested_at, approved_at, left_at")
+        .eq("company_id", admin.companyId),
+      supabase.from("enrollments").select("user_id").eq("company_id", admin.companyId),
+      supabase
+        .from("enrollments")
+        .select("id, user_id, course_id")
+        .eq("company_id", admin.companyId)
+        .is("closed_at", null),
+    ]);
+
+  const memberships = mems ?? [];
+  const paidIds = new Set((myOrders ?? []).filter((o) => o.status === "paid").map((o) => o.id as string));
   const orderIds = (myOrders ?? []).map((o) => o.id as string);
-  const seats = await seatCounts(supabase, orderIds);
-  const paidSeats = await seatCounts(supabase, paidIds);
 
   /* 名簿に出す人は2通り。
      ① いま在籍している人
@@ -69,92 +93,101 @@ export async function GET(req: NextRequest) {
 
      在籍かどうかは「許可が下りていて、まだ抜けていない」で見る。
      left_at だけで見ると、**まだ許可していない申し込みまで在籍になる**。 */
-  const { data: active } = await supabase
-    .from("memberships")
-    .select("user_id")
-    .eq("company_id", admin.companyId)
-    .not("approved_at", "is", null)
-    .is("left_at", null);
-  const activeIds = new Set((active ?? []).map((m) => m.user_id as string));
-
+  const activeIds = new Set(
+    memberships.filter((m) => m.approved_at && !m.left_at).map((m) => m.user_id as string),
+  );
   /* 参加の申し込み（まだ許可していない）。担当者がやることなので、先に返す */
-  const { data: waiting } = await supabase
-    .from("memberships")
-    .select("user_id, requested_at")
-    .eq("company_id", admin.companyId)
-    .is("approved_at", null)
-    .is("left_at", null);
-  const wantIds = (waiting ?? []).map((m) => m.user_id as string);
-  const { data: wantUsers } = wantIds.length
-    ? await supabase.from("users").select("id, name, email").in("id", wantIds)
-    : { data: [] as { id: string; name: string; email: string | null }[] };
-  const askedAt = new Map((waiting ?? []).map((m) => [m.user_id as string, m.requested_at as string]));
-  const requests = (wantUsers ?? []).map((u) => ({
-    userId: u.id as string,
-    name: (u.name as string) ?? "",
-    email: (u.email as string) ?? null,
-    at: askedAt.get(u.id as string) ?? null,
-  }));
-
+  const waiting = memberships.filter((m) => !m.approved_at && !m.left_at);
+  const wantIds = waiting.map((m) => m.user_id as string);
   /* 断った（または間違って閉じた）申し込み。
      押し間違いで消えたまま戻せないと、担当者はどうにもできない。
-     近いものだけ出して、やり直せるようにする */
-  const since30 = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-  const { data: refused } = await supabase
-    .from("memberships")
-    .select("user_id, left_at")
-    .eq("company_id", admin.companyId)
-    .is("approved_at", null)
-    .gte("left_at", since30);
-  /* いま申し込み直している人と、もう在籍している人は出さない。
+     近いものだけ出して、やり直せるようにする。
+     いま申し込み直している人と、もう在籍している人は出さない。
      出すと、同じ人が「参加の申し込み」と「断った申し込み」の
      両方に並んで、二人居るように見える */
-  const refIds = [...new Set((refused ?? []).map((m) => m.user_id as string))]
+  const refused = memberships.filter(
+    (m) => !m.approved_at && m.left_at && `${m.left_at}` >= since30,
+  );
+  const refIds = [...new Set(refused.map((m) => m.user_id as string))]
     .filter((id) => !wantIds.includes(id) && !activeIds.has(id));
-  const { data: refUsers } = refIds.length
-    ? await supabase.from("users").select("id, name, email").in("id", refIds)
-    : { data: [] as { id: string; name: string; email: string | null }[] };
-  const refAt = new Map((refused ?? []).map((m) => [m.user_id as string, m.left_at as string]));
-  const rejected = (refUsers ?? []).map((u) => ({
-    userId: u.id as string,
-    name: (u.name as string) ?? "",
-    email: (u.email as string) ?? null,
-    at: refAt.get(u.id as string) ?? null,
-  }));
 
   /* 在籍の内訳。「申し込んだはずの人が居ない」ときに、
      どこへ行ったのかが分からないと直しようがないので出しておく */
-  const { data: memAll } = await supabase
-    .from("memberships")
-    .select("approved_at, left_at")
-    .eq("company_id", admin.companyId);
   const member = {
-    active: (memAll ?? []).filter((m) => m.approved_at && !m.left_at).length,
-    waiting: (memAll ?? []).filter((m) => !m.approved_at && !m.left_at).length,
+    active: activeIds.size,
+    waiting: waiting.length,
     /* 抜けた人と、断った申し込み */
-    gone: (memAll ?? []).filter((m) => m.left_at).length,
+    gone: memberships.filter((m) => m.left_at).length,
   };
 
-  const { data: past } = await supabase
-    .from("enrollments")
-    .select("user_id")
-    .eq("company_id", admin.companyId);
   /* 閉じた受講（取り消したもの）も、その会社と関わりがあった証なので
      名簿には出す。ただし進み具合は、開いている受講だけで見る */
   const allIds = [...new Set([...activeIds, ...(past ?? []).map((e) => e.user_id as string)])];
 
-  const { data: users0 } = allIds.length
-    ? await supabase.from("users").select("id, name, email, role").in("id", allIds)
-    : { data: [] as { id: string; name: string; email: string | null; role: string }[] };
+  /* 名前が要る人を、1回でまとめて引く。
+     申し込み・断った申し込み・名簿で、3回に分けて引いていた */
+  const needNames = [...new Set([...allIds, ...wantIds, ...refIds])];
+  const allEnroll = openEnroll ?? [];
+  const eids = allEnroll.map((e) => e.id as string);
+
+  const pick = async (table: string, cols: string): Promise<Record<string, unknown>[]> => {
+    if (!eids.length) return [];
+    const { data } = await supabase.from(table).select(cols).in("enrollment_id", eids);
+    return (data ?? []) as unknown as Record<string, unknown>[];
+  };
+
+  const [seatRows, { data: named }, progress, exams, attempts, certs] = await Promise.all([
+    orderIds.length
+      ? supabase.from("seats").select("order_id, used_by").in("order_id", orderIds)
+      : Promise.resolve({ data: [] as Record<string, unknown>[] }),
+    needNames.length
+      ? supabase.from("users").select("id, name, email, role").in("id", needNames)
+      : Promise.resolve({ data: [] as Record<string, unknown>[] }),
+    pick("progress", "enrollment_id, lesson_id, watched_sec, quiz_passed_at"),
+    pick("exams", "enrollment_id, score, total, passed, created_at"),
+    pick("training_attempts", "enrollment_id, chapter, tutorial, skill, passed, created_at"),
+    pick("certificates", "enrollment_id, cert_no, issued_at, revoked_at"),
+  ]);
+
+  /* 席は、注文ぜんぶで1回引いて、入金済みかどうかで分ける */
+  const seatList = ((seatRows as { data?: Record<string, unknown>[] }).data ?? []) as Record<string, unknown>[];
+  const seats = { total: 0, used: 0 };
+  const paidSeats = { total: 0, used: 0 };
+  for (const st of seatList) {
+    seats.total++;
+    if (st.used_by) seats.used++;
+    if (paidIds.has(st.order_id as string)) {
+      paidSeats.total++;
+      if (st.used_by) paidSeats.used++;
+    }
+  }
+
+  const byId = new Map((named ?? []).map((u) => [u.id as string, u as Record<string, unknown>]));
+  const nameRow = (id: string) => ({
+    userId: id,
+    name: (byId.get(id)?.name as string) ?? "",
+    email: (byId.get(id)?.email as string) ?? null,
+  });
+
+  const askedAt = new Map(waiting.map((m) => [m.user_id as string, m.requested_at as string]));
+  const requests = wantIds
+    .filter((id) => byId.has(id))
+    .map((id) => ({ ...nameRow(id), at: askedAt.get(id) ?? null }));
+
+  const refAt = new Map(refused.map((m) => [m.user_id as string, m.left_at as string]));
+  const rejected = refIds
+    .filter((id) => byId.has(id))
+    .map((id) => ({ ...nameRow(id), at: refAt.get(id) ?? null }));
+
   /* 申し込み中の人は「在籍」でも「退職」でもない。
      受けた記録があれば名簿には並ぶが、退職と出してはいけない */
   const pendingIds = new Set(wantIds);
-  const users = (users0 ?? []).map((u) => ({
-    ...u,
-    active: activeIds.has(u.id as string),
-    pending: pendingIds.has(u.id as string),
+  const ids = allIds.filter((id) => byId.has(id));
+  const users = ids.map((id) => ({
+    ...(byId.get(id) as Record<string, unknown>),
+    active: activeIds.has(id),
+    pending: pendingIds.has(id),
   }));
-  const ids = users.map((u) => u.id as string);
 
   /* 画面に出すものは、名簿が空でも埋まっていても同じ形で返す。
      ここを2か所に分けて書くと、片方に足した項目がもう片方から抜ける。
@@ -178,35 +211,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ...base, rows: [], totals: peopleTotals([]) });
   }
 
-  /* 受講は「この会社の席で受けたもの」に限る。
+  /* 受講は「この会社の席で受けたもの」に限る（上でまとめて引いてある）。
      よその会社で受けた記録が、こちらの名簿に出てはいけない。
-
-     講座で絞らずにまとめて引く。1人が特別教育をいくつも受けるので、
-     講座ごとに引き直すと、講座が増えるたびに問い合わせが増える */
-  const { data: enrollments } = await supabase
-    .from("enrollments")
-    .select("id, user_id, course_id")
-    .in("user_id", ids)
-    .eq("company_id", admin.companyId)
-    .is("closed_at", null);
-  const allEnroll = enrollments ?? [];
-  const eids = allEnroll.map((e) => e.id as string);
-
-  const pick = async (
-    table: string,
-    cols: string,
-  ): Promise<Record<string, unknown>[]> => {
-    if (!eids.length) return [];
-    const { data } = await supabase.from(table).select(cols).in("enrollment_id", eids);
-    return (data ?? []) as unknown as Record<string, unknown>[];
-  };
-
-  const [progress, exams, attempts, certs] = await Promise.all([
-    pick("progress", "enrollment_id, lesson_id, watched_sec, quiz_passed_at"),
-    pick("exams", "enrollment_id, score, total, passed, created_at"),
-    pick("training_attempts", "enrollment_id, chapter, tutorial, skill, passed, created_at"),
-    pick("certificates", "enrollment_id, cert_no, issued_at, revoked_at"),
-  ]);
+     講座で絞らないのは、1人が特別教育をいくつも受けるため */
   /* 取り消した修了証は「取得済み」に出さない */
   const live = certs.filter((c) => !c.revoked_at);
 

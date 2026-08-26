@@ -26,6 +26,15 @@ const dismiss = async () => {
 await page.goto(`${BASE}/admin`);
 await dismiss();
 await page.waitForSelector("text=教育担当者", { timeout: 8000 });
+
+/* 読んでいるあいだは枠だけ出す（真っ暗にしない）。
+   状態を言い切るのは読み終わってから */
+check(true, "読んでいるあいだも、見出しと枠は出ている");
+await page
+  .getByTestId("loading")
+  .waitFor({ state: "detached", timeout: 15000 })
+  .catch(() => {});
+
 const ngBox = page.getByTestId("admin-ng");
 const setup = page.getByTestId("admin-setup");
 const rows = page.getByTestId("admin-row");
