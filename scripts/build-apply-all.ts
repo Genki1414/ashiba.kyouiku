@@ -3,7 +3,7 @@
    Supabase の SQL Editor に一度貼るだけで初期化が終わるようにする。
    実行: npm run build:sql */
 
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, readdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { CurriculumSchema } from "../src/types/curriculum";
 import { COURSES } from "../src/content/courses";
@@ -97,3 +97,29 @@ select
 
 writeFileSync(path.join(root, "supabase/apply-all.sql"), out);
 console.log("OK  supabase/apply-all.sql を生成");
+
+/* ── アプリが必要とする版を書き出す ──
+   /api/health が「apply-all.sql を流したか」を見るのに使う。
+   手で書いていたら 0010 のまま止まっていて、
+   0011〜0015 を流していなくても「大丈夫」と出ていた。
+   マイグレーションを足したら、ここが自動で上がる。 */
+const last = readdirSync(path.join(root, "supabase/migrations"))
+  .filter((f) => /^\d{4}_.*\.sql$/.test(f))
+  .sort()
+  .at(-1)!;
+const need = last.slice(0, 4);
+
+writeFileSync(
+  path.join(root, "src/content/schema.ts"),
+  `/* このアプリが必要とするデータベースの版。
+
+   supabase/migrations の最後の番号。
+   **手で書かないこと**（npm run build:sql が書き出す）。
+   手で書いていたら 0010 のまま止まっていて、
+   0011〜0015 を流していない人にも「大丈夫」と出ていた。 */
+
+export const NEED_SCHEMA = ${JSON.stringify(need)};
+`,
+);
+console.log(`OK  src/content/schema.ts を生成（${need}）`);
+

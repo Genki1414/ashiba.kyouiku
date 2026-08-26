@@ -12,7 +12,7 @@
    受けているので、抜けていても 0件 として静かに出る。
    だから、書いてある字を突き合わせて見る。 */
 
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 
 let ok = 0;
 let ng = 0;
@@ -150,6 +150,39 @@ console.log("── 担当者が触れる範囲 ──");
     check(at > 0 && summary.slice(at, at + 400).includes("admin.companyId"),
       `名簿の ${t} は自社で絞る`);
   }
+}
+
+console.log("── データベースの版 ──");
+{
+  /* 手で書いていたら 0010 のまま止まっていて、
+     0011〜0015 を流していない人にも「大丈夫」と出ていた。
+     いまは npm run build:sql が書き出す */
+  const gen = read("src/content/schema.ts");
+  const m = /NEED_SCHEMA = "(\d{4})"/.exec(gen);
+  check(!!m, `必要な版が書き出されている（${m?.[1]}）`);
+
+  const dir = readdirSync(new URL("../supabase/migrations", import.meta.url));
+  const last = dir.filter((f) => /^\d{4}_.*\.sql$/.test(f)).sort().at(-1) ?? "";
+  check(m?.[1] === last.slice(0, 4), `いちばん新しいマイグレーションと合う（${m?.[1]} ／ ${last}）`);
+  check(/手で書かないこと/.test(gen), "手で書かない、と書いてある");
+
+  /* 版を上げたマイグレーションは、必ず schema_version も上げる */
+  const sql = readFileSync(new URL(`../supabase/migrations/${last}`, import.meta.url), "utf8");
+  check(
+    new RegExp(`select '${last.slice(0, 4)}'`).test(sql),
+    `${last} が schema_version を上げている`,
+  );
+
+  /* まとめたファイルにも、その版が入っている */
+  const all = read("supabase/apply-all.sql");
+  check(
+    new RegExp(`select '${last.slice(0, 4)}'`).test(all),
+    "apply-all.sql にも入っている（build:sql を流し忘れていない）",
+  );
+
+  const health = read("src/app/api/health/route.ts");
+  check(/from "@\/content\/schema"/.test(health), "つながり具合の確認は、書き出した版を見る");
+  check(!/NEED_SCHEMA = "/.test(health), "つながり具合の確認に、版を手で書いていない");
 }
 
 console.log("── 取得済みの資格 ──");

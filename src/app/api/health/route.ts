@@ -7,12 +7,12 @@ import { missingSeller } from "@/content/legal";
 import { isOwnerEmail, ownerEmails } from "@/lib/owner";
 import { canLearn } from "@/lib/entitle";
 import { readyCourses } from "@/content/courses";
+import { NEED_SCHEMA } from "@/content/schema";
+import { getLessonList } from "@/lib/curriculum";
 
 /* 接続確認。/setup 画面がこれを見て、何が足りないかを表示する。
    鍵そのものは返さない（設定されているかどうかだけ）。 */
 
-/** この版のアプリが必要とするデータベースの版（supabase/migrations の最後の番号） */
-const NEED_SCHEMA = "0010";
 
 export async function GET() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
@@ -99,13 +99,19 @@ export async function GET() {
     }
   };
 
+  /* 単元の数は、教材から数える。13で決め打つと、
+     講座を足した日に「足りない」と嘘をつく */
+  const want = (await Promise.all(readyCourses().map((c) => getLessonList(c.id))))
+    .reduce((n, ls) => n + ls.length, 0);
   await check("lessons", async () => {
     const { count, error } = await supabase
       .from("lessons")
       .select("lesson_id", { count: "exact", head: true });
     if (error) throw new Error(error.message);
-    if (count !== 13) throw new Error(`${count} 件（13件のはず）。apply-all.sql を実行してください`);
-    return "13件";
+    if (count !== want) {
+      throw new Error(`${count} 件（${want}件のはず）。apply-all.sql を実行してください`);
+    }
+    return `${want}件`;
   });
 
   await check("enrollment", async () => {

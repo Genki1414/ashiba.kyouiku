@@ -3,7 +3,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "npm run build:sql && next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "check:narration": "tsx scripts/check-narration.ts",
