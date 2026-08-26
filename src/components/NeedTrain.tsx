@@ -44,8 +44,8 @@ export function NeedTrain({ why }: { why: "free" | "signin" }) {
 
       <div className="mt-5 rounded-xl border border-line bg-panel p-4 text-[12.5px] leading-relaxed text-dim">
         <div className="mb-1 text-[11px] tracking-[2px] text-dim2">先を開くには</div>
-        会社の教育担当者に聞いてください。
-        まとめて申し込むこともできますし、自分ひとりぶんでも申し込めます。
+        自分ひとりぶんなら、下から申し込めます。会社を通さなくて構いません。
+        会社でまとめて申し込む場合は、教育担当者に聞いてください。
         <br />
         <span className="text-dim2">
           実務トレーニングは、特別教育（学科）の修了証の要件ではありません。
@@ -54,8 +54,16 @@ export function NeedTrain({ why }: { why: "free" | "signin" }) {
       </div>
 
       <Link
-        href="/training/ch1"
+        href="/train"
         className="mt-5 block rounded-lg border border-yel bg-yel p-3.5 text-center text-[14px] font-extrabold text-bg no-underline"
+        data-testid="need-train-buy"
+      >
+        自分ひとりぶんを申し込む
+      </Link>
+
+      <Link
+        href="/training/ch1"
+        className="mt-2 block rounded-lg border border-line p-3 text-center text-[12.5px] text-dim no-underline"
         data-testid="need-train-ch1"
       >
         第1章をやる

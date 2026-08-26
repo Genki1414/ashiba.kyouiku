@@ -74,6 +74,8 @@ for (const [url, body] of [
   ["/api/owner/retention", null],
   /* 実務トレーニングの利用権。本部以外が付けられると、売り物が配れてしまう */
   ["/api/owner/training", null],
+  /* 請求書。本部以外が開けると、他人の宛名と金額が見えてしまう */
+  ["/api/owner/invoice?orderId=00000000-0000-0000-0000-000000000000", null],
   ["/api/owner/training", { userId: "00000000-0000-0000-0000-000000000000" }],
   ["/api/owner/retention", { userId: "00000000-0000-0000-0000-000000000000" }],
   /* 事業者ぶんの元帳。担当者でなければ出さない */

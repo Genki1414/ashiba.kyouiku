@@ -1307,6 +1307,88 @@ console.log("── 実務トレーニングの利用権 ──");
   await raw.query("delete from public.training_access where user_id = any($1::uuid[])", [PEOPLE]);
 }
 
+/* ── 個人の注文（実務トレーニング）──
+   教育担当者を通さずに、本人が買える。
+   個人宛の請求書を出せないと、経費で落とす人が買えない */
+console.log("── 個人の注文 ──");
+{
+  await raw.query("delete from public.training_access where user_id = any($1::uuid[])", [PEOPLE]);
+  await raw.query("delete from public.orders where user_id = any($1::uuid[])", [PEOPLE]);
+
+  /* 会社のものか個人のものか、どちらか片方 */
+  const both = await raw.query(
+    `insert into public.orders (company_id, user_id, kind, seats, unit_price, amount, method)
+     values ($1, $2, 'training', 1, 3000, 3300, 'invoice')`,
+    [CO, U2],
+  ).catch((e) => e);
+  check(both instanceof Error, "会社と個人の両方は付けられない");
+
+  const none = await raw.query(
+    `insert into public.orders (kind, seats, unit_price, amount, method)
+     values ('training', 1, 3000, 3300, 'invoice')`,
+  ).catch((e) => e);
+  check(none instanceof Error, "どちらも無い注文は作れない");
+
+  /* 受講コード（席）は会社しか買えない。
+     修了証は事業者の名簿に紐づくので、個人に持たせない */
+  const soloSeat = await raw.query(
+    `insert into public.orders (user_id, kind, seats, unit_price, amount, method)
+     values ($1, 'seat', 1, 3000, 3300, 'invoice')`,
+    [U2],
+  ).catch((e) => e);
+  check(soloSeat instanceof Error, "個人は受講コードを買えない");
+
+  /* 個人の実務トレーニングの注文は作れる */
+  const made = await raw.query(
+    `insert into public.orders (user_id, kind, seats, unit_price, amount, method, bill_to, bill_addr)
+     values ($1, 'training', 1, 3000, 3300, 'invoice', '鈴木 太郎', '宮城県…')
+     returning id`,
+    [U2],
+  );
+  const oid = made.rows[0].id as string;
+  check(!!oid, "個人の注文は作れる");
+
+  /* 入金を確認すると、そのまま利用権が付く。
+     2つに分けると「払ったのに開かない」が起きる */
+  const before = await trainFor(db, U2);
+  check(!before.ok, "払う前は開かない");
+
+  const pay = await db.rpc("pay_solo_order", { p_order: oid, p_by: U1 });
+  check(!pay.error && pay.data === true, `入金を立てられる（${pay.error?.message ?? "ok"}）`);
+
+  const st = (await raw.query("select status, paid_at from public.orders where id = $1", [oid])).rows[0];
+  check(st.status === "paid", `入金済みになる（${st.status}）`);
+  check(!!st.paid_at, "入金日が入る");
+
+  const after = await trainFor(db, U2);
+  check(after.ok && after.by === "paid", `そのまま開く（${JSON.stringify(after)}）`);
+  const src = (await raw.query(
+    "select source, note from public.training_access where user_id = $1", [U2],
+  )).rows[0];
+  check(src.source === "order", `注文で付いたと分かる（${src.source}）`);
+  check(`${src.note}`.includes(oid.slice(0, 8)), `どの注文かが残る（${src.note}）`);
+
+  /* 会社の注文をこの道に流さない（席が配られなくなる） */
+  const coOrder = await raw.query(
+    `insert into public.orders (company_id, kind, seats, unit_price, amount, method)
+     values ($1, 'seat', 1, 3000, 3300, 'invoice') returning id`,
+    [CO],
+  );
+  const bad = await db.rpc("pay_solo_order", { p_order: coOrder.rows[0].id, p_by: U1 });
+  check(!!bad.error, "会社の注文は、この道では立てられない");
+
+  /* もう一度押しても、二重に付かない */
+  await db.rpc("pay_solo_order", { p_order: oid, p_by: U1 });
+  const n = (await raw.query(
+    "select count(*)::int as n from public.training_access where user_id = $1", [U2],
+  )).rows[0].n;
+  check(n === 1, `2回押しても1件（いま ${n}件）`);
+
+  await raw.query("delete from public.orders where user_id = any($1::uuid[])", [PEOPLE]);
+  await raw.query("delete from public.orders where id = $1", [coOrder.rows[0].id]);
+  await raw.query("delete from public.training_access where user_id = any($1::uuid[])", [PEOPLE]);
+}
+
 await raw.end();
 
 console.log("\n── まとめ ──");

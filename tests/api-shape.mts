@@ -171,6 +171,38 @@ console.log("── 新しく登録した人の、会社との紐付け ──")
     "受講コードの札は、在籍している人にだけ出す");
 }
 
+console.log("── 個人の申し込みと請求書 ──");
+{
+  /* 教育担当者を通さずに、本人が買える。
+     個人宛の請求書を出せないと、経費で落とす人が買えない */
+  const api = read("src/app/api/train-order/route.ts");
+  check(!/currentAdmin/.test(api), "教育担当者でなくても申し込める");
+  check(/currentUser\(\)/.test(api), "本人として申し込む");
+  check(/trainPrice\(\)/.test(api), "金額はサーバで出す");
+  check(!/b\.amount|body\.amount/.test(api), "画面から送られてきた金額は見ない");
+  /* もう使える人には売らない。二重に払わせない */
+  check(/may\.ok/.test(api), "もう開いている人には売らない");
+  /* 押すたびに注文が増えると、どれを払えばよいか分からなくなる */
+  check(/status", "pending"|eq\("status", "pending"\)/.test(api),
+    "払っていない申し込みが残っていれば、それを返す");
+  check(/bill_to/.test(api), "請求書の宛名を受け取る");
+
+  const sql = read("supabase/migrations/0018_solo.sql");
+  check(/orders_owner_one/.test(sql), "注文は、会社のものか個人のものかどちらか");
+  check(/orders_seat_is_company/.test(sql), "受講コードは会社しか買えない");
+  check(/pay_solo_order/.test(sql), "入金と利用権を、ひとつの手で立てる");
+
+  /* 入金を立てるのと利用権を付けるのを分けると、
+     片方だけ通ったときに「払ったのに開かない」が起きる */
+  const owner = read("src/app/api/owner/orders/route.ts");
+  check(/pay_solo_order/.test(owner), "個人の注文は、入金と同時に利用権が付く");
+
+  const inv = read("src/app/api/owner/invoice/route.ts");
+  check(/currentOwner\(\)/.test(inv), "請求書を出せるのは本部だけ");
+  check(/invoiceNo/.test(inv), "登録番号を載せる");
+  check(/TAX_RATE/.test(inv), "税を割り戻す（注文の金額と食い違わせない）");
+}
+
 console.log("── 会社の登録 ──");
 {
   /* 同じ会社が2つ登録されると、名簿が割れる。

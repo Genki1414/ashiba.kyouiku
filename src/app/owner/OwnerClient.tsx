@@ -27,6 +27,10 @@ type Order = {
   id: string;
   company: string;
   company_id: string;
+  /* 個人の注文か。買った人の名前が company に入る */
+  solo?: boolean;
+  buyerEmail?: string | null;
+  kind?: string;
   seats: number;
   amount: number;
   method: "card" | "invoice";
@@ -176,7 +180,14 @@ export function OwnerClient() {
         {orders.map((o) => (
           <div key={o.id} className="rounded-xl border border-line bg-panel p-4" data-testid="owner-order">
             <div className="flex items-baseline gap-2">
-              <div className="min-w-0 flex-1 truncate text-[14.5px] font-black">{o.company}</div>
+              <div className="min-w-0 flex-1 truncate text-[14.5px] font-black">
+                {o.company}
+                {o.solo && (
+                  <span className="ml-1.5 rounded border border-cyan px-1 py-0.5 text-[10px] text-cyan">
+                    個人
+                  </span>
+                )}
+              </div>
               <span
                 className={`rounded border px-1.5 py-0.5 text-[10.5px] ${
                   o.status === "paid"
@@ -190,7 +201,7 @@ export function OwnerClient() {
               </span>
             </div>
             <div className="mt-1 text-[12.5px]">
-              {o.seats}名　{yen(o.amount)}　
+              {o.kind === "training" ? "実務トレーニング" : `${o.seats}名`}　{yen(o.amount)}　
               <span className="text-dim">{o.method === "card" ? "カード" : "請求書"}</span>
             </div>
             <div className="mt-0.5 text-[11.5px] text-dim2">
@@ -202,6 +213,15 @@ export function OwnerClient() {
               {o.bill_to ? <><br />請求先 {o.bill_to}</> : null}
               {o.note ? <><br />連絡 {o.note}</> : null}
             </div>
+
+            {/* 請求書。開いて印刷するか PDF にして送る */}
+            <Link
+              href={`/owner/invoice/${o.id}`}
+              className="mt-2 block rounded-lg border border-line p-2 text-center text-[11.5px] text-dim no-underline"
+              data-testid="owner-invoice"
+            >
+              請求書を出す
+            </Link>
 
             {o.status === "pending" && (
               <div className="mt-3 grid grid-cols-2 gap-2">

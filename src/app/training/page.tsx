@@ -37,11 +37,17 @@ export default async function TrainingPage() {
             資材カタログと通し見学も同じです。
             <br />
             第2章から先（高所作業・火打とシート）は、別に申し込みが要ります。
-            会社の教育担当者に聞いてください。自分ひとりぶんでも申し込めます。
             <br />
             <span className="text-dim2">
               実務トレーニングは、特別教育（学科）の修了証の要件ではありません。
             </span>
+            <Link
+              href="/train"
+              className="mt-2.5 block rounded-lg border border-yel p-2.5 text-center text-[12.5px] font-bold text-yel no-underline"
+              data-testid="training-buy"
+            >
+              自分ひとりぶんを申し込む
+            </Link>
           </div>
         )}
 

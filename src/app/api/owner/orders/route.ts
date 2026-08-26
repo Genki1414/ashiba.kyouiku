@@ -39,24 +39,32 @@ export async function GET() {
 
   const { data: orders } = await supabase
     .from("orders")
-    .select("id, company_id, seats, unit_price, amount, method, status, due_date, paid_at, bill_to, note, created_at")
+    .select(
+      "id, company_id, user_id, kind, seats, unit_price, amount, method, status, due_date, paid_at, bill_to, bill_addr, note, created_at",
+    )
     .order("created_at", { ascending: false })
     .limit(200);
 
-  const ids = [...new Set((orders ?? []).map((o) => o.company_id as string))];
+  const ids = [...new Set((orders ?? []).map((o) => o.company_id as string).filter(Boolean))];
+  /* 個人の注文。買った人の名前を出さないと、誰に請求するのか分からない */
+  const buyers = [...new Set((orders ?? []).map((o) => o.user_id as string).filter(Boolean))];
   const orderIds = (orders ?? []).map((o) => o.id as string);
 
   /* 会社の名前と席は、どちらも注文から引ける。まとめて聞く。
      席は注文で絞る。絞らないと、売れば売るほど全件を読むことになる */
-  const [{ data: cos }, { data: seats }] = await Promise.all([
+  const [{ data: cos }, { data: seats }, { data: us }] = await Promise.all([
     ids.length
       ? supabase.from("companies").select("id, name, trial").in("id", ids)
       : Promise.resolve({ data: [] as Record<string, unknown>[] }),
     orderIds.length
       ? supabase.from("seats").select("order_id, used_by").in("order_id", orderIds)
       : Promise.resolve({ data: [] as Record<string, unknown>[] }),
+    buyers.length
+      ? supabase.from("users").select("id, name, email").in("id", buyers)
+      : Promise.resolve({ data: [] as Record<string, unknown>[] }),
   ]);
   const nameOf = new Map((cos ?? []).map((c) => [c.id as string, c.name as string]));
+  const person = new Map((us ?? []).map((u) => [u.id as string, u as Record<string, unknown>]));
   const used = new Map<string, { total: number; used: number }>();
   for (const s of seats ?? []) {
     const k = s.order_id as string;
@@ -74,7 +82,13 @@ export async function GET() {
     companies: cos ?? [],
     orders: (orders ?? []).map((o) => ({
       ...o,
-      company: nameOf.get(o.company_id as string) ?? "",
+      /* 会社の注文なら会社名、個人の注文なら買った人の名前 */
+      company:
+        nameOf.get(o.company_id as string) ??
+        (person.get(o.user_id as string)?.name as string) ??
+        "",
+      buyerEmail: (person.get(o.user_id as string)?.email as string) ?? null,
+      solo: !!o.user_id,
       seatsIssued: used.get(o.id as string)?.total ?? 0,
       seatsUsed: used.get(o.id as string)?.used ?? 0,
     })),
@@ -113,7 +127,7 @@ export async function POST(req: NextRequest) {
   }
   const { data: order } = await supabase
     .from("orders")
-    .select("id, seats, status, method")
+    .select("id, seats, status, method, kind, user_id")
     .eq("id", id)
     .maybeSingle();
   if (!order) {
@@ -134,6 +148,28 @@ export async function POST(req: NextRequest) {
 
   /* 入金を確認した（請求書払い）。カード払いは webhook が立てるので、ここでは触らない */
   if (order.status === "paid") return NextResponse.json({ ok: true, already: true });
+
+  /* 個人の注文は、入金を立てると同時に利用権が付く。
+     2つに分けると、片方だけ通ったときに
+     「払ったのに開かない」「開いているのに未入金」が起きる */
+  if (order.user_id) {
+    const { data: by } = await supabase
+      .from("users")
+      .select("id")
+      .eq("email", owner)
+      .maybeSingle();
+    const { data: done, error: soloErr } = await supabase.rpc("pay_solo_order", {
+      p_order: id,
+      p_by: (by?.id as string) ?? null,
+    });
+    if (soloErr) {
+      return NextResponse.json({ ok: false, reason: soloErr.message }, { status: 500 });
+    }
+    if (done === false) {
+      return NextResponse.json({ ok: false, reason: "その注文がありません。" }, { status: 404 });
+    }
+    return NextResponse.json({ ok: true, granted: true });
+  }
   if (order.method === "card") {
     return NextResponse.json(
       { ok: false, reason: "カード払いの入金は Stripe からの知らせで立ちます。" },

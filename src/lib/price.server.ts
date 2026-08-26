@@ -11,3 +11,9 @@ import { parseUnitPrice } from "./pricing";
    画面に金額を出すときは、サーバから単価を渡すこと（/api/order の GET）。 */
 
 export const unitPrice = (): number => parseUnitPrice(process.env.SEAT_UNIT_PRICE);
+
+/* 実務トレーニング（第2章から先）の値段。1人ぶん。
+   特別教育の席とは別の売り物なので、単価も分ける。
+   決めていなければ、席と同じ値段にしておく（0円で配らないため）。 */
+export const trainPrice = (): number =>
+  parseUnitPrice(process.env.TRAIN_UNIT_PRICE) || unitPrice();
