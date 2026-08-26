@@ -7,12 +7,14 @@ import { Btn } from "@/components/ui/Btn";
 import { yen } from "@/lib/pricing";
 import { LedgerClient } from "./LedgerClient";
 import { RetentionClient } from "./RetentionClient";
+import { TrainingClient } from "./TrainingClient";
 
 /* 本部の画面。二つある。
 
    ① 申込みと入金 … 売った先の注文を見て、請求書払いの入金を確認する
    ② 事業者と記録 … 事業者の一覧と、受講記録の元帳（辞めた人もふくむ）
-   ③ 保存期間　　 … 3年を過ぎた記録の、個人の部分を消す
+   ③ 実務　　　　 … 実務トレーニング（第2章から先）の利用権
+   ④ 保存期間　　 … 3年を過ぎた記録の、個人の部分を消す
 
    ②が要るのは、特別教育を行っているのがこの仕組みだから。
    受講の記録は3年保存する決まりで、受講した人が辞めても、
@@ -50,7 +52,7 @@ export function OwnerClient() {
   const [hint, setHint] = useState("");
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
-  const [tab, setTab] = useState<"orders" | "ledger" | "keep">("orders");
+  const [tab, setTab] = useState<"orders" | "ledger" | "train" | "keep">("orders");
   /* 請求書に載せる登録番号。書くときに毎回どこかから探すことになるので、
      入金待ちの並びのすぐ上に出しておく */
   const [invoiceNo, setInvoiceNo] = useState("");
@@ -117,10 +119,11 @@ export function OwnerClient() {
       <h1 className="mt-2 text-[18px] font-black">本部の画面</h1>
 
       {/* 申込みと入金／事業者と記録 */}
-      <div className="mt-3 flex gap-2" data-testid="owner-tabs">
+      <div className="mt-3 flex flex-wrap gap-2" data-testid="owner-tabs">
         {([
           ["orders", "申込みと入金"],
           ["ledger", "事業者と記録"],
+          ["train", "実務"],
           ["keep", "保存期間"],
         ] as const).map(([k, t]) => (
           <button
@@ -139,6 +142,7 @@ export function OwnerClient() {
       {note && <div className="mt-3 text-[12px] text-red">{note}</div>}
 
       {tab === "ledger" && <LedgerClient onNote={setNote} />}
+      {tab === "train" && <TrainingClient onNote={setNote} />}
       {tab === "keep" && <RetentionClient onNote={setNote} />}
 
       {tab === "orders" && (

@@ -18,6 +18,7 @@ import { learnFor } from "@/lib/entitleQuery";
 import { companyRecords } from "@/lib/records";
 import { heldFor, heldForMany } from "@/lib/quals";
 import { KEEP_YEARS, erasable, keepUntil } from "@/lib/retention";
+import { isFreeChapter, trainFor } from "@/lib/trainingGate";
 import { buildCheck, checkTotals } from "@/training/verifyLog";
 
 const URL = process.env.SHIM_URL ?? "http://127.0.0.1:54321";
@@ -1232,6 +1233,79 @@ console.log("── 3年たった記録 ──");
   await db.rpc("join_company", { p_user: U2, p_company: CO });
 }
 
+
+/* ── 実務トレーニングの利用権 ──
+   第1章は誰でも遊べる（試し）。第2章から先は利用権を持っている人だけ。
+   特別教育（学科）とは別の売り物。席とは分けてある */
+console.log("── 実務トレーニングの利用権 ──");
+{
+  check(isFreeChapter("ch1"), "第1章は誰でも");
+  check(!isFreeChapter("ch2"), "第2章は誰でもではない");
+  check(!isFreeChapter("ch3"), "第3章も同じ");
+
+  await raw.query("delete from public.training_access where user_id = any($1::uuid[])", [PEOPLE]);
+  await raw.query("update public.companies set trial = false where id = $1", [CO]);
+
+  /* 学科の受講コードを持っていても、実務は開かない（別の売り物） */
+  const seat = await trainFor(db, U3);
+  check(!seat.ok && seat.why === "free", `受講コードだけでは開かない（${JSON.stringify(seat)}）`);
+
+  /* 本部が付ける */
+  const g = await db.rpc("grant_training", {
+    p_user: U3, p_by: U1, p_source: "owner", p_note: "8/26 振込",
+  });
+  check(!g.error && g.data === true, `付けられる（${g.error?.message ?? "ok"}）`);
+  const paid = await trainFor(db, U3);
+  check(paid.ok && paid.by === "paid", `付ければ開く（${JSON.stringify(paid)}）`);
+
+  /* 何度押しても増えない */
+  await db.rpc("grant_training", { p_user: U3, p_by: U1, p_source: "owner", p_note: "押し直し" });
+  const n = (await raw.query(
+    "select count(*)::int as n from public.training_access where user_id = $1", [U3],
+  )).rows[0].n;
+  check(n === 1, `2回押しても1件（いま ${n}件）`);
+  const note = (await raw.query(
+    "select note from public.training_access where user_id = $1", [U3],
+  )).rows[0].note;
+  check(note === "押し直し", `覚え書きは新しい方（${note}）`);
+
+  /* 居ない人には付かない */
+  const bad = await db.rpc("grant_training", {
+    p_user: "aaaaaaaa-0000-0000-0000-0000000000ff", p_by: U1, p_source: "owner", p_note: null,
+  });
+  check(bad.data === false, "居ない人には付かない");
+
+  /* 取り消す。遊んだ記録は消さない */
+  const before = (await raw.query(
+    "select count(*)::int as n from public.training_attempts where enrollment_id = $1", [E3],
+  )).rows[0].n;
+  await db.rpc("revoke_training", { p_user: U3 });
+  const off = await trainFor(db, U3);
+  check(!off.ok, "取り消すと開かなくなる");
+  const after = (await raw.query(
+    "select count(*)::int as n from public.training_attempts where enrollment_id = $1", [E3],
+  )).rows[0].n;
+  check(after === before, `遊んだ記録は残る（${before} → ${after}）`);
+
+  /* 無償利用の事業者に在籍していれば、利用権が無くても開く */
+  await raw.query("update public.companies set trial = true where id = $1", [CO]);
+  const tri = await trainFor(db, U3);
+  check(tri.ok && tri.by === "trial", `無償利用なら開く（${JSON.stringify(tri)}）`);
+
+  /* 申し込んだだけの人は通さない。
+     会社の名前は誰でも探せるので、申し込むだけで開くと意味が無い */
+  await raw.query("delete from public.memberships where user_id = $1", [ORPHAN]);
+  await raw.query("update public.users set company_id = null where id = $1", [ORPHAN]);
+  await db.rpc("request_membership", { p_user: ORPHAN, p_company: CO });
+  const asked = await trainFor(db, ORPHAN);
+  check(!asked.ok, "無償利用の会社に申し込んだだけでは開かない");
+  await db.rpc("join_company", { p_user: ORPHAN, p_company: CO });
+  const joined = await trainFor(db, ORPHAN);
+  check(joined.ok && joined.by === "trial", "許可が下りれば開く");
+
+  await raw.query("update public.companies set trial = false where id = $1", [CO]);
+  await raw.query("delete from public.training_access where user_id = any($1::uuid[])", [PEOPLE]);
+}
 
 await raw.end();
 

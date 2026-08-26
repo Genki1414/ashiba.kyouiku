@@ -171,6 +171,43 @@ console.log("── 新しく登録した人の、会社との紐付け ──")
     "受講コードの札は、在籍している人にだけ出す");
 }
 
+console.log("── 実務トレーニングの関門 ──");
+{
+  /* 第1章は誰でも（試し）。第2章から先は利用権を持っている人だけ。
+     画面を隠すのではなく、サーバで止めて中身を作らない。
+     作ってしまうと、手順がそのまま返ってしまう */
+  for (const p of [
+    "src/app/training/ch2/page.tsx",
+    "src/app/training/ch3/page.tsx",
+    "src/app/training/demo/ch2/page.tsx",
+    "src/app/training/demo/ch3/page.tsx",
+  ]) {
+    const src = read(p);
+    check(/await canTrain\(\)/.test(src), `${p.split("/").slice(-2).join("/")} で止める`);
+    check(/NeedTrain/.test(src), `${p.split("/").slice(-2).join("/")} は理由を出す`);
+  }
+
+  /* 第1章は止めない。止めたら試しにならない */
+  const ch1 = read("src/app/training/ch1/page.tsx");
+  check(!/canTrain/.test(ch1), "第1章は止めない（誰でも遊べる）");
+
+  const gate = read("src/lib/trainingGate.ts");
+  check(/FREE_CHAPTERS = \["ch1"\]/.test(gate), "誰でも遊べるのは第1章だけ");
+  check(/training_access/.test(gate), "利用権を見る");
+  check(/approved_at/.test(gate), "無償利用は在籍で見る（申し込んだだけは通さない）");
+
+  /* 学科とは別の売り物。席では開かない */
+  check(!/seats/.test(gate), "学科の席では開かない（別の売り物）");
+
+  const api = read("src/app/api/owner/training/route.ts");
+  check(/currentOwner\(\)/.test(api), "利用権を付けられるのは本部だけ");
+  check(/revoke_training/.test(api), "取り消せる");
+
+  const sql = read("supabase/migrations/0017_train.sql");
+  check(/on conflict \(user_id\) do update/.test(sql), "何度押しても増えない");
+  check(!/delete from public\.training_attempts/.test(sql), "取り消しても、遊んだ記録は消さない");
+}
+
 console.log("── 3年たった記録 ──");
 {
   /* 決まりの記録を、気づかないうちに消してはいけない */

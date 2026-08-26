@@ -1,11 +1,19 @@
 import Link from "next/link";
 import { CHAPTERS, type ChapterId } from "@/training/chapters";
+import { canTrain, isFreeChapter } from "@/lib/training";
 import { ChapterRecord } from "@/components/training/ChapterRecord";
 import { NoteLink } from "@/components/training/NoteLink";
 
-/* 実務トレーニングの章選択（HANDOFF.md 2章の画面の流れ） */
+/* 実務トレーニングの章選択（HANDOFF.md 2章の画面の流れ）。
 
-export default function TrainingPage() {
+   第1章は誰でも遊べる（試し）。第2章から先は利用権が要る。
+   押してから断られると、何が悪いのか分からないので、
+   一覧の時点で「まだ開いていない」と分かるようにしておく。 */
+
+export default async function TrainingPage() {
+  const may = await canTrain();
+  /* 利用権を持っていない人には、第2章から先を閉じたまま出す */
+  const locked = (id: string) => !may.ok && !isFreeChapter(id);
   return (
     <main className="pb-10">
       <div className="tape" />
@@ -20,8 +28,46 @@ export default function TrainingPage() {
       </div>
 
       <div className="grid gap-2 px-5">
+        {!may.ok && (
+          <div
+            className="mb-1 rounded-xl border border-line bg-panel p-4 text-[12px] leading-relaxed text-dim"
+            data-testid="training-free"
+          >
+            <span className="text-yel">第1章は、いつでも遊べます。</span>
+            資材カタログと通し見学も同じです。
+            <br />
+            第2章から先（高所作業・火打とシート）は、別に申し込みが要ります。
+            会社の教育担当者に聞いてください。自分ひとりぶんでも申し込めます。
+            <br />
+            <span className="text-dim2">
+              実務トレーニングは、特別教育（学科）の修了証の要件ではありません。
+            </span>
+          </div>
+        )}
+
         {CHAPTERS.map((c) =>
-          c.ready ? (
+          c.ready && locked(c.id) ? (
+            <div
+              key={c.id}
+              className="rounded-xl border border-line bg-panel p-4"
+              data-testid="training-locked"
+            >
+              <div className="flex items-baseline gap-2">
+                <span className="font-mono text-[12px] text-dim2">第{c.n}章</span>
+                <span className="text-[15px] font-black text-dim">{c.t}</span>
+                <span className="ml-auto rounded border border-line px-1.5 py-0.5 text-[10px] text-dim2">
+                  まだ開いていません
+                </span>
+              </div>
+              <div className="mt-1 text-[12px] leading-relaxed text-dim2">{c.d}</div>
+              <Link
+                href={`/training/${c.id}`}
+                className="mt-3 block rounded-lg border border-line p-2.5 text-center text-[12px] text-dim no-underline"
+              >
+                開くには
+              </Link>
+            </div>
+          ) : c.ready ? (
             <div key={c.id} className="rounded-xl border border-yel bg-panel p-4">
               <div className="flex items-baseline gap-2">
                 <span className="font-mono text-[12px] text-yel">第{c.n}章</span>

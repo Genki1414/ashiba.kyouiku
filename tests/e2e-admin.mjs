@@ -72,6 +72,9 @@ for (const [url, body] of [
   ["/api/owner/ledger", null],
   /* 3年たった記録の削除。本部以外が触れると、決まりの記録が消える */
   ["/api/owner/retention", null],
+  /* 実務トレーニングの利用権。本部以外が付けられると、売り物が配れてしまう */
+  ["/api/owner/training", null],
+  ["/api/owner/training", { userId: "00000000-0000-0000-0000-000000000000" }],
   ["/api/owner/retention", { userId: "00000000-0000-0000-0000-000000000000" }],
   /* 事業者ぶんの元帳。担当者でなければ出さない */
   ["/api/admin/past", null],
