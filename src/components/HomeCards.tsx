@@ -55,7 +55,30 @@ export function HomeCards() {
     </Link>,
   );
 
-  if (me.needsJoin) {
+  /* 申し込んだが、まだ許可が下りていない。
+     ここを「会社とつなぐ」と出すと、押しても同じ画面に戻るだけで、
+     自分が進んだのかどうか分からない */
+  if (me.member === "pending") {
+    cards.push(
+      <Link
+        key="pending"
+        href="/join"
+        className="block rounded-xl border border-yel bg-[#1A1F14] p-4 no-underline"
+        data-testid="home-pending"
+      >
+        <div className="text-[11px] font-extrabold tracking-widest text-yel">許可待ち</div>
+        <div className="mt-1 text-[15px] font-black text-txt">会社の返事を待っています</div>
+        <div className="mt-1 text-[12px] leading-relaxed text-dim">
+          申し込みは届いています。会社の教育担当者が許可すると、名簿に入って受講できるようになります。
+          <br />
+          急ぐときは担当者にひとこと言ってください。受講コード（12文字）を渡してもらえれば、
+          許可を待たずに始められます。
+        </div>
+      </Link>,
+    );
+  }
+
+  if (me.member === "none") {
     cards.push(
       <Link
         key="join"
@@ -73,7 +96,9 @@ export function HomeCards() {
     );
   }
 
-  if (!me.canLearn && !me.needsJoin) {
+  /* 受講コードの札は、在籍している人にだけ出す。
+     許可待ちの人には、先に許可が要ることを上で出してある */
+  if (!me.canLearn && me.member === "active") {
     cards.push(
       <Link
         key="seat"

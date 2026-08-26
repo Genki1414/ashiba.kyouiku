@@ -152,6 +152,25 @@ console.log("── 担当者が触れる範囲 ──");
   }
 }
 
+console.log("── 新しく登録した人の、会社との紐付け ──");
+{
+  /* 申し込んだ人に「会社とつなぐ」と出し続けると、
+     押しても同じ画面に戻るだけで、進んだのかどうか分からない */
+  const t = read("src/lib/tenant.ts");
+  check(/MemberState/.test(t), "紐付けの状態に、3つの言い方がある");
+  check(/"pending"/.test(t), "許可待ちを、まだの人と分けている");
+  check(/approved_at/.test(t) && /left_at/.test(t), "在籍は、許可が下りていて抜けていないこと");
+
+  const me = read("src/app/api/me/route.ts");
+  check(/member/.test(me), "ホームに、紐付けの状態を返す");
+
+  const home = read("src/components/HomeCards.tsx");
+  check(/home-pending/.test(home), "許可待ちの札がある");
+  check(/me\.member === "none"/.test(home), "まだの人にだけ「会社とつなぐ」を出す");
+  check(/me\.member === "active"/.test(home),
+    "受講コードの札は、在籍している人にだけ出す");
+}
+
 console.log("── 3年たった記録 ──");
 {
   /* 決まりの記録を、気づかないうちに消してはいけない */

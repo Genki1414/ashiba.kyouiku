@@ -11,6 +11,33 @@ import { currentUser } from "./supabase/session";
    修了証の名義は「その受講者が属する事業者」から取る。
    ここを取り違えると、他社の名義で書類を出すことになる。 */
 
+/** 会社との紐付けが、いまどうなっているか。
+
+    none    … まだどこにも申し込んでいない
+    pending … 申し込んだが、まだ許可が下りていない
+    active  … 在籍している
+
+    ホームの札を出し分けるのに使う。
+    申し込んだ人に「会社とつなぐ」と出し続けると、
+    押しても同じ画面に戻るだけで、進んだのかどうか分からない。 */
+export type MemberState = "none" | "pending" | "active";
+
+export async function memberState(): Promise<MemberState> {
+  const supabase = getServiceClient();
+  if (!supabase) return "none";
+  const user = await currentUser();
+  if (!user) return "none";
+
+  const { data } = await supabase
+    .from("memberships")
+    .select("approved_at")
+    .eq("user_id", user.id)
+    .is("left_at", null);
+  const rows = data ?? [];
+  if (rows.some((m) => m.approved_at)) return "active";
+  return rows.length ? "pending" : "none";
+}
+
 /** いまログインしている人の所属。ログインしていなければ null */
 export async function myCompany(): Promise<{ id: string; name: string } | null> {
   const supabase = getServiceClient();

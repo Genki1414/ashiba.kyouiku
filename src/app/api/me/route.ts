@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { currentAdmin } from "@/lib/admin";
-import { myCompany, needsJoin } from "@/lib/tenant";
+import { memberState, myCompany } from "@/lib/tenant";
 import { currentOwner } from "@/lib/owner";
 import { canLearn } from "@/lib/entitle";
 import { currentUser } from "@/lib/supabase/session";
@@ -29,21 +29,26 @@ export async function GET() {
       name: await nameOf(me?.id),
       admin: true,
       owner: !!owner,
+      member: "active" as const,
       needsJoin: false,
       canLearn: learn.ok,
       courses: readyCourses().length,
       company: admin.companyName,
     });
   }
-  const [join, co] = await Promise.all([needsJoin(), myCompany()]);
+  const [member, co] = await Promise.all([memberState(), myCompany()]);
   return NextResponse.json({
     ok: true,
     userId: me?.id ?? null,
     email: me?.email ?? null,
     name: await nameOf(me?.id),
     admin: false,
+    /* 申し込んだが、まだ許可が下りていない。
+       ここを none と一緒にすると、申し込んだ人にも
+       「会社とつなぐ」と出続けて、進んだのかどうか分からない */
+    member,
     owner: !!owner,
-    needsJoin: join,
+    needsJoin: member === "none",
     canLearn: learn.ok,
     courses: readyCourses().length,
     company: co?.name ?? "",
