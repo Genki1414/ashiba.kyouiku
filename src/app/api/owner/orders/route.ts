@@ -3,6 +3,7 @@ import { getServiceClient } from "@/lib/supabase/server";
 import { currentOwner, ownerEmails } from "@/lib/owner";
 import { currentUser } from "@/lib/supabase/session";
 import { issueSeats } from "@/lib/seats";
+import { seller } from "@/content/legal";
 
 /* 運営（売っている側）の画面。すべての事業者の注文を見て、
    請求書払いの入金を確認する。
@@ -68,6 +69,8 @@ export async function GET() {
   return NextResponse.json({
     ok: true,
     owner,
+    /* 請求書を書くときに要る。画面から写せるように、ここで返す */
+    invoiceNo: seller().invoiceNo,
     companies: cos ?? [],
     orders: (orders ?? []).map((o) => ({
       ...o,

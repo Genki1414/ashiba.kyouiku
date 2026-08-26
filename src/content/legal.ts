@@ -27,8 +27,15 @@ export function seller() {
     hours: get("SELLER_HOURS", "平日 9:00〜17:00（土日祝を除く）"),
     /** 問い合わせ窓口の名前 */
     contact: get("SELLER_CONTACT", "教育事業担当"),
+    /** 適格請求書発行事業者の登録番号（T＋13桁）。
+        課税事業者なら、請求書に載せないと相手が仕入税額控除を受けられない。
+        免税事業者なら番号そのものが無いので、空のままでよい */
+    invoiceNo: get("SELLER_INVOICE_NO"),
   };
 }
+
+/** 登録番号の形。T のあとに13桁。空は「登録していない」で正しいので通す */
+export const invoiceOk = (v: string): boolean => !v || /^T\d{13}$/.test(v.trim());
 
 /** 「未設定」の項目。ここが空のまま売ると、特商法の表示義務を満たしません */
 export function missingSeller(): string[] {
@@ -55,6 +62,19 @@ export function tokushoho(price: number): Item[] {
     { k: "所在地", v: s.address, env: "SELLER_ADDRESS" },
     { k: "電話番号", v: s.tel, env: "SELLER_TEL", note: `受付時間 ${s.hours}` },
     { k: "メールアドレス", v: s.email, env: "SELLER_EMAIL" },
+    /* 登録していない（免税事業者）なら、そもそも番号が無い。
+       空のときは行ごと出さない。「未設定」と出すと、
+       登録し忘れているように見えてしまう */
+    ...(s.invoiceNo
+      ? [
+          {
+            k: "適格請求書発行事業者 登録番号",
+            v: s.invoiceNo,
+            env: "SELLER_INVOICE_NO",
+            note: "請求書にもこの番号を記載します。",
+          },
+        ]
+      : []),
     {
       k: "販売価格",
       v: `受講1名につき ${yen(price)}（税抜）／${yen(price + tax)}（税込）`,

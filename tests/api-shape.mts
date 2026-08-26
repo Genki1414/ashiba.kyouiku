@@ -152,6 +152,33 @@ console.log("── 担当者が触れる範囲 ──");
   }
 }
 
+console.log("── 3年たった記録 ──");
+{
+  /* 決まりの記録を、気づかないうちに消してはいけない */
+  const api = read("src/app/api/owner/retention/route.ts");
+  check(/currentOwner\(\)/.test(api), "触れるのは本部だけ");
+  check(!/deleteMany|for \(const/.test(api), "まとめて消す道を作らない");
+  /* 画面が古いまま押されることがある。消す直前にもう一度確かめる */
+  const posts = api.slice(api.indexOf("export async function POST"));
+  check(/erasable\(supabase\)/.test(posts), "消す直前に、もう一度確かめる");
+  check(/409/.test(posts), "消せない相手は、理由の分かる断り方をする");
+
+  const sql = read("supabase/migrations/0016_keep3y.sql");
+  check(/approved_at is not null/.test(sql), "在籍している人は、押しても消せない");
+  check(/delete from public\.verify_logs/.test(sql), "顔の照合の記録は消す");
+  check(/delete from public\.held_quals/.test(sql), "自己申告の資格も消す");
+  /* 受講の記録と修了証は残す。番号で照会されるため */
+  check(!/delete from public\.enrollments/.test(sql), "受講の記録は消さない");
+  check(!/delete from public\.certificates/.test(sql), "修了証は消さない");
+  check(!/delete from public\.progress/.test(sql), "視聴記録も消さない");
+  check(/erased_at/.test(sql), "いつ消したかを残す（二重に数えない）");
+
+  const lib = read("src/lib/retention.ts");
+  check(/KEEP_YEARS = 3/.test(lib), "保存は3年（安衛則 第38条）");
+  check(/staying\.has/.test(lib), "在籍している人は出さない");
+  check(/v\.last > border/.test(lib), "1件でも新しければ出さない");
+}
+
 console.log("── 修了試験の合言葉 ──");
 {
   /* 仮の合言葉は、このまま公開の置き場に載っている（誰でも読める）。

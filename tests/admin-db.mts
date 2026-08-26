@@ -17,6 +17,7 @@ import { listSeats, releaseSeat } from "@/lib/seats";
 import { learnFor } from "@/lib/entitleQuery";
 import { companyRecords } from "@/lib/records";
 import { heldFor, heldForMany } from "@/lib/quals";
+import { KEEP_YEARS, erasable, keepUntil } from "@/lib/retention";
 import { buildCheck, checkTotals } from "@/training/verifyLog";
 
 const URL = process.env.SHIM_URL ?? "http://127.0.0.1:54321";
@@ -1133,6 +1134,104 @@ await raw.query("update public.enrollments set seat_id = null where id = $1", [E
   check(rows[0].ng >= rows[rows.length - 1].ng, "止まった人が上に来る");
   check(checkTotals(rows).stopped === 2, "止まった人は2人");
 }
+
+/* ── 3年たった記録（安衛則 第38条）──
+   特別教育を行ったときは、受講者・科目等の記録を3年間保存する決まり。
+   過ぎたぶんの個人情報は、置いておかないのが筋。
+   ただし、決まりの記録を早く消してしまっては本末転倒 */
+console.log("── 3年たった記録 ──");
+{
+  /* 見るのは「いま」ではなく、差し込んだ日で見る（試験が年を越しても同じ結果） */
+  const soon = new Date("2027-01-01T00:00:00Z");
+  const late = new Date("2031-01-01T00:00:00Z");
+
+  check(KEEP_YEARS === 3, `保存は3年（いま ${KEEP_YEARS}年）`);
+  check(keepUntil("2026-08-26") === "2029-08-26", `3年後が出る（${keepUntil("2026-08-26")}）`);
+
+  /* U2・U3 はこの会社に在籍していて、受講の記録もある */
+  const now1 = await erasable(db, soon);
+  check(!now1.some((r) => r.userId === U2), "3年たっていない人は出ない");
+
+  /* 3年たっても、在籍しているうちは出さない（まだ働いている人） */
+  const old2 = await erasable(db, late);
+  check(!old2.some((r) => r.userId === U2), "在籍しているうちは、3年たっても出ない");
+
+  /* 抜けたら出る */
+  await db.rpc("leave_company", { p_user: U2, p_company: CO });
+  const gone = await erasable(db, late);
+  const me = gone.find((r) => r.userId === U2);
+  check(!!me, "抜けていて、3年たっていれば出る");
+  check((me?.records ?? 0) >= 1, `受講の件数が出る（${me?.records}）`);
+  check(!!me?.until, `保存期間の切れる日が出る（${me?.until}）`);
+
+  /* 1件でも新しい受講が残っていたら、消さない。
+     よその会社でまだ1年目、ということがある */
+  /* 2031年から見て3年以内（＝まだ保存期間の中）にする */
+  await raw.query(
+    "update public.enrollments set completed_at = '2030-06-01' where id = $1", [E2],
+  );
+  const fresh = await erasable(db, late);
+  check(
+    !fresh.some((r) => r.userId === U2),
+    "1件でも新しい受講が残っていたら、消さない",
+  );
+  await raw.query(
+    "update public.enrollments set completed_at = '2020-01-01' where id = $1", [E2],
+  );
+
+  /* ── 消す ── */
+  const before = await erasable(db, late);
+  check(before.some((r) => r.userId === U2), "もう一度、消せる形に戻った");
+
+  /* 在籍している人は、押しても止まる（押し間違いの受け皿） */
+  const stop = await db.rpc("erase_learner", { p_user: U1 });
+  check(!!stop.error, "在籍している人は、押しても消せない");
+
+  const gotName = (await raw.query("select name from public.users where id = $1", [U2])).rows[0].name;
+  check(gotName !== "（削除済み）", `消す前は名前がある（${gotName}）`);
+
+  const r = await db.rpc("erase_learner", { p_user: U2 });
+  check(!r.error && r.data === true, `消せる（${r.error?.message ?? "ok"}）`);
+
+  const after = (await raw.query(
+    "select name, email, birth_date, erased_at from public.users where id = $1", [U2],
+  )).rows[0];
+  check(after.name === "（削除済み）", `氏名が消える（${after.name}）`);
+  check(after.email === null, "メールが消える");
+  check(after.birth_date === null, "生年月日が消える");
+  check(!!after.erased_at, "いつ消したかが残る");
+
+  /* 受講の記録と修了証は残す。番号で照会されるため */
+  const keptEn = (await raw.query(
+    "select count(*)::int as n from public.enrollments where user_id = $1", [U2],
+  )).rows[0].n;
+  check(keptEn >= 1, `受講の記録は残る（${keptEn}件）`);
+  const keptProg = (await raw.query(
+    "select count(*)::int as n from public.progress where enrollment_id = $1", [E2],
+  )).rows[0].n;
+  check(keptProg >= 1, `視聴記録も残る（${keptProg}件）`);
+
+  /* 顔の照合の記録と、自己申告の資格は消す */
+  const logs = (await raw.query(
+    "select count(*)::int as n from public.verify_logs where enrollment_id = $1", [E2],
+  )).rows[0].n;
+  check(logs === 0, `顔の照合の記録は消える（${logs}件）`);
+  const quals = (await raw.query(
+    "select count(*)::int as n from public.held_quals where user_id = $1", [U2],
+  )).rows[0].n;
+  check(quals === 0, `自己申告の資格も消える（${quals}件）`);
+
+  /* 消したあとは、もう出ない（二重に数えない） */
+  const twice = await erasable(db, late);
+  check(!twice.some((r) => r.userId === U2), "消したあとは、もう出ない");
+
+  /* 戻す。あとの試験がこの人を使う */
+  await raw.query(
+    "update public.users set name = '鈴木', erased_at = null where id = $1", [U2],
+  );
+  await db.rpc("join_company", { p_user: U2, p_company: CO });
+}
+
 
 await raw.end();
 

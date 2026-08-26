@@ -6,11 +6,13 @@ import { Loading } from "@/components/Loading";
 import { Btn } from "@/components/ui/Btn";
 import { yen } from "@/lib/pricing";
 import { LedgerClient } from "./LedgerClient";
+import { RetentionClient } from "./RetentionClient";
 
 /* 本部の画面。二つある。
 
    ① 申込みと入金 … 売った先の注文を見て、請求書払いの入金を確認する
    ② 事業者と記録 … 事業者の一覧と、受講記録の元帳（辞めた人もふくむ）
+   ③ 保存期間　　 … 3年を過ぎた記録の、個人の部分を消す
 
    ②が要るのは、特別教育を行っているのがこの仕組みだから。
    受講の記録は3年保存する決まりで、受講した人が辞めても、
@@ -48,7 +50,10 @@ export function OwnerClient() {
   const [hint, setHint] = useState("");
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
-  const [tab, setTab] = useState<"orders" | "ledger">("orders");
+  const [tab, setTab] = useState<"orders" | "ledger" | "keep">("orders");
+  /* 請求書に載せる登録番号。書くときに毎回どこかから探すことになるので、
+     入金待ちの並びのすぐ上に出しておく */
+  const [invoiceNo, setInvoiceNo] = useState("");
 
   const load = useCallback(async () => {
     try {
@@ -61,6 +66,7 @@ export function OwnerClient() {
         return;
       }
       setOrders(j.orders ?? []);
+      setInvoiceNo(j.invoiceNo ?? "");
       setNg("");
     } catch {
       setNg("つながりません。");
@@ -115,11 +121,12 @@ export function OwnerClient() {
         {([
           ["orders", "申込みと入金"],
           ["ledger", "事業者と記録"],
+          ["keep", "保存期間"],
         ] as const).map(([k, t]) => (
           <button
             key={k}
             onClick={() => setTab(k)}
-            className={`rounded-lg border px-3 py-1.5 text-[12px] ${
+            className={`rounded-lg border px-2.5 py-1.5 text-[12px] ${
               tab === k ? "border-yel bg-[#1A1F14] text-yel" : "border-line text-dim2"
             }`}
             data-testid="owner-tab"
@@ -132,6 +139,7 @@ export function OwnerClient() {
       {note && <div className="mt-3 text-[12px] text-red">{note}</div>}
 
       {tab === "ledger" && <LedgerClient onNote={setNote} />}
+      {tab === "keep" && <RetentionClient onNote={setNote} />}
 
       {tab === "orders" && (
       <>
@@ -147,6 +155,14 @@ export function OwnerClient() {
           </div>
         ))}
       </div>
+
+      {/* 請求書を書くときに要るもの。無ければ何も出さない（免税事業者） */}
+      {invoiceNo && (
+        <div className="mt-3 rounded-lg border border-line bg-panel px-3 py-2 text-[11.5px] text-dim2"
+          data-testid="owner-invoice-no">
+          請求書に載せる登録番号　<span className="font-mono text-txt">{invoiceNo}</span>
+        </div>
+      )}
 
       {!orders.length && (
         <p className="mt-6 text-[13px] leading-relaxed text-dim">まだ申込みがありません。</p>

@@ -2,7 +2,7 @@
    ここが空のまま売ると、特定商取引法の表示義務を満たしません。
    実行: npx tsx tests/legal.ts */
 
-import { PERSONAL_DATA, THIRD_PARTIES, missingSeller, seller, tokushoho } from "@/content/legal";
+import { PERSONAL_DATA, THIRD_PARTIES, invoiceOk, missingSeller, seller, tokushoho } from "@/content/legal";
 
 let ok = 0;
 let ng = 0;
@@ -75,6 +75,46 @@ check(
   "カード番号が当社を通らないことを書いてある",
 );
 check(THIRD_PARTIES.some((t) => t.k === "Supabase"), "Supabase を挙げている");
+
+/* ── インボイス登録番号 ──
+   課税事業者なら、請求書に載せないと相手が仕入税額控除を受けられない。
+   免税事業者なら番号そのものが無いので、空で正しい。
+   空を「未設定」と出すと、登録し忘れているように見えてしまう */
+console.log("── インボイス登録番号 ──");
+{
+  const before = process.env.SELLER_INVOICE_NO;
+
+  delete process.env.SELLER_INVOICE_NO;
+  check(seller().invoiceNo === "", "登録していなければ空");
+  check(invoiceOk(""), "空は通す（免税事業者）");
+  check(
+    !tokushoho(3000).some((i) => i.k.includes("登録番号")),
+    "空のときは、特商法の表記に行ごと出さない",
+  );
+  check(
+    !missingSeller().some((k) => k.includes("登録番号")),
+    "空でも「特商法の未設定」には数えない",
+  );
+
+  process.env.SELLER_INVOICE_NO = "T1234567890123";
+  check(seller().invoiceNo === "T1234567890123", "入れた番号が出る");
+  check(invoiceOk("T1234567890123"), "T＋13桁は通る");
+  {
+    const row = tokushoho(3000).find((i) => i.k.includes("登録番号"));
+    check(!!row, "入れたら、特商法の表記に行が出る");
+    check(row?.v === "T1234567890123", `番号がそのまま出る（${row?.v}）`);
+  }
+
+  /* 打ち間違いを、そのまま請求書に載せない */
+  check(!invoiceOk("1234567890123"), "T が無いものは通さない");
+  check(!invoiceOk("T123456789012"), "12桁は通さない");
+  check(!invoiceOk("T12345678901234"), "14桁は通さない");
+  check(!invoiceOk("Tあいうえお"), "数字でないものは通さない");
+  check(invoiceOk(" T1234567890123 "), "前後の空白は気にしない");
+
+  if (before === undefined) delete process.env.SELLER_INVOICE_NO;
+  else process.env.SELLER_INVOICE_NO = before;
+}
 
 console.log("\n── まとめ ──");
 console.log(`${ok} 件通過 / ${ng} 件失敗`);

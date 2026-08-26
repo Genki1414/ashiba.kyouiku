@@ -29,6 +29,8 @@ type Health = {
     stripeHook: boolean;
     siteUrl: boolean;
     sellerMissing: string[];
+    invoiceNo?: boolean;
+    invoiceShape?: boolean;
   };
 };
 
@@ -209,6 +211,13 @@ export function SetupClient() {
                     ["単価（SEAT_UNIT_PRICE）", h.sell.unitPrice ? "設定済み" : "未設定（仮の値）", h.sell.unitPrice, true],
                     ["本番のURL（SITE_URL / NEXT_PUBLIC_SITE_URL）", h.sell.siteUrl ? "設定済み" : "未設定（配信ごとの住所を使う）", h.sell.siteUrl, true],
                     ["特商法の表記", h.sell.sellerMissing.length ? `${h.sell.sellerMissing.join("・")}が空` : "そろっている", h.sell.sellerMissing.length === 0, true],
+                    ["インボイス登録番号（SELLER_INVOICE_NO）",
+                      h.sell.invoiceShape === false
+                        ? "形が違います（T＋13桁）"
+                        : h.sell.invoiceNo
+                          ? "設定済み"
+                          : "未設定（免税事業者なら空のままで構いません）",
+                      h.sell.invoiceShape !== false, false],
                     ["カード払い（STRIPE_SECRET_KEY）", h.sell.stripeKey ? "設定済み" : "未設定（請求書払いのみ）", h.sell.stripeKey, false],
                     ["カードの入金確認（STRIPE_WEBHOOK_SECRET）", h.sell.stripeHook ? "設定済み" : "未設定", h.sell.stripeHook, false],
                   ] as [string, string, boolean, boolean][]
