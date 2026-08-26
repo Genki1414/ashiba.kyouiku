@@ -44,7 +44,7 @@ export async function GET() {
   const learn = await canLearn();
   const auth = {
     email: user?.email ?? null,
-    /* 学科と実務トレーニングを開けるか、その根拠
+    /* 学科（特別教育）を開けるか、その根拠
        seat=受講コードを引き換えた／trial=無償利用の事業者／
        open=Supabase 未設定（手元で動かすとき） */
     canLearn: learn.ok,

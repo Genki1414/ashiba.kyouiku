@@ -109,8 +109,10 @@ export function HomeCards() {
         <div className="text-[11px] font-extrabold tracking-widest text-yel">受講するには</div>
         <div className="mt-1 text-[15px] font-black text-txt">受講コードを入れる</div>
         <div className="mt-1 text-[12px] leading-relaxed text-dim">
-          学科と実務トレーニングは、受講コード（12文字）を入れると開きます。
+          特別教育（学科）は、受講コード（12文字）を入れると開きます。
           会社の教育担当者から受け取ってください。
+          <br />
+          実務トレーニングの第1章は、コードが無くても遊べます。
         </div>
       </Link>,
     );

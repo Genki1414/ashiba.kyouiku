@@ -35,7 +35,7 @@ export function NeedSeat({ why, company }: { why: "signin" | "seat"; company: st
         ここから先が開きます
       </h1>
       <p className="mt-4 text-[13px] leading-relaxed text-dim">
-        特別教育（学科）と実務トレーニングは、受講コードを引き換えた人だけが受けられます。
+        特別教育（学科）は、受講コードを引き換えた人だけが受けられます。
         コードは、会社の教育担当者が人数ぶん申し込んで配ります。
         {company ? `（いまの所属：${company}）` : ""}
       </p>
@@ -49,7 +49,7 @@ export function NeedSeat({ why, company }: { why: "signin" | "seat"; company: st
         <div className="mt-2">
           <span className="font-black text-txt">12文字のコード</span>（例 ABCD-2345-6789）
           <br />
-          1人に1つ。これを入れると、学科と実務トレーニングが開きます。
+          1人に1つ。これを入れると、特別教育（学科）が開きます。
         </div>
       </div>
 
@@ -66,6 +66,15 @@ export function NeedSeat({ why, company }: { why: "signin" | "seat"; company: st
         data-testid="need-seat-admin"
       >
         教育担当者の方はこちら（申込み）
+      </Link>
+      {/* 実務トレーニングは別の売り物。第1章はコードが無くても遊べる。
+         ここで断られた人に、いま出来ることが何も無いと、そのまま閉じられる */}
+      <Link
+        href="/training"
+        className="mt-2 block rounded-lg border border-line p-3 text-center text-[12.5px] text-dim no-underline"
+        data-testid="need-seat-train"
+      >
+        実務トレーニングの第1章は、コード無しで遊べます
       </Link>
       <Link href="/" className="mt-5 block text-center text-[12.5px] text-dim2 no-underline">
         ← ホームへ
