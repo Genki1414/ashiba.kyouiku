@@ -351,7 +351,7 @@ export function MeClient() {
         </div>
       </div>
 
-      {/* よそで取った資格。この仕組みの外で取ったもの */}
+      {/* 取得済みの資格。この仕組みで取ったものと、よそで取ったもの */}
       <HeldQuals />
 
       {st.admin && (

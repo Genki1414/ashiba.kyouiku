@@ -22,6 +22,17 @@ type CourseTab = { id: string; short: string; name: string };
 /** 参加の申し込み。許可するまで名簿には入らない */
 type Request = { userId: string; name: string; email: string | null; at: string | null };
 
+/** 資格の申請。本人が入れた「取得済みの資格」で、まだ現物を確かめていないもの */
+type QualItem = {
+  id: string;
+  name: string;
+  kind: string;
+  issuer: string;
+  gotOn: string | null;
+  certNo: string;
+};
+type QualReq = { userId: string; name: string; email: string | null; items: QualItem[] };
+
 type Loaded =
   | {
       kind: "ok";
@@ -39,6 +50,8 @@ type Loaded =
       rejected: Request[];
       /* 在籍の内訳。申し込んだはずの人が居ないときに、どこへ行ったか分かる */
       member: { active: number; waiting: number; gone: number };
+      /* 資格の申請。まだ現物を確かめていないもの */
+      quals: QualReq[];
     }
   | { kind: "setup"; reason: string }
   | { kind: "ng"; reason: string; signIn?: boolean };
@@ -77,6 +90,7 @@ export function AdminClient() {
           requests: j.requests ?? [],
           rejected: j.rejected ?? [],
           member: j.member ?? { active: 0, waiting: 0, gone: 0 },
+          quals: j.quals ?? [],
         });
         setCompany(j.company ?? "");
         if (j.course?.id) setCourseId(j.course.id as string);
@@ -280,6 +294,57 @@ export function AdminClient() {
                   >
                     断る
                   </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 資格の申請。本人がマイページから入れたもの。
+          出さないと、入れたことに気づかれないまま埋もれる */}
+      {!!st.quals.length && (
+        <div className="mx-5 mt-3 rounded-xl border border-yel bg-[#1A1F14] p-4" data-testid="admin-qual-reqs">
+          <div className="text-[11px] font-extrabold tracking-[2px] text-yel">
+            資格の申請 {st.quals.reduce((n, q) => n + q.items.length, 0)} 件
+          </div>
+          <p className="mt-1 text-[11.5px] leading-relaxed text-dim">
+            受講者が「もう持っている」と入れた資格です。
+            <strong className="text-dim">同じ特別教育を受け直させる必要はありません。</strong>
+            ただし、就かせる前に修了証の現物を確かめてください。
+          </p>
+          <div className="mt-2.5 grid gap-2">
+            {st.quals.map((q) => (
+              <div key={q.userId} className="rounded-lg border border-line bg-panel p-3" data-testid="admin-qual-req">
+                <div className="text-[14px] font-black">{q.name}</div>
+                {q.email && <div className="mt-0.5 truncate text-[11px] text-dim2">{q.email}</div>}
+                <div className="mt-2 grid gap-2">
+                  {q.items.map((it) => (
+                    <div key={it.id} className="rounded border border-line bg-bg p-2.5">
+                      <div className="text-[12.5px] font-black leading-snug">{it.name}</div>
+                      <div className="mt-0.5 text-[11px] leading-relaxed text-dim2">
+                        {it.kind}
+                        {it.issuer ? `　${it.issuer}` : ""}
+                        {it.gotOn ? `　${day(it.gotOn)} 取得` : ""}
+                        {it.certNo ? <><br />修了証番号 {it.certNo}</> : null}
+                      </div>
+                      <div className="mt-2">
+                        <Btn
+                          tone="y"
+                          dis={busy === it.id}
+                          testid="admin-qual-ok"
+                          onClick={async () => {
+                            setBusy(it.id);
+                            if (await post("/api/admin/qual", { heldId: it.id, on: true }))
+                              await load(courseId);
+                            setBusy(null);
+                          }}
+                        >
+                          修了証の現物を見た
+                        </Btn>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             ))}

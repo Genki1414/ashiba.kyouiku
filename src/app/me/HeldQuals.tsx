@@ -2,22 +2,29 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Btn } from "@/components/ui/Btn";
-import { KINDS, OTHER, byKind, type QualKind } from "@/content/quals";
+import { KINDS, OTHER, search, totalH, type QualKind } from "@/content/quals";
 import type { Held } from "@/lib/quals";
 
-/* よそで取った資格。本人が足す所。
+/* 取得済みの資格。
 
-   足場の職人が持っているものは、この仕組みの外で取ったものが多い。
-   前の会社で受けた特別教育、教習機関で取った技能講習、免許。
+   出どころは2つ。
+   ・この仕組みで取ったもの … 自動で出る。外せない
+   ・よそで取ったもの　　　 … 自分で足す。外せる
 
    なぜ足せるようにするか。
+   足場の職人が持っているものは、この仕組みの外で取ったものが多い。
    特別教育は「その業務に就かせる前に」行う決まりで、
    すでに受けている人に受け直させる決まりではない。
    ただ、事業者は「受けている」ことを確かめないと就かせられない。
-   ここに入れておけば、入った会社の担当者がそれを見られる。
+   ここに入れておけば、いる会社の担当者がそれを見られる。
+
+   選ぶのはまとめてできる。同じ教習機関で同じ日に何枚も取ることが多く、
+   1つずつ足させると入れてもらえない。
 
    ここで書けるのは自己申告まで。「確かめた」印は会社が押す。
    自分で確かめたことにできると、印の意味が無くなる。 */
+
+type Mine = { id: string; name: string; kind: string; certNo: string; gotOn: string | null };
 
 const day = (s: string | null) => {
   if (!s) return "";
@@ -27,23 +34,31 @@ const day = (s: string | null) => {
 
 export function HeldQuals() {
   const [held, setHeld] = useState<Held[] | null>(null);
+  const [mine, setMine] = useState<Mine[]>([]);
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState("");
 
-  /* 入れるもの */
+  /* 入れるもの。選ぶのは何件でも */
   const [kind, setKind] = useState<QualKind>("特別教育");
-  const [qualId, setQualId] = useState("");
+  /* 特別教育だけで65件ある。しぼれないと探してもらえない */
+  const [q, setQ] = useState("");
+  const [picked, setPicked] = useState<string[]>([]);
   const [label, setLabel] = useState("");
   const [issuer, setIssuer] = useState("");
   const [gotOn, setGotOn] = useState("");
   const [certNo, setCertNo] = useState("");
 
+  const take = (j: Record<string, unknown>) => {
+    setHeld((j.held as Held[]) ?? []);
+    setMine((j.mine as Mine[]) ?? []);
+  };
+
   const load = useCallback(async () => {
     try {
       const res = await fetch("/api/quals", { cache: "no-store" });
       const j = await res.json().catch(() => ({}));
-      if (res.ok && j.ok) setHeld(j.held ?? []);
+      if (res.ok && j.ok) take(j);
       else setHeld([]);
     } catch {
       setHeld([]);
@@ -53,12 +68,16 @@ export function HeldQuals() {
   useEffect(() => { void load(); }, [load]);
 
   const clear = () => {
-    setQualId("");
+    setPicked([]);
+    setQ("");
     setLabel("");
     setIssuer("");
     setGotOn("");
     setCertNo("");
   };
+
+  const toggle = (id: string) =>
+    setPicked((v) => (v.includes(id) ? v.filter((x) => x !== id) : [...v, id]));
 
   const add = async () => {
     setBusy(true);
@@ -67,14 +86,15 @@ export function HeldQuals() {
       const res = await fetch("/api/quals", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ action: "add", qualId, label, issuer, gotOn, certNo }),
+        body: JSON.stringify({ action: "add", qualIds: picked, label, issuer, gotOn, certNo }),
       });
       const j = await res.json().catch(() => ({}));
       if (!res.ok || !j.ok) {
         setNote(j.reason ?? "足せませんでした。");
+        if (j.held) setHeld(j.held as Held[]);
         return;
       }
-      setHeld(j.held ?? []);
+      take(j);
       clear();
       setOpen(false);
     } catch {
@@ -95,7 +115,7 @@ export function HeldQuals() {
       });
       const j = await res.json().catch(() => ({}));
       if (!res.ok || !j.ok) setNote(j.reason ?? "外せませんでした。");
-      else setHeld(j.held ?? []);
+      else take(j);
     } finally {
       setBusy(false);
     }
@@ -103,22 +123,47 @@ export function HeldQuals() {
 
   if (!held) return null;
 
-  const list = byKind(kind);
+  const list = search(kind, q);
+  /* いま出している種類の中で、いくつ選んでいるか。
+     他の種類で選んだぶんも消えないので、合計も出す */
+  const total = picked.length;
 
   return (
     <div className="mt-3" data-testid="me-quals">
-      <div className="mb-2 text-[11px] tracking-[2px] text-dim">よそで取った資格</div>
+      <div className="mb-2 text-[11px] tracking-[2px] text-dim">取得済みの資格</div>
 
       <div className="rounded-xl border border-line bg-panel p-4">
         <p className="text-[11.5px] leading-relaxed text-dim2">
-          前の会社で受けた特別教育や、教習機関で取った技能講習を入れておけます。
+          持っている資格をまとめておく所です。前の会社で受けた特別教育や、
+          教習機関で取った技能講習も入れておけます。
           入れておくと、いま所属している会社の教育担当者が見られます。
           <br />
           <strong className="text-dim">同じ特別教育を受け直す必要はありません。</strong>
           ただし会社は修了証の現物を見て確かめます。
         </p>
 
-        {!held.length && (
+        {/* この仕組みで取ったもの。自動で出る。外せない */}
+        {mine.map((m) => (
+          <div
+            key={m.id}
+            className="mt-3 rounded-lg border border-grn bg-bg p-3"
+            data-testid="me-qual-mine"
+          >
+            <div className="flex items-baseline gap-2">
+              <div className="min-w-0 flex-1 text-[13px] font-black leading-snug">{m.name}</div>
+              <span className="shrink-0 rounded border border-grn px-1.5 py-0.5 text-[10px] text-grn">
+                この仕組みで取得
+              </span>
+            </div>
+            <div className="mt-0.5 text-[11px] leading-relaxed text-dim2">
+              {m.kind}　{day(m.gotOn)} 取得
+              <br />
+              修了証番号 {m.certNo}
+            </div>
+          </div>
+        ))}
+
+        {!held.length && !mine.length && (
           <div className="mt-3 text-[12px] text-dim2">まだ入っていません。</div>
         )}
 
@@ -135,8 +180,8 @@ export function HeldQuals() {
                     確認済み
                   </span>
                 ) : (
-                  <span className="shrink-0 rounded border border-line px-1.5 py-0.5 text-[10px] text-dim2">
-                    自己申告
+                  <span className="shrink-0 rounded border border-yel px-1.5 py-0.5 text-[10px] text-yel">
+                    確認待ち
                   </span>
                 )}
               </div>
@@ -168,12 +213,16 @@ export function HeldQuals() {
           </button>
         ) : (
           <div className="mt-3 rounded-lg border border-yel bg-[#1A1F14] p-3" data-testid="me-qual-form">
+            <div className="mb-2 text-[11.5px] leading-relaxed text-dim">
+              いくつでも選べます。選んだものは種類を変えても消えません。
+            </div>
+
             {/* 種類でしぼる。全部いっぺんに並べると、探すのに時間がかかる */}
             <div className="flex flex-wrap gap-1.5">
               {KINDS.map((k) => (
                 <button
                   key={k}
-                  onClick={() => { setKind(k); setQualId(""); }}
+                  onClick={() => setKind(k)}
                   className={`rounded border px-2 py-1 text-[11.5px] ${
                     kind === k ? "border-yel text-yel" : "border-line text-dim2"
                   }`}
@@ -184,31 +233,70 @@ export function HeldQuals() {
               ))}
             </div>
 
-            <div className="mt-2 grid gap-1">
-              {list.map((q) => (
-                <button
-                  key={q.id}
-                  onClick={() => setQualId(q.id)}
-                  className={`rounded border px-2.5 py-2 text-left text-[12.5px] leading-snug ${
-                    qualId === q.id ? "border-yel bg-bg text-yel" : "border-line bg-bg text-txt"
-                  }`}
-                  data-testid="me-qual-pick"
-                >
-                  {q.name}
-                </button>
-              ))}
+            {/* 名前でしぼる。特別教育だけで65件ある */}
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="名前でさがす（例：足場、玉掛け、クレーン）"
+              className="mt-2 w-full rounded-lg border border-line bg-bg px-3 py-2 text-[13px]"
+              data-testid="me-qual-find"
+            />
+
+            <div className="mt-2 max-h-[52vh] overflow-y-auto grid gap-1">
+              {!list.length && (
+                <div className="py-3 text-center text-[12px] text-dim2">
+                  見つかりません。短い言葉で入れてみてください。
+                </div>
+              )}
+              {list.map((x) => {
+                const on = picked.includes(x.id);
+                return (
+                  <button
+                    key={x.id}
+                    onClick={() => toggle(x.id)}
+                    className={`flex items-center gap-2 rounded border px-2.5 py-2 text-left text-[12.5px] leading-snug ${
+                      on ? "border-yel bg-bg text-yel" : "border-line bg-bg text-txt"
+                    }`}
+                    data-testid="me-qual-pick"
+                  >
+                    <span
+                      className={`grid h-4 w-4 shrink-0 place-items-center rounded-[3px] border text-[10px] ${
+                        on ? "border-yel bg-yel text-bg" : "border-line"
+                      }`}
+                    >
+                      {on ? "✓" : ""}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      {x.name}
+                      {x.kind === "特別教育" && (
+                        <span className="ml-1.5 text-[10.5px] text-dim2">
+                          {totalH(x)}時間
+                          {x.practical ? "（実技あり）" : ""}
+                        </span>
+                      )}
+                    </span>
+                  </button>
+                );
+              })}
               <button
-                onClick={() => setQualId(OTHER)}
-                className={`rounded border px-2.5 py-2 text-left text-[12.5px] ${
-                  qualId === OTHER ? "border-yel bg-bg text-yel" : "border-line bg-bg text-dim"
+                onClick={() => toggle(OTHER)}
+                className={`flex items-center gap-2 rounded border px-2.5 py-2 text-left text-[12.5px] ${
+                  picked.includes(OTHER) ? "border-yel bg-bg text-yel" : "border-line bg-bg text-dim"
                 }`}
                 data-testid="me-qual-other"
               >
-                この一覧にない（自分で書く）
+                <span
+                  className={`grid h-4 w-4 shrink-0 place-items-center rounded-[3px] border text-[10px] ${
+                    picked.includes(OTHER) ? "border-yel bg-yel text-bg" : "border-line"
+                  }`}
+                >
+                  {picked.includes(OTHER) ? "✓" : ""}
+                </span>
+                <span>この一覧にない（自分で書く）</span>
               </button>
             </div>
 
-            {qualId === OTHER && (
+            {picked.includes(OTHER) && (
               <input
                 value={label}
                 onChange={(e) => setLabel(e.target.value)}
@@ -249,10 +337,14 @@ export function HeldQuals() {
                 />
               </div>
             </div>
+            <div className="mt-1 text-[10.5px] leading-relaxed text-dim2">
+              受けた所・取った日・番号は、選んだものすべてに入ります。
+              違うものは、分けて足してください。
+            </div>
 
             <div className="mt-3">
-              <Btn tone="y" dis={busy || !qualId} onClick={add} testid="me-qual-add">
-                {busy ? "足しています…" : "この資格を足す"}
+              <Btn tone="y" dis={busy || !total} onClick={add} testid="me-qual-add">
+                {busy ? "足しています…" : total ? `${total}件を足す` : "資格を選んでください"}
               </Btn>
             </div>
             <button

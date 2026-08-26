@@ -809,7 +809,7 @@ check(codes.every((c) => /^[2-9A-HJKMNP-Z]{12}$/.test(c)), `12文字・読み違
       p_cert: (o.cert as string) ?? null,
     });
 
-  const r1 = await add(U2, "sk-sling", { issuer: "前の会社", got: "2024-05-01", cert: "A-1" });
+  const r1 = await add(U2, "SK-011", { issuer: "前の会社", got: "2024-05-01", cert: "A-1" });
   check(!r1.error, `一覧にある資格を足せる（${r1.error?.message ?? "ok"}）`);
 
   const mine = await heldFor(db, U2);
@@ -820,7 +820,7 @@ check(codes.every((c) => /^[2-9A-HJKMNP-Z]{12}$/.test(c)), `12文字・読み違
   check(mine[0].confirmedAt === null, "足しただけでは自己申告のまま");
 
   /* 同じものを足しても増えない。書き足しになる */
-  const r2 = await add(U2, "sk-sling", { issuer: "別の教習所", got: "2024-06-01" });
+  const r2 = await add(U2, "SK-011", { issuer: "別の教習所", got: "2024-06-01" });
   check(!r2.error, "同じ資格をもう一度足せる（書き足し）");
   const again = await heldFor(db, U2);
   check(again.length === 1, `二重に増えない（いま ${again.length}件）`);
@@ -857,7 +857,7 @@ check(codes.every((c) => /^[2-9A-HJKMNP-Z]{12}$/.test(c)), `12文字・読み違
 
   /* 中身を書き換えたら、確かめた印は落ちる。
      確かめたのは「そのとき見せられた紙」なので、書き換えたら確かめ直す */
-  await add(U2, "sk-sling", { issuer: "書き換えた", got: "2024-07-01" });
+  await add(U2, "SK-011", { issuer: "書き換えた", got: "2024-07-01" });
   const redo = await heldFor(db, U2);
   check(
     redo.find((h) => h.id === sling.id)?.confirmedAt === null,
@@ -875,7 +875,7 @@ check(codes.every((c) => /^[2-9A-HJKMNP-Z]{12}$/.test(c)), `12文字・読み違
   check((await heldFor(db, U2)).length === 1, "よその人のぶんは外せない");
 
   /* ── まとめて引く（名簿はこちらを使う）── */
-  await add(U3, "se-harness", { issuer: "教習所" });
+  await add(U3, "SE-065", { issuer: "教習所" });
   const many = await heldForMany(db, [U2, U3, ORPHAN]);
   check(many.get(U2)?.length === 1, `まとめて引ける・U2（${many.get(U2)?.length}）`);
   check(many.get(U3)?.length === 1, `まとめて引ける・U3（${many.get(U3)?.length}）`);
@@ -884,6 +884,38 @@ check(codes.every((c) => /^[2-9A-HJKMNP-Z]{12}$/.test(c)), `12文字・読み違
     (await heldForMany(db, [])).size === 0,
     "誰も居なければ引きに行かない",
   );
+
+  /* ── まとめて足す（複数選択）──
+     同じ教習機関で同じ日に何枚も取る。1つずつ足させると入れてもらえない */
+  await raw.query("delete from public.held_quals where user_id = any($1::uuid[])", [PEOPLE]);
+  {
+    const many = ["SE-065", "SE-064", "SK-011"];
+    for (const q of many) {
+      const r = await add(U2, q, { issuer: "宮城労働基準協会", got: "2024-03-11" });
+      if (r.error) { ng++; console.error("NG: まとめて足す", r.error.message); }
+    }
+    const got = await heldFor(db, U2);
+    check(got.length === 3, `選んだぶんだけ入る（いま ${got.length}件）`);
+    check(
+      got.every((h) => h.issuer === "宮城労働基準協会" && h.gotOn === "2024-03-11"),
+      `受けた所と日付は、選んだものすべてに入る（${got.map((h) => h.gotOn).join(" ")}）`,
+    );
+    check(
+      got.every((h) => /^\d{4}-\d{2}-\d{2}$/.test(h.gotOn ?? "")),
+      "取った日は年月日だけ（時刻は持たない）",
+    );
+    check(
+      got.every((h) => !h.confirmedAt),
+      "まとめて足しても、確認済みにはならない",
+    );
+
+    /* 担当者の画面に出す「資格の申請」＝まだ確かめていないもの */
+    const waiting = got.filter((h) => !h.confirmedAt);
+    check(waiting.length === 3, `申請は3件（いま ${waiting.length}件）`);
+    await db.rpc("confirm_qual", { p_id: got[0].id, p_company: CO, p_admin: U1, p_on: true });
+    const after = (await heldFor(db, U2)).filter((h) => !h.confirmedAt);
+    check(after.length === 2, `確かめたぶんは申請から消える（いま ${after.length}件）`);
+  }
 
   await raw.query("delete from public.held_quals where user_id = any($1::uuid[])", [PEOPLE]);
 }

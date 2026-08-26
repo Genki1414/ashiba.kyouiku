@@ -42,9 +42,14 @@ const successBodies = (src: string) => {
   return out;
 };
 
-/* いちばん外側にある「key:」と「...展開」を拾う */
+/* いちばん外側にある「key:」と「...展開」を拾う。
+   注釈（コメント）は先に落とす。落とさないと、
+   項目の手前に注釈が付いているだけで、その項目を見落とす */
+const strip = (s: string) =>
+  s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[^\n]*/g, "");
+
 const keysOf = (b: string) => {
-  const inner = b.slice(1, -1);
+  const inner = strip(b.slice(1, -1));
   const keys = new Set<string>();
   let d = 0;
   let line = "";
@@ -147,7 +152,7 @@ console.log("── 担当者が触れる範囲 ──");
   }
 }
 
-console.log("── よそで取った資格 ──");
+console.log("── 取得済みの資格 ──");
 {
   /* 自己申告と「会社が確かめた」は分ける。
      自分で確かめたことにできると、印の意味が無くなる */
@@ -167,6 +172,17 @@ console.log("── よそで取った資格 ──");
     "確認は、在籍している人のぶんだけ");
   check(/confirmed_at = null/.test(sql),
     "中身を直したら、確認済みは落ちる");
+
+  /* まとめて選べる。同じ所で同じ日に何枚も取ることが多い */
+  check(/qualIds/.test(mine), "まとめて足せる（複数選択）");
+  check(/40/.test(mine), "一度に足せる数に上限がある");
+
+  /* 申請は担当者の画面の上に出す。出さないと埋もれる */
+  const sum = read("src/app/api/admin/summary/route.ts");
+  check(/quals/.test(sum), "名簿の返しに、資格の申請が入る");
+  check(/!h\.confirmedAt/.test(sum), "申請は、まだ確かめていないものだけ");
+  const cli = read("src/app/admin/AdminClient.tsx");
+  check(/admin-qual-reqs/.test(cli), "担当者の画面に、資格の申請のまとまりがある");
 }
 
 console.log("── 修了証の名義 ──");

@@ -304,7 +304,7 @@ export function LearnerCard({
                     h.confirmedAt ? "border-grn text-grn" : "border-yel text-yel"
                   }`}
                 >
-                  {h.confirmedAt ? "確認済み" : "自己申告"}
+                  {h.confirmedAt ? "確認済み" : "確認待ち"}
                 </span>
               </div>
               <div className="mt-0.5 text-[11px] leading-relaxed text-dim2">

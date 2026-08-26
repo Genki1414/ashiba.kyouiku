@@ -1,7 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { OTHER, qualName, findQual } from "@/content/quals";
 
-/* よそで取った資格の読み書き。
+/* 取得済みの資格の読み書き。
+
+   この仕組みの外で取ったもの（前の会社の特別教育、教習機関の技能講習）を
+   本人が入れる。この仕組みで出した修了証は certificates 側にあるので、
+   画面に出すときは両方をならべる。
 
    マイページ（本人）と、教育担当者の名簿（会社）から使う。
    1か所にまとめておかないと、片方に足した項目がもう片方から抜ける。
@@ -25,6 +29,14 @@ export type Held = {
 
 type Row = Record<string, unknown>;
 
+/* 取った日は日付だけ。年月日より細かいものは持たない。
+   返ってくる形が「2024-03-11」のことも
+   「2024-03-11T00:00:00.000Z」のこともあるので、ここで揃える */
+const dateOnly = (v: unknown): string | null => {
+  const s = typeof v === "string" ? v : "";
+  return /^\d{4}-\d{2}-\d{2}/.test(s) ? s.slice(0, 10) : null;
+};
+
 const toHeld = (r: Row): Held => {
   const id = (r.qual_id as string) ?? "";
   const q = findQual(id);
@@ -35,7 +47,7 @@ const toHeld = (r: Row): Held => {
     kind: q?.kind ?? "その他",
     own: id === OTHER,
     issuer: (r.issuer as string) ?? "",
-    gotOn: (r.got_on as string) ?? null,
+    gotOn: dateOnly(r.got_on),
     certNo: (r.cert_no as string) ?? "",
     confirmedAt: (r.confirmed_at as string) ?? null,
   };

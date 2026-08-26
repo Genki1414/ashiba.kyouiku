@@ -170,6 +170,8 @@ export async function GET(req: NextRequest) {
     requests,
     rejected,
     member,
+    /* 資格の申請。名簿が空なら当然0件だが、形は揃えておく */
+    quals: [] as { userId: string; name: string; email: string | null; items: unknown[] }[],
   };
 
   if (!ids.length) {
@@ -238,11 +240,23 @@ export async function GET(req: NextRequest) {
      退職者ぶんも含めた元帳は、担当者の画面の下と本部の画面から出せる */
   const rows0 = mergePeople(parts).filter((r) => !r.left);
 
-  /* よそで取った資格（自己申告）。この仕組みの記録ではないが、
-     担当者が「誰を現場に出せるか」を見るのに要る。
-     まとめて引く。人ごとに引くと、名簿の人数だけ問い合わせが増える */
+  /* 取得済みの資格のうち、よそで取ったもの（自己申告）。
+     この仕組みの記録ではないが、担当者が「誰を現場に出せるか」を
+     見るのに要る。まとめて引く。人ごとに引くと、
+     名簿の人数だけ問い合わせが増える */
   const held = await heldForMany(supabase, rows0.map((r) => r.userId));
   const rows = rows0.map((r) => ({ ...r, held: held.get(r.userId) ?? [] }));
 
-  return NextResponse.json({ ...base, rows, totals: peopleTotals(rows) });
+  /* まだ確かめていない申請。担当者がやることなので、上に出す。
+     出さないと、本人が入れたことに気づかれないまま埋もれる */
+  const quals = rows
+    .map((r) => ({
+      userId: r.userId,
+      name: r.name,
+      email: r.email,
+      items: r.held.filter((h) => !h.confirmedAt),
+    }))
+    .filter((r) => r.items.length);
+
+  return NextResponse.json({ ...base, rows, totals: peopleTotals(rows), quals });
 }
