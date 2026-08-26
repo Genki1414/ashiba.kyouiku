@@ -121,7 +121,11 @@ check(search("特別教育", "se-063").some((q) => q.id === "SE-063"), "見出�
 check(search("特別教育", "SE-063").some((q) => q.id === "SE-063"), "番号でも当たる");
 check(search("特別教育", "玉掛け").every((q) => q.kind === "特別教育"), "種類をまたいで拾わない");
 check(search("特別教育", "ありえない言葉").length === 0, "当たらなければ空");
-check(search("技能講習", "玉掛け").length === 1, "技能講習の玉掛けは1件");
+/* 技能講習はいったん外してある。一覧をもらったら足す。
+   それまでは「この一覧にない（自分で書く）」で入れてもらう */
+check(!KINDS.includes("その他" as never) === false, "種類は特別教育とその他");
+check(KINDS.length === 2, `種類は2つ（いま ${KINDS.join("・")}）`);
+check(!QUALS.some((q) => q.id.startsWith("SK-")), "技能講習は一覧に入れていない");
 
 console.log("── 引く ──");
 check(findQual("SE-063")?.name.includes("足場"), "id から引ける");

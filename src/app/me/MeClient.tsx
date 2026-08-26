@@ -5,7 +5,6 @@ import Link from "next/link";
 import { Btn } from "@/components/ui/Btn";
 import { Bar } from "@/components/ui/Bar";
 import { dur } from "@/components/ui/format";
-import { getBrowserClient } from "@/lib/supabase/browser";
 import { claimDevice, wipeDevice } from "@/lib/device";
 
 import { HeldQuals } from "./HeldQuals";
@@ -126,8 +125,8 @@ export function MeClient() {
   };
 
   const signOut = async () => {
-    const supabase = getBrowserClient();
-    await supabase?.auth.signOut();
+    /* Supabase の道具を画面に積まないために、サーバでログアウトする */
+    await fetch("/api/signout", { method: "POST" }).catch(() => {});
     /* 端末を次の人に渡すためのボタン。端末に残る記録もここで消す */
     wipeDevice();
     claimDevice(null);

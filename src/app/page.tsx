@@ -4,7 +4,9 @@ import { loadedCourses } from "@/lib/curriculum";
 import { AccountBar } from "@/components/AccountBar";
 import { HomeCards } from "@/components/HomeCards";
 
-export const dynamic = "force-dynamic";
+/* ここはサーバ側で誰かを見ていない（立場ごとの出し分けは HomeCards が
+   あとから聞きに行く）。作り置きにしておけば、開いた瞬間に出る */
+export const revalidate = 3600;
 
 export default async function Home() {
   /* 特別教育は種類が増えていく。受けられるものを並べる */

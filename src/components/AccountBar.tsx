@@ -2,37 +2,42 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { getBrowserClient } from "@/lib/supabase/browser";
 import { claimDevice, wipeDevice } from "@/lib/device";
 
 /* いま誰として使っているか。ログインしていなければ何も出さない。
-   端末を人に渡すときに、ここからログアウトできる。 */
+   端末を人に渡すときに、ここからログアウトできる。
+
+   ここで Supabase の道具を持たない。名前を出すだけのために
+   一式（60kBあまり）を積むと、そのぶん開くのが遅くなる。
+   誰かは /api/me が返し、ログアウトは /api/signout がやる。 */
 export function AccountBar() {
   const [who, setWho] = useState<{ name: string; email: string } | null>(null);
   const [asking, setAsking] = useState(false);
 
   useEffect(() => {
-    const supabase = getBrowserClient();
-    if (!supabase) return;
-    supabase.auth.getUser().then(({ data }) => {
-      const u = data.user;
-      if (!u) return;
-      /* 別の画面でログインし直したときの取りこぼしを、ここで拾う。
-         人が変わっていれば端末の記録を消して、読み直す */
-      if (claimDevice(u.id)) {
-        window.location.reload();
-        return;
-      }
-      const name = (u.user_metadata?.name as string) || "";
-      setWho({ name, email: u.email ?? "" });
-    });
+    let alive = true;
+    fetch("/api/me", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (!alive || !j?.ok || !j.userId) return;
+        /* 別の画面でログインし直したときの取りこぼしを、ここで拾う。
+           人が変わっていれば端末の記録を消して、読み直す */
+        if (claimDevice(j.userId as string)) {
+          window.location.reload();
+          return;
+        }
+        setWho({ name: (j.name as string) ?? "", email: (j.email as string) ?? "" });
+      })
+      .catch(() => {
+        /* 圏外・未設定。何も出さない */
+      });
+    return () => { alive = false; };
   }, []);
 
   if (!who) return null;
 
   const out = async () => {
-    const supabase = getBrowserClient();
-    await supabase?.auth.signOut();
+    await fetch("/api/signout", { method: "POST" }).catch(() => {});
     /* 端末を次の人に渡すためのボタン。
        受講の準備（氏名・顔の特徴量）も、視聴時間も、ここで消す */
     wipeDevice();

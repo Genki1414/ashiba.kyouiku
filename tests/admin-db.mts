@@ -809,18 +809,18 @@ check(codes.every((c) => /^[2-9A-HJKMNP-Z]{12}$/.test(c)), `12文字・読み違
       p_cert: (o.cert as string) ?? null,
     });
 
-  const r1 = await add(U2, "SK-011", { issuer: "前の会社", got: "2024-05-01", cert: "A-1" });
+  const r1 = await add(U2, "OT-001", { issuer: "前の会社", got: "2024-05-01", cert: "A-1" });
   check(!r1.error, `一覧にある資格を足せる（${r1.error?.message ?? "ok"}）`);
 
   const mine = await heldFor(db, U2);
   check(mine.length === 1, `1件入る（いま ${mine.length}件）`);
-  check(mine[0].name.includes("玉掛け"), `名前は一覧から出す（${mine[0].name}）`);
-  check(mine[0].kind === "技能講習", `種類も出る（${mine[0].kind}）`);
+  check(mine[0].name.includes("職長"), `名前は一覧から出す（${mine[0].name}）`);
+  check(mine[0].kind === "その他", `種類も出る（${mine[0].kind}）`);
   check(mine[0].issuer === "前の会社", "どこで受けたかが残る");
   check(mine[0].confirmedAt === null, "足しただけでは自己申告のまま");
 
   /* 同じものを足しても増えない。書き足しになる */
-  const r2 = await add(U2, "SK-011", { issuer: "別の教習所", got: "2024-06-01" });
+  const r2 = await add(U2, "OT-001", { issuer: "別の教習所", got: "2024-06-01" });
   check(!r2.error, "同じ資格をもう一度足せる（書き足し）");
   const again = await heldFor(db, U2);
   check(again.length === 1, `二重に増えない（いま ${again.length}件）`);
@@ -834,7 +834,7 @@ check(codes.every((c) => /^[2-9A-HJKMNP-Z]{12}$/.test(c)), `12文字・読み違
 
   /* ── 確かめる ── */
   const held = await heldFor(db, U2);
-  const sling = held.find((h) => h.name.includes("玉掛け"))!;
+  const sling = held.find((h) => h.name.includes("職長"))!;
   const okc = await db.rpc("confirm_qual", {
     p_id: sling.id, p_company: CO, p_admin: U1, p_on: true,
   });
@@ -857,7 +857,7 @@ check(codes.every((c) => /^[2-9A-HJKMNP-Z]{12}$/.test(c)), `12文字・読み違
 
   /* 中身を書き換えたら、確かめた印は落ちる。
      確かめたのは「そのとき見せられた紙」なので、書き換えたら確かめ直す */
-  await add(U2, "SK-011", { issuer: "書き換えた", got: "2024-07-01" });
+  await add(U2, "OT-001", { issuer: "書き換えた", got: "2024-07-01" });
   const redo = await heldFor(db, U2);
   check(
     redo.find((h) => h.id === sling.id)?.confirmedAt === null,
@@ -889,7 +889,7 @@ check(codes.every((c) => /^[2-9A-HJKMNP-Z]{12}$/.test(c)), `12文字・読み違
      同じ教習機関で同じ日に何枚も取る。1つずつ足させると入れてもらえない */
   await raw.query("delete from public.held_quals where user_id = any($1::uuid[])", [PEOPLE]);
   {
-    const many = ["SE-065", "SE-064", "SK-011"];
+    const many = ["SE-065", "SE-064", "OT-001"];
     for (const q of many) {
       const r = await add(U2, q, { issuer: "宮城労働基準協会", got: "2024-03-11" });
       if (r.error) { ng++; console.error("NG: まとめて足す", r.error.message); }

@@ -21,7 +21,7 @@
    画面にもデータベースにも触らない、ただの並び。
    **id は変えないこと**（変えると、すでに足した人のものが行方不明になる）。 */
 
-export type QualKind = "特別教育" | "技能講習" | "その他";
+export type QualKind = "特別教育" | "その他";
 
 export type Qual = {
   /** 変えない目印。特別教育は SE-001 のような番号 */
@@ -141,29 +141,16 @@ const SPECIAL: Qual[] = SE.map(([id, slug, name, theoryH, practicalH, from]) => 
   basis: BASIS_OVERRIDE[id] ?? SE_BASIS,
 }));
 
-/* ── 技能講習・その他 ──
-   足場の職人が持っているものを拾う。特別教育のような通し番号は無いので、
-   SK-／OT- を振ってある。ここも id は変えないこと */
-const OTHERS: Qual[] = [
-  { id: "SK-001", slug: "scaffolding-chief", name: "足場の組立て等作業主任者", kind: "技能講習" },
-  { id: "SK-002", slug: "steel-erection-chief", name: "建築物等の鉄骨の組立て等作業主任者", kind: "技能講習" },
-  { id: "SK-003", slug: "formwork-shoring-chief", name: "型枠支保工の組立て等作業主任者", kind: "技能講習" },
-  { id: "SK-004", slug: "excavation-shoring-chief", name: "地山の掘削及び土止め支保工作業主任者", kind: "技能講習" },
-  { id: "SK-005", slug: "wooden-building-chief", name: "木造建築物の組立て等作業主任者", kind: "技能講習" },
-  { id: "SK-006", slug: "concrete-demolition-chief", name: "コンクリート造の工作物の解体等作業主任者", kind: "技能講習" },
-  { id: "SK-007", slug: "asbestos-chief", name: "石綿作業主任者", kind: "技能講習" },
-  { id: "SK-008", slug: "organic-solvent-chief", name: "有機溶剤作業主任者", kind: "技能講習" },
-  { id: "SK-009", slug: "stacking-chief", name: "はい作業主任者", kind: "技能講習" },
-  { id: "SK-010", slug: "oxygen-deficiency-chief", name: "酸素欠乏・硫化水素危険作業主任者", kind: "技能講習" },
-  { id: "SK-011", slug: "slinging-1t-or-more", name: "玉掛け（つり上げ荷重1t以上）", kind: "技能講習" },
-  { id: "SK-012", slug: "mobile-crane-under-5t", name: "小型移動式クレーン運転（つり上げ荷重5t未満）", kind: "技能講習" },
-  { id: "SK-013", slug: "aerial-work-platform-10m-or-more", name: "高所作業車運転（作業床の高さ10m以上）", kind: "技能講習" },
-  { id: "SK-014", slug: "construction-machine-leveling", name: "車両系建設機械（整地・運搬・積込み用及び掘削用）運転", kind: "技能講習" },
-  { id: "SK-015", slug: "construction-machine-demolition", name: "車両系建設機械（解体用）運転", kind: "技能講習" },
-  { id: "SK-016", slug: "forklift-1t-or-more", name: "フォークリフト運転（最大荷重1t以上）", kind: "技能講習" },
-  { id: "SK-017", slug: "rough-terrain-carrier-1t-or-more", name: "不整地運搬車運転（最大積載量1t以上）", kind: "技能講習" },
-  { id: "SK-018", slug: "gas-welding", name: "ガス溶接", kind: "技能講習" },
+/* ── その他 ──
+   免許や、法令で決まった講習。特別教育のような通し番号は無いので
+   OT- を振ってある。ここも id は変えないこと。
 
+   技能講習（作業主任者・玉掛け1t以上・移動式クレーンなど）は、
+   いったん外してある。私が並べたものが現場のものと合っている保証が無く、
+   間違った名前を選ばせると、そのまま名簿に残ってしまうため。
+   一覧をもらったら、特別教育と同じ形で足す。
+   それまでは「この一覧にない（自分で書く）」で入れてもらう。 */
+const OTHERS: Qual[] = [
   { id: "OT-001", slug: "foreman-safety-supervisor", name: "職長・安全衛生責任者教育", kind: "その他" },
   { id: "OT-002", slug: "crane-derrick-license", name: "クレーン・デリック運転士（免許）", kind: "その他" },
   { id: "OT-003", slug: "mobile-crane-license", name: "移動式クレーン運転士（免許）", kind: "その他" },
@@ -187,7 +174,7 @@ export const qualName = (id: string, label?: string | null): string =>
 /** 合計時間（学科＋実技） */
 export const totalH = (q: Qual): number => (q.theoryH ?? 0) + (q.practicalH ?? 0);
 
-export const KINDS: QualKind[] = ["特別教育", "技能講習", "その他"];
+export const KINDS: QualKind[] = ["特別教育", "その他"];
 
 /** 種類ごとに分ける（画面はこの順で並べる） */
 export const byKind = (kind: QualKind) => QUALS.filter((q) => q.kind === kind);

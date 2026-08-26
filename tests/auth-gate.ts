@@ -3,6 +3,7 @@
    逆に中身が素通しになる。
    実行: npm run test:authgate */
 
+import { readFileSync } from "node:fs";
 import { OPEN_PATHS, isOpenPath } from "../src/lib/authGate";
 
 let ok = 0;
@@ -90,6 +91,41 @@ for (const p of ["/api/progress", "/api/exam", "/api/enrollment", "/api/cert", "
 }
 check(OPEN_PATHS.includes("/login"), "/login は通す一覧にある");
 check(OPEN_PATHS.includes("/api/health"), "/api/health は通す一覧にある（設定を直すときに要る）");
+
+/* ── 見張りを通さないもの ──
+   置いてあるだけのファイルまで見張ると、1本読むたびに
+   Supabase の認証サーバまで往復する。
+   顔検出の重み（public/models）は 6.5MB あって何本にも分かれているので、
+   受講の画面を開くたびに、その回数だけ往復していた */
+{
+  const src = readFileSync(new URL("../src/middleware.ts", import.meta.url), "utf8");
+  const m = /matcher:\s*\[([^\]]*)\]/s.exec(src);
+  const matcher = m?.[1] ?? "";
+  for (const x of ["models/", "sfx/", "icons/", "sw.js", "manifest.webmanifest"]) {
+    check(matcher.includes(x), `見張りを通さない: ${x}`);
+  }
+  check(matcher.includes("_next/static"), "作り置きの中身も通さない");
+
+  /* 拡張子の付いたものは、まとめて外す（画像・音・地図など） */
+  check(/\\\.\[a-z0-9\]\+\$/i.test(src), "拡張子の付いたものを外す決まりがある");
+
+  /* ログインのクッキーが無ければ、聞きに行かずにその場で断る */
+  check(/startsWith\("sb-"\)/.test(src), "クッキーが無ければ、聞きに行かない");
+  /* 手元で確かめられる方（getClaims）を先に使い、
+     getUser は使えなかったときの受け皿にする（注釈は数えない） */
+  const calls = [...src.matchAll(/auth\.(getClaims|getUser)\(/g)].map((x) => x[1]);
+  check(calls[0] === "getClaims", `getClaims を先に呼ぶ（${calls.join("→")}）`);
+  check(calls.includes("getUser"), "getUser は受け皿として残す");
+}
+
+/* 誰かを見るのは、ひとつの取りに行きで1回だけ。
+   /api/me は運営か・担当者か・受講できるかで3回呼んでいた */
+{
+  const src = readFileSync(new URL("../src/lib/supabase/session.ts", import.meta.url), "utf8");
+  check(/cache\(/.test(src), "currentUser は取りに行きごとに1回だけ");
+  check(/from "react"/.test(src), "React の cache を使う");
+  check(/getClaims/.test(src), "getClaims を使う（往復が消える）");
+}
 
 console.log("── まとめ ──");
 console.log(`${ok} 件通過 / ${ng} 件失敗`);
