@@ -40,6 +40,7 @@
     "test:e2e:update": "node tests/e2e-update-notice.mjs",
     "test:e2e:record": "node tests/e2e-record.mjs",
     "test:e2e:admin": "node tests/e2e-admin.mjs",
+    "test:e2e:homefast": "node tests/e2e-home-fast.mjs",
     "test:e2e:order": "node tests/e2e-order.mjs",
     "test:e2e:lesson": "node tests/e2e-lesson.mjs",
     "test:e2e:prepexam": "node tests/e2e-prep-exam.mjs",

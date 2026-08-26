@@ -31,16 +31,27 @@ export function wipeDevice() {
 }
 
 /** いま使う人を端末に覚えさせる。
-    前と違う人なら、前の人の記録を消して true を返す */
+    **前に別の人が使っていたなら**、その人の記録を消して true を返す。
+
+    true を受けた側は画面を読み直す（前の人の名前や進み具合が
+    出たままにならないように）。
+
+    はじめて使う端末で true を返してはいけない。
+    消すものが無いのに読み直すことになり、
+    ログインして最初にホームを開いたとき、必ず1回読み直しが挟まる。
+    現場では毎朝そこを通るので、その一拍がそのまま「遅い」になる。 */
 export function claimDevice(uid: string | null): boolean {
   try {
     const was = localStorage.getItem(OWNER) ?? "";
     const now = uid ?? "";
     if (was === now) return false;
-    wipeDevice();
+
+    /* 前に誰も使っていなければ、消すものも読み直すものも無い */
+    const first = was === "";
+    if (!first) wipeDevice();
     if (now) localStorage.setItem(OWNER, now);
     else localStorage.removeItem(OWNER);
-    return true;
+    return !first;
   } catch {
     return false;
   }

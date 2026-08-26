@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { loadMe, readMe, sameMe, type Me } from "@/lib/me";
 
 /* ホームの出し分け。
 
@@ -9,31 +10,25 @@ import Link from "next/link";
    ・まだどこの事業者にも属していない人 … 会社をさがして申し込んでもらう
    ・教育担当者 … 担当者の画面への入口
 
-   ホームを静的なまま置いておきたいので、ここから聞く（AccountBar と同じ）。 */
-
-type Me = { admin: boolean; owner: boolean; needsJoin: boolean; canLearn: boolean; company: string };
+   ホームを静的なまま置いておきたいので、ここから聞く（AccountBar と同じ）。
+   前に聞いた答えを覚えてあるので、2回目からは押した瞬間に出る。
+   帯と札で2回聞きに行かないよう、行きかけの1本を分け合う（src/lib/me.ts）。 */
 
 export function HomeCards() {
+  /* 描き始めは、前に聞いた答え。立場はそう変わらないので、
+     まずそれで描いてしまう。特別教育と実務は作り置きで即出るのに、
+     ここだけ一拍おいて出てくるのが、開くたびに気になる */
   const [me, setMe] = useState<Me | null>(null);
 
   useEffect(() => {
     let alive = true;
-    fetch("/api/me", { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((j) => {
-        if (alive && j?.ok)
-          setMe({
-            admin: !!j.admin,
-            owner: !!j.owner,
-            needsJoin: !!j.needsJoin,
-            /* 古い応答（canLearn が無い）は、止めずに通す */
-            canLearn: j.canLearn !== false,
-            company: j.company ?? "",
-          });
-      })
-      .catch(() => {
-        /* 圏外・未設定。何も出さない */
-      });
+    const kept = readMe();
+    if (kept) setMe(kept);
+
+    void loadMe().then((fresh) => {
+      if (!alive || !fresh) return;
+      if (!sameMe(kept, fresh)) setMe(fresh);
+    });
     return () => { alive = false; };
   }, []);
 
