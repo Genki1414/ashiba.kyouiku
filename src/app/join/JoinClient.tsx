@@ -13,6 +13,11 @@ import { wipeDevice } from "@/lib/device";
       コードを渡されていなくても、自分から入れる。
       よその会社の名簿に勝手に入れないよう、許可を挟む。
 
+   ③ 会社を登録する
+      まだこの仕組みを使っていない会社のため。登録した人が担当者になる。
+      同じ会社が2つ登録されると名簿が割れるので、
+      作る前にもう一度探して、あれば「申し込む」に回す。
+
    ② コードを入れる（渡されている場合）
       受講コード（12文字）… 1人1枚の席。
       コードを渡した時点で会社が認めているので、許可は要らない。
@@ -40,6 +45,10 @@ export function JoinClient() {
   const [q, setQ] = useState("");
   const [found, setFound] = useState<Found[] | null>(null);
   const [mine, setMine] = useState<Mine | null>(null);
+  /* ③ 会社を登録する。まだこの仕組みを使っていない会社のため */
+  const [newName, setNewName] = useState("");
+  const [maybe, setMaybe] = useState<Found[] | null>(null);
+  const [made, setMade] = useState("");
 
   const loadMine = useCallback(async () => {
     try {
@@ -110,6 +119,40 @@ export function JoinClient() {
     }
   };
 
+  /* 会社を登録する。force は「似た名前を見たうえで、それでも作る」 */
+  const make = async (force: boolean) => {
+    setBusy(true);
+    setNote("");
+    try {
+      const res = await fetch("/api/admin/setup", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ company: newName.trim(), force }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (j.exists) {
+        /* もう同じ会社がある。作らずに申し込みへ回す */
+        setMaybe([j.exists as Found]);
+        setNote(j.reason ?? "");
+        return;
+      }
+      if (j.maybe) {
+        setMaybe(j.maybe as Found[]);
+        return;
+      }
+      if (!res.ok || !j.ok) {
+        setNote(j.reason ?? "登録できませんでした。");
+        return;
+      }
+      setMade(j.company ?? newName.trim());
+      router.refresh();
+    } catch {
+      setNote("つながりません。電波の届く所でもう一度。");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const go = async () => {
     setBusy(true);
     setNote("");
@@ -137,6 +180,32 @@ export function JoinClient() {
       setBusy(false);
     }
   };
+
+  if (made) {
+    return (
+      <main className="px-5 py-8">
+        <div className="tape -mx-5 mb-6" />
+        <h1 className="text-[18px] font-black">{made} を登録しました</h1>
+        <p className="mt-2 text-[13px] leading-relaxed text-dim">
+          あなたがこの会社の教育担当者になりました。
+          受講する人には、名簿に申し込んでもらうか、受講コードを渡してください。
+        </p>
+        <Link
+          href="/admin"
+          className="mt-6 block rounded-lg border border-yel bg-yel p-3.5 text-center text-[14px] font-extrabold text-bg no-underline"
+          data-testid="join-new-done"
+        >
+          教育担当者の画面へ
+        </Link>
+        <Link
+          href="/"
+          className="mt-2 block rounded-lg border border-line p-3 text-center text-[12.5px] text-dim no-underline"
+        >
+          ホームへ
+        </Link>
+      </main>
+    );
+  }
 
   if (done !== null) {
     return (
@@ -240,7 +309,7 @@ export function JoinClient() {
                 <div className="text-[12px] leading-relaxed text-dim2">
                   見つかりません。会社名を短く入れてみてください。
                   それでも出ないときは、まだこの仕組みを使っていない会社です。
-                  担当者に聞いてください。
+                  下の「② 会社を登録する」から登録できます。
                 </div>
               )}
               {found.map((c) => (
@@ -260,7 +329,68 @@ export function JoinClient() {
         </div>
       )}
 
-      <h2 className="mt-6 text-[13px] font-black">② 受講コードを入れる</h2>
+      {/* ③ 会社を登録する。まだこの仕組みを使っていない会社のため */}
+      {mine?.state !== "active" && (
+        <div className="mt-4 rounded-xl border border-line bg-panel p-4" data-testid="join-new">
+          <div className="mb-1 text-[11px] tracking-[2px] text-dim">② 会社を登録する</div>
+          <p className="mb-2.5 text-[11.5px] leading-relaxed text-dim2">
+            上でさがして見つからないときは、ここから登録できます。
+            <strong className="text-dim">登録した人が、その会社の教育担当者になります。</strong>
+            あとから他の人を担当者にすることもできます。
+          </p>
+          <input
+            value={newName}
+            onChange={(e) => { setNewName(e.target.value); setMaybe(null); }}
+            placeholder="会社名（例：東北三上機材株式会社）"
+            className="w-full rounded-lg border border-line bg-bg px-3 py-2.5 text-[13.5px]"
+            data-testid="join-new-name"
+          />
+
+          {/* 似た名前があったとき。前株と後株など、別の会社のこともある */}
+          {maybe && !!maybe.length && (
+            <div className="mt-2.5 rounded-lg border border-yel bg-[#1A1F14] p-3">
+              <div className="text-[11.5px] leading-relaxed text-yel">
+                似た名前の事業者があります。同じ会社なら、そちらへ申し込んでください。
+              </div>
+              <div className="mt-2 grid gap-1.5">
+                {maybe.map((c) => (
+                  <button
+                    key={c.id}
+                    onClick={() => void ask(c)}
+                    disabled={busy}
+                    className="rounded-lg border border-line bg-bg px-3 py-2.5 text-left text-[13px]"
+                    data-testid="join-maybe"
+                  >
+                    {c.name}
+                    <span className="ml-2 text-[11px] text-yel">申し込む</span>
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={() => void make(true)}
+                disabled={busy}
+                className="mt-2 w-full rounded-lg border border-line p-2 text-[11.5px] text-dim2"
+                data-testid="join-new-force"
+              >
+                どれとも違う。「{newName}」を新しく登録する
+              </button>
+            </div>
+          )}
+
+          {(!maybe || !maybe.length) && (
+            <button
+              onClick={() => void make(false)}
+              disabled={busy || newName.trim().length < 2}
+              className="mt-2.5 w-full rounded-lg border border-line p-2.5 text-[12.5px] text-dim"
+              data-testid="join-new-go"
+            >
+              {busy ? "確かめています…" : "この会社を登録する"}
+            </button>
+          )}
+        </div>
+      )}
+
+      <h2 className="mt-6 text-[13px] font-black">③ 受講コードを入れる</h2>
       <p className="mt-1 text-[12.5px] leading-relaxed text-dim">
         担当者から受講コード（12文字）を渡されている場合は、こちらが早いです。
         許可は要りません。入れた時点で名簿に入り、学科が開きます。
@@ -299,11 +429,7 @@ export function JoinClient() {
       <div className="mt-8 rounded-xl border border-line bg-panel p-4 text-[12px] leading-relaxed text-dim">
         コードを持っていない場合は、会社の教育担当者に聞いてください。
         <br />
-        自分の会社でこれから使い始める場合は{" "}
-        <Link href="/admin" className="text-cyan no-underline">
-          事業者を作る
-        </Link>
-        {" "}へ。
+        自分の会社でこれから使い始める場合は、上の「② 会社を登録する」から。
       </div>
     </main>
   );

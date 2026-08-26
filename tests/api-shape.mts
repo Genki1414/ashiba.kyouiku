@@ -171,6 +171,28 @@ console.log("── 新しく登録した人の、会社との紐付け ──")
     "受講コードの札は、在籍している人にだけ出す");
 }
 
+console.log("── 会社の登録 ──");
+{
+  /* 同じ会社が2つ登録されると、名簿が割れる。
+     片方に申し込んだ人が、もう片方を見ている担当者からは見えない */
+  const api = read("src/app/api/admin/setup/route.ts");
+  check(/sameCompany/.test(api), "作る前に、同じ会社がないか見る");
+  check(/exists/.test(api), "あれば、作らずに「申し込んでください」と返す");
+  check(/likeCompany/.test(api), "似た名前も探す");
+  check(/maybe/.test(api), "似た名前は候補として返す");
+  /* 前株と後株は別の会社のことがある。止めはしない */
+  check(/body\.force/.test(api), "似ているだけなら、押し直せば作れる");
+  check(/409/.test(api), "断るときは、理由の分かる断り方をする");
+  check(/me\.company_id/.test(api), "すでにどこかに属している人は作れない");
+
+  /* 受講者の側からも登録できる。/admin まで行かないと作れないと、
+     新しい会社が自分で使い始められない */
+  const join = read("src/app/join/JoinClient.tsx");
+  check(/join-new-go/.test(join), "会社とつなぐ画面から登録できる");
+  check(/join-maybe/.test(join), "似た名前が出たら、そこから申し込める");
+  check(/join-new-force/.test(join), "どれとも違うときは、そのまま登録できる");
+}
+
 console.log("── 実務トレーニングの関門 ──");
 {
   /* 第1章は誰でも（試し）。第2章から先は利用権を持っている人だけ。

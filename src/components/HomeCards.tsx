@@ -89,8 +89,8 @@ export function HomeCards() {
         <div className="text-[11px] font-extrabold tracking-widest text-yel">はじめに</div>
         <div className="mt-1 text-[15px] font-black text-txt">会社とつなぐ</div>
         <div className="mt-1 text-[12px] leading-relaxed text-dim">
-          自分の会社をさがして申し込むか、担当者から渡されたコードを入れてください。
-          つながっていないと、名簿に載らず、修了証も出せません。
+          自分の会社をさがして申し込みます。まだこの仕組みを使っていない会社なら、
+          そこから登録もできます。つながっていないと、名簿に載らず、修了証も出せません。
         </div>
       </Link>,
     );
