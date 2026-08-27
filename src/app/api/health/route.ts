@@ -149,14 +149,32 @@ export async function GET() {
   });
 
   await check("rpc", async () => {
+    /* どの単元で試すかは、決め打ちにしない。
+       0011 で単元IDに講座が付いて「ashiba:1-1」になったとき、
+       ここだけ「1-1」のままになり、外部キーで弾かれていた。
+       設定は正しいのに /setup が赤くなる、といういちばん困る出方をする。
+       表から1件もらえば、講座が増えても番号が変わっても付いていける */
+    const courseId = readyCourses()[0]?.id ?? "";
+    const { data: lesson, error: e0 } = await supabase
+      .from("lessons")
+      .select("lesson_id")
+      .eq("course_id", courseId)
+      .order("sort_order", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    if (e0) throw new Error(e0.message);
+    const lessonId = (lesson?.lesson_id as string | undefined) ?? "";
+    if (!lessonId) {
+      throw new Error(`${courseId} の単元が lessons にありません。npm run sync:lessons を実行してください`);
+    }
     // 0秒の同期。加算されないので記録は汚れない
     const { error } = await supabase.rpc("sync_watched_sec", {
       p_enrollment_id: enrollmentId,
-      p_lesson_id: "1-1",
+      p_lesson_id: lessonId,
       p_delta_sec: 0,
     });
     if (error) throw new Error(error.message);
-    return "sync_watched_sec 応答あり";
+    return `sync_watched_sec 応答あり（${lessonId}）`;
   });
 
   const ok = Object.values(checks).every((c) => c.ok);

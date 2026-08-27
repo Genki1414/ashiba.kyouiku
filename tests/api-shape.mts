@@ -401,5 +401,25 @@ console.log("── /api/member が返す形 ──");
   check(/\bpending:\s*rows\.map/.test(src), "許可待ちは、開いている申し込みを並べて返す");
 }
 
+console.log("── 単元IDの渡し方 ──");
+{
+  /* 0011 で単元IDに講座が付いて「ashiba:1-1」になった。
+     /setup の点検だけ「1-1」のままになっていて、外部キーで弾かれ、
+     設定は正しいのに「初期化が未完了」と赤く出ていた。
+     いちばん困る出方をするので、決め打ちを二度と入れない */
+  const files = ["progress", "quiz", "health"].map(
+    (n) => [n, read(`src/app/api/${n}/route.ts`)] as const,
+  );
+  for (const [n, src] of files) {
+    check(!/p_lesson_id:\s*["'`]/.test(src),
+      `/api/${n} は、単元IDを字で書いていない`);
+  }
+  const health = read("src/app/api/health/route.ts");
+  check(/from\("lessons"\)/.test(health),
+    "/setup の点検は、試す単元を lessons 表からもらう");
+  check(/course_id/.test(health),
+    "その単元は、いま見ている講座のもの");
+}
+
 console.log(`\n通り ${ok} ／ だめ ${ng}`);
 process.exit(ng ? 1 : 0);
