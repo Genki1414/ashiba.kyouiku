@@ -142,6 +142,36 @@ const E = (id: string, user: string) => ({ id, user_id: user });
   eq({ times: ch3.times, best: ch3.best }, { times: 0, best: null }, "やっていない章は空");
   check(r.training.every((t) => t.ch !== "ch4"), "準備中の章は並べない");
   eq(r.lastAt, "2026-02-04T00:00:00Z", "最後の記録はいちばん新しい日時");
+  /* 練習は点に入れないが、回数は数える。
+     数えないと、練習で通した人が「まだ通していません」と出てしまう */
+  eq(ch1.tried, 1, "練習の回数は別に数える");
+  eq(ch2.tried, 0, "練習していない章は0");
+}
+
+/* ── 練習だけ通した人 ──
+   点は付かないが、一度も触っていない人とは別のもの。
+   担当者の画面で「まだ」と出ると、やっていないことになる ── */
+{
+  const at = (chapter: string, skill: number, tutorial: boolean) => ({
+    enrollment_id: "e1", chapter, tutorial, skill, passed: skill >= PASS,
+    created_at: "2026-02-01T00:00:00Z",
+  });
+  const r = buildRoster(base({
+    users: [U("u1", "山田")],
+    enrollments: [E("e1", "u1")],
+    attempts: [at("ch1", 95, true), at("ch1", 80, true)],
+  }))[0];
+  const ch1 = r.training.find((t) => t.ch === "ch1")!;
+  eq({ times: ch1.times, tried: ch1.tried, best: ch1.best, passed: ch1.passed },
+     { times: 0, tried: 2, best: null, passed: false },
+     "練習だけなら、回数は残り、点は付かない");
+
+  /* 人ごとにまとめても、練習の回数は消えない */
+  const [p] = mergePeople([{
+    course: { id: "ashiba", short: "足場", name: "足場の特別教育" },
+    rows: [r],
+  }] as never);
+  eq(p.training.find((t) => t.ch === "ch1")!.tried, 2, "まとめても練習の回数は残る");
 }
 
 /* ── 受講がまだ無い人 ── */

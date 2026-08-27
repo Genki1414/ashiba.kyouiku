@@ -125,14 +125,21 @@ export function LearnerCard({
   const [tab, setTab] = useState<Tab | null>(r.canIssue ? "doing" : null);
 
   const played = r.training.filter((t) => t.times > 0);
+  /* 練習（チュートリアル）だけ通した人。点は付かないが、
+     「まだ」と出すと一度も触っていない人と同じに見える */
+  const tried = r.training.filter((t) => t.tried > 0);
   const chapters = r.training.filter((t) => t.passed).length;
 
   const chips: { k: Tab; t: string; v: string; on: boolean; mark: boolean }[] = [
     {
       k: "training",
       t: "実務トレーニング",
-      v: played.length ? `${chapters} / ${r.training.length} 章` : "まだ",
-      on: !!played.length,
+      v: played.length
+        ? `${chapters} / ${r.training.length} 章`
+        : tried.length
+          ? "練習のみ"
+          : "まだ",
+      on: !!(played.length || tried.length),
       mark: false,
     },
     {
@@ -213,7 +220,7 @@ export function LearnerCard({
       {/* ── 実務トレーニング ── */}
       {tab === "training" && (
         <div className="mt-2 rounded-lg border border-line bg-bg p-3" data-testid="admin-training">
-          {!played.length ? (
+          {!played.length && !tried.length ? (
             <div className="text-[12px] text-dim2">まだ通していません。</div>
           ) : (
             <div className="grid gap-1.5">
@@ -226,8 +233,8 @@ export function LearnerCard({
                     <span className={`shrink-0 font-bold ${t.passed ? "text-grn" : "text-dim"}`}>
                       {t.best === null ? "—" : `${t.best}点`}
                     </span>
-                    <span className="w-12 shrink-0 text-right text-[11px] text-dim2">
-                      {t.times ? `${t.times}回` : ""}
+                    <span className="w-16 shrink-0 text-right text-[11px] text-dim2">
+                      {t.times ? `${t.times}回` : t.tried ? `練習${t.tried}回` : ""}
                     </span>
                   </div>
                 );
@@ -235,7 +242,8 @@ export function LearnerCard({
             </div>
           )}
           <div className="mt-2 text-[10.5px] leading-relaxed text-dim2">
-            点は本番の最高点です（練習は数えません）。実務トレーニングは修了証の要件ではありません。
+            点は本番の最高点です。練習（チュートリアル）は親方に聞けて目印も濃いので、点には入れず
+            回数だけ出します。実務トレーニングは修了証の要件ではありません。
           </div>
         </div>
       )}

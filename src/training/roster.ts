@@ -11,6 +11,10 @@ export type ChapterResult = {
   ch: ChapterId;
   /** 本番で通した回数 */
   times: number;
+  /** チュートリアルで通した回数。
+      点には入れないが、数えないと「まだ通していません」と出てしまう。
+      練習で通した人と、一度も触っていない人は別のもの */
+  tried: number;
   /** 本番の最高技能点。1度も通していなければ null */
   best: number | null;
   passed: boolean;
@@ -103,11 +107,15 @@ export type RosterInput = {
 /** 章ごとに、本番の最高点と回数をまとめる。チュートリアルは数えない */
 function trainingOf(rows: RawAttempt[]): ChapterResult[] {
   return CHAPTERS.filter((c) => c.ready).map((c) => {
-    const mine = rows.filter((a) => a.chapter === c.id && !a.tutorial);
+    const here = rows.filter((a) => a.chapter === c.id);
+    /* 点は本番だけで見る。チュートリアルは親方に聞けて目印も濃いので、
+       同じ土俵で比べられない */
+    const mine = here.filter((a) => !a.tutorial);
     const best = mine.length ? Math.max(...mine.map((a) => a.skill)) : null;
     return {
       ch: c.id,
       times: mine.length,
+      tried: here.length - mine.length,
       best,
       /* 合否は点で決める。記録側の passed が古い決まりでも、いまの基準で揃う */
       passed: best !== null && best >= PASS,
@@ -284,6 +292,7 @@ function mergeTraining(list: ChapterResult[][]): ChapterResult[] {
     return {
       ch: c.id,
       times: mine.reduce((n, m) => n + m.times, 0),
+      tried: mine.reduce((n, m) => n + m.tried, 0),
       best,
       passed: best !== null && best >= PASS,
     };
