@@ -187,6 +187,8 @@ function Ch2Game({
         tutorial={tutorial}
         r={sc.result}
         onRetry={onRestart}
+        /* 第2章に入れている人は、第3章にも入れる（同じ利用権） */
+        next={{ ch: "ch3", locked: false }}
       />
     );
   }

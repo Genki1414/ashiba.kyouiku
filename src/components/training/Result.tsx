@@ -19,6 +19,7 @@ export function Result({
   r,
   onRetry,
   extra,
+  next,
 }: {
   ch: ChapterId;
   tutorial: boolean;
@@ -27,6 +28,8 @@ export function Result({
   r: Score;
   onRetry: () => void;
   extra?: React.ReactNode; // 章ごとの追記（第3章の指摘回数など）
+  /** 次の章への案内。locked は「その人にはまだ開いていない」 */
+  next?: { ch: ChapterId; locked: boolean };
 }) {
   const saved = useRef(false);
   useEffect(() => {
@@ -107,6 +110,10 @@ export function Result({
         </div>
       )}
 
+      {/* 次の章へ。受かった人にだけ出す。
+         「まだ現場に出せん」と言われた直後に次を勧めるのは筋が悪い */}
+      {next && pass && <NextUp ch={next.ch} locked={next.locked} />}
+
       <div className="mt-5 grid gap-2">
         <Btn tone="y" onClick={onRetry} testid="result-retry">
           もう一度やる
@@ -119,5 +126,71 @@ export function Result({
         </Link>
       </div>
     </main>
+  );
+}
+
+/* 次の章の案内。
+
+   第1章を通した直後がいちばん気持ちが乗っている。
+   ここで案内しないと、章の一覧に戻って灰色の札を見るまで
+   次があることに気づかない。
+
+   金額はここに書かない。単価はサーバだけが読むもの（price.server.ts）で、
+   画面から読むと仮の値になり、見せている額と請求する額が食い違う。
+   額は申し込みの画面（/train）がサーバから受け取って出す。 */
+function NextUp({ ch, locked }: { ch: ChapterId; locked: boolean }) {
+  const c = chapterOf(ch);
+  if (!c || !c.ready) return null;
+
+  if (locked) {
+    return (
+      <div
+        className="mt-4 rounded-xl border border-yel bg-[#1A1F14] p-4"
+        data-testid="result-next-locked"
+      >
+        <div className="text-[11px] font-extrabold tracking-[2px] text-yel">つぎは</div>
+        <div className="mt-1 text-[15px] font-black text-txt">
+          第{c.n}章 {c.t}
+        </div>
+        <div className="mt-1 text-[12px] leading-relaxed text-dim">
+          {c.d}
+          <br />
+          ここから先は、別に申し込みが要ります。
+          会社でまとめて申し込んでいる場合は、教育担当者に聞いてください。
+        </div>
+        <Link
+          href="/train"
+          className="mt-3 block rounded-lg border border-yel bg-yel p-3 text-center text-[13px] font-extrabold text-bg no-underline"
+          data-testid="result-next-buy"
+        >
+          自分ひとりぶんを申し込む
+        </Link>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-4 rounded-xl border border-line bg-panel p-4" data-testid="result-next">
+      <div className="text-[11px] font-extrabold tracking-[2px] text-cyan">つぎは</div>
+      <div className="mt-1 text-[15px] font-black text-txt">
+        第{c.n}章 {c.t}
+      </div>
+      <div className="mt-1 text-[12px] leading-relaxed text-dim">{c.d}</div>
+      {/* 先に手順を最後まで見てから組む。章の一覧と同じ順 */}
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <Link
+          href={`/training/demo/${c.id}`}
+          className="rounded-lg border border-cyan p-3 text-center text-[13px] font-bold text-cyan no-underline"
+        >
+          通し見学
+        </Link>
+        <Link
+          href={`/training/${c.id}`}
+          className="rounded-lg border border-yel bg-yel p-3 text-center text-[13px] font-extrabold text-bg no-underline"
+        >
+          やってみる
+        </Link>
+      </div>
+    </div>
   );
 }

@@ -311,6 +311,19 @@ check(errCount > 0, "叱られた記録が残る");
 /* 同じ指摘は1件にまとまって「×2」が付く */
 check((await page.getByTestId("result-retry").count()) === 1, "もう一度やるボタンが出る");
 
+/* つぎの章への案内。受かった人にだけ出す。
+   「まだ現場に出せん」と言われた直後に次を勧めるのは筋が悪い。
+   この試験はわざと間違えるので、受かるか落ちるかは回による。
+   だから札の有無ではなく、合否と揃っているかを見る */
+const passed = (await page.locator("text=不合格 — 再受講").count()) === 0;
+const nextN = await page.getByTestId("result-next").count();
+check(nextN === (passed ? 1 : 0),
+  `つぎの章の案内は、合格したときだけ出る（合格=${passed}／札=${nextN}）`);
+/* 手元では Supabase を繋いでいないので、第2章は開いている扱い。
+   買わせる方の札は出ない */
+check((await page.getByTestId("result-next-locked").count()) === 0,
+  "開いている人には、申し込みの札を出さない");
+
 await browser.close();
 if (ng) { console.error(`\n${ng} 件失敗`); process.exit(1); }
 console.log("ALL OK");

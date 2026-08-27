@@ -70,7 +70,16 @@ const SK_TOOLS: { k: Tool; t: string }[] = [
 ];
 
 /* 章を開いたときの殻。途中まで残っていたら、続きからやるか聞く */
-export function Ch1Client({ tutorial, sk = false }: { tutorial: boolean; sk?: boolean }) {
+export function Ch1Client({
+  tutorial,
+  sk = false,
+  nextLocked = false,
+}: {
+  tutorial: boolean;
+  sk?: boolean;
+  /** 第2章がまだ開いていない人か。結果の画面の案内を変える */
+  nextLocked?: boolean;
+}) {
   const { ask, boot, begin } = useBoot<Ch1State>("ch1", { tutorial, sk });
 
   if (ask) {
@@ -86,17 +95,28 @@ export function Ch1Client({ tutorial, sk = false }: { tutorial: boolean; sk?: bo
   }
   if (!boot) return null; // 調べているあいだは何も出さない
 
-  return <Ch1Game key={boot.n} tutorial={tutorial} sk={sk} init={boot.saved} onRestart={() => begin(null)} />;
+  return (
+    <Ch1Game
+      key={boot.n}
+      tutorial={tutorial}
+      sk={sk}
+      nextLocked={nextLocked}
+      init={boot.saved}
+      onRestart={() => begin(null)}
+    />
+  );
 }
 
 function Ch1Game({
   tutorial,
   sk,
+  nextLocked,
   init,
   onRestart,
 }: {
   tutorial: boolean;
   sk: boolean;
+  nextLocked: boolean;
   init: Saved<Ch1State> | null;
   onRestart: () => void;
 }) {
@@ -239,6 +259,7 @@ function Ch1Game({
         sk={s.sk}
         r={sc.result}
         onRetry={onRestart}
+        next={{ ch: "ch2", locked: nextLocked }}
       />
     );
   }

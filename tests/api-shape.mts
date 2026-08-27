@@ -252,9 +252,14 @@ console.log("── 実務トレーニングの関門 ──");
     check(/NeedTrain/.test(src), `${p.split("/").slice(-2).join("/")} は理由を出す`);
   }
 
-  /* 第1章は止めない。止めたら試しにならない */
+  /* 第1章は止めない。止めたら試しにならない。
+     canTrain を読むこと自体は構わない（通し終えた画面に
+     「つぎは第2章」を出すかどうかを決めるのに要る）。
+     だめなのは、その答えで**中身を作らない**こと */
   const ch1 = read("src/app/training/ch1/page.tsx");
-  check(!/canTrain/.test(ch1), "第1章は止めない（誰でも遊べる）");
+  check(!/NeedTrain/.test(ch1), "第1章は止めない（誰でも遊べる）");
+  check(!/if\s*\(!may\.ok\)\s*return/.test(ch1),
+    "第1章は、開いていない人にも中身を作る");
 
   const gate = read("src/lib/trainingGate.ts");
   check(/FREE_CHAPTERS = \["ch1"\]/.test(gate), "誰でも遊べるのは第1章だけ");
@@ -419,6 +424,26 @@ console.log("── 単元IDの渡し方 ──");
     "/setup の点検は、試す単元を lessons 表からもらう");
   check(/course_id/.test(health),
     "その単元は、いま見ている講座のもの");
+}
+
+console.log("── 第1章のあとの案内 ──");
+{
+  /* 第1章を通した直後がいちばん気持ちが乗っている。
+     ここで案内しないと、章の一覧に戻って灰色の札を見るまで
+     次があることに気づかない */
+  const page1 = read("src/app/training/ch1/page.tsx");
+  check(/canTrain\(\)/.test(page1), "第1章の頁で、第2章が開いているかをサーバで見る");
+  check(/nextLocked=\{!may\.ok\}/.test(page1), "その答えを結果の画面まで渡す");
+
+  const res = read("src/components/training/Result.tsx");
+  check(/next && pass &&/.test(res),
+    "つぎの章の案内は、合格したときだけ出す");
+  check(/result-next-locked/.test(res) && /href="\/train"/.test(res),
+    "開いていない人には、申し込みへの入口を出す");
+  /* 単価はサーバだけが読む。画面で読むと仮の値になり、
+     見せている額と請求する額が食い違う */
+  check(!/price\.server|unitPrice|DEFAULT_UNIT_PRICE|円/.test(strip(res)),
+    "結果の画面で金額を出さない（額は /train がサーバから受け取って出す）");
 }
 
 console.log(`\n通り ${ok} ／ だめ ${ng}`);
