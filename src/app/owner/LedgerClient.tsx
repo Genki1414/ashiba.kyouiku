@@ -80,6 +80,10 @@ export function LedgerClient({ onNote }: { onNote: (s: string) => void }) {
   const [open, setOpen] = useState<string | null>(null);
   const [detail, setDetail] = useState<Detail | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  /* 無償利用の切り替えを確かめる相手。押した瞬間に切り替わると、
+     在籍している人が受講コードなしでは学科を開けなくなり、
+     受講中の人もその場で止まる。戻し忘れると現場が止まる */
+  const [ask, setAsk] = useState<string | null>(null);
   const [q, setQ] = useState("");
 
   const load = useCallback(async () => {
@@ -120,6 +124,7 @@ export function LedgerClient({ onNote }: { onNote: (s: string) => void }) {
 
   const setTrial = async (c: Co) => {
     setBusy(c.id);
+    setAsk(null);
     onNote("");
     try {
       const res = await fetch("/api/owner/orders", {
@@ -199,11 +204,61 @@ export function LedgerClient({ onNote }: { onNote: (s: string) => void }) {
                 }`}
                 data-testid="owner-trial"
                 disabled={busy === c.id}
-                onClick={() => void setTrial(c)}
+                onClick={() => setAsk(ask === c.id ? null : c.id)}
+                title="押すと切り替えの確認が出ます"
               >
                 {c.trial ? "無償利用 中" : "有償"}
               </button>
             </div>
+
+            {/* 切り替えの確認。何人が影響を受けるかまで出す。
+               「試しに有償にしてみた」まま戻し忘れると、
+               その会社の人は全員、学科を開けなくなる */}
+            {ask === c.id && (
+              <div
+                className="border-t border-line bg-bg p-3"
+                data-testid="owner-trial-ask"
+              >
+                <div className="text-[12px] leading-relaxed text-dim">
+                  {c.trial ? (
+                    <>
+                      <span className="font-bold text-ng-tx">有償に切り替えます。</span>
+                      <br />
+                      在籍 {c.active}人は、<span className="text-txt">受講コードを引き換えていないと学科を開けなくなります</span>。
+                      いま受講中の人も、その場で止まります。
+                      <br />
+                      <span className="text-dim2">試しに切り替えたときは、必ず戻してください。</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="font-bold text-yel">無償利用に切り替えます。</span>
+                      <br />
+                      在籍 {c.active}人が、<span className="text-txt">受講コードなしで学科と実務トレーニングを全部開けます</span>。
+                      <br />
+                      <span className="text-dim2">売る相手ではなく、試用・社内利用の事業者にだけ。</span>
+                    </>
+                  )}
+                </div>
+                <div className="mt-2.5 flex gap-2">
+                  <button
+                    className={`rounded border px-3 py-1.5 text-[12px] font-bold ${
+                      c.trial ? "border-red text-ng-tx" : "border-yel text-yel"
+                    }`}
+                    data-testid="owner-trial-yes"
+                    disabled={busy === c.id}
+                    onClick={() => void setTrial(c)}
+                  >
+                    {c.trial ? "有償にする" : "無償利用にする"}
+                  </button>
+                  <button
+                    className="rounded border border-line px-3 py-1.5 text-[12px] text-dim"
+                    onClick={() => setAsk(null)}
+                  >
+                    やめる
+                  </button>
+                </div>
+              </div>
+            )}
 
             {open === c.id && (
               <div className="border-t border-line p-3" data-testid="ledger-detail">

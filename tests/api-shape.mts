@@ -446,5 +446,24 @@ console.log("── 第1章のあとの案内 ──");
     "結果の画面で金額を出さない（額は /train がサーバから受け取って出す）");
 }
 
+console.log("── 無償利用の切り替え ──");
+{
+  /* 押した瞬間に切り替わると、その会社の在籍者は受講コードなしでは
+     学科を開けなくなり、受講中の人もその場で止まる。
+     試しに切り替えて戻し忘れると、現場が止まる */
+  const led = read("src/app/owner/LedgerClient.tsx");
+  check(/owner-trial-ask/.test(led), "切り替える前に確認を出す");
+  check(/owner-trial-yes/.test(led), "確認のうえで押す所が分かれている");
+  check(/setAsk\(ask === c\.id \? null : c\.id\)/.test(led),
+    "札を押しただけでは切り替わらない");
+  check(/c\.active/.test(strip(led)) && /受講コードを引き換えていないと/.test(led),
+    "何人が影響を受けるかを出す");
+
+  /* 切り替えられるのは本部だけ。担当者が自分の会社を無償にできたら
+     いくらでもタダで使える */
+  const api = read("src/app/api/owner/orders/route.ts");
+  check(/currentOwner\(\)/.test(api), "無償利用を切り替えられるのは本部だけ");
+}
+
 console.log(`\n通り ${ok} ／ だめ ${ng}`);
 process.exit(ng ? 1 : 0);
