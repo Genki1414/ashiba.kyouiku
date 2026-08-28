@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import type { Lesson } from "@/types/curriculum";
 import { Btn } from "@/components/ui/Btn";
 import { speakLine, hasTts, audioUrl, voiceName } from "@/lib/audio";
-import { NarrationFigure, figureAt } from "./NarrationFigure";
+import { NarrationFigure, figureAt, hitTerm, rowsOf as rowsOfFig } from "./NarrationFigure";
 
 /* ナレーション。script[] を1行ずつ字幕＋音声で進める。
    再生中だけ視聴時間が加算される（親が playing を見て時計を回す）。 */
@@ -38,6 +38,11 @@ export function NarrationView({
 
   /* いま話しているところの図解。字幕1行だけ見ているのは、さすがにつらい */
   const figN = figureAt(lesson.figures, line, lesson.script.length);
+  /* いま読んでいる1行。まだ再生していないうちは案内を出す（下の字幕と同じ） */
+  const now = last ? "" : playing || line > 0 ? lesson.script[line] : "";
+  /* その行が図解のどれかを名指ししていれば、字幕の中でも同じ語を光らせる。
+     図解の側と同じ色にしておけば、どこの話かが目で追える */
+  const term = figN !== null ? hitTerm(rowsOfFig(lesson.figures[figN]), now) : null;
 
   /* 1行再生 → 終わったら次の行へ */
   const lineRef = useRef(line);
@@ -61,12 +66,16 @@ export function NarrationView({
         <div
           className={`h-2 w-2 shrink-0 rounded-full ${playing && !last ? "bg-yel pulse" : "bg-line"}`}
         />
-        <div className="text-[15px] font-semibold leading-relaxed">
-          {last
-            ? "この単元の解説は以上です。"
-            : playing || line > 0
-              ? lesson.script[line]
-              : "再生すると、ナレーションが始まります。"}
+        <div className="text-[15px] font-semibold leading-relaxed" data-testid="narr-line">
+          {last ? (
+            "この単元の解説は以上です。"
+          ) : !now ? (
+            "再生すると、ナレーションが始まります。"
+          ) : term ? (
+            <Marked text={now} term={term} />
+          ) : (
+            now
+          )}
         </div>
       </div>
 
@@ -114,6 +123,7 @@ export function NarrationView({
               fig={lesson.figures[figN]}
               index={figN}
               total={lesson.figures.length}
+              line={now}
             />
           </div>
         )}
@@ -154,5 +164,21 @@ export function NarrationView({
         </div>
       </div>
     </div>
+  );
+}
+
+/* 字幕の中の、図解と同じ語を光らせる。
+   図解の側と同じ色にしておけば、どこの話かが目で追える */
+function Marked({ text, term }: { text: string; term: string }) {
+  const i = text.indexOf(term);
+  if (i < 0) return <>{text}</>;
+  return (
+    <>
+      {text.slice(0, i)}
+      <span className="text-yel" data-testid="narr-mark">
+        {term}
+      </span>
+      {text.slice(i + term.length)}
+    </>
   );
 }

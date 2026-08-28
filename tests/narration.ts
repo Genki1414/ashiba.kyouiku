@@ -5,7 +5,7 @@
    どの図解を出すかを間違えると、話と絵が食い違って、かえって邪魔になる。 */
 
 import { readFileSync } from "node:fs";
-import { figureAt } from "@/components/edu/NarrationFigure";
+import { figureAt, hitRow, hitTerm } from "@/components/edu/NarrationFigure";
 import { CurriculumSchema } from "@/types/curriculum";
 import type { Figure } from "@/types/curriculum";
 
@@ -65,6 +65,28 @@ console.log("── 本物の教材で通す ──");
       check(sawLast, `${l.id}：最後の図解まで出番がある`);
     }
   }
+}
+
+console.log("── 読んでいるところを光らせる ──");
+{
+  const rows = [{ n: "手すり" }, { n: "支柱（建地）" }, { n: "床材と建地とのすき間" }];
+  check(hitRow(rows, "手すりは85センチ以上です。") === 0, "名前をそのまま言っていれば当たる");
+  check(hitRow(rows, "支柱を立てます。") === 1, "（）の中と外、どちらでも当たる");
+  check(hitRow(rows, "建地を立てます。") === 1, "言い換えでも当たる");
+  check(hitRow(rows, "きょうは天気がいい。") === null, "言っていなければ光らせない");
+
+  /* ゆるく切って当てにいくと、ここが誤爆する。
+     違う所が光るのは、光らないより悪い */
+  check(hitRow([{ n: "床材と建地とのすき間" }], "建地の間隔は一・八五メートル以下です。") === null,
+    "「の」で切らない（建地の間隔を、床材とのすき間に当てない）");
+
+  /* 同じ行に2つ出たら、長い方の話とみなす */
+  check(hitRow([{ n: "建地" }, { n: "床材と建地とのすき間" }],
+    "床材と建地とのすき間は12センチ未満です。") === 1, "長く一致した方を採る");
+
+  /* 字幕の中で光らせる語も、同じ当て方で出す */
+  check(hitTerm(rows, "手すりは85センチ以上です。") === "手すり", "字幕でも同じ語を光らせる");
+  check(hitTerm(rows, "きょうは天気がいい。") === null, "当たらなければ光らせない");
 }
 
 console.log(`\n通り ${ok} ／ だめ ${ng}`);
