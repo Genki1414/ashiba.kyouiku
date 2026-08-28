@@ -21,6 +21,7 @@ import { KEEP_YEARS, erasable, keepUntil } from "@/lib/retention";
 import { isFreeChapter, trainFor } from "@/lib/trainingGate";
 import { buildCheck, checkTotals } from "@/training/verifyLog";
 import { maySeeInvoice, unpaidInvoices } from "@/lib/invoiceAccess";
+import { myLive, openSessions, doneOf, minOf } from "@/lib/liveQuery";
 
 const URL = process.env.SHIM_URL ?? "http://127.0.0.1:54321";
 const PG_URL = process.env.PG_URL ?? "postgres://postgres@127.0.0.1:55432/appdb";
@@ -538,6 +539,74 @@ const ord = await must(
   }).select("id").single(),
 );
 const orderId = ord!.id as string;
+
+/* ── 討議の回（0022）──
+
+   職長教育は討議方式が原則。開いただけでは修了にしない。
+   誰が・いつ入って・いつ出て・実際に何分居たかを、データベース側で残す。
+   画面から「何分居た」を送らせない（送らせると、繋がずに修了できる） */
+{
+  const S1 = "dddddddd-1111-1111-1111-111111111111";
+  await must(
+    "討議の回を立てられる",
+    db.from("live_sessions").insert({
+      id: S1, course_id: "shokucho", subject_id: 3, company_id: CO,
+      starts_at: "2026-09-10T09:00:00Z", minutes: 60, capacity: 15, teacher: U1,
+    }).select("id"),
+  );
+
+  /* 1回15人まで。多いと討議にならない */
+  {
+    const { error } = await db.from("live_sessions").insert({
+      course_id: "shokucho", subject_id: 1,
+      starts_at: "2026-09-11T09:00:00Z", minutes: 60, capacity: 20,
+    });
+    check(!!error, "16人以上の回は、データベースが拒む");
+  }
+
+  /* 申し込み → 入る → 出る → 入り直す */
+  await must("申し込める", db.rpc("book_live", { p_session: S1, p_user: U2 }));
+  await must("入れる", db.rpc("live_in", { p_session: S1, p_user: U2 }));
+  await must("二度押しても平気", db.rpc("live_in", { p_session: S1, p_user: U2 }));
+  await must("出られる", db.rpc("live_out", { p_session: S1, p_user: U2 }));
+  await must("入り直せる", db.rpc("live_in", { p_session: S1, p_user: U2 }));
+
+  const mine = await myLive(db as never, U2);
+  const m = mine.get(S1)!;
+  check(!!m, "出た記録が引ける");
+  check(m.spans.length === 2, `入退室は2組（いま ${m.spans.length}）`);
+  check(!!m.spans[0].out, "1組目は閉じている");
+  check(m.spans[1].out === null, "2組目は開いたまま");
+
+  /* 申し込んでいない人は入れない */
+  {
+    const { error } = await db.rpc("live_in", { p_session: S1, p_user: ORPHAN });
+    check(!!error, "申し込んでいなければ入れない");
+  }
+
+  /* 開いただけでは修了にしない。時間・回答・講師の確認が要る */
+  const now = new Date(new Date(m.spans[1].in).getTime() + 61 * 60 * 1000);
+  check(!doneOf(m, 60, now).ok, "課題に答えていなければ未修了");
+  await must("課題に答える", db.from("live_attend").update({ answer: "配置案：…" })
+    .eq("session_id", S1).eq("user_id", U2).select("session_id"));
+  const m2 = (await myLive(db as never, U2)).get(S1)!;
+  const d2 = doneOf(m2, 60, now);
+  check(!d2.ok && d2.why === "teacher", "講師の確認が無ければ未修了");
+  await must("講師が確認する", db.from("live_attend").update({ teacher_ok: true })
+    .eq("session_id", S1).eq("user_id", U2).select("session_id"));
+  const m3 = (await myLive(db as never, U2)).get(S1)!;
+  check(doneOf(m3, 60, now).ok, "3つそろえば修了");
+  check(minOf(m3, now) >= 60, `居た時間が数えられる（${minOf(m3, now)}分）`);
+
+  /* よその会社の回は出さない */
+  const seen = await openSessions(db as never, "shokucho", CO, new Date("2026-01-01"));
+  check(seen.some((x) => x.id === S1), "自分の会社の回は出る");
+  const other = await openSessions(db as never, "shokucho", "00000000-0000-0000-0000-000000000009", new Date("2026-01-01"));
+  check(!other.some((x) => x.id === S1), "よその会社の回は出さない");
+  check(seen.find((x) => x.id === S1)?.booked === 1, "申し込んだ人数が出る");
+
+  await db.from("live_sessions").delete().eq("id", S1);
+}
 
 /* ── 会社を移ったら、教育担当者ではなくなる（0021）──
 

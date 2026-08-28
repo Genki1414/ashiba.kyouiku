@@ -635,6 +635,20 @@ console.log("── 職長教育（討議のある講座）──");
   check(/courseRows/.test(b), "講座（courses）も courses.ts から作る");
   const all = read("supabase/apply-all.sql");
   check(/\('shokucho'/.test(all), "足した講座が apply-all.sql に入っている");
+
+  /* 「何分居た」を画面から送らせない。送らせると、
+     繋がずに時間だけ積んで修了できてしまう */
+  const api = read("src/app/api/live/route.ts");
+  check(/rpc\("book_live"/.test(api), "申し込みはデータベースの手でやる（定員を超えない）");
+  check(/live_in/.test(api) && /live_out/.test(api), "入退室もデータベースが時刻を付ける");
+  check(!/spans/.test(api), "画面から入退室の時刻を受け取らない");
+  check(!/away_min|awayMin/.test(api), "画面から離席の時間を受け取らない");
+  check(!/teacher_ok/.test(api), "画面から講師の確認を立てさせない");
+  /* よその会社の回に入れると、討議の中身がその会社の外に出る */
+  check(/ses\.company_id !== \(co\?\.id \?\? null\)/.test(api), "よその会社の回には入れない");
+
+  const q = read("src/lib/liveQuery.ts");
+  check(!/\.or\(/.test(q), "見せてよい範囲を、文字列の組み立てで決めない");
 }
 
 console.log(`\n通り ${ok} ／ だめ ${ng}`);
