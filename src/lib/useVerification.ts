@@ -29,12 +29,15 @@ export type VerifyStop = { kind: "presence" | "fail"; message: string } | null;
 export type ModelState = "off" | "loading" | "ready" | "failed";
 
 export function useVerification({
+  courseId,
   lessonId,
   counting,
   useCam,
   registered,
   onStop,
 }: {
+  /** どの講座の記録か。これが無いと、控えがデータベースへ入らない */
+  courseId: string;
   lessonId: string;
   counting: boolean;
   useCam: boolean;
@@ -97,19 +100,19 @@ export function useVerification({
          画面の前に人が居るかどうかで、本人かどうかではない
          （本人確認は受講の準備で、顔写真と公的書類を登録するとき） */
       setCamState(r.ok ? OK_STATE : r.msg);
-      if (r.ok && turn.current % OK_EVERY === 0) logOk(lessonId);
+      if (r.ok && turn.current % OK_EVERY === 0) logOk(courseId, lessonId);
       gate.current = step(gate.current, r);
       if (gate.current.stop) {
         const why = gate.current.stop;
         gate.current = START;
         setStop({ kind: "fail", message: r.ok ? "" : r.msg });
         onStop();
-        logFail(lessonId, why);
+        logFail(courseId, lessonId, why);
       }
     }, CHECK_INTERVAL_MS);
     return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [counting, useCam, cam.stream, lessonId, model, registered]);
+  }, [counting, useCam, cam.stream, courseId, lessonId, model, registered]);
 
   /* カメラ同意済みなのに映像が無いまま受講が進むのを防ぐ */
   useEffect(() => {
@@ -118,11 +121,11 @@ export function useVerification({
       if (stopRef.current) return;
       setStop({ kind: "fail", message: "カメラが起動していません" });
       onStop();
-      logFail(lessonId, "blocked");
+      logFail(courseId, lessonId, "blocked");
     }, 15000);
     return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [counting, useCam, cam.stream, lessonId]);
+  }, [counting, useCam, cam.stream, courseId, lessonId]);
 
   /* カメラなしの在席確認 */
   useEffect(() => {
@@ -193,20 +196,24 @@ async function whoIsThere(
   return isSamePerson(registered, descriptor) ? { ok: true } : fail("not_me");
 }
 
-/** 通っていることの控え。5分に1回だけ */
-function logOk(lessonId: string) {
+/** 通っていることの控え。5分に1回だけ。
+
+    講座の目印を必ず付ける。付けないとサーバが受講を割り出せず、
+    記録は端末の中だけになって、データベースには何も残らない
+    （元請や監督署に出すのはデータベースの記録） */
+function logOk(courseId: string, lessonId: string) {
   fetch("/api/verify-log", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ lessonId, ok: true }),
+    body: JSON.stringify({ courseId, lessonId, ok: true }),
   }).catch(() => {});
 }
 
-function logFail(lessonId: string, reason: VerifyReason) {
+function logFail(courseId: string, lessonId: string, reason: VerifyReason) {
   fetch("/api/verify-log", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ lessonId, reason }),
+    body: JSON.stringify({ courseId, lessonId, reason }),
   }).catch(() => {});
   // 端末内にも控えを残す（Supabase 未設定時の確認用）
   try {

@@ -90,6 +90,7 @@ export function LessonClient({
 
   /* 受講中の照合（カメラあり）／在席確認（カメラなし） */
   const verification = useVerification({
+    courseId,
     lessonId: lesson.id,
     counting:
       loaded &&

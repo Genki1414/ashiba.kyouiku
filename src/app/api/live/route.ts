@@ -4,8 +4,9 @@ import { currentUser } from "@/lib/supabase/session";
 import { currentAdmin } from "@/lib/admin";
 import { currentOwner } from "@/lib/owner";
 import { myCompany } from "@/lib/tenant";
-import { openSessions, myLive, minOf, doneOf } from "@/lib/liveQuery";
-import { SHOKUCHO } from "@/content/shokucho";
+import { currentEnrollment } from "@/lib/enrollment";
+import { openSessions, myLive, minOf, doneOf, talkDone, inWindow, EARLY_MIN } from "@/lib/liveQuery";
+import { SHOKUCHO, TALK_MIN, TALK_SUBJECT } from "@/content/shokucho";
 import { findCourse, needsLive } from "@/content/courses";
 import { TALK_MAX } from "@/lib/hours";
 
@@ -13,7 +14,19 @@ import { TALK_MAX } from "@/lib/hours";
 
    申し込む・入る・出るは、すべてサーバで立てる。
    画面から「何分居た」を送らせない。送らせると、
-   繋がずに時間だけ積んで修了できてしまう。 */
+   繋がずに時間だけ積んで修了できてしまう。
+
+   ── 討議は講座に1回だけ ──
+   科目ごとに討議を置くと、科目の数だけ日を合わせて集まることになる。
+   受ける人にも講師にも重すぎるので、45分の回を1度だけにした。
+   その45分は12時間の中に入り、TALK_SUBJECT の科目の時間として数える。
+
+   ── つなぎ先（Zoom）は一覧に出さない ──
+   一覧に URL を混ぜると、申し込んでいない人にも渡ってしまう。
+   URL は「入る」を押したときだけ返す。押した時点で入室を記録する。
+   顔の照合は受講中と同じで端末の中でやり（特徴量は端末から出さない）、
+   通ってはじめて画面が「入る」を押せるようにする。
+   外れたら /api/verify-log に残るのも、受講中と同じ。 */
 
 export async function GET(req: NextRequest) {
   const supabase = getServiceClient();
@@ -34,17 +47,27 @@ export async function GET(req: NextRequest) {
   ]);
 
   const now = new Date();
+  const done = talkDone(sessions, mine, now);
   return NextResponse.json({
     ok: true,
     course: { id: course.id, name: course.name, short: course.short },
     max: TALK_MAX,
-    /* 科目の名前と、その科目に要る討議の時間 */
-    subjects: SHOKUCHO.map((s) => ({ id: s.id, name: s.name, need: s.plan.talk, question: s.talkQuestion })),
+    /* 討議は1回・45分。どの科目の時間として数えるかも返す */
+    talk: {
+      minutes: TALK_MIN,
+      subjectId: TALK_SUBJECT,
+      subject: SHOKUCHO.find((s) => s.id === TALK_SUBJECT)?.name ?? "",
+      question: SHOKUCHO.find((s) => s.id === TALK_SUBJECT)?.talkQuestion ?? "",
+      done: done.ok,
+      sessionId: done.sessionId,
+    },
     sessions: sessions.map((s) => {
       const m = mine.get(s.id);
       const d = m ? doneOf(m, s.minutes, now) : null;
+      /* つなぎ先はここでは返さない。「入る」を押したときだけ渡す */
+      const { roomUrl: _hidden, ...open } = s;
       return {
-        ...s,
+        ...open,
         /* 満席かどうかは、こちらで決める。画面の数を信じない */
         full: s.booked >= s.capacity,
         mine: !!m,
@@ -63,6 +86,7 @@ type Body =
   | { action: "in" | "out"; sessionId: string }
   | { action: "answer"; sessionId: string; answer: string };
 
+
 export async function POST(req: NextRequest) {
   const supabase = getServiceClient();
   const user = supabase ? await currentUser() : null;
@@ -79,7 +103,7 @@ export async function POST(req: NextRequest) {
      （討議の中身が、その会社の外に出る） */
   const { data: ses } = await supabase
     .from("live_sessions")
-    .select("id, company_id, closed_at")
+    .select("id, course_id, company_id, starts_at, minutes, room_url, closed_at")
     .eq("id", id)
     .maybeSingle();
   if (!ses || ses.closed_at) {
@@ -102,12 +126,49 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true });
   }
 
-  if (b.action === "in" || b.action === "out") {
+  if (b.action === "in") {
+    /* 討議の始まる前や、終わったずっとあとに URL を渡さない。
+       渡すと、回に居なかった人に部屋の場所だけが残る */
+    if (!inWindow(ses.starts_at as string, ses.minutes as number, new Date())) {
+      return NextResponse.json(
+        { ok: false, reason: `入れるのは、始まる${EARLY_MIN}分前からです。` },
+        { status: 409 },
+      );
+    }
+
+    /* 受講の準備（同意・本人確認）が済んでいない人は入れない。
+       顔の特徴量そのものは端末から出さないので、ここで見られるのは
+       「登録を済ませたか」まで。顔が本人かどうかを比べるのは端末側で、
+       受講中の照合とまったく同じ作りにしてある。 */
+    const who = await currentEnrollment(ses.course_id as string);
+    if (!who) {
+      return NextResponse.json({ ok: false, reason: "受講の準備が要ります。" }, { status: 403 });
+    }
+    const { data: en } = await supabase
+      .from("enrollments")
+      .select("consented_at, face_registered_at")
+      .eq("id", who.enrollmentId)
+      .maybeSingle();
+    if (!en?.consented_at || !en?.face_registered_at) {
+      return NextResponse.json(
+        { ok: false, reason: "受講の準備（同意と顔の登録）を先に済ませてください。" },
+        { status: 403 },
+      );
+    }
+
     /* 時刻はデータベースが付ける。画面から送らせない */
-    const { error } = await supabase.rpc(b.action === "in" ? "live_in" : "live_out", {
-      p_session: id,
-      p_user: user.id,
-    });
+    const { error } = await supabase.rpc("live_in", { p_session: id, p_user: user.id });
+    if (error) {
+      /* 申し込んでいない人はここで断られる（live_in が raise する） */
+      return NextResponse.json({ ok: false, reason: error.message }, { status: 409 });
+    }
+    /* 入室を記録できた人にだけ、つなぎ先を渡す */
+    return NextResponse.json({ ok: true, roomUrl: (ses.room_url as string | null) ?? null });
+  }
+
+  if (b.action === "out") {
+    /* 時刻はデータベースが付ける。画面から送らせない */
+    const { error } = await supabase.rpc("live_out", { p_session: id, p_user: user.id });
     if (error) return NextResponse.json({ ok: false, reason: error.message }, { status: 500 });
     return NextResponse.json({ ok: true });
   }

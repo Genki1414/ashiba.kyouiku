@@ -15,7 +15,13 @@
      下回っていれば公開できない（src/lib/hours.ts）。
 
    ここに書いてあるのは**法定の最低**と、初期の割り振り。
-   割り振りは本部の画面から変えられるようにする（合計が下回らない範囲で）。 */
+   割り振りは本部の画面から変えられるようにする（合計が下回らない範囲で）。
+
+   ── 討議は講座に1回だけ ──
+   科目ごとに討議を置くと、5回も日を合わせて集まることになる。
+   受ける人にも講師にも重すぎるので、**45分の回を1度だけ**にした。
+   その45分は12時間の中に入り、TALK_SUBJECT の科目の時間として数える。
+   討議は Zoom でやる（URLは回ごとに登録する）。 */
 
 export type TalkKind = "case" | "drill" | "none";
 
@@ -37,6 +43,12 @@ export type ShokuchoSubject = {
 
 export const SHOKUCHO_TOTAL_MIN = 720; // 12時間
 
+/* 討議は講座に1回、45分。
+   12時間の中に入り、下の科目の時間として数える。
+   中心科目（危険性又は有害性等の調査）に置いてある。 */
+export const TALK_MIN = 45;
+export const TALK_SUBJECT = 3;
+
 export const SHOKUCHO: ShokuchoSubject[] = [
   {
     id: 1,
@@ -55,7 +67,7 @@ export const SHOKUCHO: ShokuchoSubject[] = [
     talk: "case",
     talkQuestion:
       "足場組立作業を5名で実施する。経験年数・資格・年齢が異なる作業員を、どのように配置するか。配置案と、その理由を出してください。",
-    plan: { lecture: 70, talk: 30, drill: 20 },
+    plan: { lecture: 90, talk: 0, drill: 30 },
   },
   {
     id: 2,
@@ -75,7 +87,7 @@ export const SHOKUCHO: ShokuchoSubject[] = [
     talk: "case",
     talkQuestion:
       "作業員が、決められた作業手順を守らずに作業している。職長としてどう指導するか。声の掛け方まで具体的に出してください。",
-    plan: { lecture: 90, talk: 40, drill: 20 },
+    plan: { lecture: 110, talk: 0, drill: 40 },
   },
   {
     id: 3,
@@ -99,7 +111,7 @@ export const SHOKUCHO: ShokuchoSubject[] = [
     talk: "drill",
     talkQuestion:
       "足場組立現場の写真を見て、①危険箇所を見つける ②起こりうる災害を書く ③リスクを見積もる ④対策を書く。そのあと、ほかの人の対策について討議します。",
-    plan: { lecture: 120, talk: 60, drill: 60 },
+    plan: { lecture: 120, talk: 45, drill: 75 },
   },
   {
     id: 4,
@@ -121,7 +133,7 @@ export const SHOKUCHO: ShokuchoSubject[] = [
     talk: "case",
     talkQuestion:
       "足場作業中に作業員が墜落した。職長として最初に何をするか。発生直後からの行動を、時系列で出してください。",
-    plan: { lecture: 50, talk: 30, drill: 10 },
+    plan: { lecture: 60, talk: 0, drill: 30 },
   },
   {
     id: 5,
@@ -143,6 +155,6 @@ export const SHOKUCHO: ShokuchoSubject[] = [
     talk: "case",
     talkQuestion:
       "同じ現場でヒヤリハットが繰り返し起きている。職長としてどんな改善活動を行うか。案を出して討議します。",
-    plan: { lecture: 70, talk: 30, drill: 20 },
+    plan: { lecture: 80, talk: 0, drill: 40 },
   },
 ];

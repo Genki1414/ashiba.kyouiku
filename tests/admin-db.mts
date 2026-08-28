@@ -21,7 +21,8 @@ import { KEEP_YEARS, erasable, keepUntil } from "@/lib/retention";
 import { isFreeChapter, trainFor } from "@/lib/trainingGate";
 import { buildCheck, checkTotals } from "@/training/verifyLog";
 import { maySeeInvoice, unpaidInvoices } from "@/lib/invoiceAccess";
-import { myLive, openSessions, doneOf, minOf } from "@/lib/liveQuery";
+import { myLive, openSessions, doneOf, minOf, talkDone, inWindow } from "@/lib/liveQuery";
+import { TALK_MIN, TALK_SUBJECT } from "@/content/shokucho";
 
 const URL = process.env.SHIM_URL ?? "http://127.0.0.1:54321";
 const PG_URL = process.env.PG_URL ?? "postgres://postgres@127.0.0.1:55432/appdb";
@@ -544,14 +545,20 @@ const orderId = ord!.id as string;
 
    職長教育は討議方式が原則。開いただけでは修了にしない。
    誰が・いつ入って・いつ出て・実際に何分居たかを、データベース側で残す。
-   画面から「何分居た」を送らせない（送らせると、繋がずに修了できる） */
+   画面から「何分居た」を送らせない（送らせると、繋がずに修了できる）。
+
+   討議は講座に1回だけ、45分。科目ごとに置くと、科目の数だけ
+   日を合わせて集まることになり、受ける人にも講師にも重すぎる。
+   その45分は12時間の中に入り、科目3の時間として数える。
+   つなぎ先は Zoom で、URL は回ごとに登録する。 */
 {
   const S1 = "dddddddd-1111-1111-1111-111111111111";
   await must(
     "討議の回を立てられる",
     db.from("live_sessions").insert({
-      id: S1, course_id: "shokucho", subject_id: 3, company_id: CO,
-      starts_at: "2026-09-10T09:00:00Z", minutes: 60, capacity: 15, teacher: U1,
+      id: S1, course_id: "shokucho", subject_id: TALK_SUBJECT, company_id: CO,
+      starts_at: "2026-09-10T09:00:00Z", minutes: TALK_MIN, capacity: 15, teacher: U1,
+      room_url: "https://us06web.zoom.us/j/00000000000",
     }).select("id"),
   );
 
@@ -585,18 +592,18 @@ const orderId = ord!.id as string;
   }
 
   /* 開いただけでは修了にしない。時間・回答・講師の確認が要る */
-  const now = new Date(new Date(m.spans[1].in).getTime() + 61 * 60 * 1000);
-  check(!doneOf(m, 60, now).ok, "課題に答えていなければ未修了");
+  const now = new Date(new Date(m.spans[1].in).getTime() + (TALK_MIN + 1) * 60 * 1000);
+  check(!doneOf(m, TALK_MIN, now).ok, "課題に答えていなければ未修了");
   await must("課題に答える", db.from("live_attend").update({ answer: "配置案：…" })
     .eq("session_id", S1).eq("user_id", U2).select("session_id"));
   const m2 = (await myLive(db as never, U2)).get(S1)!;
-  const d2 = doneOf(m2, 60, now);
+  const d2 = doneOf(m2, TALK_MIN, now);
   check(!d2.ok && d2.why === "teacher", "講師の確認が無ければ未修了");
   await must("講師が確認する", db.from("live_attend").update({ teacher_ok: true })
     .eq("session_id", S1).eq("user_id", U2).select("session_id"));
   const m3 = (await myLive(db as never, U2)).get(S1)!;
-  check(doneOf(m3, 60, now).ok, "3つそろえば修了");
-  check(minOf(m3, now) >= 60, `居た時間が数えられる（${minOf(m3, now)}分）`);
+  check(doneOf(m3, TALK_MIN, now).ok, "3つそろえば修了");
+  check(minOf(m3, now) >= TALK_MIN, `居た時間が数えられる（${minOf(m3, now)}分）`);
 
   /* よその会社の回は出さない */
   const seen = await openSessions(db as never, "shokucho", CO, new Date("2026-01-01"));
@@ -604,6 +611,19 @@ const orderId = ord!.id as string;
   const other = await openSessions(db as never, "shokucho", "00000000-0000-0000-0000-000000000009", new Date("2026-01-01"));
   check(!other.some((x) => x.id === S1), "よその会社の回は出さない");
   check(seen.find((x) => x.id === S1)?.booked === 1, "申し込んだ人数が出る");
+
+  /* 討議は講座に1回。どれか1つ通っていれば、この講座の討議は済み */
+  const after = await myLive(db as never, U2);
+  check(talkDone(seen, after, now).ok, "討議は講座に1回、通っていれば済み");
+  check(talkDone(seen, after, now).sessionId === S1, "どの回で済んだか分かる");
+  check(!talkDone(seen, new Map(), now).ok, "申し込んでいなければ済みにしない");
+
+  /* つなぎ先（Zoom）は、始まる前や終わったあとには渡さない */
+  const ss = seen.find((x) => x.id === S1)!;
+  check(!!ss.roomUrl, "回に Zoom の URL を持たせられる");
+  check(!inWindow(ss.startsAt, ss.minutes, new Date("2026-09-09T09:00:00Z")), "前の日には渡さない");
+  check(inWindow(ss.startsAt, ss.minutes, new Date("2026-09-10T08:50:00Z")), "始まる少し前からは渡す");
+  check(!inWindow(ss.startsAt, ss.minutes, new Date("2026-09-10T11:00:00Z")), "終わって時間が経てば渡さない");
 
   await db.from("live_sessions").delete().eq("id", S1);
 }

@@ -135,19 +135,43 @@ export function doneOf(m: LiveMine, need: number, now: Date = new Date()) {
 export const minOf = (m: LiveMine, now: Date = new Date()): number =>
   attendedMin(toAttend(m), now);
 
-/** 科目ごとに、討議を終えたか。まだ申し込んでいない科目は false */
-export function talkDoneBySubject(
+/** 討議を終えたか。討議は講座に1回だけなので、
+    申し込んだどれか1つが通っていればよい。
+
+    「科目ごとに1回」にすると、5回も日を合わせて集まることになる。
+    受ける人にも講師にも重すぎるので、45分の回を1度だけにした
+    （src/content/shokucho.ts の TALK_MIN / TALK_SUBJECT）。 */
+export function talkDone(
   sessions: LiveSession[],
   mine: Map<string, LiveMine>,
   now: Date = new Date(),
-): Map<number, boolean> {
-  const out = new Map<number, boolean>();
+): { ok: boolean; sessionId: string | null } {
   for (const s of sessions) {
     const m = mine.get(s.id);
     if (!m) continue;
-    /* 同じ科目を2回受けていれば、どれか1つ通っていればよい */
-    const ok = doneOf(m, s.minutes, now).ok;
-    out.set(s.subjectId, (out.get(s.subjectId) ?? false) || ok);
+    if (doneOf(m, s.minutes, now).ok) return { ok: true, sessionId: s.id };
   }
-  return out;
+  return { ok: false, sessionId: null };
+}
+
+/** その回に申し込んでいるか。つなぎ先を出してよいかの前提 */
+export const booked = (mine: Map<string, LiveMine>, sessionId: string): boolean =>
+  mine.has(sessionId);
+
+/* ── つなぎ先（Zoom）を渡してよい時間帯 ──────────────
+
+   一覧に URL を混ぜると、申し込んでいない人にも渡ってしまう。
+   URL は「入る」を押したときだけ返し、その時点で入室を記録する。
+   始まるずっと前や、終わったあとに渡すと、
+   回に居なかった人の手元に部屋の場所だけが残る。 */
+export const EARLY_MIN = 15;
+export const LATE_MIN = 30;
+
+/** 入室の記録が付いてよい時間帯か */
+export function inWindow(startsAt: string, minutes: number, now: Date = new Date()): boolean {
+  const t = new Date(startsAt).getTime();
+  if (!Number.isFinite(t)) return false;
+  const from = t - EARLY_MIN * 60000;
+  const to = t + (Math.max(0, minutes) + LATE_MIN) * 60000;
+  return now.getTime() >= from && now.getTime() <= to;
 }

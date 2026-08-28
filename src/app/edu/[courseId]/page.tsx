@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { getCurriculum } from "@/lib/curriculum";
-import { findCourse } from "@/content/courses";
+import { findCourse, needsLive } from "@/content/courses";
 import { LessonList } from "./LessonList";
 
 /* 科目・単元の一覧。進捗はクライアント側で読み込んで重ねる。
@@ -31,6 +31,7 @@ export default async function CoursePage({
     <LessonList
       course={{ id: course.id, name: course.name, basis: course.basis }}
       subjects={subjects}
+      live={needsLive(course)}
     />
   );
 }

@@ -8,7 +8,8 @@ import {
   judgeHours, judgeTalk, attendedMin, planTotal, shortOf, hm, TALK_MAX,
   type SubjectHours,
 } from "@/lib/hours";
-import { SHOKUCHO, SHOKUCHO_TOTAL_MIN } from "@/content/shokucho";
+import { SHOKUCHO, SHOKUCHO_TOTAL_MIN, TALK_MIN, TALK_SUBJECT } from "@/content/shokucho";
+import { inWindow, EARLY_MIN, LATE_MIN } from "@/lib/liveQuery";
 
 let ok = 0;
 let ng = 0;
@@ -68,12 +69,26 @@ console.log("── 職長教育の中身 ──");
   check(j.ok, `初期の割り振りで公開できる（${!j.ok ? j.why.join(" ") : hm(j.total)}）`);
   check(j.ok && j.total >= 720, "合計12時間以上");
 
-  /* 討議はどの科目にも入っている。討議方式が原則なので、
-     講義だけの科目があってはいけない */
+  /* 討議は講座に1回だけ、45分。
+     科目ごとに置くと、科目の数だけ日を合わせて集まることになる。
+     受ける人にも講師にも重すぎる。 */
+  const withTalk = SHOKUCHO.filter((s) => s.plan.talk > 0);
+  check(withTalk.length === 1, `討議のある科目は1つだけ（いま ${withTalk.length}）`);
+  check(withTalk[0]?.id === TALK_SUBJECT, `討議は科目${TALK_SUBJECT}に置く（いま 科目${withTalk[0]?.id}）`);
+  check(TALK_MIN === 45, "討議は45分");
+  check(withTalk[0]?.plan.talk === TALK_MIN, `その45分が科目の時間に入っている（${hm(withTalk[0]?.plan.talk ?? 0)}）`);
+
+  /* 討議が1回でも、お題はどの科目にも要る。
+     討議の45分で全部は扱えないので、残りは演習で出す */
   for (const s of SHOKUCHO) {
-    check(s.plan.talk > 0, `科目${s.id} に討議の時間がある（${hm(s.plan.talk)}）`);
-    check(!!s.talkQuestion, `科目${s.id} に討議のお題がある`);
+    check(!!s.talkQuestion, `科目${s.id} にお題がある`);
+    check(s.plan.drill > 0, `科目${s.id} に演習の時間がある（${hm(s.plan.drill)}）`);
   }
+
+  /* 討議の45分を抜いても、12時間のうち45分だけが討議ということ。
+     討議の分を二重に数えていないか */
+  const talkAll = SHOKUCHO.reduce((n, s) => n + s.plan.talk, 0);
+  check(talkAll === TALK_MIN, `講座ぜんぶで討議は45分（いま ${hm(talkAll)}）`);
   /* 中心科目は演習を厚くする */
   const three = SHOKUCHO.find((s) => s.id === 3)!;
   check(three.talk === "drill", "科目3は演習の型");
@@ -125,6 +140,29 @@ console.log("── 討議を終えたと見てよいか ──");
   check(!noT.ok && noT.why === "teacher", "講師の確認が無ければ未修了");
 
   check(TALK_MAX === 15, "1回に入れるのは15人まで");
+
+  /* 45分の回に、45分居ていなければ通さない */
+  const min44 = judgeTalk({ spans: [{ inAt: t(9, 0), outAt: t(9, 44) }], awayMin: 0 }, TALK_MIN, all, now);
+  check(!min44.ok && min44.why === "time", "45分の回に44分では未修了");
+  check(judgeTalk({ spans: [{ inAt: t(9, 0), outAt: t(9, 45) }], awayMin: 0 }, TALK_MIN, all, now).ok, "45分居れば修了");
+}
+
+console.log("── つなぎ先（Zoom）を渡してよい時間帯 ──");
+{
+  /* URL は「入る」を押したときだけ返す。
+     前の日から渡してしまうと、回に居なかった人の手元に部屋だけが残る */
+  const start = "2026-09-01T09:00:00Z";
+  const at = (h: number, m: number) =>
+    new Date(`2026-09-01T${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:00Z`);
+
+  check(!inWindow(start, TALK_MIN, at(8, 0)), "1時間前には渡さない");
+  check(inWindow(start, TALK_MIN, at(8, 45)), `${EARLY_MIN}分前からは渡す`);
+  check(inWindow(start, TALK_MIN, at(9, 30)), "やっている最中は渡す");
+  /* 45分の回 ＋ 30分 ＝ 9:45+0:30 = 10:15 まで */
+  check(inWindow(start, TALK_MIN, at(10, 10)), `終わって${LATE_MIN}分以内なら渡す（入り直し）`);
+  check(!inWindow(start, TALK_MIN, at(10, 30)), "終わって時間が経てば渡さない");
+  check(!inWindow(start, TALK_MIN, new Date("2026-09-02T09:10:00Z")), "次の日には渡さない");
+  check(!inWindow("こわれた日付", TALK_MIN, at(9, 30)), "壊れた日付は渡さない");
 }
 
 console.log(`\n通り ${ok} ／ だめ ${ng}`);

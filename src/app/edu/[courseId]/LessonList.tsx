@@ -6,6 +6,7 @@ import { loadProgress, type ProgressState } from "@/lib/progressClient";
 import { loadPrep, prepDone, type PrepState } from "@/lib/prep";
 import { Bar } from "@/components/ui/Bar";
 import { hm } from "@/components/ui/format";
+import { TALK_MIN } from "@/content/shokucho";
 
 type LessonRow = { id: string; title: string; legal_min: number; figures: number; cases: number; quiz: number };
 type SubjectRow = { id: number; name: string; legal_min: number; lessons: LessonRow[] };
@@ -13,9 +14,12 @@ type SubjectRow = { id: number; name: string; legal_min: number; lessons: Lesson
 export function LessonList({
   course,
   subjects,
+  live = false,
 }: {
   course: { id: string; name: string; basis: string };
   subjects: SubjectRow[];
+  /** 決まった日時に集まる回（討議）がある講座か。職長教育がこれ */
+  live?: boolean;
 }) {
   const [prog, setProg] = useState<Record<string, ProgressState>>({});
   const [prep, setPrep] = useState<PrepState | null>(null);
@@ -88,6 +92,29 @@ export function LessonList({
                   ? "カメラを使わない閲覧モードです。正式な受講にするにはタップして登録してください。"
                   : `受講者：${prep.who.name}。受講中はカメラで本人確認を行います。`
                 : "受講を始める前に、カメラの使用への同意と本人確認の登録が必要です。"}
+            </div>
+          </Link>
+        </div>
+      )}
+
+      {/* 討議のある講座（職長教育）だけ。討議は講座に1回、45分。
+          単元と違って日時が決まっているので、単元一覧の前に出す */}
+      {live && (
+        <div className="mb-4 px-5">
+          <Link
+            href={`/edu/${course.id}/talk`}
+            data-testid="go-talk"
+            className="block rounded-xl border border-cyan bg-panel p-3.5 no-underline"
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-[13px] font-extrabold text-txt">討議（{hm(TALK_MIN * 60)}・オンライン）</span>
+              <span className="ml-auto rounded border border-cyan px-1.5 py-0.5 text-[11px] text-cyan">
+                日時が決まっています
+              </span>
+            </div>
+            <div className="mt-1 text-[12px] leading-relaxed text-dim">
+              この講座は討議方式が原則です。録画を見るだけでは討議になりません。
+              決まった時間に集まって、講師と受講者でやり取りします。
             </div>
           </Link>
         </div>

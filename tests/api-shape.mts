@@ -649,6 +649,52 @@ console.log("── 職長教育（討議のある講座）──");
 
   const q = read("src/lib/liveQuery.ts");
   check(!/\.or\(/.test(q), "見せてよい範囲を、文字列の組み立てで決めない");
+
+  /* ── 討議は講座に1回だけ、45分 ──
+     科目ごとに置くと、科目の数だけ日を合わせて集まることになる */
+  const sh = read("src/content/shokucho.ts");
+  check(/TALK_MIN = 45/.test(sh), "討議は45分");
+  check(/TALK_SUBJECT/.test(sh), "その45分をどの科目の時間として数えるか決めてある");
+  check(/talkDone\(/.test(q), "討議を終えたかは、講座に1つの判定");
+  check(!/talkDoneBySubject/.test(q), "科目ごとの討議は残していない");
+  check(/TALK_MIN/.test(api), "討議の時間は content から取る（画面に書かない）");
+
+  /* ── つなぎ先（Zoom）は一覧に出さない ──
+     一覧に混ぜると、申し込んでいない人にも URL が渡る */
+  check(/roomUrl: _hidden/.test(api), "一覧では、つなぎ先を落としてから返す");
+  check(/roomUrl: \(ses\.room_url/.test(api), "つなぎ先は「入る」を押したときだけ返す");
+  check(/inWindow\(/.test(api), "始まる前や、終わったあとには渡さない");
+  check(/EARLY_MIN/.test(q) && /LATE_MIN/.test(q), "渡してよい時間帯は liveQuery に置く");
+  /* 顔の登録を済ませていない人に、討議の部屋を渡さない */
+  check(/face_registered_at/.test(api), "受講の準備（顔の登録）が済んでいなければ入れない");
+  check(/consented_at/.test(api), "同意が済んでいなければ入れない");
+  /* 顔の特徴量は端末から出さない。受講中の照合と同じ */
+  check(!/descriptor|faceDescriptor/.test(api), "顔の特徴量をサーバへ送らせない");
+
+  /* 討議の画面。顔の照合は学科とまったく同じ作りを使う */
+  const talk = read("src/app/edu/[courseId]/talk/TalkClient.tsx");
+  check(/useVerification/.test(talk), "討議中も、学科と同じ照合を回す");
+  check(/prepDone/.test(talk), "受講の準備が済んでいなければ、準備の画面へ送る");
+  check(/action: "in"/.test(talk) && /roomUrl/.test(talk), "つなぎ先は「入る」を押して受け取る");
+  check(!/room_url|zoom\.us\//.test(talk), "Zoom の URL を画面に書き込まない");
+}
+
+console.log("── 照合の控えが、記録として残るか ──");
+{
+  /* 講座の目印を付けずに送ると、サーバは受講を割り出せず
+     mode:"local" に落ちる。データベースには1行も残らない。
+     元請や監督署に出すのはデータベースの記録なので、ここが抜けると
+     「ちゃんと受けた」を示せなくなる */
+  const v = read("src/lib/useVerification.ts");
+  check(/courseId: string;/.test(v), "照合は、どの講座かを受け取る");
+  check(/JSON\.stringify\(\{ courseId, lessonId, ok: true \}\)/.test(v), "通った控えに講座の目印を付ける");
+  check(/JSON\.stringify\(\{ courseId, lessonId, reason \}\)/.test(v), "外れた控えにも講座の目印を付ける");
+
+  const lc = read("src/app/edu/[courseId]/[lessonId]/LessonClient.tsx");
+  check(/useVerification\(\{\s*courseId,/.test(lc), "学科の受講画面が、講座の目印を渡している");
+
+  const log = read("src/app/api/verify-log/route.ts");
+  check(/currentEnrollment\(courseId\)/.test(log), "受講は講座の目印から割り出す");
 }
 
 console.log(`\n通り ${ok} ／ だめ ${ng}`);
