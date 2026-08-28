@@ -32,13 +32,17 @@ export function seller() {
         免税事業者なら番号そのものが無いので、空のままでよい */
     invoiceNo: tidyInvoice(get("SELLER_INVOICE_NO")),
     /* 振込先。請求書に載せる。
-       ここが空だと、請求書を受け取った人が払えない */
+       ここが空だと、請求書を受け取った人が払えない。
+
+       秘密ではない（請求書に刷って送るもの）ので、ここに書いてある。
+       修了証の名義（src/lib/issuer.ts）と同じ扱い。
+       口座を変えたら、この5行を直すか、環境変数で上書きする。 */
     bank: {
-      name: get("SELLER_BANK_NAME"),
-      branch: get("SELLER_BANK_BRANCH"),
+      name: get("SELLER_BANK_NAME", "GMOあおぞらネット銀行"),
+      branch: get("SELLER_BANK_BRANCH", "法人営業部"),
       kind: get("SELLER_BANK_KIND", "普通"),
-      no: get("SELLER_BANK_NO"),
-      holder: get("SELLER_BANK_HOLDER"),
+      no: get("SELLER_BANK_NO", "1400601"),
+      holder: get("SELLER_BANK_HOLDER", "トウホクミカミキザイ（カ"),
     },
   };
 }

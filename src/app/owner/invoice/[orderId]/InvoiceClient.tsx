@@ -132,19 +132,20 @@ export function InvoiceClient({ orderId }: { orderId: string }) {
           {/* 明細 */}
           <table className="mt-4 w-full text-[12.5px]">
             <thead>
+              {/* 数字の列は折り返さない。折り返すと「数量」が縦に潰れて読めない */}
               <tr className="border-b border-line text-left">
                 <th className="py-1.5 font-normal">品目</th>
-                <th className="py-1.5 text-right font-normal">数量</th>
-                <th className="py-1.5 text-right font-normal">単価</th>
-                <th className="py-1.5 text-right font-normal">金額</th>
+                <th className="w-14 whitespace-nowrap py-1.5 text-right font-normal">数量</th>
+                <th className="w-20 whitespace-nowrap py-1.5 text-right font-normal">単価</th>
+                <th className="w-24 whitespace-nowrap py-1.5 text-right font-normal">金額</th>
               </tr>
             </thead>
             <tbody>
               <tr className="border-b border-line">
                 <td className="py-2">{o.what}</td>
-                <td className="py-2 text-right">{o.qty}</td>
-                <td className="py-2 text-right">{yen(o.unit)}</td>
-                <td className="py-2 text-right">{yen(o.net)}</td>
+                <td className="whitespace-nowrap py-2 text-right">{o.qty}</td>
+                <td className="whitespace-nowrap py-2 text-right">{yen(o.unit)}</td>
+                <td className="whitespace-nowrap py-2 text-right">{yen(o.net)}</td>
               </tr>
             </tbody>
           </table>

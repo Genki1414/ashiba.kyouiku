@@ -131,6 +131,16 @@ console.log("── インボイス登録番号 ──");
 console.log("\n── まとめ ──");
 console.log("── 振込先 ──");
 {
+  /* 口座は請求書に刷って送るもの。秘密ではないのでコードに書いてある。
+     間違うと入金が行方不明になるので、数字はここで固定して見張る */
+  const s0 = seller();
+  check(s0.bank.name === "GMOあおぞらネット銀行", `銀行（${s0.bank.name}）`);
+  check(s0.bank.branch === "法人営業部", `支店（${s0.bank.branch}）`);
+  check(s0.bank.kind === "普通", `種別（${s0.bank.kind}）`);
+  check(s0.bank.no === "1400601", `口座番号（${s0.bank.no}）`);
+  check(s0.bank.holder === "トウホクミカミキザイ（カ", `名義（${s0.bank.holder}）`);
+  check(bankReady(s0.bank), "はじめからそろっている（設定しなくても請求書に出る）");
+
   const b = { name: "○○銀行", branch: "△△支店", kind: "普通", no: "1234567", holder: "トウホクミカミキザイ（カ" };
   check(bankReady(b), "そろっていれば出す");
   /* 1つでも欠けたら出さない。中途半端に出す方が、間違えて振り込まれるので危ない */
