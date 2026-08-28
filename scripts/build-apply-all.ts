@@ -24,6 +24,18 @@ const lessonRowsFor = (courseId: string, file: string) => {
   return { rows, n: rows.length };
 };
 const made = COURSES.filter((c) => c.ready).map((c) => lessonRowsFor(c.id, c.file));
+
+/* マイグレーションは、書き並べずにフォルダから読む。
+   ここに1本ずつ書いていたので、0019 を足したときに
+   **NEED_SCHEMA だけ 0019 に上がって、中身は 0018 まで**になった。
+   その apply-all.sql をいくら流しても /setup は赤いまま、
+   直しようが無い、といういちばん困る形になる。 */
+const migFiles = readdirSync(path.join(root, "supabase/migrations"))
+  .filter((f) => /^\d{4}_.*\.sql$/.test(f))
+  .sort();
+if (!migFiles.length) throw new Error("supabase/migrations に .sql がありません");
+const migList = migFiles.map((f) => f.replace(/\.sql$/, "")).join(" / ");
+const migSql = migFiles.map((f) => read(`supabase/migrations/${f}`)).join("\n\n");
 const lessonRows = made.flatMap((m) => m.rows).join(",\n");
 const lessonCount = made.reduce((n, m) => n + m.n, 0);
 
@@ -31,48 +43,14 @@ const out = `-- ═════════════════════�
 -- 足場トレーニング Supabase 初期化（このファイルを SQL Editor に貼って実行）
 --
 -- 中身:
---   1. マイグレーション 0001_init / 0002_rls / 0003_rules / 0004_auth / 0005_cert / 0006_version / 0007_admin / 0008_tenant / 0009_order / 0010_verify / 0011_course / 0012_member / 0013_keep / 0014_own / 0015_qual / 0016_keep3y / 0017_train / 0018_solo
+--   1. マイグレーション ${migList}
 --   2. lessons（単元の規定時間）${lessonCount}件を投入
 --
 -- 何度実行しても壊れないように書いてある（作成済みなら飛ばす）。
 -- 自動生成: npm run build:sql　— 直接編集しないこと
 -- ═══════════════════════════════════════════════════════════
 
-${read("supabase/migrations/0001_init.sql")}
-
-${read("supabase/migrations/0002_rls.sql")}
-
-${read("supabase/migrations/0003_rules.sql")}
-
-${read("supabase/migrations/0004_auth.sql")}
-
-${read("supabase/migrations/0005_cert.sql")}
-
-${read("supabase/migrations/0006_version.sql")}
-
-${read("supabase/migrations/0007_admin.sql")}
-
-${read("supabase/migrations/0008_tenant.sql")}
-
-${read("supabase/migrations/0009_order.sql")}
-
-${read("supabase/migrations/0010_verify.sql")}
-
-${read("supabase/migrations/0011_course.sql")}
-
-${read("supabase/migrations/0012_member.sql")}
-
-${read("supabase/migrations/0013_keep.sql")}
-
-${read("supabase/migrations/0014_own.sql")}
-
-${read("supabase/migrations/0015_qual.sql")}
-
-${read("supabase/migrations/0016_keep3y.sql")}
-
-${read("supabase/migrations/0017_train.sql")}
-
-${read("supabase/migrations/0018_solo.sql")}
+${migSql}
 
 -- ═══════════════════════════════════════════════════════════
 -- 4. lessons（curriculum.json の単元ID・題名・規定時間の写し）
@@ -109,11 +87,7 @@ console.log("OK  supabase/apply-all.sql を生成");
    手で書いていたら 0010 のまま止まっていて、
    0011〜0015 を流していなくても「大丈夫」と出ていた。
    マイグレーションを足したら、ここが自動で上がる。 */
-const last = readdirSync(path.join(root, "supabase/migrations"))
-  .filter((f) => /^\d{4}_.*\.sql$/.test(f))
-  .sort()
-  .at(-1)!;
-const need = last.slice(0, 4);
+const need = migFiles.at(-1)!.slice(0, 4);
 
 writeFileSync(
   path.join(root, "src/content/schema.ts"),

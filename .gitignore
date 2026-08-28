@@ -6,3 +6,6 @@ out/
 next-env.d.ts
 .env
 .env.local
+
+# 画面の試験が置いていく写し（SC で行き先を変えられる）
+/*.png

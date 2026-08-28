@@ -1,10 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Boss } from "./Characters";
 import { Bar } from "@/components/ui/Bar";
 import { Btn } from "@/components/ui/Btn";
+import { seeDemo } from "@/lib/trainingRecord";
+import type { ChapterId } from "@/training/chapters";
 
 /* 通し見学の枠。第2章・第3章で共通。
    手を出さずに、手順を1手ずつ見ていく。
@@ -13,6 +15,7 @@ import { Btn } from "@/components/ui/Btn";
 export type ShellStep = { n: number; t: string; why: string };
 
 export function DemoShell({
+  ch,
   title,
   sub,
   steps,
@@ -22,6 +25,8 @@ export function DemoShell({
   goal,
   goalLabel,
 }: {
+  /** どの章の見学か。見たことを残すのに使う */
+  ch: ChapterId;
   title: string;
   sub: string;
   steps: ShellStep[];
@@ -45,6 +50,26 @@ export function DemoShell({
   const [sceneDone, setSceneDone] = useState(false);
   const step = steps[i];
   const last = i >= steps.length - 1;
+
+  /* 見学を開いたことを残す。担当者は「手順を最後まで見たか」を知りたい。
+     開き直すたびに1回。同じ画面で二度書かないよう、一度だけ */
+  const sent = useRef(false);
+  useEffect(() => {
+    if (sent.current) return;
+    sent.current = true;
+    seeDemo(ch, false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /* 最後の手まで来たら「見終えた」。
+     行き先のボタンを押さずに閉じる人もいるので、押した時ではなく
+     最後の手に着いた時に残す */
+  const done = useRef(false);
+  useEffect(() => {
+    if (!last || done.current) return;
+    done.current = true;
+    seeDemo(ch, true);
+  }, [last, ch]);
 
   const go = (d: number) => {
     setI((v) => Math.max(0, Math.min(steps.length - 1, v + d)));

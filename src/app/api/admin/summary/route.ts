@@ -136,7 +136,7 @@ export async function GET(req: NextRequest) {
     return (data ?? []) as unknown as Record<string, unknown>[];
   };
 
-  const [seatRows, { data: named }, progress, exams, attempts, certs] = await Promise.all([
+  const [seatRows, { data: named }, progress, exams, attempts, views, certs] = await Promise.all([
     orderIds.length
       ? supabase.from("seats").select("order_id, used_by").in("order_id", orderIds)
       : Promise.resolve({ data: [] as Record<string, unknown>[] }),
@@ -146,6 +146,8 @@ export async function GET(req: NextRequest) {
     pick("progress", "enrollment_id, lesson_id, watched_sec, quiz_passed_at"),
     pick("exams", "enrollment_id, score, total, passed, created_at"),
     pick("training_attempts", "enrollment_id, chapter, tutorial, skill, passed, created_at"),
+    /* 通し見学。点は付かないが「手順を最後まで見たか」は担当者が知りたい */
+    pick("training_views", "enrollment_id, chapter, times, done"),
     pick("certificates", "enrollment_id, cert_no, issued_at, revoked_at"),
   ]);
 
@@ -234,6 +236,7 @@ export async function GET(req: NextRequest) {
           progress: only(progress) as never,
           exams: only(exams) as never,
           attempts: only(attempts) as never,
+          views: only(views) as never,
           certs: only(live) as never,
           lessons: ls,
         }),

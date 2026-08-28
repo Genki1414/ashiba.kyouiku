@@ -73,6 +73,25 @@ async function sendAttempt(ch: ChapterId, a: Attempt) {
   }
 }
 
+/* ── 通し見学 ──
+   見たことをサーバに残す。点は付かないが、担当者は
+   「手順を最後まで見たか」を知りたい。
+   開いたときに done=false、最後まで見たときに done=true。
+   失敗しても画面は止めない（見学より先へ進むことを優先する）。 */
+export function seeDemo(ch: ChapterId, done: boolean) {
+  void (async () => {
+    try {
+      await fetch("/api/training/view", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ chapter: ch, done }),
+      });
+    } catch {
+      /* 圏外・未設定。見学そのものは続けられる */
+    }
+  })();
+}
+
 /** 記録を消す */
 export function clearRecord() {
   try {

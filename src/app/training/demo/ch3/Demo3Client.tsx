@@ -88,6 +88,7 @@ export function Demo3Client() {
 
   return (
     <DemoShell
+      ch="ch3"
       sub="組立の通し見学"
       title="第3章の手順を最後まで見る"
       steps={steps}

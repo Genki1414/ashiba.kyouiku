@@ -195,6 +195,49 @@ await must(
   check(!!error, "技能点が100を超える行は入らない");
 }
 
+/* ── 通し見学（0019）──
+   点は付かないが「手順を最後まで見たか」は担当者が知りたい。
+   開いたときに done=false、最後まで見たときに done=true で呼ぶ */
+{
+  const see = (chapter: string, done: boolean) =>
+    db.rpc("see_demo", { p_enrollment: E2, p_chapter: chapter, p_done: done });
+
+  await must("見学を開いたことを残せる", see("ch1", false));
+  await must("見終えたことを残せる", see("ch1", true));
+
+  const one = async () => {
+    const { data } = await db
+      .from("training_views")
+      .select("enrollment_id, chapter, times, done")
+      .eq("enrollment_id", E2)
+      .eq("chapter", "ch1")
+      .maybeSingle();
+    return data as { times: number; done: boolean } | null;
+  };
+
+  const v1 = await one();
+  check(v1?.times === 1, `開いて最後まで見ても、回数は1（いま ${v1?.times}）`);
+  check(v1?.done === true, "最後まで見たことが残る");
+
+  /* もう一度開くと回数だけ増える。見終えた印は下がらない */
+  await must("もう一度開ける", see("ch1", false));
+  const v2 = await one();
+  check(v2?.times === 2, `開き直すと回数が増える（いま ${v2?.times}）`);
+  check(v2?.done === true, "一度見終えていれば、開き直しても下がらない");
+
+  /* 章ごとに分かれている */
+  await must("別の章も残せる", see("ch2", false));
+  const { data: all } = await db
+    .from("training_views")
+    .select("chapter")
+    .eq("enrollment_id", E2);
+  check((all ?? []).length === 2, `章ごとに1行（いま ${(all ?? []).length}）`);
+
+  /* 知らない章は入らない */
+  const { error: ng } = await see("ch9", false);
+  check(!!ng, "知らない章は、見学でもデータベースが拒む");
+}
+
 /* ── 講座（0011）──
    特別教育は種類が増えていく。取り違えると別の講座の記録が混ざる */
 {
@@ -360,6 +403,7 @@ check(eids.length === 2, `受講が2件（いま ${eids.length}）`);
 const progress = await must("視聴記録を引ける", db.from("progress").select("enrollment_id, lesson_id, watched_sec, quiz_passed_at").in("enrollment_id", eids));
 const exams = await must("修了試験を引ける", db.from("exams").select("enrollment_id, score, total, passed, created_at").in("enrollment_id", eids));
 const attempts = await must("実務の成績を引ける", db.from("training_attempts").select("enrollment_id, chapter, tutorial, skill, passed, created_at").in("enrollment_id", eids));
+const views = await must("通し見学を引ける", db.from("training_views").select("enrollment_id, chapter, times, done").in("enrollment_id", eids));
 const certs0 = await must("修了証を引ける", db.from("certificates").select("enrollment_id, cert_no, issued_at, revoked_at").in("enrollment_id", eids));
 check((certs0 ?? []).length === 0, "まだ修了証は出ていない");
 
@@ -369,6 +413,7 @@ const rows = buildRoster({
   progress: (progress ?? []) as never,
   exams: (exams ?? []) as never,
   attempts: (attempts ?? []) as never,
+  views: (views ?? []) as never,
   certs: [],
   /* 本物の並びを渡す。「いま何番目の途中か」はこの順で決まる */
   lessons: lessons.map((id, i) => ({ id, title: `単元${i + 1}`, legal_min: 30 })),

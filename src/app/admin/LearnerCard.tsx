@@ -128,6 +128,9 @@ export function LearnerCard({
   /* 練習（チュートリアル）だけ通した人。点は付かないが、
      「まだ」と出すと一度も触っていない人と同じに見える */
   const tried = r.training.filter((t) => t.tried > 0);
+  /* 通し見学を見ただけの人。手順を最後まで見たかは、
+     点が付く前の段階として担当者が知りたい */
+  const seen = r.training.filter((t) => t.seen > 0);
   const chapters = r.training.filter((t) => t.passed).length;
 
   const chips: { k: Tab; t: string; v: string; on: boolean; mark: boolean }[] = [
@@ -138,8 +141,10 @@ export function LearnerCard({
         ? `${chapters} / ${r.training.length} 章`
         : tried.length
           ? "練習のみ"
-          : "まだ",
-      on: !!(played.length || tried.length),
+          : seen.length
+            ? "見学のみ"
+            : "まだ",
+      on: !!(played.length || tried.length || seen.length),
       mark: false,
     },
     {
@@ -220,8 +225,8 @@ export function LearnerCard({
       {/* ── 実務トレーニング ── */}
       {tab === "training" && (
         <div className="mt-2 rounded-lg border border-line bg-bg p-3" data-testid="admin-training">
-          {!played.length && !tried.length ? (
-            <div className="text-[12px] text-dim2">まだ通していません。</div>
+          {!played.length && !tried.length && !seen.length ? (
+            <div className="text-[12px] text-dim2">まだ何も開いていません。</div>
           ) : (
             <div className="grid gap-1.5">
               {r.training.map((t) => {
@@ -230,6 +235,15 @@ export function LearnerCard({
                   <div key={t.ch} className="flex items-baseline gap-2 text-[12.5px]">
                     <span className="shrink-0 text-dim">第{c.n}章</span>
                     <span className="min-w-0 flex-1 truncate text-dim2">{c.t}</span>
+                    {/* 通し見学。最後まで見たか、途中までかを分ける */}
+                    <span
+                      className={`w-14 shrink-0 text-right text-[11px] ${
+                        t.seenDone ? "text-cyan" : "text-dim2"
+                      }`}
+                      data-testid="admin-seen"
+                    >
+                      {t.seenDone ? "見学済" : t.seen ? "見学途中" : ""}
+                    </span>
                     <span className={`shrink-0 font-bold ${t.passed ? "text-grn" : "text-dim"}`}>
                       {t.best === null ? "—" : `${t.best}点`}
                     </span>
@@ -242,8 +256,9 @@ export function LearnerCard({
             </div>
           )}
           <div className="mt-2 text-[10.5px] leading-relaxed text-dim2">
-            点は本番の最高点です。練習（チュートリアル）は親方に聞けて目印も濃いので、点には入れず
-            回数だけ出します。実務トレーニングは修了証の要件ではありません。
+            「見学済」は通し見学を最後まで見たということです。点は本番の最高点で、
+            練習（チュートリアル）は親方に聞けて目印も濃いので、点には入れず回数だけ出します。
+            実務トレーニングは修了証の要件ではありません。
           </div>
         </div>
       )}

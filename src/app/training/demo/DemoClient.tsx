@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { STEPS } from "@/training/catalog/demoSteps";
 import { scenesOf } from "@/training/catalog/demoScenes";
@@ -11,6 +11,7 @@ import { Boss } from "@/components/training/Characters";
 import { Bar } from "@/components/ui/Bar";
 import { Btn } from "@/components/ui/Btn";
 import { SceneFrame } from "@/components/training/DemoShell";
+import { seeDemo } from "@/lib/trainingRecord";
 
 /* 通し見学。15手を順に見る。
    全15手に「なぜそうするのか」を出す（HANDOFF.md 4章）。
@@ -31,6 +32,23 @@ export function DemoClient() {
   const [si, setSi] = useState(0);
   const step = STEPS[i];
   const last = i >= STEPS.length - 1;
+
+  /* 見学を開いたこと・見終えたことを残す。
+     担当者は「手順を最後まで見たか」を知りたい。
+     行き先のボタンを押さずに閉じる人もいるので、
+     押した時ではなく最後の手に着いた時に残す（DemoShell と同じ） */
+  const sent = useRef(false);
+  useEffect(() => {
+    if (sent.current) return;
+    sent.current = true;
+    seeDemo("ch1", false);
+  }, []);
+  const done = useRef(false);
+  useEffect(() => {
+    if (!last || done.current) return;
+    done.current = true;
+    seeDemo("ch1", true);
+  }, [last]);
 
   const scenes = scenesOf(step.n);
   const scene = open && si < scenes.length ? scenes[si] : null;

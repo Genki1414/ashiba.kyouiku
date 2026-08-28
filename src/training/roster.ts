@@ -18,6 +18,10 @@ export type ChapterResult = {
   /** 本番の最高技能点。1度も通していなければ null */
   best: number | null;
   passed: boolean;
+  /** 通し見学を開いた回数 */
+  seen: number;
+  /** 通し見学を最後まで見たか */
+  seenDone: boolean;
 };
 
 export type LearnerRow = {
@@ -92,6 +96,13 @@ export type RawAttempt = {
   created_at: string;
 };
 export type RawCert = { enrollment_id: string; cert_no: string; issued_at: string };
+/** 通し見学を見たこと。点は付かないので、成績とは別に持つ */
+export type RawView = {
+  enrollment_id: string;
+  chapter: string;
+  times: number;
+  done: boolean;
+};
 
 export type RosterInput = {
   users: RawUser[];
@@ -99,15 +110,18 @@ export type RosterInput = {
   progress: RawProgress[];
   exams: RawExam[];
   attempts: RawAttempt[];
+  /** 通し見学。渡さなければ「見ていない」で通す（古い呼び出しを壊さない） */
+  views?: RawView[];
   certs: RawCert[];
   /** 学科の単元。順番どおりに渡すこと（「いま何番目か」を出すため） */
   lessons: RosterLesson[];
 };
 
-/** 章ごとに、本番の最高点と回数をまとめる。チュートリアルは数えない */
-function trainingOf(rows: RawAttempt[]): ChapterResult[] {
+/** 章ごとに、本番の最高点と回数、練習と通し見学をまとめる */
+function trainingOf(rows: RawAttempt[], views: RawView[]): ChapterResult[] {
   return CHAPTERS.filter((c) => c.ready).map((c) => {
     const here = rows.filter((a) => a.chapter === c.id);
+    const v = views.find((x) => x.chapter === c.id);
     /* 点は本番だけで見る。チュートリアルは親方に聞けて目印も濃いので、
        同じ土俵で比べられない */
     const mine = here.filter((a) => !a.tutorial);
@@ -119,6 +133,8 @@ function trainingOf(rows: RawAttempt[]): ChapterResult[] {
       best,
       /* 合否は点で決める。記録側の passed が古い決まりでも、いまの基準で揃う */
       passed: best !== null && best >= PASS,
+      seen: v?.times ?? 0,
+      seenDone: v?.done === true,
     };
   });
 }
@@ -162,6 +178,7 @@ export function buildRoster(inp: RosterInput): LearnerRow[] {
     const exam = pass ?? last ?? null;
 
     const attempts = id ? inp.attempts.filter((a) => a.enrollment_id === id) : [];
+    const views = id ? (inp.views ?? []).filter((v) => v.enrollment_id === id) : [];
     const cert = id ? (inp.certs.find((c) => c.enrollment_id === id) ?? null) : null;
 
     const times = [
@@ -186,7 +203,7 @@ export function buildRoster(inp: RosterInput): LearnerRow[] {
       exam: exam
         ? { score: exam.score, total: exam.total, passed: exam.passed }
         : null,
-      training: trainingOf(attempts),
+      training: trainingOf(attempts, views),
       cert: cert ? { no: cert.cert_no, at: cert.issued_at } : null,
       canIssue:
         lessonsTotal > 0 &&
@@ -295,6 +312,8 @@ function mergeTraining(list: ChapterResult[][]): ChapterResult[] {
       tried: mine.reduce((n, m) => n + m.tried, 0),
       best,
       passed: best !== null && best >= PASS,
+      seen: mine.reduce((n, m) => n + m.seen, 0),
+      seenDone: mine.some((m) => m.seenDone),
     };
   });
 }
