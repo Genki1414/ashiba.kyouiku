@@ -1,4 +1,5 @@
 "use client";
+import { useEffect, useRef } from "react";
 import type { Figure } from "@/types/curriculum";
 
 /* ナレーションの横に出す図解。
@@ -71,8 +72,29 @@ function termsOf(name: string): string[] {
   return [...out].sort((a, b) => b.length - a.length);
 }
 
-/** その行が言っている図解の行。当たらなければ null */
-export function hitRow(rows: { n: string }[], line: string): number | null {
+/* 名前で当たらないときの、二の矢。
+
+   図解の説明文は、台本を言い換えて書いてある所が多い。
+   　台本 「三つ目は、悪天候のため作業の実施について危険が予想されるとき」
+   　図解 「悪天候時の作業中止」
+   名前は出てこないが、言っていることは同じ。
+   そこで、助詞や送り仮名を落として2文字ずつの並びにし、
+   どれだけ重なるかで見る。
+
+   重なりが少ないものは通さない（TH）。
+   いちばん重なった行が2番目と同点なら、決められないので通さない。
+   「どちらとも取れる」ときに光らせると、違う所が光ることになる。 */
+const TH = 5;
+const STOP = /[、。・（）()「」\s　をにはがのでとやもかなますでしたているれるられあるこそのれどこ]/g;
+function gramsOf(s: string): Set<string> {
+  const t = s.replace(STOP, "");
+  const g = new Set<string>();
+  for (let i = 0; i + 2 <= t.length; i++) g.add(t.slice(i, i + 2));
+  return g;
+}
+
+/** 名前がそのまま出ている行。無ければ null（字幕で光らせる語は、これがあるときだけ） */
+export function hitByName(rows: { n: string }[], line: string): number | null {
   if (!line) return null;
   let best: { i: number; len: number } | null = null;
   for (let i = 0; i < rows.length; i++) {
@@ -86,9 +108,36 @@ export function hitRow(rows: { n: string }[], line: string): number | null {
   return best?.i ?? null;
 }
 
-/** 字幕の中で、当たった語がどこにあるか。無ければ null */
+/** その行が言っている図解の行。当たらなければ null */
+export function hitRow(rows: { n: string; d?: string }[], line: string): number | null {
+  if (!line) return null;
+  /* まず名前で。いちばん確かなので、こちらを優先する */
+  const byName = hitByName(rows, line);
+  if (byName !== null) return byName;
+
+  /* 名前が出てこなくても、言っていることが同じなら当てる */
+  const g = gramsOf(line);
+  let bi = -1;
+  let best = 0;
+  let second = 0;
+  rows.forEach((r, k) => {
+    let c = 0;
+    for (const x of gramsOf(r.n + (r.d ?? ""))) if (g.has(x)) c++;
+    if (c > best) {
+      second = best;
+      best = c;
+      bi = k;
+    } else if (c > second) second = c;
+  });
+  return best >= TH && best > second ? bi : null;
+}
+
+/* 字幕の中で光らせる語。
+
+   名前がそのまま出ているときだけ。言い換えで当てたぶんは、
+   字幕のどこを光らせればよいか決められないので、行だけ光らせる。 */
 export function hitTerm(rows: { n: string }[], line: string): string | null {
-  const i = hitRow(rows, line);
+  const i = hitByName(rows, line);
   if (i === null) return null;
   for (const t of termsOf(rows[i].n)) if (line.includes(t)) return t;
   return null;
@@ -119,6 +168,16 @@ export function NarrationFigure({
 }) {
   const rows = rowsOf(fig);
   const hit = line ? hitRow(rows, line) : null;
+
+  /* 光った行を、画面の中に入れる。
+     入れないと、図解が長いときに「どこが光ったのか」を探すことになる。
+     nearest にしてあるので、もう見えているときは動かない
+     （読んでいる途中で画面が飛ぶ方が困る） */
+  const onRow = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (hit === null) return;
+    onRow.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, [hit]);
   /* 手順（flow）は番号が意味を持つ。それ以外は付けない */
   const numbered = fig.type === "flow";
 
@@ -140,6 +199,7 @@ export function NarrationFigure({
             {rows.map((r, i) => (
               <div
                 key={i}
+                ref={i === hit ? onRow : undefined}
                 className={
                   i === hit
                     ? "rounded-lg border border-yel bg-[#1A1F14] px-3 py-2"

@@ -487,6 +487,16 @@ console.log("── 解説の画面 ──");
   check(!/split\("の"\)/.test(nf), "「の」で切って当てにいかない（誤爆する）");
   check(/narr-mark/.test(nv), "字幕の中でも、同じ語を光らせる");
 
+  /* 下に図解を置いたら、図解を見るために下ろすと字幕が消え、
+     字幕を見るために戻すと図解が消える、という往復になった */
+  check(/sticky top-0/.test(nv), "字幕と操作は、画面の上に貼り付ける");
+  check(/scrollIntoView/.test(nf), "光った行は、画面の中に入れる");
+  check(/block: "nearest"/.test(nf), "もう見えているときは動かさない");
+
+  /* 名前が出てこなくても、言っていることが同じなら当てる */
+  check(/hitByName/.test(nf), "名前で当たるぶんは、いちばん確かなので先に見る");
+  check(/gramsOf/.test(nf), "言い換えでも当てにいく");
+
   /* 6時間ぶん聞くもの。端末に入っている順に取ると古い機械声が先に来る */
   const au = read("src/lib/audio.ts");
   check(/VOICE_RANK/.test(au), "日本語の声のうち、人らしいものを選ぶ");

@@ -45,6 +45,32 @@ console.log("── at を入れたとき ──");
   check(figureAt(fs, 200, 300) === 2, "at に来たら進む");
 }
 
+console.log("── 言い換えでも当てる ──");
+{
+  /* 図解の説明文は、台本を言い換えて書いてある所が多い。
+     名前が出てこなくても、言っていることが同じなら当てる */
+  const rows = [
+    { n: "作業区域への立入禁止", d: "関係労働者以外の立入りを禁止する" },
+    { n: "悪天候時の作業中止", d: "強風・大雨・大雪のときは作業を中止する" },
+  ];
+  check(
+    hitRow(rows, "二つ目は、作業を行う区域内への、関係労働者以外の立入りを禁止することです。") === 0,
+    "名前が出てこなくても、言っていることが同じなら当たる",
+  );
+  /* ただし字幕の中では光らせない。どこを光らせるか決められない */
+  check(
+    hitTerm(rows, "二つ目は、作業を行う区域内への、関係労働者以外の立入りを禁止することです。") === null,
+    "言い換えで当てたぶんは、字幕の語を光らせない",
+  );
+  /* どちらとも取れるときは、決めない */
+  const same = [{ n: "手すり", d: "墜落を防ぐ" }, { n: "中さん", d: "墜落を防ぐ" }];
+  check(hitRow(same, "これらは墜落を防ぐための設備です。") === null,
+    "同じくらい当たる行が2つあれば、光らせない");
+  /* 重なりが浅いだけの行は通さない */
+  check(hitRow([{ n: "電動工具", d: "コードの被覆、濡れた手" }], "きょうは朝から雨です。") === null,
+    "かすっただけでは光らせない");
+}
+
 console.log("── 本物の教材で通す ──");
 {
   const cur = CurriculumSchema.parse(
@@ -63,6 +89,22 @@ console.log("── 本物の教材で通す ──");
       }
       check(okAll, `${l.id}：どの行でも、ある図解に決まる`);
       check(sawLast, `${l.id}：最後の図解まで出番がある`);
+
+      /* どの単元でも、光る行がある。
+         「この単元だけ一度も光らない」を作らないための見張り */
+      let lit = 0;
+      for (let i = 0; i < l.script.length; i++) {
+        const n = figureAt(l.figures, i, l.script.length)!;
+        const f = l.figures[n];
+        const rs =
+          (f.parts ?? f.faults ?? f.points)?.map((x) => ({ n: x.n, d: x.d })) ??
+          f.dims?.map((x) => ({ n: x.label, d: x.v })) ??
+          (f.content
+            ? Object.entries(f.content).map(([k, v]) => ({ n: k, d: v.join("") }))
+            : []);
+        if (hitRow(rs, l.script[i]) !== null) lit++;
+      }
+      check(lit > 0, `${l.id}：光る行がある（${lit}/${l.script.length}）`);
     }
   }
 }

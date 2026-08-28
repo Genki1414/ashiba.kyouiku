@@ -61,8 +61,14 @@ export function NarrationView({
 
   return (
     <div>
+      {/* 字幕と操作は、画面の上に貼り付けておく。
+
+         下に図解を置いたら、図解を見るために下ろすと字幕が消え、
+         字幕を見るために戻すと図解が消える、という往復になった。
+         いま読んでいる行と、止めるところは、いつでも見えていないと困る。 */}
+      <div className="sticky top-0 z-20 border-b border-line bg-bg">
       {/* 字幕 */}
-      <div className="flex min-h-[76px] items-center gap-3 border-b border-line bg-panel px-4 py-3.5">
+      <div className="flex min-h-[68px] items-center gap-3 border-b border-line bg-panel px-4 py-3">
         <div
           className={`h-2 w-2 shrink-0 rounded-full ${playing && !last ? "bg-yel pulse" : "bg-line"}`}
         />
@@ -79,14 +85,15 @@ export function NarrationView({
         </div>
       </div>
 
-      <div className="px-4 py-4">
-        <div className="mb-1.5 grid grid-cols-[1.5fr_1fr] gap-2">
+      <div className="px-4 py-2.5">
+        <div className="grid grid-cols-[1.5fr_1fr] gap-2">
           <Btn
             tone={playing ? undefined : "y"}
             onClick={() => {
               if (last) onLine(0);
               onPlaying(!playing);
             }}
+            className="py-2.5 text-[13.5px]"
           >
             {playing ? "一時停止" : last ? "もう一度再生" : line === 0 ? "再生する" : "続きから"}
           </Btn>
@@ -95,12 +102,12 @@ export function NarrationView({
               onPlaying(false);
               onLine(0);
             }}
-            className="text-[13px] font-normal text-dim"
+            className="py-2.5 text-[12.5px] font-normal text-dim"
           >
             最初から
           </Btn>
         </div>
-        <div className="mb-3.5 flex text-[11px] text-dim2">
+        <div className="mt-1.5 flex text-[11px] text-dim2">
           <span>
             ナレーション {Math.min(line + 1, lesson.script.length)}/{lesson.script.length}
           </span>
@@ -114,7 +121,10 @@ export function NarrationView({
                 : "字幕のみ"}
           </span>
         </div>
+      </div>
+      </div>
 
+      <div className="px-4 pb-4 pt-3.5">
         {/* 聞いている内容の絵。触っても構わないが、
            図解の段を済ませたことにはしない（あとでもう一度ちゃんと通る） */}
         {figN !== null && (
