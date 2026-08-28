@@ -18,7 +18,7 @@ type Health = {
   };
   checks?: Record<string, { ok: boolean; detail: string }>;
   /* いま誰として記録しているか */
-  auth?: { required: boolean; signedIn: boolean; enrollment: string; email?: string | null; owner?: boolean; canLearn?: boolean; learnBy?: string };
+  auth?: { required: boolean; signedIn: boolean; enrollment: string; email?: string | null; owner?: boolean; admin?: boolean; company?: string; canLearn?: boolean; learnBy?: string };
   /* この版がいつのものか。新しい版が届いているかを見る目印 */
   appVersion?: string;
   /* 売るために要る設定。空のままだと売れない */
@@ -179,6 +179,18 @@ export function SetupClient() {
                         ? `開ける（${LEARN_BY[h.auth.learnBy ?? ""] ?? h.auth.learnBy ?? ""}）`
                         : "開けない（受講コードが要る）",
                       true,
+                    ],
+                    /* 「/admin が開かない」と言われたとき、
+                       担当者でないのか、そもそも所属が無いのかで直し方が違う */
+                    ["いまの所属", h.auth.company || "（どこにも属していない）", !!h.auth.company],
+                    [
+                      "教育担当者として認める",
+                      h.auth.admin
+                        ? "認める"
+                        : h.auth.company
+                          ? "認めない（この会社の受講者）"
+                          : "認めない（所属が無い）",
+                      !!h.auth.admin,
                     ],
                     [
                       "運営として認める",

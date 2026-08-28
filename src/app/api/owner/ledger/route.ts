@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase/server";
 import { currentOwner } from "@/lib/owner";
 import { companyRecords } from "@/lib/records";
+import { currentUser } from "@/lib/supabase/session";
 
 /* 本部（この仕組みを売っている側）の元帳。
 
@@ -158,5 +159,88 @@ async function one(
     },
     people,
     totals,
+  });
+}
+
+
+/* ── 教育担当者を立て直す（本部だけ）────────────────
+
+   なぜ要るか。
+   担当者を立てられるのは、その会社の担当者だけにしてある
+   （/api/admin/role）。よその会社の名簿を勝手に見られては困るから。
+   ところがその作りだと、**担当者が1人も居なくなった会社は詰む**。
+
+     ・唯一の担当者が辞めた
+     ・唯一の担当者が別の会社へ移った（0021 で担当を降りる）
+     ・唯一の担当者が、うっかり自分を降ろした
+
+   こうなると、名簿も修了証も誰も触れない。
+   前はデータベースを直接いじるしかなかった。売り物でそれは通らない。
+
+   ここは本部（OWNER_EMAILS）だけが押せる。
+   本部が誰かは環境変数で決めていて、画面からは変えられないので、
+   「担当者の画面から自分を本部に上げる」道はできない。
+
+   自分で自分を担当者に立てるのも通す。
+   本部＝この仕組みを売っている側なので、これで増える権限は無い。 */
+
+type RoleBody = { companyId?: string; userId?: string; admin?: boolean };
+
+export async function POST(req: NextRequest) {
+  const supabase = getServiceClient();
+  if (!supabase) {
+    return NextResponse.json({ ok: false, reason: "Supabase が未設定です。" }, { status: 503 });
+  }
+  const owner = await currentOwner();
+  if (!owner) {
+    return NextResponse.json({ ok: false, reason: "本部だけの操作です。" }, { status: 403 });
+  }
+
+  const b = (await req.json().catch(() => ({}))) as RoleBody;
+  const companyId = (b.companyId ?? "").trim();
+  const userId = (b.userId ?? "").trim();
+  const want = b.admin === true;
+  if (!companyId || !userId) {
+    return NextResponse.json({ ok: false, reason: "会社と人が分かりません。" }, { status: 400 });
+  }
+
+  const { data: co } = await supabase
+    .from("companies").select("id, name").eq("id", companyId).maybeSingle();
+  if (!co) {
+    return NextResponse.json({ ok: false, reason: "その事業者がありません。" }, { status: 404 });
+  }
+
+  /* その会社に在籍している人だけ。抜けた人を担当者に立てると、
+     辞めた人がその会社の名簿を見続けることになる */
+  const { data: mem } = await supabase
+    .from("memberships")
+    .select("user_id")
+    .eq("company_id", companyId)
+    .eq("user_id", userId)
+    .not("approved_at", "is", null)
+    .is("left_at", null)
+    .maybeSingle();
+  if (!mem) {
+    return NextResponse.json(
+      { ok: false, reason: "その人は、この事業者に在籍していません。" },
+      { status: 409 },
+    );
+  }
+
+  /* 担当者に立てるときは、所属もこの会社に揃える。
+     users.company_id が別の会社を指したままだと、
+     画面はよその会社の名簿を出してしまう */
+  const patch = want
+    ? { role: "admin", company_id: companyId }
+    : { role: "learner" };
+  const { error } = await supabase.from("users").update(patch).eq("id", userId);
+  if (error) return NextResponse.json({ ok: false, reason: error.message }, { status: 500 });
+
+  const me = await currentUser();
+  return NextResponse.json({
+    ok: true,
+    /* 自分を立て直したときは、画面を開き直してもらう */
+    self: me?.id === userId,
+    company: co.name as string,
   });
 }

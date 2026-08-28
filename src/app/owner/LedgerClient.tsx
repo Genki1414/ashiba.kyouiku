@@ -44,6 +44,8 @@ type Person = {
   name: string;
   email: string;
   state: string;
+  /** その会社の教育担当者か */
+  admin: boolean;
   requestedAt: string | null;
   approvedAt: string | null;
   leftAt: string | null;
@@ -135,6 +137,33 @@ export function LedgerClient({ onNote }: { onNote: (s: string) => void }) {
       const j = await res.json().catch(() => ({}));
       if (!res.ok || !j.ok) onNote(j.reason ?? "切り替えられませんでした。");
       else await load();
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  /* 教育担当者を立て直す。担当者が1人も居なくなった会社は、
+     ここからしか戻せない（担当者を立てられるのは担当者だけなので） */
+  const setAdmin = async (companyId: string, p: Person) => {
+    setBusy(p.userId);
+    onNote("");
+    try {
+      const res = await fetch("/api/owner/ledger", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ companyId, userId: p.userId, admin: !p.admin }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok || !j.ok) { onNote(j.reason ?? "変えられませんでした。"); return; }
+      onNote(
+        j.self
+          ? "自分を教育担当者にしました。画面を開き直してください。"
+          : `${p.name || "その人"}を${!p.admin ? "教育担当者にしました" : "受講者に戻しました"}。`,
+      );
+      /* 中身を引き直す */
+      const r2 = await fetch(`/api/owner/ledger?companyId=${encodeURIComponent(companyId)}`, { cache: "no-store" });
+      const d2 = await r2.json().catch(() => ({}));
+      if (d2?.ok) setDetail(d2 as Detail);
     } finally {
       setBusy(null);
     }
@@ -297,6 +326,20 @@ export function LedgerClient({ onNote }: { onNote: (s: string) => void }) {
                             {p.approvedAt ? `　${day(p.approvedAt)} 在籍` : ""}
                             {p.leftAt ? `　${day(p.leftAt)} 退職` : ""}
                           </div>
+
+                          {/* 担当者が1人も居なくなった会社は、ここからしか戻せない */}
+                          {p.state === "在籍" && (
+                            <button
+                              onClick={() => void setAdmin(detail.company.id, p)}
+                              disabled={busy === p.userId}
+                              data-testid="ledger-admin"
+                              className={`mt-2 rounded border px-2 py-1 text-[11.5px] ${
+                                p.admin ? "border-grn text-grn" : "border-line text-dim"
+                              }`}
+                            >
+                              {p.admin ? "教育担当者　押すと外す" : "教育担当者にする"}
+                            </button>
+                          )}
 
                           {!p.records.length && (
                             <div className="mt-1.5 text-[11.5px] text-dim2">受講の記録はありません。</div>

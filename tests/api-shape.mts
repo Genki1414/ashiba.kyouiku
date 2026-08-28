@@ -679,6 +679,29 @@ console.log("── 職長教育（討議のある講座）──");
   check(!/room_url|zoom\.us\//.test(talk), "Zoom の URL を画面に書き込まない");
 }
 
+console.log("── 担当者が居なくなった会社を、戻せるか ──");
+{
+  /* 担当者を立てられるのは、その会社の担当者だけ（/api/admin/role）。
+     その作りだと、唯一の担当者が辞めた・移った・自分を降ろした会社は
+     誰も名簿を開けなくなる。前はデータベースを直接いじるしかなかった。
+     売り物でそれは通らないので、本部だけが戻せる道を作る */
+  const led = read("src/app/api/owner/ledger/route.ts");
+  check(/export async function POST/.test(led), "本部から担当者を立て直せる");
+  check(/currentOwner\(\)/.test(led), "本部（OWNER_EMAILS）だけが押せる");
+  /* 抜けた人を担当者にすると、辞めた人がその会社の名簿を見続ける */
+  check(/left_at/.test(led) && /approved_at/.test(led), "在籍している人しか立てない");
+  /* users.company_id がよそを指したままだと、よその名簿が出る */
+  check(/company_id: companyId/.test(led), "立てるときに、所属もその会社へ揃える");
+
+  const rec = read("src/lib/records.ts");
+  check(/u\.company_id === companyId/.test(rec), "担当者かどうかは、その会社の分だけ見る");
+
+  /* 「/admin が開かない」と言われたときに答えられるように */
+  const h = read("src/app/api/health/route.ts");
+  check(/admin: !!admin/.test(h), "いま担当者かどうかを /setup が出せる");
+  check(/company: co\?\.name/.test(h), "いまの所属も出せる（所属が無いのか、担当でないのか）");
+}
+
 console.log("── 照合の控えが、記録として残るか ──");
 {
   /* 講座の目印を付けずに送ると、サーバは受講を割り出せず

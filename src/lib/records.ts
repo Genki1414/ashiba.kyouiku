@@ -37,6 +37,8 @@ export type Person = {
   name: string;
   email: string;
   state: PersonState;
+  /** その会社の教育担当者か。本部が立て直すときに要る */
+  admin: boolean;
   requestedAt: string | null;
   approvedAt: string | null;
   leftAt: string | null;
@@ -93,7 +95,7 @@ export async function companyRecords(
      順に待つと、事業者を1つ開くだけで5往復する */
   const [{ data: us }, progress, exams, certs, { data: seats }] = await Promise.all([
     ids.length
-      ? supabase.from("users").select("id, name, email").in("id", ids)
+      ? supabase.from("users").select("id, name, email, role, company_id").in("id", ids)
       : Promise.resolve({ data: [] as Row[] }),
     grab("progress", "enrollment_id, lesson_id, watched_sec, quiz_passed_at"),
     grab("exams", "enrollment_id, score, total, passed, created_at"),
@@ -107,6 +109,11 @@ export async function companyRecords(
 
   const uName = new Map(users.map((u) => [u.id as string, (u.name as string) ?? ""]));
   const uMail = new Map(users.map((u) => [u.id as string, (u.email as string) ?? ""]));
+  /* いまこの会社の担当者になっている人。
+     role だけ見ると、よその会社の担当者まで拾ってしまう */
+  const uAdmin = new Set(
+    users.filter((u) => u.role === "admin" && u.company_id === companyId).map((u) => u.id as string),
+  );
   const courseName = new Map(COURSES.map((c) => [c.id, c.short]));
 
   /* 1人が申し込み直していると、同じ会社の紐付けが何本か残る。
@@ -164,6 +171,7 @@ export async function companyRecords(
       name: uName.get(id) ?? "",
       email: uMail.get(id) ?? "",
       state,
+      admin: uAdmin.has(id),
       requestedAt: (m?.requested_at as string) ?? null,
       approvedAt: (m?.approved_at as string) ?? null,
       leftAt: (m?.left_at as string) ?? null,

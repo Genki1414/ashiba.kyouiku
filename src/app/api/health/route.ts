@@ -5,6 +5,8 @@ import { currentUser } from "@/lib/supabase/session";
 import { LATEST } from "@/content/changelog";
 import { bankReady, invoiceOk, missingSeller, seller } from "@/content/legal";
 import { isOwnerEmail, ownerEmails } from "@/lib/owner";
+import { currentAdmin } from "@/lib/admin";
+import { myCompany } from "@/lib/tenant";
 import { canLearn } from "@/lib/entitle";
 import { readyCourses } from "@/content/courses";
 import { NEED_SCHEMA } from "@/content/schema";
@@ -42,8 +44,17 @@ export async function GET() {
   /* 受講できるか。「コード無しで開けてしまう」を調べるときに、
      何を根拠に通しているのかが分からないと直しようがない */
   const learn = await canLearn();
+  /* 教育担当者か。ここが分からないと、
+     「/admin が開かない」と言われたときに何も答えられない。
+     所属も一緒に返す（担当者でないのか、そもそも所属が無いのか） */
+  const admin = await currentAdmin();
+  const co = admin ? { id: admin.companyId, name: admin.companyName } : await myCompany();
   const auth = {
     email: user?.email ?? null,
+    /* 教育担当者として認められているか */
+    admin: !!admin,
+    /* いまの所属。空なら、どこの事業者にも紐付いていない */
+    company: co?.name ?? "",
     /* 学科（特別教育）を開けるか、その根拠
        seat=受講コードを引き換えた／trial=無償利用の事業者／
        open=Supabase 未設定（手元で動かすとき） */

@@ -983,6 +983,33 @@ check(codes.every((c) => /^[2-9A-HJKMNP-Z]{12}$/.test(c)), `12文字・読み違
     `在籍が先で退職が後（${order.join("・")}）`,
   );
 
+  /* ── 誰が教育担当者か、元帳に出る ──
+     担当者が1人も居なくなった会社は、本部からしか戻せない。
+     そのとき「いま誰が担当者か」が見えないと、戻しようがない */
+  const admins = led.people.filter((p) => p.admin);
+  check(admins.length >= 1, `担当者が元帳に出る（いま ${admins.length}人）`);
+  check(admins.every((p) => p.state === "在籍"), "担当者は在籍の人");
+
+  /* よその会社の担当者を拾わないか。
+     role だけ見ると、他社の担当者までこの会社の担当者に見えてしまう */
+  {
+    const OTHER = "cccccccc-9999-9999-9999-999999999999";
+    await raw.query(
+      "insert into public.companies (id, name, join_code, created_by) values ($1,$2,$3,$4) on conflict do nothing",
+      [OTHER, "よその会社", "ZZZZ9999", U1],
+    );
+    /* U1 をよその会社の担当者にしてしまう */
+    await raw.query("update public.users set role='admin', company_id=$1 where id=$2", [OTHER, U1]);
+    const led2 = await companyRecords(db, CO);
+    check(
+      !led2.people.some((p) => p.userId === U1 && p.admin),
+      "よその会社の担当者を、この会社の担当者として出さない",
+    );
+    /* 戻す */
+    await raw.query("update public.users set role='admin', company_id=$1 where id=$2", [CO, U1]);
+    await raw.query("delete from public.companies where id=$1", [OTHER]);
+  }
+
   /* 戻す。あとの試験がこの人を使う */
   await db.rpc("join_company", { p_user: U3, p_company: CO });
 }
