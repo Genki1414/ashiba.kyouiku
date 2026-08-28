@@ -26,7 +26,13 @@ export function HomeCards() {
     if (kept) setMe(kept);
 
     void loadMe().then((fresh) => {
-      if (!alive || !fresh) return;
+      if (!alive) return;
+      /* 聞けなかった（ログインが切れた・圏外）。覚えは前の話なので下げる。
+         下げないと、前の人の請求書の金額と番号が出たままになる */
+      if (!fresh?.userId) {
+        setMe(null);
+        return;
+      }
       if (!sameMe(kept, fresh)) setMe(fresh);
     });
     return () => { alive = false; };

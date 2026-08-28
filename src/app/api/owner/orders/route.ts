@@ -148,6 +148,15 @@ export async function POST(req: NextRequest) {
 
   /* 入金を確認した（請求書払い）。カード払いは webhook が立てるので、ここでは触らない */
   if (order.status === "paid") return NextResponse.json({ ok: true, already: true });
+  /* 取り消した注文は、あとから入金にしない。
+     ここを見ていなかったので、取り消したものを「入金を確認した」で
+     生き返らせて受講コードを出せてしまっていた */
+  if (order.status !== "pending") {
+    return NextResponse.json(
+      { ok: false, reason: `その注文は「${order.status}」です。入金にはできません。` },
+      { status: 409 },
+    );
+  }
 
   /* 個人の注文は、入金を立てると同時に利用権が付く。
      2つに分けると、片方だけ通ったときに
@@ -176,11 +185,22 @@ export async function POST(req: NextRequest) {
       { status: 409 },
     );
   }
-  const { error } = await supabase
+  /* 「入金待ちのものだけ」を入金にする。
+     状態を読んでから書くまでの間に、もう一方が先に立てているかもしれない。
+     窓を2つ開けて同時に押すと、どちらも「未入金」を見て、
+     どちらも受講コードを作っていた（人数の2倍出る）。
+     ここで pending を条件にしておけば、後から来た方は0件になる */
+  const { data: won, error } = await supabase
     .from("orders")
     .update({ status: "paid", paid_at: new Date().toISOString() })
-    .eq("id", id);
+    .eq("id", id)
+    .eq("status", "pending")
+    .select("id");
   if (error) return NextResponse.json({ ok: false, reason: error.message }, { status: 500 });
+  if (!won?.length) {
+    /* 先に誰かが立てた。受講コードはその人が作っているので、ここでは作らない */
+    return NextResponse.json({ ok: true, already: true });
+  }
 
   /* ここで受講コードを作る。
      申込みのときには作らない（払わずに受講できてしまう）。

@@ -38,7 +38,10 @@ const dismissNotice = async () => {
 };
 
 await page.goto(BASE);
-await page.waitForSelector("text=足場の教育アプリ");
+/* 名前で待たない。サービス名を変えたときに、ここだけ古いまま残って
+   この試験が丸ごと動かなくなっていた（見出しの字は商売の都合で変わる）。
+   講座の札は作り置きで必ず出るので、そちらを待つ */
+await page.waitForSelector('[data-testid="home-course"]');
 await dismissNotice();
 await shot(page, "01-home");
 await page.click("text=特別教育（学科）");

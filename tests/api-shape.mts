@@ -560,5 +560,29 @@ console.log("── 請求書を相手にも見せる ──");
   check(/\/invoice\/\$\{bills\[0\]\.id\}/.test(home), "押すと、その請求書が開く");
 }
 
+console.log("── 担当者と無償利用の穴 ──");
+{
+  /* 参加コードは一般の社員に配るもの。自分の会社を作って担当者に
+     なった人が、よその会社の参加コードを入れただけで、その会社の
+     担当者になれてしまっていた */
+  const sql = read("supabase/migrations/0021_role.sql");
+  check(/v_now is distinct from p_company/.test(sql), "別の会社へ移ったときは担当者を降ろす");
+  check(/role = 'learner'/.test(sql), "降ろす先は受講者");
+  check(/leave_company/.test(sql), "会社を抜けたときも降ろす");
+
+  /* 事業者が1社しかないと、新しく登録した人に自動でその会社の
+     company_id が入る（0007）。控えで無償利用を通していたので、
+     知らない人が登録しただけで教材が全部開いていた */
+  const ent = read("src/lib/entitleQuery.ts");
+  check(/companyId === memberOf/.test(ent),
+    "無償利用は、許可の下りた在籍のときだけ通す（控えでは通さない）");
+
+  /* 取り消した注文を、あとから入金にできてしまっていた */
+  const owner = read("src/app/api/owner/orders/route.ts");
+  check(/order\.status !== "pending"/.test(owner), "入金にできるのは、入金待ちのものだけ");
+  check(/\.eq\("status", "pending"\)/.test(owner),
+    "入金にするときも入金待ちを条件にする（同時に押しても2倍出ない）");
+}
+
 console.log(`\n通り ${ok} ／ だめ ${ng}`);
 process.exit(ng ? 1 : 0);

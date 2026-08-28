@@ -539,6 +539,51 @@ const ord = await must(
 );
 const orderId = ord!.id as string;
 
+/* ── 会社を移ったら、教育担当者ではなくなる（0021）──
+
+   参加コードは一般の社員に配るもの。自分の事業者を作って担当者に
+   なった人が、よその会社の参加コードを入れただけで、その会社の
+   担当者になれてしまっていた。名簿も修了証の発行も、その会社名義の
+   発注も、請求書まで見られる形だった */
+{
+  const roleOf = async (u: string) => {
+    const { data } = await db.from("users").select("role, company_id").eq("id", u).maybeSingle();
+    return data as { role: string; company_id: string | null } | null;
+  };
+
+  /* U2 をいったん担当者に仕立てる（自分の会社を作った人と同じ状態） */
+  await must("担当者にする", db.from("users").update({ role: "admin" }).eq("id", U2).select("id"));
+  const before = await roleOf(U2);
+  check(before?.role === "admin", "担当者になっている");
+
+  /* よその会社へ移る */
+  const { data: other } = await db
+    .from("companies")
+    .insert({ name: "移り先の会社", join_code: "ZZZZ9999", created_by: U1 })
+    .select("id")
+    .single();
+  await must("よその会社へ入る", db.rpc("join_company", { p_user: U2, p_company: other!.id }));
+  const after = await roleOf(U2);
+  check(after?.company_id === other!.id, "所属は移る");
+  check(after?.role !== "admin", `移った先では担当者ではない（いま ${after?.role}）`);
+
+  /* 同じ会社に入り直しただけなら、担当を外さない
+     （担当者が自分の受講コードを引き換えただけで外れると困る） */
+  await must("担当者に戻す", db.from("users").update({ role: "admin" }).eq("id", U2).select("id"));
+  await must("同じ会社に入り直す", db.rpc("join_company", { p_user: U2, p_company: other!.id }));
+  check((await roleOf(U2))?.role === "admin", "同じ会社なら担当者のまま");
+
+  /* 抜けたら降ろす。残すと、次にどこかへ入った瞬間に担当者に戻る */
+  await must("会社を抜ける", db.rpc("leave_company", { p_user: U2, p_company: other!.id }));
+  const gone = await roleOf(U2);
+  check(gone?.company_id === null, "抜けたら所属は空");
+  check(gone?.role !== "admin", "抜けたら担当者ではない");
+
+  /* 後始末。ほかの試験に影響させない */
+  await db.from("companies").delete().eq("id", other!.id);
+  await db.rpc("join_company", { p_user: U2, p_company: CO });
+}
+
 /* ── 請求書を相手に見せる（0020）──
    よその会社の請求書には宛名も金額も載っている。
    注文の番号さえ分かれば開ける、という形にしてはいけない */
@@ -747,7 +792,19 @@ check(codes.every((c) => /^[2-9A-HJKMNP-Z]{12}$/.test(c)), `12文字・読み違
     )).rows[0].n === 0,
     "直す前の形（在籍なし・控えだけ）を作れた",
   );
-  check(broken.ok, "控えが残っていれば、直す前の形でも締め出さない（受け皿）");
+  /* ここは前まで「控えだけでも通す（受け皿）」にしていた。**それが穴だった。**
+     事業者が1社しかないと、新しく登録した人に自動でその会社の
+     company_id が入る（0007 handle_new_user）。在籍は立たない。
+     控えで通していたので、まったく知らない人が登録しただけで、
+     無償利用の会社の教材が全部開いていた。
+
+     「紐付けされたユーザーは全て無料」の紐付けとは、許可の下りた在籍のこと。
+     控えだけの人は通さない。会社に許可してもらう。 */
+  check(
+    !broken.ok,
+    `在籍が無ければ、控えだけでは通さない（${JSON.stringify(broken)}）`,
+  );
+  check(broken.ok === false && broken.company !== "", "所属の名前は出す（誰に許可を頼めばよいか分かるように）");
 
   /* 0014 の埋め戻し。何度流しても増えない */
   const backfill = `

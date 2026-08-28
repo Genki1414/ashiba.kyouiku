@@ -45,7 +45,17 @@ export async function learnFor(supabase: SupabaseClient, userId: string): Promis
     .limit(1)
     .maybeSingle();
 
-  let companyId = (mem?.company_id as string | null) ?? null;
+  /* 在籍している会社。無償利用を通してよいのは、こちらだけ */
+  const memberOf = (mem?.company_id as string | null) ?? null;
+
+  /* 画面に出す所属。在籍が無くても、控え（users.company_id）で名前は出す。
+     ただし**これで無償利用を通してはいけない**。
+     新しく登録した人は、事業者が1社しかないとその会社の company_id が
+     自動で入る（0007 handle_new_user）。控えで通していたので、
+     まったく知らない人が登録しただけで、無償利用の会社の教材が
+     全部開いていた。「紐付けされたユーザーは全て無料」の紐付けとは、
+     許可の下りた在籍のこと。 */
+  let companyId = memberOf;
   if (!companyId) {
     const { data: me } = await supabase
       .from("users")
@@ -63,7 +73,7 @@ export async function learnFor(supabase: SupabaseClient, userId: string): Promis
       .eq("id", companyId)
       .maybeSingle();
     company = (co?.name as string) ?? "";
-    if (co?.trial) return { ok: true, by: "trial" };
+    if (co?.trial && companyId === memberOf) return { ok: true, by: "trial" };
   }
 
   /* 引き換えた席が1枚でもあれば受講できる。

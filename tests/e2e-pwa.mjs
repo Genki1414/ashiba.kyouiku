@@ -51,7 +51,11 @@ await dismissNotice();
 const manifestHref = await page.getAttribute('link[rel="manifest"]', "href");
 check(!!manifestHref, "manifest がつながっている");
 const m = await (await fetch(BASE + manifestHref)).json();
-check(m.name === "足場の特別教育", `名前（${m.name}）`);
+/* 名前そのものを書かない。商売の都合で変わる字なので、
+   変えたときにここだけ古いまま残って試験が落ちる（実際に落ちた）。
+   見るのは「入っているか」と「中身とずれていないか」 */
+check(!!m.name && m.name.length > 0, `名前が入っている（${m.name}）`);
+check(m.name.includes(m.short_name), `短い名前は、長い名前の一部（${m.short_name}）`);
 check(m.short_name.length <= 12, `ホーム画面に出る名前は短く（${m.short_name}）`);
 check(m.display === "standalone", "アプリとして開く");
 check(m.start_url === "/", "開くところ");
