@@ -4,7 +4,7 @@ import { currentEnrollment } from "@/lib/enrollment";
 import { getCurriculum } from "@/lib/curriculum";
 import { eligible } from "@/lib/cert";
 import { issuerName, issuerResponsible } from "@/lib/issuer";
-import { findCourse } from "@/content/courses";
+import { findCourse, kindOf, type CourseKind } from "@/content/courses";
 
 /* 修了証。
    GET  … 出せるかどうかと、載せる中身を返す
@@ -25,7 +25,7 @@ type Gathered =
       birth: string;
       exam: { score: number; total: number };
       subjects: { id: number; name: string; min: number }[];
-      course: { id: string; name: string; basis: string };
+      course: { id: string; name: string; basis: string; kind: CourseKind };
       issuedAt: Date;
       no: string;
       already: string | null;
@@ -96,7 +96,7 @@ async function gather(courseId: string): Promise<Gathered> {
     birth: (user?.birth_date as string) ?? "",
     exam: { score: (exam?.score as number) ?? 0, total: (exam?.total as number) ?? 0 },
     subjects,
-    course: { id: course.id, name: course.name, basis: course.basis },
+    course: { id: course.id, name: course.name, basis: course.basis, kind: kindOf(course) },
     issuedAt,
     no: (cert?.cert_no as string) ?? "",
     already: (cert?.cert_no as string) ?? null,

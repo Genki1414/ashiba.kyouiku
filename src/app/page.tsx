@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { COURSES } from "@/content/courses";
+import { COURSES, textOf } from "@/content/courses";
 import { loadedCourses } from "@/lib/curriculum";
 import { AccountBar } from "@/components/AccountBar";
 import { HomeCards } from "@/components/HomeCards";
@@ -34,7 +34,11 @@ export default async function Home() {
             className="block rounded-xl border border-yel bg-panel p-5 no-underline"
             data-testid="home-course"
           >
-            <div className="text-[11px] font-extrabold tracking-widest text-yel">特別教育（学科）</div>
+            {/* 札は講座の種類から出す。決め打ちにすると、
+               職長教育に「特別教育」と書いた札が付く */}
+            <div className="text-[11px] font-extrabold tracking-widest text-yel">
+              {textOf(c).label}
+            </div>
             <div className="mt-1 text-[17px] font-black leading-snug text-txt">{c.name}</div>
             <div className="mt-2 text-[12px] leading-relaxed text-dim">
               {c.basis}
@@ -60,7 +64,7 @@ export default async function Home() {
         {/* これから増える講座。何が来るのかが分かるように名前だけ出す */}
         {!!soon.length && (
           <div className="rounded-xl border border-line bg-bg p-4" data-testid="home-soon">
-            <div className="text-[11px] tracking-[2px] text-dim">これから増える特別教育</div>
+            <div className="text-[11px] tracking-[2px] text-dim">これから増える講座</div>
             <ul className="mt-1.5 grid gap-1 text-[12.5px] leading-relaxed text-dim2">
               {soon.map((c) => (
                 <li key={c.id}>・{c.name}（準備中）</li>

@@ -9,9 +9,36 @@
 
    画面からもサーバからも読むので、ここは何にも依存しない。 */
 
+/* 教育の種類。
+
+   特別教育（安衛法59条3項）と職長教育（安衛法60条）は別の制度で、
+   修了証の表題も「〜を修了したことを証する」の文も違う。
+   決め打ちにしていたので、講座から出すようにした。
+
+   職長教育には討議（グループ演習）の要る科目がある。
+   この仕組みでは**オンラインの同時双方向**でやる決めにしてある
+   （docs/17-職長教育.md）。 */
+export type CourseKind = "special" | "foreman";
+
+/** 種類ごとの言い方。画面と修了証で共通に使う */
+export const KIND_TEXT: Record<CourseKind, { label: string; certTitle: string; certLine: string }> = {
+  special: {
+    label: "特別教育（学科）",
+    certTitle: "特 別 教 育 修 了 証",
+    certLine: "特別教育を修了したことを証する。",
+  },
+  foreman: {
+    label: "職長教育",
+    certTitle: "職 長 教 育 修 了 証",
+    certLine: "職長教育を修了したことを証する。",
+  },
+};
+
 export type CourseMeta = {
   /** URL とデータベースで使う目印。あとから変えない */
   id: string;
+  /** 教育の種類。書かなければ特別教育 */
+  kind?: CourseKind;
   /** 正式名称。修了証に載る */
   name: string;
   /** 画面で使う短い呼び名 */
@@ -29,6 +56,7 @@ export type CourseMeta = {
 export const COURSES: CourseMeta[] = [
   {
     id: "ashiba",
+    kind: "special",
     name: "足場の組立て等の業務に係る特別教育",
     short: "足場の組立て等",
     basis: "労働安全衛生法第59条第3項／労働安全衛生規則第36条第39号",
@@ -36,7 +64,29 @@ export const COURSES: CourseMeta[] = [
     file: "ashiba.json",
     ready: true,
   },
+  {
+    /* 職長教育。カリキュラムが決まるまでは名前だけ出す。
+
+       ・時間と科目は、令和5年4月の改正後のもので入れること
+       ・討議（グループ演習）はオンラインの同時双方向でやる
+       決まったら content/courses/shokucho.json を置いて ready: true に
+       （docs/13-講座を増やす.md／docs/17-職長教育.md） */
+    id: "shokucho",
+    kind: "foreman",
+    name: "職長・安全衛生責任者教育",
+    short: "職長・安責者",
+    basis: "労働安全衛生法第60条／労働安全衛生規則第40条",
+    totalMin: 0,
+    file: "shokucho.json",
+    ready: false,
+  },
 ];
+
+/** その講座の種類。書いていなければ特別教育 */
+export const kindOf = (c: CourseMeta): CourseKind => c.kind ?? "special";
+
+/** その講座の言い方（画面の札・修了証の表題と文） */
+export const textOf = (c: CourseMeta) => KIND_TEXT[kindOf(c)];
 
 /** 受けられる講座だけ */
 export const readyCourses = (): CourseMeta[] => COURSES.filter((c) => c.ready);

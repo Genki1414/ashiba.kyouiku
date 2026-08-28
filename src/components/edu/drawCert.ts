@@ -47,7 +47,7 @@ export function drawCert(cv: HTMLCanvasElement, c: CertData) {
   ctx.fillStyle = "#1A1D21";
   ctx.textAlign = "center";
   ctx.font = `500 22px ${JP}`;
-  ctx.fillText("特 別 教 育 修 了 証", W / 2, 118);
+  ctx.fillText(c.certTitle || "特 別 教 育 修 了 証", W / 2, 118);
   /* 表題は講座の正式名称。長い名前でも枠に収まるよう、はみ出す分だけ縮める */
   const title = c.courseName || "特別教育";
   let size = 40;
@@ -114,9 +114,13 @@ export function drawCert(cv: HTMLCanvasElement, c: CertData) {
   /* 根拠 */
   ctx.font = `400 19px ${JP}`;
   ctx.fillStyle = "#1A1D21";
-  ctx.fillText("上記の者は、労働安全衛生法第59条第3項及び労働安全衛生規則第36条第39号に基づく", L, y);
+  /* 根拠は講座のもの。決め打ちにすると、号の違う教育で嘘の紙が出る。
+     「／」で区切って書いてあるので、紙では「及び」に直して1行にする */
+  const basis = (c.courseBasis || "労働安全衛生法第59条第3項／労働安全衛生規則第36条第39号")
+    .replace(/／/g, "及び");
+  ctx.fillText(`上記の者は、${basis}に基づく`, L, y);
   y += 30;
-  ctx.fillText("特別教育を修了したことを証する。", L, y);
+  ctx.fillText(c.certLine || "特別教育を修了したことを証する。", L, y);
   y += 44;
 
   ctx.font = `400 17px ${JP}`;

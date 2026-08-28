@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { drawCert } from "@/components/edu/drawCert";
 import type { CertData } from "@/lib/cert";
+import { KIND_TEXT, type CourseKind } from "@/content/courses";
 import { Btn } from "@/components/ui/Btn";
 
 /* 修了証の画面。
@@ -19,7 +20,7 @@ type Info = {
   date: string;
   exam: { score: number; total: number };
   subjects: { id: number; name: string; min: number }[];
-  course: { id: string; name: string; basis: string };
+  course: { id: string; name: string; basis: string; kind: CourseKind };
   company: string;
   responsible: string;
 };
@@ -63,6 +64,11 @@ export function CertClient({ courseId }: { courseId: string }) {
     if (!info || !cv.current) return;
     const data: CertData = {
       courseName: info.course?.name ?? "",
+      /* 表題・結び・根拠は講座から。決め打ちにすると、
+         職長教育で「59条3項に基づく特別教育」という嘘の紙が出る */
+      certTitle: KIND_TEXT[info.course?.kind ?? "special"].certTitle,
+      certLine: KIND_TEXT[info.course?.kind ?? "special"].certLine,
+      courseBasis: info.course?.basis ?? "",
       name,
       birth: birth ? jpDate(birth) : "",
       date: jpDate(info.date),

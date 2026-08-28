@@ -42,8 +42,18 @@ export const isCertNo = (s: string): boolean => CERT_NO_RE.test(s.trim().toUpper
 
 /** 修了証に載る中身 */
 export type CertData = {
-  /** どの特別教育か。表題に出る。講座は増えていくので、決め打ちにしない */
+  /** どの教育か。表題に出る。講座は増えていくので、決め打ちにしない */
   courseName: string;
+  /* 表題・根拠・結びの文は、講座から出す。
+     決め打ちにしていたので、職長教育（安衛法60条）を足したときに
+     「59条3項に基づく特別教育を修了した」という嘘の紙が出るところだった。
+     号の違う特別教育を足したときも同じことが起きる */
+  /** 表題（例「特 別 教 育 修 了 証」） */
+  certTitle: string;
+  /** 結びの文（例「特別教育を修了したことを証する。」） */
+  certLine: string;
+  /** 法令の根拠（courses.ts の basis） */
+  courseBasis: string;
   name: string;
   birth: string;
   /** 修了日（画面に出す形） */

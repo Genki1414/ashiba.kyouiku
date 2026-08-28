@@ -584,5 +584,27 @@ console.log("── 担当者と無償利用の穴 ──");
     "入金にするときも入金待ちを条件にする（同時に押しても2倍出ない）");
 }
 
+console.log("── 講座の種類（特別教育／職長教育）──"); 
+{
+  /* 職長教育は安衛法60条。特別教育（59条3項）とは別の制度。
+     修了証が条文を決め打ちしていたので、そのまま足すと
+     「59条3項に基づく特別教育を修了した」という嘘の紙が出るところだった。
+     号の違う特別教育を足したときも同じ */
+  const draw = read("src/components/edu/drawCert.ts");
+  check(!/第59条第3項及び労働安全衛生規則第36条第39号/.test(draw),
+    "修了証に条文を書き込まない（講座から出す）");
+  check(/c\.courseBasis/.test(draw), "根拠は講座のもの");
+  check(/c\.certTitle/.test(draw) && /c\.certLine/.test(draw), "表題と結びの文も講座から");
+
+  const co = read("src/content/courses.ts");
+  check(/CourseKind/.test(co) && /foreman/.test(co), "講座に種類がある");
+  check(/第60条/.test(co), "職長教育は安衛法60条で置いてある");
+  check(/ready: false/.test(co), "カリキュラムが決まるまでは、名前だけ出す");
+
+  const home = read("src/app/page.tsx");
+  check(/textOf\(c\)\.label/.test(home), "ホームの札も講座の種類から出す");
+  check(!/特別教育（学科）/.test(home), "札に「特別教育」と書き込まない");
+}
+
 console.log(`\n通り ${ok} ／ だめ ${ng}`);
 process.exit(ng ? 1 : 0);
