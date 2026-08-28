@@ -30,12 +30,35 @@ export function seller() {
     /** 適格請求書発行事業者の登録番号（T＋13桁）。
         課税事業者なら、請求書に載せないと相手が仕入税額控除を受けられない。
         免税事業者なら番号そのものが無いので、空のままでよい */
-    invoiceNo: get("SELLER_INVOICE_NO"),
+    invoiceNo: tidyInvoice(get("SELLER_INVOICE_NO")),
   };
 }
 
+/* 登録番号の打ち方をそろえる。
+
+   国税庁の通知は「T1234567890123」だが、
+   人はハイフンや空白を入れて写すし、全角で入ることもある。
+   打ち方の揺れで「形が違います」と断ると、直しようが分からない。
+   請求書に載る形（T＋13桁）に寄せてから見る。
+
+   ただし **T を勝手に足さない**。13桁だけ入っていても補わない。
+   法人番号は登録していなくても誰にでもあるので、補うと
+   「登録していない事業者の番号」を登録番号として請求書に載せてしまう。
+   足りないなら、足りないと言う方がよい。 */
+export function tidyInvoice(v: string): string {
+  const half = v
+    /* 全角の英数字とハイフンを半角へ */
+    .replace(/[Ａ-Ｚａ-ｚ０-９]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xfee0))
+    .replace(/[－ー−―‐]/g, "-")
+    /* 区切りとして入れられがちなものを落とす */
+    .replace(/[\s　.．,，-]/g, "")
+    .trim();
+  /* 小文字の t で写す人がいる */
+  return half.replace(/^t/, "T");
+}
+
 /** 登録番号の形。T のあとに13桁。空は「登録していない」で正しいので通す */
-export const invoiceOk = (v: string): boolean => !v || /^T\d{13}$/.test(v.trim());
+export const invoiceOk = (v: string): boolean => !v || /^T\d{13}$/.test(tidyInvoice(v));
 
 /** 「未設定」の項目。ここが空のまま売ると、特商法の表示義務を満たしません */
 export function missingSeller(): string[] {

@@ -2,7 +2,7 @@
    ここが空のまま売ると、特定商取引法の表示義務を満たしません。
    実行: npx tsx tests/legal.ts */
 
-import { PERSONAL_DATA, THIRD_PARTIES, invoiceOk, missingSeller, seller, tokushoho } from "@/content/legal";
+import { PERSONAL_DATA, THIRD_PARTIES, invoiceOk, tidyInvoice, missingSeller, seller, tokushoho } from "@/content/legal";
 
 let ok = 0;
 let ng = 0;
@@ -114,6 +114,18 @@ console.log("── インボイス登録番号 ──");
 
   if (before === undefined) delete process.env.SELLER_INVOICE_NO;
   else process.env.SELLER_INVOICE_NO = before;
+
+  /* 打ち方の揺れは通す。国税庁の通知どおりに写せる人ばかりではない */
+  check(invoiceOk("T-1234-5678-9012-3"), "ハイフン入りでも通る");
+  check(invoiceOk("T 1234567890123"), "空白入りでも通る");
+  check(invoiceOk("Ｔ１２３４５６７８９０１２３"), "全角でも通る");
+  check(invoiceOk("t1234567890123"), "小文字の t でも通る");
+  check(tidyInvoice("Ｔ－1234 5678-9012３") === "T1234567890123",
+    `請求書に載る形にそろえる（${tidyInvoice("Ｔ－1234 5678-9012３")}）`);
+  /* T は勝手に足さない。法人番号は登録していなくても誰にでもあるので、
+     補うと「登録していない事業者の番号」を請求書に載せてしまう */
+  check(!invoiceOk("1234567890123"), "13桁だけでは通さない（T は補わない）");
+  check(tidyInvoice("1234567890123") === "1234567890123", "13桁だけなら、そのままにして直してもらう");
 }
 
 console.log("\n── まとめ ──");
