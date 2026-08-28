@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase/server";
 import { currentOwner } from "@/lib/owner";
-import { seller } from "@/content/legal";
+import { seller, bankReady } from "@/content/legal";
 import { TAX_RATE } from "@/lib/pricing";
 import { findCourse } from "@/content/courses";
 
@@ -96,6 +96,9 @@ export async function GET(req: NextRequest) {
       tel: s.tel,
       email: s.email,
       invoiceNo: s.invoiceNo,
+      /* 振込先。そろっていなければ返さない。
+         中途半端に出すと、振り込めないのに振り込めるように見える */
+      bank: bankReady(s.bank) ? s.bank : null,
     },
   });
 }

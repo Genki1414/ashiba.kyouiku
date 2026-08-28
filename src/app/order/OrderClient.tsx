@@ -131,7 +131,9 @@ export function OrderClient() {
         return;
       }
       if (method === "invoice") {
-        setNote(`申し込みました。受講コードを${j.seatsIssued}枚お渡しします。請求書は運営から送ります。`);
+        setNote(
+          "申し込みました。請求書を運営から送ります。お振込みの確認後、受講コードが出ます。",
+        );
         await load();
         return;
       }
@@ -284,9 +286,10 @@ export function OrderClient() {
           </Btn>
         </div>
         <div className="mt-2 text-[11.5px] leading-relaxed text-dim2">
-          請求書払いは、申し込んだ時点で受講コードをお渡しします。受講は始められます。
+          申し込むと請求書をお送りします。
+          <strong className="text-dim">お振込みの確認後に、受講コードを発行します。</strong>
           <br />
-          <strong className="text-dim">修了証は入金の確認が済んでから</strong>出せるようになります。
+          支払期限は切っていません。確認は営業日に行うので、数日いただく場合があります。
         </div>
         <div className="mt-3 border-t border-line pt-3 text-[11.5px] leading-relaxed text-dim2">
           申し込むと{" "}
@@ -439,7 +442,7 @@ function CodeList({
                   ? `${c.usedBy ?? "受講者"} が使用　${day(c.usedAt)}`
                   : c.status === "paid"
                     ? `未使用　期限 ${day(c.expiresAt) || "—"}`
-                    : `未使用（入金待ち）　期限 ${day(c.expiresAt) || "—"}`}
+                    : `未使用　期限 ${day(c.expiresAt) || "—"}`}
               </div>
             </div>
             {!c.usedAt ? (
@@ -503,7 +506,7 @@ function CodeList({
       )}
 
       <div className="mt-2 text-[11.5px] leading-relaxed text-dim2">
-        入金がまだでも受講は始められます。<strong className="text-dim">修了証は入金の確認が済んでから</strong>出せます。
+        ここに出ている受講コードは、入金の確認が済んだものです。そのまま配れます。
         <br />
         違う人が入れてしまったときは「取り消す」で戻せます。
         <strong className="text-dim">取り消すと、その人の受講はそこで終わり、次は最初からになります。</strong>

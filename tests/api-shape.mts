@@ -503,5 +503,38 @@ console.log("── 解説の画面 ──");
   check(/natural\|neural\|online/i.test(au), "新しい声（Natural / Neural / Online）を上に置く");
 }
 
+console.log("── 受講コードを出すとき ──");
+{
+  /* 請求書に「お振込みの確認後、受講コードを発行します」と書いてあるのに
+     申込みと同時に配ると、払わずに受講できる */
+  const order = read("src/app/api/order/route.ts");
+  check(!/issueSeats/.test(order), "申し込んだだけでは、受講コードを作らない");
+
+  const owner = read("src/app/api/owner/orders/route.ts");
+  check(/issueSeats/.test(owner), "入金を確認したときに作る");
+  const hook = read("src/app/api/stripe/webhook/route.ts");
+  check(/issueSeats/.test(hook), "カード払いは Stripe の知らせで作る");
+
+  /* 二度押しても増えない（すでにある枚数を数えてから足す） */
+  check(/count: "exact"/.test(owner), "すでにある枚数を数えてから足す");
+}
+
+console.log("── 請求書 ──");
+{
+  const legal = read("src/content/legal.ts");
+  check(/SELLER_BANK_NAME/.test(legal), "振込先を設定から読む");
+  check(/bankReady/.test(legal), "そろっていなければ出さない");
+
+  const inv = read("src/app/owner/invoice/[orderId]/InvoiceClient.tsx");
+  check(/invoice-bank/.test(inv), "請求書に振込先を出す");
+  /* 期日を書くと「その日までに使える」と読めてしまう。
+     振込を確認してから受講コードを出す決まりなので、日付は書かない */
+  check(!/お支払期限　<strong>\{day\(o\.due\)\}/.test(inv), "支払期限に日付を書かない");
+  check(/確認次第/.test(inv), "支払期限は「確認次第」と書く");
+
+  const api = read("src/app/api/owner/invoice/route.ts");
+  check(/bankReady/.test(api), "振込先は、そろっているときだけ返す");
+}
+
 console.log(`\n通り ${ok} ／ だめ ${ng}`);
 process.exit(ng ? 1 : 0);

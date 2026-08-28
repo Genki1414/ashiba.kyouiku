@@ -31,6 +31,7 @@ type Health = {
     sellerMissing: string[];
     invoiceNo?: boolean;
     invoiceShape?: boolean;
+    bank?: boolean;
   };
 };
 
@@ -218,6 +219,9 @@ export function SetupClient() {
                           ? "設定済み"
                           : "未設定（免税事業者なら空のままで構いません）",
                       h.sell.invoiceShape !== false, false],
+                    ["振込先（SELLER_BANK_NAME ほか）",
+                      h.sell.bank ? "設定済み" : "未設定（請求書に「別途ご案内」と出ます）",
+                      h.sell.bank === true, true],
                     ["カード払い（STRIPE_SECRET_KEY）", h.sell.stripeKey ? "設定済み" : "未設定（請求書払いのみ）", h.sell.stripeKey, false],
                     ["カードの入金確認（STRIPE_WEBHOOK_SECRET）", h.sell.stripeHook ? "設定済み" : "未設定", h.sell.stripeHook, false],
                   ] as [string, string, boolean, boolean][]

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase/server";
 import { currentAdmin } from "@/lib/admin";
-import { issueSeats, listSeats, seatCounts } from "@/lib/seats";
+import { listSeats, seatCounts } from "@/lib/seats";
 import { findCourse, readyCourses } from "@/content/courses";
 import { dueDate, quote } from "@/lib/pricing";
 import { unitPrice } from "@/lib/price.server";
@@ -97,16 +97,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, reason: error?.message ?? "作れません" }, { status: 500 });
   }
 
-  /* 請求書払いは、入金前でも受講コードを配る（受講は始められる）。
-     修了証は入金が済むまで出ない */
-  const made = method === "invoice" ? await issueSeats(supabase, order.id as string, q.seats) : 0;
+  /* 受講コードは、ここでは作らない。
+     入金を確認してから作る（本部の画面の「入金を確認した」）。
 
+     前は申込みと同時に配っていたが、請求書に
+     「お振込みの確認後、受講コードを発行します」と書いてあるのに
+     先に配ってしまうと、払わずに受講できる。
+     カード払いは Stripe からの知らせで作る（/api/stripe/webhook）。 */
   return NextResponse.json({
     ok: true,
     orderId: order.id,
     course: { id: course.id, short: course.short },
     method,
     quote: q,
-    seatsIssued: made,
+    seatsIssued: 0,
   });
 }

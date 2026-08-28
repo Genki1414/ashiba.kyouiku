@@ -182,7 +182,9 @@ export async function POST(req: NextRequest) {
     .eq("id", id);
   if (error) return NextResponse.json({ ok: false, reason: error.message }, { status: 500 });
 
-  /* 請求書払いは申込みのときに配っているが、足りなければ足す */
+  /* ここで受講コードを作る。
+     申込みのときには作らない（払わずに受講できてしまう）。
+     すでにある枚数を数えてから足すので、二度押しても増えない */
   const { count } = await supabase
     .from("seats")
     .select("id", { count: "exact", head: true })

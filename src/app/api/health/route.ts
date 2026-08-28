@@ -3,7 +3,7 @@ import { getServiceClient, getDevEnrollmentId } from "@/lib/supabase/server";
 import { currentEnrollment } from "@/lib/enrollment";
 import { currentUser } from "@/lib/supabase/session";
 import { LATEST } from "@/content/changelog";
-import { invoiceOk, missingSeller, seller } from "@/content/legal";
+import { bankReady, invoiceOk, missingSeller, seller } from "@/content/legal";
 import { isOwnerEmail, ownerEmails } from "@/lib/owner";
 import { canLearn } from "@/lib/entitle";
 import { readyCourses } from "@/content/courses";
@@ -74,6 +74,8 @@ export async function GET() {
     siteUrl: !!(process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL),
     /* 特商法の表記で、まだ空の項目 */
     sellerMissing: missingSeller(),
+    /* 振込先。空だと請求書に「別途ご案内」としか出ず、そのぶん入金が遅れる */
+    bank: bankReady(seller().bank),
     /* 適格請求書発行事業者の登録番号。
        課税事業者なら、請求書に載せないと相手が仕入税額控除を受けられない。
        免税事業者なら番号が無いので、空で正しい。だから「足りない」とは言わない */

@@ -2,7 +2,7 @@
    ここが空のまま売ると、特定商取引法の表示義務を満たしません。
    実行: npx tsx tests/legal.ts */
 
-import { PERSONAL_DATA, THIRD_PARTIES, invoiceOk, tidyInvoice, missingSeller, seller, tokushoho } from "@/content/legal";
+import { PERSONAL_DATA, THIRD_PARTIES, invoiceOk, bankReady, tidyInvoice, missingSeller, seller, tokushoho } from "@/content/legal";
 
 let ok = 0;
 let ng = 0;
@@ -129,5 +129,16 @@ console.log("── インボイス登録番号 ──");
 }
 
 console.log("\n── まとめ ──");
+console.log("── 振込先 ──");
+{
+  const b = { name: "○○銀行", branch: "△△支店", kind: "普通", no: "1234567", holder: "トウホクミカミキザイ（カ" };
+  check(bankReady(b), "そろっていれば出す");
+  /* 1つでも欠けたら出さない。中途半端に出す方が、間違えて振り込まれるので危ない */
+  check(!bankReady({ ...b, no: "" }), "口座番号が空なら出さない");
+  check(!bankReady({ ...b, holder: "" }), "名義が空なら出さない");
+  check(!bankReady({ ...b, name: "" }), "銀行名が空なら出さない");
+  check(!bankReady({ ...b, branch: "" }), "支店が空なら出さない");
+}
+
 console.log(`${ok} 件通過 / ${ng} 件失敗`);
 if (ng) process.exit(1);

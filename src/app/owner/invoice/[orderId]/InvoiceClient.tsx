@@ -21,6 +21,8 @@ type Inv = {
   };
   seller: {
     name: string; ceo: string; address: string; tel: string; email: string; invoiceNo: string;
+    /** 振込先。そろっていなければ null */
+    bank: { name: string; branch: string; kind: string; no: string; holder: string } | null;
   };
 };
 
@@ -117,11 +119,12 @@ export function InvoiceClient({ orderId }: { orderId: string }) {
             <div className="mt-0.5 text-right text-[11px]">（消費税込）</div>
           </div>
 
-          {o.due && (
-            <div className="mt-2 text-[12.5px]">
-              お支払期限　<strong>{day(o.due)}</strong>
-            </div>
-          )}
+          {/* 期日は切らない。振込を確認してから受講コードを出す決まりなので、
+             日付を書くと「その日までに使える」と読めてしまう */}
+          <div className="mt-2 text-[12.5px]" data-testid="invoice-due">
+            お支払期限　<strong>確認次第</strong>
+            <span className="text-[11.5px]">（お振込みの確認後、受講コードを発行します）</span>
+          </div>
           {o.paidAt && (
             <div className="mt-1 text-[12.5px]">{day(o.paidAt)} に入金を確認いたしました。</div>
           )}
@@ -172,8 +175,26 @@ export function InvoiceClient({ orderId }: { orderId: string }) {
             )}
           </div>
 
-          <div className="mt-4 text-[11px] leading-relaxed">
-            お振込先は別途ご案内いたします。振込手数料はお客様のご負担にてお願いいたします。
+          {/* 振込先。ここに無いと、受け取った人が払えない */}
+          {s.bank ? (
+            <div className="mt-4 border border-line p-3 text-[12.5px] leading-[1.8]" data-testid="invoice-bank">
+              <div className="mb-1 text-[11px] tracking-[2px]">お振込先</div>
+              <div>
+                {s.bank.name}　{s.bank.branch}
+              </div>
+              <div>
+                {s.bank.kind}　{s.bank.no}
+              </div>
+              <div>{s.bank.holder}</div>
+            </div>
+          ) : (
+            <div className="mt-4 text-[11px] leading-relaxed">
+              お振込先は別途ご案内いたします。
+            </div>
+          )}
+          <div className="mt-2 text-[11px] leading-relaxed">
+            振込手数料はお客様のご負担にてお願いいたします。
+            お振込みの確認後、受講コードを発行してお送りします。
           </div>
         </div>
       </main>
