@@ -38,7 +38,7 @@ import { Btn } from "@/components/ui/Btn";
 import { Hud, PopText } from "@/components/training/Hud";
 import { ResumeGate } from "@/components/training/ResumeGate";
 import { useBoot } from "@/components/training/useBoot";
-import { clearSaved, writeSaved } from "@/lib/resumeStore";
+import { useKeepSaved } from "@/components/training/useKeepSaved";
 import type { Saved } from "@/training/resume";
 import { SoundToggle } from "@/components/training/SoundToggle";
 import { SFX } from "@/lib/sfx";
@@ -134,25 +134,26 @@ function Ch1Game({
   const pg = progress(s);
   const done = isComplete(s);
 
-  /* 手を打つたびに、続きを端末に残す。通し終えたら消す。
-     時間だけは書いた時点のものなので、置いたまま離れた分は数えない */
-  const scoreRef = useRef(sc.result);
-  scoreRef.current = sc.result;
-  useEffect(() => {
-    if (done) {
-      clearSaved("ch1");
-      return;
-    }
-    writeSaved<Ch1State>("ch1", {
+  /* 続きを端末に残す。通し終えたら消す。
+
+     手を打ったときだけでなく、数秒おきにも取る。
+     前は手を動かしたときだけだったので、最後の一手からあとの時間が
+     まるごと落ちていた（画面は 05:00 なのに、控えは 02:00）。
+     考えている時間の方が長いので、これは効く */
+  useKeepSaved<Ch1State>(
+    "ch1",
+    done,
+    () => ({
       s,
-      score: scoreRef.current,
+      score: sc.result,
       tutorial,
       sk,
       tool,
       msg,
       scene: scene ?? undefined,
-    });
-  }, [s, tool, msg, scene, done, tutorial, sk]);
+    }),
+    [s, tool, msg, scene],
+  );
 
   /* 手摺先行工法では出隅の片側が600スパンになり、柱の位置がずれる */
   const posts = useMemo(() => postsFor(s.side), [s.side]);

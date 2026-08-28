@@ -45,6 +45,17 @@ await tool(page, "根がらみ手摺");
 for (const id of ["C-E1", "E1-E2"]) await tapNode(page, `span:${id}`);
 await page.waitForTimeout(200);
 
+/* 時計が1秒でも進んでから控えを見る。
+   ここまでの操作は1秒足らずで終わるので、待たずに見ると
+   「かかった時間 0秒」が保存され、続きから戻したときも 00:00 になる。
+   直したいのは中身ではなく、この試験の測り方 */
+await page
+  .waitForFunction(
+    () => document.querySelector('[data-testid="hud-time"]')?.textContent?.trim() !== "00:00",
+    { timeout: 5000 },
+  )
+  .catch(() => check(false, "時計が動いている"));
+
 const s0 = await score(page);
 const k0 = await skill(page);
 check(s0 > 0, `点が入っている（${s0}）`);
@@ -134,9 +145,11 @@ check(
 );
 
 /* ── 第3章：シートに入ったら、シートの手前として残る ── */
-await page.goto(`${BASE}/training/ch3`);
-await page.waitForSelector("text=火打とシート");
-await page.waitForTimeout(300);
+/* 仕込みは、章を開いていない画面でやる。
+   章を開いたまま書くと、その画面を閉じるときの控えに上書きされる
+   （閉じる・裏に回すときにも控えを取る作りにしたため） */
+await page.goto(`${BASE}/training`);
+await page.waitForTimeout(200);
 await page.evaluate(() => {
   /* 火打4箇所＋シート途中まで進んだ状態を直接置く（火打の場面は e2e-ch3 で通している） */
   const s = {

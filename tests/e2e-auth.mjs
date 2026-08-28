@@ -41,7 +41,9 @@ for (let i = 0; i < 90; i++) {
 if (!up) { console.error("NG: サーバが立たない"); process.exit(1); }
 
 /* ── 入れない道 ── */
-const shut = ["/", "/training", "/training/ch1", "/edu", "/edu/ashiba", "/edu/ashiba/1-1", "/edu/ashiba/exam", "/setup", "/updates"];
+/* /setup はここに入れない。**開けないと困るのは、まさにログインできないとき**。
+   映しているのは /api/health の中身だけで、その health は前から開いている */
+const shut = ["/", "/training", "/training/ch1", "/edu", "/edu/ashiba", "/edu/ashiba/1-1", "/edu/ashiba/exam", "/updates"];
 for (const u of shut) {
   const r = await fetch(BASE + u, { redirect: "manual" });
   check(r.status === 307 || r.status === 302, `${u} は素通しにならない（${r.status}）`);
@@ -50,6 +52,21 @@ for (const u of shut) {
   check(loc.includes("next="), `${u} は元の画面を覚えている`);
 }
 console.log("OK: ログインしていないと中へ入れない");
+
+/* ── ログインできないときに開く道 ── */
+for (const u of ["/setup", "/login/new"]) {
+  const r = await fetch(BASE + u, { redirect: "manual" });
+  check(r.status === 200, `${u} はログイン無しで開ける（${r.status}）`);
+}
+/* 開けたところで、鍵が出ていないこと */
+{
+  const h = await (await fetch(BASE + "/api/health")).json();
+  const raw = JSON.stringify(h);
+  check(!/service_role|eyJ[A-Za-z0-9_-]{20}/.test(raw), "つながり具合に鍵は出ない");
+  check(h?.auth?.email == null, "ログインしていなければ、メールは出ない");
+  check(h?.auth?.admin !== true, "ログインしていなければ、担当者にはならない");
+}
+console.log("OK: 設定と合言葉の直し道は、ログイン無しで開ける");
 
 /* ── 通す道 ── */
 for (const u of ["/login", "/api/health", "/offline.html", "/icon-192.png", "/manifest.webmanifest"]) {

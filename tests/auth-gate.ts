@@ -43,7 +43,6 @@ const shut = [
   "/training/ch1",
   "/training/note",
   "/updates",
-  "/setup",
   "/api/progress",
   "/api/quiz",
   "/api/exam",
@@ -69,6 +68,12 @@ const shut = [
 ];
 for (const p of shut) check(!isOpenPath(p), `止める: ${p}`);
 
+/* /setup はここから外した。
+   前はログインが要る側に置いていたが、**開けないと困るのは
+   まさにログインできないとき**で、そのとき開けなかった。
+   出るのは /api/health が返すものだけで、その health は前から開いている。
+   鍵は返らず、メールはログインしている本人のものしか出ない。 */
+
 /* ── 紛らわしいもの ── */
 check(!isOpenPath("/loginish"), "/loginish は /login ではない");
 check(!isOpenPath("/api/healthy"), "/api/healthy は /api/health ではない");
@@ -91,6 +96,18 @@ for (const p of ["/api/progress", "/api/exam", "/api/enrollment", "/api/cert", "
 }
 check(OPEN_PATHS.includes("/login"), "/login は通す一覧にある");
 check(OPEN_PATHS.includes("/api/health"), "/api/health は通す一覧にある（設定を直すときに要る）");
+
+/* ── ログインできないときに、原因を見る道 ──
+   /api/health を開けておきながら /setup を閉じていたので、
+   ログインできない人が中身を見られなかった。
+   開けないと困るのは、まさにログインできないとき */
+check(isOpenPath("/setup"), "/setup はログイン無しで開ける");
+
+/* ── 合言葉を決め直す道 ──
+   その会社で唯一の教育担当者が忘れたら、頼む相手が居ない。
+   ここが閉じていると、メールのリンクを踏んでも入れない */
+check(isOpenPath("/login/new"), "合言葉の決め直しは、ログイン無しで開ける");
+check(isOpenPath("/auth/confirm"), "メールのリンクの戻り先は開いている");
 
 /* ── 見張りを通さないもの ──
    置いてあるだけのファイルまで見張ると、1本読むたびに
@@ -127,6 +144,41 @@ check(OPEN_PATHS.includes("/api/health"), "/api/health は通す一覧にある�
   check(/getClaims/.test(src), "getClaims を使う（往復が消える）");
 }
 
+/* ── 合言葉を忘れたときの道が、画面にあるか ──
+   前は「教育担当者に連絡してください」としか書いていなかった。
+   その担当者本人が忘れたら詰む */
+{
+  const src = readFileSync(new URL("../src/app/login/LoginClient.tsx", import.meta.url), "utf8");
+  check(/resetPasswordForEmail/.test(src), "決め直しのメールを送れる");
+  check(/login-forgot/.test(src), "「合言葉を忘れた」の入口がある");
+  /* 登録の有無で出し分けると、誰が登録しているかを外から当てられる */
+  check(/setMailed\(true\)/.test(src), "送れても送れなくても、同じ返事をする");
+  check(/next=\/login\/new/.test(src), "戻り先は、決め直しの画面");
+
+  const np = readFileSync(new URL("../src/app/login/new/NewPasswordClient.tsx", import.meta.url), "utf8");
+  check(/updateUser\(\{ password/.test(np), "新しい合言葉を入れられる");
+  /* リンクの期限切れ・別の端末。黙って失敗させない */
+  check(/newpw-expired/.test(np), "リンクが使えないときは、そう言って送り直しへ戻す");
+}
+
 console.log("── まとめ ──");
 console.log(`${ok} 件通過 / ${ng} 件失敗`);
 if (ng) process.exit(1);
+
+/* ── 合言葉を忘れたときの道が、画面にあるか ──
+   前は「教育担当者に連絡してください」としか書いていなかった。
+   その担当者本人が忘れたら詰む */
+{
+  const src = readFileSync(new URL("../src/app/login/LoginClient.tsx", import.meta.url), "utf8");
+  check(/resetPasswordForEmail/.test(src), "決め直しのメールを送れる");
+  check(/login-forgot/.test(src), "「合言葉を忘れた」の入口がある");
+  /* 登録の有無で出し分けると、誰が登録しているかを外から当てられる */
+  check(/setMailed\(true\)/.test(src) && /finally/.test(src), "送れても送れなくても、同じ返事をする");
+  check(/next=\/login\/new/.test(src), "戻り先は、決め直しの画面");
+
+  const np = readFileSync(new URL("../src/app/login/new/NewPasswordClient.tsx", import.meta.url), "utf8");
+  check(/updateUser\(\{ password/.test(np), "新しい合言葉を入れられる");
+  /* リンクの期限切れ・別の端末。黙って失敗させない */
+  check(/newpw-expired/.test(np), "リンクが使えないときは、そう言って送り直しへ戻す");
+}
+

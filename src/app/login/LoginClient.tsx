@@ -12,7 +12,11 @@ import { Btn } from "@/components/ui/Btn";
    はじめての人は「はじめて使う」から。氏名を入れてもらうのは、
    修了証と受講記録に載るためです。 */
 
-type Mode = "in" | "up";
+type Mode = "in" | "up" | "forgot";
+
+/* 合言葉を忘れたときの戻り先。
+   /auth/confirm が合図をログインに引き換えてから、ここへ送る */
+const RESET_TO = "/auth/confirm?next=/login/new";
 
 export function LoginClient() {
   const router = useRouter();
@@ -24,6 +28,7 @@ export function LoginClient() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
+  const [mailed, setMailed] = useState(false);
 
   const supabase = getBrowserClient();
 
@@ -42,6 +47,30 @@ export function LoginClient() {
       </main>
     );
   }
+
+  /* 合言葉を忘れた人へ、決め直しのメールを送る。
+
+     いちばん困るのは、その会社で**唯一の教育担当者**が忘れたとき。
+     画面には「教育担当者に連絡してください」と書いてあったが、
+     その本人が忘れたら頼む相手が居ない。前は詰んでいた。
+
+     登録の無いメールでも「送りました」と出す。
+     出し分けると、誰が登録しているかを外から当てられる。 */
+  const sendReset = async () => {
+    setErr(null);
+    if (!email.trim()) { setErr("メールアドレスを入れてください。"); return; }
+    setBusy(true);
+    try {
+      await supabase.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo: `${window.location.origin}${RESET_TO}`,
+      });
+    } catch {
+      /* 押し黙る。ここで出し分けると、登録の有無が外から分かる */
+    } finally {
+      setBusy(false);
+      setMailed(true);
+    }
+  };
 
   const go = async () => {
     setErr(null);
@@ -91,6 +120,32 @@ export function LoginClient() {
     }
   };
 
+  if (mailed) {
+    return (
+      <main className="px-5 py-10" data-testid="login-mailed">
+        <div className="tape -mx-5 mb-6" />
+        <div className="text-[11px] font-extrabold tracking-[2px] text-yel">決め直しのメールを送りました</div>
+        <h1 className="mt-2 text-[19px] font-black leading-snug">
+          メールの中のリンクを
+          <br />
+          押してください
+        </h1>
+        <p className="mt-4 text-[13px] leading-relaxed text-dim">
+          {email} 宛てに送りました。
+          <br />
+          届かないときは、迷惑メールに入っていないか見てください。
+          <br />
+          <span className="text-dim2">
+            そのメールで登録していない場合は、届きません。
+          </span>
+        </p>
+        <Btn onClick={() => { setMailed(false); setMode("in"); }} className="mt-6">
+          ログインの画面へ戻る
+        </Btn>
+      </main>
+    );
+  }
+
   if (sent) {
     return (
       <main className="px-5 py-10">
@@ -118,12 +173,14 @@ export function LoginClient() {
       <div className="tape -mx-5 mb-6" />
       <div className="text-[11px] font-extrabold tracking-[2px] text-yel">足場の特別教育</div>
       <h1 className="mt-1.5 text-[20px] font-black">
-        {mode === "in" ? "ログイン" : "はじめて使う"}
+        {mode === "in" ? "ログイン" : mode === "up" ? "はじめて使う" : "合言葉を忘れた"}
       </h1>
       <p className="mt-2 text-[12.5px] leading-relaxed text-dim">
         {mode === "in"
           ? "受講の記録を残すために、ログインが要ります。"
-          : "氏名は修了証と受講記録に載ります。本名を入れてください。"}
+          : mode === "up"
+            ? "氏名は修了証と受講記録に載ります。本名を入れてください。"
+            : "登録したメールアドレスを入れてください。決め直しのリンクを送ります。"}
       </p>
 
       <div className="mt-5 grid gap-3">
@@ -138,14 +195,16 @@ export function LoginClient() {
           placeholder="you@example.com"
           testid="login-email"
         />
-        <Field
-          label="合言葉（パスワード）"
-          value={pw}
-          onChange={setPw}
-          type="password"
-          placeholder={mode === "up" ? "8文字以上" : ""}
-          testid="login-pw"
-        />
+        {mode !== "forgot" && (
+          <Field
+            label="合言葉（パスワード）"
+            value={pw}
+            onChange={setPw}
+            type="password"
+            placeholder={mode === "up" ? "8文字以上" : ""}
+            testid="login-pw"
+          />
+        )}
       </div>
 
       {err && (
@@ -155,8 +214,13 @@ export function LoginClient() {
       )}
 
       <div className="mt-5 grid gap-2">
-        <Btn tone="y" dis={busy} onClick={go} testid="login-go">
-          {busy ? "…" : mode === "in" ? "ログインする" : "登録して始める"}
+        <Btn
+          tone="y"
+          dis={busy}
+          onClick={mode === "forgot" ? () => void sendReset() : go}
+          testid="login-go"
+        >
+          {busy ? "…" : mode === "in" ? "ログインする" : mode === "up" ? "登録して始める" : "決め直しのメールを送る"}
         </Btn>
         <Btn
           onClick={() => { setMode(mode === "in" ? "up" : "in"); setErr(null); }}
@@ -167,8 +231,27 @@ export function LoginClient() {
         </Btn>
       </div>
 
-      <p className="mt-6 text-[11.5px] leading-relaxed text-dim2">
-        合言葉を忘れたときは、教育担当者に連絡してください。
+      {/* 唯一の教育担当者が忘れたときに、頼む相手が居ない。
+          自分で決め直せる道が要る */}
+      {mode !== "forgot" ? (
+        <button
+          onClick={() => { setMode("forgot"); setErr(null); }}
+          data-testid="login-forgot"
+          className="mt-6 text-[12px] text-cyan underline"
+        >
+          合言葉を忘れた
+        </button>
+      ) : (
+        <button
+          onClick={() => { setMode("in"); setErr(null); }}
+          className="mt-6 text-[12px] text-dim underline"
+        >
+          ログインの画面へ戻る
+        </button>
+      )}
+
+      <p className="mt-4 text-[11.5px] leading-relaxed text-dim2">
+        メールが使えないときは、教育担当者に連絡してください。
       </p>
     </main>
   );

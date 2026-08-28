@@ -34,7 +34,7 @@ import { Complete } from "@/components/training/Complete";
 import { Hud, PopText } from "@/components/training/Hud";
 import { ResumeGate } from "@/components/training/ResumeGate";
 import { useBoot } from "@/components/training/useBoot";
-import { clearSaved, writeSaved } from "@/lib/resumeStore";
+import { useKeepSaved } from "@/components/training/useKeepSaved";
 import type { Saved } from "@/training/resume";
 import { SoundToggle } from "@/components/training/SoundToggle";
 import { SFX } from "@/lib/sfx";
@@ -102,22 +102,21 @@ function Ch2Game({
   const done = isComplete(s);
 
   /* 手を打つたびに、続きを端末に残す。通し終えたら消す */
-  const scoreRef = useRef(sc.result);
-  scoreRef.current = sc.result;
-  useEffect(() => {
-    if (done) {
-      clearSaved("ch2");
-      return;
-    }
-    writeSaved<Ch2State>("ch2", {
+  /* 控えは、手を動かしたときだけでなく、数秒おきにも取る。
+     そうしないと、最後に手を動かしてからの時間が落ちる */
+  useKeepSaved<Ch2State>(
+    "ch2",
+    done,
+    () => ({
       s,
-      score: scoreRef.current,
+      score: sc.result,
       tutorial,
       tool,
       msg,
       scene: scene ?? undefined,
-    });
-  }, [s, tool, msg, scene, done, tutorial]);
+    }),
+    [s, tool, msg, scene],
+  );
 
   const run = useCallback(
     (a: Action) => {

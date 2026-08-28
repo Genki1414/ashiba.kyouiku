@@ -11,7 +11,7 @@ import { Btn } from "@/components/ui/Btn";
 import { Hud } from "@/components/training/Hud";
 import { ResumeGate } from "@/components/training/ResumeGate";
 import { useBoot } from "@/components/training/useBoot";
-import { clearSaved, writeSaved } from "@/lib/resumeStore";
+import { useKeepSaved } from "@/components/training/useKeepSaved";
 import { beforeSheet } from "@/training/ch3/state";
 import type { Saved } from "@/training/resume";
 import { SoundToggle } from "@/components/training/SoundToggle";
@@ -80,24 +80,23 @@ function Ch3Game({
   const pg = progress(s);
   const done = isComplete(s);
 
-  /* 手を打つたびに、続きを端末に残す。通し終えたら消す。
+  /* 続きを端末に残す。通し終えたら消す。
      シートは部品が自分の中に状態を持っていて途中から作り直せないので、
-     シートに入ったら「シートの手前」として残す（火打はそのまま） */
-  const scoreRef = useRef(sc.result);
-  scoreRef.current = sc.result;
-  useEffect(() => {
-    if (done) {
-      clearSaved("ch3");
-      return;
-    }
-    writeSaved<Ch3State>("ch3", {
+     シートに入ったら「シートの手前」として残す（火打はそのまま）。
+
+     手を打ったときだけでなく、数秒おきにも取る（useKeepSaved） */
+  useKeepSaved<Ch3State>(
+    "ch3",
+    done,
+    () => ({
       s: beforeSheet(s),
-      score: scoreRef.current,
+      score: sc.result,
       tutorial,
       msg,
       scene: scene ?? undefined,
-    });
-  }, [s, msg, scene, done, tutorial]);
+    }),
+    [s, msg, scene],
+  );
 
   /* 手を打つ。良手なら true。第3章はここが唯一の判定の入口 */
   const act = useCallback(
