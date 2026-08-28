@@ -42,6 +42,16 @@ export function figureAt(figures: Figure[], line: number, lines: number): number
    全部の行で光らせたいなら、教材の側に「この行はこの部材の話」と
    書いていくしかない。 */
 
+/* 「〜の◯◯」の◯◯が、どこにでも付く言葉のとき。
+   「離隔距離の確保」は、台本では「離隔距離を確保します」と言う。
+   まるごとでは当たらないので、頭（離隔距離）でも当てにいく。
+
+   「作業床の幅」の『幅』のような、その行の中身そのものを指す言葉では
+   切らない。切ると「作業床が昇り降りする」という別の話の行が、
+   幅の行に当たってしまう。 */
+const TAIL =
+  /^(.+)の(確保|設置|移設|依頼|使用|着用|装着|防止|点検|確認|徹底|実施|周知|選定|管理|判断|報告|措置|保管|整理|固定|養生|準備|取扱い|取り扱い|方法|手順|注意)$/;
+
 /** 名前から、当てにいく語を作る。短すぎるものは拾わない（誤爆する） */
 function termsOf(name: string): string[] {
   const out = new Set<string>();
@@ -51,6 +61,12 @@ function termsOf(name: string): string[] {
   };
   add(name);
   for (const part of name.split(/[（）()・／/、,]/)) add(part);
+  for (const part of [...out]) {
+    const m = TAIL.exec(part);
+    /* 頭が3文字に満たないものは、よその行にも当たるので拾わない。
+       「〜と」で終わる頭は、まだ言い切っていないので使わない */
+    if (m && m[1].length >= 3 && !/[とやおよびまたは]$/.test(m[1])) add(m[1]);
+  }
   /* 長いものから見る。「支柱（建地）」なら、まず名前まるごと */
   return [...out].sort((a, b) => b.length - a.length);
 }
