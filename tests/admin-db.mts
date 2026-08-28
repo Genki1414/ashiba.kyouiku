@@ -20,6 +20,7 @@ import { heldFor, heldForMany } from "@/lib/quals";
 import { KEEP_YEARS, erasable, keepUntil } from "@/lib/retention";
 import { isFreeChapter, trainFor } from "@/lib/trainingGate";
 import { buildCheck, checkTotals } from "@/training/verifyLog";
+import { maySeeInvoice, unpaidInvoices } from "@/lib/invoiceAccess";
 
 const URL = process.env.SHIM_URL ?? "http://127.0.0.1:54321";
 const PG_URL = process.env.PG_URL ?? "postgres://postgres@127.0.0.1:55432/appdb";
@@ -537,6 +538,56 @@ const ord = await must(
   }).select("id").single(),
 );
 const orderId = ord!.id as string;
+
+/* ── 請求書を相手に見せる（0020）──
+   よその会社の請求書には宛名も金額も載っている。
+   注文の番号さえ分かれば開ける、という形にしてはいけない */
+{
+  const { data: o } = await db
+    .from("orders")
+    .select("id, company_id, user_id")
+    .eq("id", orderId)
+    .maybeSingle();
+  const ord = { company_id: (o?.company_id as string) ?? null, user_id: (o?.user_id as string) ?? null };
+
+  check(maySeeInvoice(ord, { owner: true }).ok, "本部は、どの請求書でも見られる");
+  check(
+    maySeeInvoice(ord, { owner: false, companyId: ord.company_id, userId: U1 }).ok,
+    "その事業者の担当者は見られる",
+  );
+  check(
+    !maySeeInvoice(ord, {
+      owner: false,
+      companyId: "00000000-0000-0000-0000-000000000009",
+      userId: U1,
+    }).ok,
+    "よその事業者の担当者には見せない",
+  );
+  check(
+    !maySeeInvoice(ord, { owner: false, companyId: null, userId: U1 }).ok,
+    "どこにも属していない人には見せない",
+  );
+  /* 個人の注文は、申し込んだ本人だけ。会社の担当者でも見せない */
+  const solo = { company_id: null, user_id: U2 };
+  check(maySeeInvoice(solo, { owner: false, companyId: null, userId: U2 }).ok, "個人の注文は本人が見られる");
+  check(
+    !maySeeInvoice(solo, { owner: false, companyId: ord.company_id, userId: U1 }).ok,
+    "よその人の個人の注文は、会社の担当者でも見せない",
+  );
+
+  /* 送ったことにする。何度押しても日時は動かない */
+  await must("送ったことにできる", db.rpc("mark_invoiced", { p_order: orderId }));
+  const at1 = await db.from("orders").select("invoiced_at").eq("id", orderId).maybeSingle();
+  await must("もう一度押せる", db.rpc("mark_invoiced", { p_order: orderId }));
+  const at2 = await db.from("orders").select("invoiced_at").eq("id", orderId).maybeSingle();
+  check(!!at1.data?.invoiced_at, "送った日時が入る");
+  check(at1.data?.invoiced_at === at2.data?.invoiced_at, "送り直しても、はじめの日時のまま");
+
+  /* 届いている請求書は「送ってあって、まだ払っていない」もの */
+  const bills = await unpaidInvoices(db as never, { userId: U1, companyId: ord.company_id });
+  check(bills.some((b) => b.id === orderId), `届いている請求書に出る（${bills.length}件）`);
+}
+
 
 const codes: string[] = [];
 for (let i = 0; i < 3; i++) {

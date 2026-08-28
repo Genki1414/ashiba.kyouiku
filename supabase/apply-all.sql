@@ -2,7 +2,7 @@
 -- 足場トレーニング Supabase 初期化（このファイルを SQL Editor に貼って実行）
 --
 -- 中身:
---   1. マイグレーション 0001_init / 0002_rls / 0003_rules / 0004_auth / 0005_cert / 0006_version / 0007_admin / 0008_tenant / 0009_order / 0010_verify / 0011_course / 0012_member / 0013_keep / 0014_own / 0015_qual / 0016_keep3y / 0017_train / 0018_solo / 0019_view
+--   1. マイグレーション 0001_init / 0002_rls / 0003_rules / 0004_auth / 0005_cert / 0006_version / 0007_admin / 0008_tenant / 0009_order / 0010_verify / 0011_course / 0012_member / 0013_keep / 0014_own / 0015_qual / 0016_keep3y / 0017_train / 0018_solo / 0019_view / 0020_sent
 --   2. lessons（単元の規定時間）13件を投入
 --
 -- 何度実行しても壊れないように書いてある（作成済みなら飛ばす）。
@@ -2045,6 +2045,49 @@ grant execute on function public.see_demo(uuid, text, boolean) to service_role;
 create or replace function public.schema_version()
 returns text language sql stable set search_path = public as $$
   select '0019'
+$$;
+
+grant execute on function public.schema_version() to anon, authenticated, service_role;
+
+
+-- ═══════════════════════════════════════════════════════════
+-- 0020 請求書を送ったこと
+--
+-- 買った側にも請求書を見せる。
+-- 「送った」を立てるまでは知らせない。立てる前に知らせると、
+-- まだ手元に届いていないのに「届いています」と出てしまう。
+-- ═══════════════════════════════════════════════════════════
+
+alter table public.orders
+  add column if not exists invoiced_at timestamptz;
+
+comment on column public.orders.invoiced_at is
+  '請求書を相手に送った日時。買った側の画面に「請求書が届いています」を出す目印';
+
+-- ── 送ったことにする ────────────────────────
+-- 何度押しても、はじめに送った日時のまま（送り直しで日付が動かない）
+create or replace function public.mark_invoiced(p_order uuid)
+returns timestamptz language plpgsql security definer set search_path = public as $$
+declare v_at timestamptz;
+begin
+  update public.orders
+     set invoiced_at = coalesce(invoiced_at, now())
+   where id = p_order
+  returning invoiced_at into v_at;
+
+  if v_at is null then
+    raise exception 'その注文がありません';
+  end if;
+  return v_at;
+end $$;
+
+revoke all on function public.mark_invoiced(uuid) from public, anon, authenticated;
+grant execute on function public.mark_invoiced(uuid) to service_role;
+
+-- ── 版 ─────────────────────────────────────
+create or replace function public.schema_version()
+returns text language sql stable set search_path = public as $$
+  select '0020'
 $$;
 
 grant execute on function public.schema_version() to anon, authenticated, service_role;

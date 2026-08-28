@@ -6,6 +6,7 @@ import { canLearn } from "@/lib/entitle";
 import { currentUser } from "@/lib/supabase/session";
 import { readyCourses } from "@/content/courses";
 import { getServiceClient } from "@/lib/supabase/server";
+import { unpaidInvoices } from "@/lib/invoiceAccess";
 
 /* いまの自分の立場。ホームの出し分けに使う。
 
@@ -21,6 +22,9 @@ export async function GET() {
   /* 受講コードを持っているか。持っていない人に学科の札を押させると、
      開いた先で断られるだけなので、ホームで先に知らせる */
   const learn = await canLearn();
+  /* 届いている請求書。買った側に「請求書が届いています」を出すため。
+     送ってあって、まだ払っていないものだけ */
+  const bills = await billsFor(me?.id ?? null, admin?.companyId ?? null);
   if (admin) {
     return NextResponse.json({
       ok: true,
@@ -34,6 +38,7 @@ export async function GET() {
       canLearn: learn.ok,
       courses: readyCourses().length,
       company: admin.companyName,
+      bills,
     });
   }
   const [member, co] = await Promise.all([memberState(), myCompany()]);
@@ -52,6 +57,7 @@ export async function GET() {
     canLearn: learn.ok,
     courses: readyCourses().length,
     company: co?.name ?? "",
+    bills,
   });
 }
 
@@ -62,4 +68,11 @@ async function nameOf(userId?: string | null): Promise<string> {
   if (!supabase) return "";
   const { data } = await supabase.from("users").select("name").eq("id", userId).maybeSingle();
   return (data?.name as string) ?? "";
+}
+
+/** 届いている請求書。Supabase が未設定・ログインが無ければ空 */
+async function billsFor(userId: string | null, companyId: string | null) {
+  const supabase = getServiceClient();
+  if (!supabase || !userId) return [];
+  return unpaidInvoices(supabase, { userId, companyId });
 }

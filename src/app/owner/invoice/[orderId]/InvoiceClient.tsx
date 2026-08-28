@@ -16,7 +16,7 @@ type Inv = {
   order: {
     id: string; no: string; to: string; addr: string; what: string;
     qty: number; unit: number; net: number; tax: number; amount: number;
-    taxRate: number; due: string | null; at: string | null;
+    taxRate: number; due: string | null; at: string | null; invoicedAt?: string | null;
     paidAt: string | null; status: string; note: string; solo: boolean;
   };
   seller: {
@@ -32,9 +32,13 @@ const day = (s: string | null) => {
   return Number.isNaN(d.getTime()) ? "" : `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`;
 };
 
-export function InvoiceClient({ orderId }: { orderId: string }) {
+export function InvoiceClient({ orderId, mine = false }: { orderId: string; mine?: boolean }) {
   const [inv, setInv] = useState<Inv | null>(null);
   const [ng, setNg] = useState("");
+  const [busy, setBusy] = useState(false);
+  /* 買った側の画面には「送った」ボタンを出さない。戻り先も変わる */
+  const back = mine ? "/" : "/owner";
+  const backLabel = mine ? "← ホーム" : "← 本部";
 
   useEffect(() => {
     fetch(`/api/owner/invoice?orderId=${encodeURIComponent(orderId)}`, { cache: "no-store" })
@@ -47,7 +51,7 @@ export function InvoiceClient({ orderId }: { orderId: string }) {
     return (
       <main className="px-5 py-8">
         <div className="tape -mx-5 mb-6" />
-        <Link href="/owner" className="backlink text-[13px] text-dim no-underline">← 本部</Link>
+        <Link href={back} className="backlink text-[13px] text-dim no-underline">{backLabel}</Link>
         <p className="mt-3 text-[13px] text-dim">{ng}</p>
       </main>
     );
@@ -70,7 +74,7 @@ export function InvoiceClient({ orderId }: { orderId: string }) {
 
       <main className="px-5 py-6 pb-12">
         <div className="noprint">
-          <Link href="/owner" className="backlink text-[13px] text-dim no-underline">← 本部</Link>
+          <Link href={back} className="backlink text-[13px] text-dim no-underline">{backLabel}</Link>
           <div className="mt-2 flex items-center gap-2">
             <h1 className="text-[16px] font-black">請求書</h1>
             <button
@@ -80,6 +84,37 @@ export function InvoiceClient({ orderId }: { orderId: string }) {
             >
               印刷 / PDF にする
             </button>
+            {!mine && (
+              <button
+                onClick={async () => {
+                  setBusy(true);
+                  try {
+                    const r = await fetch("/api/owner/invoice", {
+                      method: "POST",
+                      headers: { "content-type": "application/json" },
+                      body: JSON.stringify({ orderId }),
+                    });
+                    const j = await r.json().catch(() => ({}));
+                    if (r.ok && j.ok) {
+                      setInv((v) =>
+                        v ? { ...v, order: { ...v.order, invoicedAt: j.invoicedAt } } : v,
+                      );
+                    } else {
+                      setNg(j.reason ?? "知らせられませんでした。");
+                    }
+                  } finally {
+                    setBusy(false);
+                  }
+                }}
+                disabled={busy || !!o.invoicedAt}
+                className={`rounded-lg border px-3 py-1.5 text-[12px] ${
+                  o.invoicedAt ? "border-line text-dim2" : "border-grn text-grn"
+                }`}
+                data-testid="invoice-send"
+              >
+                {o.invoicedAt ? `${day(o.invoicedAt)} に知らせ済み` : "相手に知らせる"}
+              </button>
+            )}
           </div>
           {!s.ceo && (
             <div className="mt-2 rounded-lg border border-red p-2.5 text-[11.5px] text-red">

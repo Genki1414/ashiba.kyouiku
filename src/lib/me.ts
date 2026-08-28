@@ -29,6 +29,8 @@ export type Me = {
   /** 会社との紐付け。none=まだ／pending=許可待ち／active=在籍 */
   member: "none" | "pending" | "active";
   canLearn: boolean;
+  /** 届いている請求書（送ってあって、まだ払っていないもの） */
+  bills?: { id: string; amount: number; invoicedAt: string }[];
   company: string;
 };
 
@@ -42,6 +44,7 @@ const shape = (j: Record<string, unknown>): Me => ({
   member: (j.member as "none" | "pending" | "active") ?? (j.needsJoin ? "none" : "active"),
   /* 古い応答（canLearn が無い）は、止めずに通す */
   canLearn: j.canLearn !== false,
+  bills: Array.isArray(j.bills) ? j.bills : [],
   company: (j.company as string) ?? "",
 });
 

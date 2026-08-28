@@ -536,5 +536,29 @@ console.log("── 請求書 ──");
   check(/bankReady/.test(api), "振込先は、そろっているときだけ返す");
 }
 
+console.log("── 請求書を相手にも見せる ──");
+{
+  /* よその会社の請求書には宛名も金額も載っている。
+     注文の番号さえ分かれば開ける、という形にしてはいけない */
+  const api = read("src/app/api/owner/invoice/route.ts");
+  check(/maySeeInvoice/.test(api), "誰に見せてよいかを、決まりに通してから返す");
+  check(/currentAdmin\(\)/.test(api), "本部でなければ、買った側かどうかを見る");
+  check(/mark_invoiced/.test(api), "送ったことを立てられる");
+
+  const acc = read("src/lib/invoiceAccess.ts");
+  check(/order\.user_id === who\.userId/.test(acc), "個人の注文は、申し込んだ本人だけ");
+  check(/status", "pending"/.test(acc) && /invoiced_at/.test(acc),
+    "知らせるのは、送ってあって、まだ払っていないものだけ");
+
+  /* 送る前に「届いています」と出すと、手元に無いのに届いたことになる */
+  const inv = read("src/app/owner/invoice/[orderId]/InvoiceClient.tsx");
+  check(/invoice-send/.test(inv), "本部の画面に「相手に知らせる」がある");
+  check(/!mine &&/.test(inv), "買った側の画面には出さない");
+
+  const home = read("src/components/HomeCards.tsx");
+  check(/home-bill/.test(home), "買った側のホームに「請求書が届いています」を出す");
+  check(/\/invoice\/\$\{bills\[0\]\.id\}/.test(home), "押すと、その請求書が開く");
+}
+
 console.log(`\n通り ${ok} ／ だめ ${ng}`);
 process.exit(ng ? 1 : 0);

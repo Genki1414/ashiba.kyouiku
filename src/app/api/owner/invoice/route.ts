@@ -1,11 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase/server";
 import { currentOwner } from "@/lib/owner";
+import { currentAdmin } from "@/lib/admin";
+import { currentUser } from "@/lib/supabase/session";
+import { maySeeInvoice } from "@/lib/invoiceAccess";
 import { seller, bankReady } from "@/content/legal";
 import { TAX_RATE } from "@/lib/pricing";
 import { findCourse } from "@/content/courses";
 
-/* 請求書に載せる中身（本部だけ）。
+/* 請求書に載せる中身。
+
+   見られるのは、本部と、買った側（その事業者の担当者・個人）だけ。
+   よその会社の請求書には宛名も金額も載っているので、
+   番号さえ分かれば開ける、という形にしてはいけない。
 
    金額はデータベースの注文から取る。画面から送られてきた数は見ない。
    税は注文の金額から割り戻す（注文を作ったときの計算と食い違わないように）。 */
@@ -14,10 +21,6 @@ export async function GET(req: NextRequest) {
   const supabase = getServiceClient();
   if (!supabase) {
     return NextResponse.json({ ok: false, reason: "Supabase が未設定です。" }, { status: 503 });
-  }
-  const owner = await currentOwner();
-  if (!owner) {
-    return NextResponse.json({ ok: false, reason: "本部だけの画面です。" }, { status: 403 });
   }
 
   const id = (req.nextUrl.searchParams.get("orderId") ?? "").trim();
@@ -28,12 +31,26 @@ export async function GET(req: NextRequest) {
   const { data: o } = await supabase
     .from("orders")
     .select(
-      "id, company_id, user_id, kind, course_id, seats, unit_price, amount, method, status, due_date, paid_at, bill_to, bill_addr, note, created_at",
+      "id, company_id, user_id, kind, course_id, seats, unit_price, amount, method, status, due_date, paid_at, invoiced_at, bill_to, bill_addr, note, created_at",
     )
     .eq("id", id)
     .maybeSingle();
   if (!o) {
     return NextResponse.json({ ok: false, reason: "その注文がありません。" }, { status: 404 });
+  }
+
+  /* 誰として見ているか。本部でなければ、買った側かどうかを見る */
+  const owner = await currentOwner();
+  const me = owner ? null : await currentUser();
+  const admin = owner ? null : await currentAdmin();
+  const may = maySeeInvoice(
+    { company_id: (o.company_id as string) ?? null, user_id: (o.user_id as string) ?? null },
+    owner
+      ? { owner: true }
+      : { owner: false, companyId: admin?.companyId ?? null, userId: me?.id ?? "" },
+  );
+  if (!may.ok) {
+    return NextResponse.json({ ok: false, reason: may.reason }, { status: 403 });
   }
 
   /* 宛名。決めてあればそれを使い、無ければ会社名か本人の名前 */
@@ -86,6 +103,8 @@ export async function GET(req: NextRequest) {
       at: (o.created_at as string) ?? null,
       paidAt: (o.paid_at as string) ?? null,
       status: (o.status as string) ?? "pending",
+      /* 送ってあるか。買った側の画面では、これがあるものだけ知らせる */
+      invoicedAt: (o.invoiced_at as string) ?? null,
       note: (o.note as string) ?? "",
       solo: !!o.user_id,
     },
@@ -101,4 +120,27 @@ export async function GET(req: NextRequest) {
       bank: bankReady(s.bank) ? s.bank : null,
     },
   });
+}
+
+/* 送ったことにする。本部だけ。
+   何度押しても、はじめに送った日時のまま（送り直しで日付が動かない） */
+export async function POST(req: NextRequest) {
+  const supabase = getServiceClient();
+  if (!supabase) {
+    return NextResponse.json({ ok: false, reason: "Supabase が未設定です。" }, { status: 503 });
+  }
+  const owner = await currentOwner();
+  if (!owner) {
+    return NextResponse.json({ ok: false, reason: "本部だけの操作です。" }, { status: 403 });
+  }
+  const b = (await req.json().catch(() => ({}))) as { orderId?: string };
+  const id = (b.orderId ?? "").trim();
+  if (!id) {
+    return NextResponse.json({ ok: false, reason: "注文が分かりません。" }, { status: 400 });
+  }
+  const { data, error } = await supabase.rpc("mark_invoiced", { p_order: id });
+  if (error) {
+    return NextResponse.json({ ok: false, reason: error.message }, { status: 500 });
+  }
+  return NextResponse.json({ ok: true, invoicedAt: data as string });
 }
