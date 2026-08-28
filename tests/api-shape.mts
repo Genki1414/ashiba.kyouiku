@@ -606,5 +606,36 @@ console.log("── 講座の種類（特別教育／職長教育）──");
   check(!/特別教育（学科）/.test(home), "札に「特別教育」と書き込まない");
 }
 
+console.log("── 職長教育（討議のある講座）──");
+{
+  /* 職長教育は討議方式が原則。録画を見せるのは討議にならない */
+  const co = read("src/content/courses.ts");
+  check(/CourseType/.test(co) && /hybrid/.test(co), "講座に進み方がある（ondemand / live / hybrid）");
+  check(/type: "hybrid"/.test(co), "職長教育は hybrid");
+  check(/needsLive/.test(co), "決まった日時に集まる回が要るか、を出せる");
+
+  /* 足りない教育で修了証を出さないための、いちばん大事な決まり */
+  const h = read("src/lib/hours.ts");
+  check(/judgeHours/.test(h), "法定を下回ったら公開しない判断がある");
+  check(/judgeTalk/.test(h), "討議を終えたかの判断がある");
+  check(/TALK_MAX = 15/.test(h), "1回に入れるのは15人まで");
+  /* 開いただけ・繋いだだけでは修了にしない */
+  check(/why: "answer"/.test(h), "課題に答えていなければ未修了");
+  check(/why: "teacher"/.test(h), "講師の確認が無ければ未修了");
+
+  const sql = read("supabase/migrations/0022_live.sql");
+  check(/capacity between 1 and 15/.test(sql), "定員はデータベースでも15人まで");
+  check(/book_live/.test(sql), "申し込みは、数えてから入れるまでを1つの手でやる");
+  check(/live_in/.test(sql) && /live_out/.test(sql), "入退室を残す");
+  check(/teacher_ok/.test(sql), "講師の確認を残す");
+  check(/insert \/ update ポリシーは置かない/.test(sql), "出た記録は、クライアントから書けない");
+
+  /* 講座を足しても courses に入らず、受講も席も作れなかった */
+  const b = read("scripts/build-apply-all.ts");
+  check(/courseRows/.test(b), "講座（courses）も courses.ts から作る");
+  const all = read("supabase/apply-all.sql");
+  check(/\('shokucho'/.test(all), "足した講座が apply-all.sql に入っている");
+}
+
 console.log(`\n通り ${ok} ／ だめ ${ng}`);
 process.exit(ng ? 1 : 0);

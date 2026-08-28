@@ -36,6 +36,21 @@ const migFiles = readdirSync(path.join(root, "supabase/migrations"))
 if (!migFiles.length) throw new Error("supabase/migrations に .sql がありません");
 const migList = migFiles.map((f) => f.replace(/\.sql$/, "")).join(" / ");
 const migSql = migFiles.map((f) => read(`supabase/migrations/${f}`)).join("\n\n");
+
+/* 講座（courses）も、ここから作る。
+
+   0011 では 'ashiba' を1件、SQL に書き込んでいた。
+   だから src/content/courses.ts に足しても**データベースには入らず**、
+   その講座の受講も席も作れなかった（外部キーで弾かれる）。
+   docs/13 には「courses と lessons に入る」と書いてあったが、
+   入っていたのは lessons だけだった。
+
+   準備中（ready:false）の講座も入れる。入れておかないと、
+   教材ができた日に SQL を流し直すまで何も置けない。 */
+const courseRows = COURSES.map(
+  (c, i) =>
+    `  (${q(c.id)}, ${q(c.name)}, ${q(c.basis)}, ${c.totalMin}, ${i + 1})`,
+).join(",\n");
 const lessonRows = made.flatMap((m) => m.rows).join(",\n");
 const lessonCount = made.reduce((n, m) => n + m.n, 0);
 
@@ -51,6 +66,20 @@ const out = `-- ═════════════════════�
 -- ═══════════════════════════════════════════════════════════
 
 ${migSql}
+
+-- ═══════════════════════════════════════════════════════════
+-- 3'. courses（src/content/courses.ts の写し）
+--
+-- 講座を足したときに、ここへ入らないと受講も席も作れない。
+-- 準備中のものも入れておく（教材ができた日に流し直さなくて済む）。
+-- ═══════════════════════════════════════════════════════════
+insert into public.courses (id, name, basis, total_min, sort_order) values
+${courseRows}
+on conflict (id) do update
+  set name       = excluded.name,
+      basis      = excluded.basis,
+      total_min  = excluded.total_min,
+      sort_order = excluded.sort_order;
 
 -- ═══════════════════════════════════════════════════════════
 -- 4. lessons（curriculum.json の単元ID・題名・規定時間の写し）
