@@ -24,6 +24,10 @@ export const FigureSchema = z.object({
   points: z.array(FigurePartSchema).optional(),
   dims: z.array(DimSchema).optional(),
   content: z.record(z.string(), z.array(z.string())).optional().nullable(),
+  /* ナレーションの何行目あたりの話か。
+     入れておくと、その行に来たときに横に出る。
+     入っていなければ、図解の並び順で均等に割り当てる */
+  at: z.number().int().nonnegative().optional(),
   task: TaskSchema,
 });
 

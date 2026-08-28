@@ -53,7 +53,8 @@
     "test:e2e:ch2": "node tests/e2e-ch2.mjs",
     "test:ch3": "tsx tests/ch3-rules.ts",
     "test:e2e:ch3": "node tests/e2e-ch3.mjs",
-    "test:e2e:sfx": "node tests/e2e-sfx.mjs"
+    "test:e2e:sfx": "node tests/e2e-sfx.mjs",
+    "test:narration": "tsx tests/narration.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.4",

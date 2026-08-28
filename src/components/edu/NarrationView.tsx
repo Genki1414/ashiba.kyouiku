@@ -2,7 +2,8 @@
 import { useEffect, useRef, useState } from "react";
 import type { Lesson } from "@/types/curriculum";
 import { Btn } from "@/components/ui/Btn";
-import { speakLine, hasTts, audioUrl } from "@/lib/audio";
+import { speakLine, hasTts, audioUrl, voiceName } from "@/lib/audio";
+import { NarrationFigure, figureAt } from "./NarrationFigure";
 
 /* ナレーション。script[] を1行ずつ字幕＋音声で進める。
    再生中だけ視聴時間が加算される（親が playing を見て時計を回す）。 */
@@ -26,10 +27,17 @@ export function NarrationView({
 }) {
   const last = line >= lesson.script.length;
   const [audioMode, setAudioMode] = useState<"mp3" | "tts" | "text">("text");
+  const [who, setWho] = useState("");
 
   useEffect(() => {
     setAudioMode(audioUrl(lesson.id, 1) ? "mp3" : hasTts() ? "tts" : "text");
+    /* 声は端末が持っているものを選ぶ。読み込みに一拍かかるので、少し待って見る */
+    const id = setTimeout(() => setWho(voiceName()), 600);
+    return () => clearTimeout(id);
   }, [lesson.id]);
+
+  /* いま話しているところの図解。字幕1行だけ見ているのは、さすがにつらい */
+  const figN = figureAt(lesson.figures, line, lesson.script.length);
 
   /* 1行再生 → 終わったら次の行へ */
   const lineRef = useRef(line);
@@ -87,10 +95,28 @@ export function NarrationView({
           <span>
             ナレーション {Math.min(line + 1, lesson.script.length)}/{lesson.script.length}
           </span>
-          <span className="ml-auto">
-            {audioMode === "mp3" ? "音声（収録済み）" : audioMode === "tts" ? "音声で読み上げます" : "字幕のみ"}
+          <span className="ml-auto truncate">
+            {audioMode === "mp3"
+              ? "音声（収録済み）"
+              : audioMode === "tts"
+                ? who
+                  ? `読み上げ：${who}`
+                  : "音声で読み上げます"
+                : "字幕のみ"}
           </span>
         </div>
+
+        {/* 聞いている内容の絵。触っても構わないが、
+           図解の段を済ませたことにはしない（あとでもう一度ちゃんと通る） */}
+        {figN !== null && (
+          <div className="mb-4">
+            <NarrationFigure
+              fig={lesson.figures[figN]}
+              index={figN}
+              total={lesson.figures.length}
+            />
+          </div>
+        )}
 
         {line > 0 && (
           <>

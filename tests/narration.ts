@@ -1,0 +1,71 @@
+/* ナレーションの横に出す図解の割り当て。
+   実行: npx tsx tests/narration.ts
+
+   50分のあいだ字幕を1行ずつ見ているだけ、というのが直したかったこと。
+   どの図解を出すかを間違えると、話と絵が食い違って、かえって邪魔になる。 */
+
+import { readFileSync } from "node:fs";
+import { figureAt } from "@/components/edu/NarrationFigure";
+import { CurriculumSchema } from "@/types/curriculum";
+import type { Figure } from "@/types/curriculum";
+
+let ok = 0;
+let ng = 0;
+const check = (c: boolean, m: string) => { if (c) ok++; else { ng++; console.error("NG:", m); } };
+
+const fig = (id: string, at?: number) =>
+  ({ id, t: id, min: 1, type: "list", lead: "", task: null } as unknown as Figure & { at?: number });
+const withAt = (id: string, at: number) => ({ ...fig(id), at }) as Figure;
+
+console.log("── 均等割り（at を入れていないとき）──");
+{
+  const fs = [fig("A"), fig("B"), fig("C"), fig("D")];
+  /* 100行を4枚で割ると、0 / 25 / 50 / 75 から */
+  check(figureAt(fs, 0, 100) === 0, "はじめは1枚目");
+  check(figureAt(fs, 24, 100) === 0, "境の手前は、まだ1枚目");
+  check(figureAt(fs, 25, 100) === 1, "境に来たら2枚目");
+  check(figureAt(fs, 99, 100) === 3, "終わりは最後の1枚");
+  /* 行が最後を越えても落ちない（もう一度再生などで起こりうる） */
+  check(figureAt(fs, 999, 100) === 3, "行が行き過ぎても最後の1枚で止まる");
+}
+
+console.log("── 図解が無い単元 ──");
+{
+  check(figureAt([], 10, 100) === null, "図解が無ければ、何も出さない");
+  check(figureAt([fig("A")], 10, 0) === null, "台本が無ければ、何も出さない");
+}
+
+console.log("── at を入れたとき ──");
+{
+  /* 均等割りでは合わないところを、手で直せる */
+  const fs = [withAt("A", 0), withAt("B", 10), withAt("C", 200)];
+  check(figureAt(fs, 9, 300) === 0, "at の手前は前の1枚");
+  check(figureAt(fs, 10, 300) === 1, "at に来たら次の1枚");
+  check(figureAt(fs, 199, 300) === 1, "次の at までは、そのまま");
+  check(figureAt(fs, 200, 300) === 2, "at に来たら進む");
+}
+
+console.log("── 本物の教材で通す ──");
+{
+  const cur = CurriculumSchema.parse(
+    JSON.parse(readFileSync(new URL("../content/courses/ashiba.json", import.meta.url), "utf8")),
+  );
+  for (const s of cur.subjects) {
+    for (const l of s.lessons) {
+      if (!l.figures.length) continue;
+      /* どの行でも、必ずどれか1枚に決まる（外の番号を返さない） */
+      let okAll = true;
+      let sawLast = false;
+      for (let i = 0; i < l.script.length; i++) {
+        const n = figureAt(l.figures, i, l.script.length);
+        if (n === null || n < 0 || n >= l.figures.length) okAll = false;
+        if (n === l.figures.length - 1) sawLast = true;
+      }
+      check(okAll, `${l.id}：どの行でも、ある図解に決まる`);
+      check(sawLast, `${l.id}：最後の図解まで出番がある`);
+    }
+  }
+}
+
+console.log(`\n通り ${ok} ／ だめ ${ng}`);
+process.exit(ng ? 1 : 0);

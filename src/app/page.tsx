@@ -17,10 +17,12 @@ export default async function Home() {
       <div className="tape" />
       <AccountBar />
       <div className="px-5 pt-10 pb-6">
-        <div className="text-[11px] tracking-[3px] text-yel font-extrabold">ASHIBA TRAINING</div>
-        <h1 className="mt-2 text-[22px] font-black leading-snug">足場の教育アプリ</h1>
+        <div className="text-[11px] tracking-[3px] text-yel font-extrabold">ASHIBAYA KAKUMEI</div>
+        <h1 className="mt-2 text-[22px] font-black leading-snug">足場屋革命</h1>
         <p className="mt-2 text-[13px] leading-relaxed text-dim">
-          労働安全衛生法にもとづく学科と、実務トレーニング。
+          足場の特別教育と実務トレーニング。
+          <br />
+          労働安全衛生法にもとづく学科と、組む手順の練習。
         </p>
       </div>
 

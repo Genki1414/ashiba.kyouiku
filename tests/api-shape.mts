@@ -465,5 +465,25 @@ console.log("── 無償利用の切り替え ──");
   check(/currentOwner\(\)/.test(api), "無償利用を切り替えられるのは本部だけ");
 }
 
+console.log("── 解説の画面 ──");
+{
+  /* 50分のあいだ字幕を1行ずつ見ているだけ、というのが直したかったこと */
+  const nv = read("src/components/edu/NarrationView.tsx");
+  check(/NarrationFigure/.test(nv), "解説の横に図解を出す");
+  check(/figureAt\(/.test(nv), "どの図解かは、いま何行目かで決める");
+
+  /* 聞きながら11回タップさせるのは仕事が増えるだけだし、
+     そこで答えを見てしまうと、あとの図解の段が答え合わせにならない */
+  const nf = read("src/components/edu/NarrationFigure.tsx");
+  check(!/FigureRenderer/.test(nf),
+    "解説の横では、図解の部品（タップして開く・間違い探し）を使わない");
+  check(/onDone/.test(nf) === false, "見せるだけで、やり終えたことにしない");
+
+  /* 6時間ぶん聞くもの。端末に入っている順に取ると古い機械声が先に来る */
+  const au = read("src/lib/audio.ts");
+  check(/VOICE_RANK/.test(au), "日本語の声のうち、人らしいものを選ぶ");
+  check(/natural\|neural\|online/i.test(au), "新しい声（Natural / Neural / Online）を上に置く");
+}
+
 console.log(`\n通り ${ok} ／ だめ ${ng}`);
 process.exit(ng ? 1 : 0);

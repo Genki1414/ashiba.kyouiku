@@ -5,13 +5,14 @@ import { ServiceWorker } from "@/components/ServiceWorker";
 import { LATEST } from "@/content/changelog";
 
 export const metadata: Metadata = {
-  title: "足場の特別教育",
-  description: "足場の組立て等の業務に係る特別教育（学科6時間）",
+  title: "足場屋革命｜足場の特別教育と実務トレーニング",
+  description: "足場の組立て等の業務に係る特別教育（学科6時間）と、組む手順を覚える実務トレーニング",
   manifest: "/manifest.webmanifest",
-  applicationName: "足場教育",
+  applicationName: "足場屋革命",
   appleWebApp: {
     capable: true,
-    title: "足場教育",
+    /* ホーム画面のアイコンの下に出る名前。長いと途中で切れる */
+    title: "足場屋革命",
     statusBarStyle: "black-translucent",
   },
   icons: {

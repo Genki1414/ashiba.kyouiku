@@ -11,10 +11,41 @@ let voice: SpeechSynthesisVoice | null = null;
 function ttsOk() {
   return typeof window !== "undefined" && "speechSynthesis" in window;
 }
+
+/* 端末が持っている日本語の声のうち、いちばん人らしいものを選ぶ。
+
+   端末に入っている順に取ると、たいてい古い機械声（Ayumi / Haruka）が
+   先に来る。6時間それを聞かされるので、ここは選んだ方がよい。
+
+   新しい声は名前に Natural / Online / Neural が入る（Edge）。
+   Google 日本語（Chrome）とアップルの Kyoko も、機械声よりだいぶ良い。
+   端末に無い声は選べないので、最後は「日本語ならどれでも」に落とす。 */
+const VOICE_RANK: [RegExp, number][] = [
+  [/natural|neural|online/i, 100],
+  [/google/i, 80],
+  [/kyoko|o-?ren|otoya|ayaka|hattori/i, 60],
+  [/nanami|keita|ichiro/i, 40],
+];
+function scoreVoice(v: SpeechSynthesisVoice): number {
+  let n = 0;
+  for (const [re, pt] of VOICE_RANK) if (re.test(v.name)) n = Math.max(n, pt);
+  /* 端末の中だけで作る声より、通信して作る声の方が新しいことが多い */
+  if (!v.localService) n += 10;
+  return n;
+}
 function pickVoice() {
   if (!ttsOk()) return;
-  const vs = window.speechSynthesis.getVoices();
-  voice = vs.find((v) => /ja/i.test(v.lang)) ?? null;
+  const ja = window.speechSynthesis.getVoices().filter((v) => /^ja/i.test(v.lang));
+  if (!ja.length) {
+    voice = null;
+    return;
+  }
+  voice = ja.reduce((a, b) => (scoreVoice(b) > scoreVoice(a) ? b : a));
+}
+
+/** いま使っている声の名前。画面に出して、端末ごとの違いを見るため */
+export function voiceName(): string {
+  return voice?.name ?? "";
 }
 if (typeof window !== "undefined" && ttsOk()) {
   pickVoice();
@@ -69,7 +100,9 @@ function speakTts(text: string, onEnd: () => void, setCancel: (c: () => void) =>
   window.speechSynthesis.cancel();
   const u = new SpeechSynthesisUtterance(text);
   u.lang = "ja-JP";
-  u.rate = 1;
+  /* すこし遅くする。機械声は速いほど棒読みに聞こえるし、
+     6時間ぶん聞くものなので、急がせる理由が無い */
+  u.rate = 0.95;
   u.pitch = 1;
   if (voice) u.voice = voice;
 
