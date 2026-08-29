@@ -10,6 +10,7 @@
     "sync:lessons": "tsx scripts/sync-lessons.ts",
     "upload:curriculum": "tsx scripts/upload-curriculum.ts",
     "build:sql": "tsx scripts/build-apply-all.ts",
+    "build:shokucho": "tsx scripts/build-shokucho.ts",
     "dump:why": "tsx scripts/dump-demo-why.ts",
     "test:score": "tsx tests/score.ts",
     "test:changelog": "tsx tests/changelog.ts",
@@ -55,6 +56,7 @@
     "test:e2e:ch3": "node tests/e2e-ch3.mjs",
     "test:e2e:sfx": "node tests/e2e-sfx.mjs",
     "test:narration": "tsx tests/narration.ts",
+    "test:contenttext": "tsx tests/content-text.mts",
     "test:hours": "tsx tests/hours.ts"
   },
   "dependencies": {
