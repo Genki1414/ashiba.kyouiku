@@ -15,14 +15,14 @@ import { CurriculumSchema, LessonSchema } from "../src/types/curriculum";
 import { SHOKUCHO, SHOKUCHO_TOTAL_MIN, TALK_MIN } from "../src/content/shokucho";
 import { findCourse } from "../src/content/courses";
 
-/* どの科目に、どの単元が入るか。時間は各単元の json が持つ */
-const LAYOUT: Record<number, string[]> = {
-  1: ["1-1", "1-2"],
-  2: ["2-1", "2-2", "2-3"],
-  3: ["3-1", "3-2", "3-3", "3-4"],
-  4: ["4-1", "4-2"],
-  5: ["5-1", "5-2", "5-3"],
-};
+/* どの科目に、どの単元が入るか。時間は各単元の json が持つ。
+
+   **単元は、法定の細目に1つずつ対応させる**（安衛則第40条第2項の表の左欄）。
+   細目の数＝単元の数。だから並びは shokucho.ts の saimoku から作る。
+   こうしておくと、細目のどれかが抜けたまま公開されることが無い。 */
+const LAYOUT: Record<number, string[]> = Object.fromEntries(
+  SHOKUCHO.map((s) => [s.id, s.saimoku.map((_, i) => `${s.id}-${i + 1}`)]),
+);
 
 const root = process.cwd();
 const src = path.join(root, "content", "shokucho");
@@ -34,7 +34,15 @@ for (const s of SHOKUCHO) {
   for (const id of LAYOUT[s.id] ?? []) {
     const f = path.join(src, `${id}.json`);
     if (!existsSync(f)) { missing++; console.error(`まだ無い: ${id}.json`); continue; }
-    lessons.push(LessonSchema.parse(JSON.parse(readFileSync(f, "utf-8"))));
+    const l = LessonSchema.parse(JSON.parse(readFileSync(f, "utf-8")));
+    /* その単元が、どの細目のものかを突き合わせる。
+       ずれていると、12時間の中身に穴が空いたまま公開される */
+    const want = s.saimoku[lessons.length];
+    if (l.legal_scope !== want) {
+      console.error(`NG ${id}: legal_scope が細目と違う\n    いま  「${l.legal_scope}」\n    あるべき「${want}」`);
+      process.exit(1);
+    }
+    lessons.push(l);
   }
   /* 討議のぶんは、各自で見る単元には入らない。
      科目の法定時間から討議を引いたものが、単元の合計になる */

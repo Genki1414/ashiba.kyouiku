@@ -78,6 +78,24 @@ console.log("── 職長教育の中身 ──");
   check(TALK_MIN === 45, "討議は45分");
   check(withTalk[0]?.plan.talk === TALK_MIN, `その45分が科目の時間に入っている（${hm(withTalk[0]?.plan.talk ?? 0)}）`);
 
+  /* 法定の細目（安衛則第40条第2項の表の左欄）が、科目ごとに入っているか。
+     単元はこの細目に1つずつ対応させる。細目が抜けると、
+     12時間ぶんの中身に穴が空いたまま公開されることになる */
+  const SAIMOKU = 2 + 2 + 3 + 2 + 2; // 11
+  const saimokuAll = SHOKUCHO.reduce((n, s) => n + s.saimoku.length, 0);
+  check(saimokuAll === SAIMOKU, `細目は全部で11（いま ${saimokuAll}）`);
+  for (const s of SHOKUCHO) {
+    check(s.saimoku.length >= 2, `科目${s.id} に細目が2つ以上ある（いま ${s.saimoku.length}）`);
+    check(s.saimoku.every((x) => x.trim().length > 0), `科目${s.id} の細目に空が無い`);
+  }
+  /* 細目の言い回しは条文のものを使う。言い換えると、突き合わせられなくなる */
+  check(SHOKUCHO[0].saimoku[0] === "作業手順の定め方", "科目1の細目①は条文の言い回し");
+  check(SHOKUCHO[2].saimoku[2] === "設備、作業等の具体的な改善の方法", "科目3の細目③は条文の言い回し");
+  check(
+    SHOKUCHO[4].saimoku[1] === "労働災害防止についての関心の保持及び労働者の創意工夫を引き出す方法",
+    "科目5の細目②は条文の言い回し",
+  );
+
   /* 討議が1回でも、お題はどの科目にも要る。
      討議の45分で全部は扱えないので、残りは演習で出す */
   for (const s of SHOKUCHO) {
