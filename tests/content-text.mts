@@ -42,6 +42,26 @@ const okChar = (ch: string) => {
   return ALLOW.some(([a, b]) => o >= a && o <= b);
 };
 
+/* 台本の中に、英語の単語が紛れていないか。
+
+   前の見張りは半角英数字を通していたので、これを拾えなかった。
+
+     × 「先に片side…いえ、片側を先に納めてから」
+
+   書いているうちに英語が出てしまうことがある。読み上げにも乗る。
+   数字や単位、現場で使う略語まで止めると使いものにならないので、
+   **アルファベットが2文字以上つながっているもの**だけを見て、
+   現場で実際に使う言葉は通す。 */
+const WORD_OK = new Set([
+  "KY", "KYT", "KYK", "PDCA", "RA", "TBM", "OJT", "TWI", "QC", "SDS",
+  "cm", "mm", "kg", "kN", "mA", "kW", "ppm", "dB", "CSV", "PDF", "URL",
+  "Zoom", "WEB", "Web", "ISO", "JIS", "LED",
+]);
+
+function latinWords(v: string): string[] {
+  return [...v.matchAll(/[A-Za-z]{2,}/g)].map((m) => m[0]).filter((w) => !WORD_OK.has(w));
+}
+
 /* 文字を1つずつ見る。どのファイルの、どの言葉かまで出す */
 function scan(where: string, v: unknown, hits: string[]) {
   if (typeof v === "string") {
@@ -93,6 +113,31 @@ if (existsSync(wip)) {
     const hits: string[] = [];
     scan(`職長 ${f}`, l, hits);
     check(hits.length === 0, `職長 ${f}: 混ざってはいけない字がある\n    ${hits.slice(0, 10).join("\n    ")}`);
+
+    /* ── 例が、一つの業種に寄っていないか ──
+       職長教育は建設業ぜんぶが受ける。足場だけの例で埋めると、
+       鉄筋も型枠も設備も塗装も、自分の話として聞けなくなる。
+       （対象の業務が決まっている特別教育は別。そこはその業務で書く） */
+    const TRADE: Record<string, RegExp> = {
+      足場: /足場|ジャッキ|根がらみ|壁つなぎ|踏板|くさび|敷板/,
+      鉄筋: /鉄筋|配筋|結束/,
+      型枠: /型枠|建て込み|支保工|墨出し/,
+      鉄骨: /鉄骨|建て方|梁|柱の建入れ/,
+      土工: /土工|掘削|法面|床付け|残土|丁張/,
+      設備: /設備|配管|電気工事|天井内|ダクト/,
+      塗装: /塗装|防水|シール|刷毛/,
+      解体: /解体|ばら|撤去/,
+    };
+    const seen = Object.entries(TRADE).filter(([, re]) => l.script.some((x) => re.test(x))).map(([k]) => k);
+    check(seen.length >= 3, `職長 ${f}: 例が3業種以上から出ている（いま ${seen.length}：${seen.join("・") || "なし"}）`);
+    /* 足場が出るのは構わない。そこに寄り切っていないかを見る */
+    const ashiba = l.script.filter((x) => TRADE.足場.test(x)).length;
+    check(ashiba / l.script.length <= 0.25,
+      `職長 ${f}: 足場の話に寄り切っていない（いま ${Math.round((ashiba / l.script.length) * 100)}%／25%まで）`);
+
+    /* 読み上げに乗るのは台本なので、そこは特に厳しく見る */
+    const eng = l.script.flatMap((x, i) => latinWords(x).map((w) => `${i + 1}行目「${w}」… ${x.slice(0, 34)}`));
+    check(eng.length === 0, `職長 ${f}: 台本に英語の単語が混ざっている\n    ${eng.slice(0, 8).join("\n    ")}`);
     check(f === `${l.id}.json`, `職長 ${f}: ファイル名と単元の目印が合っている（${l.id}）`);
 
     /* 時間の見積りが、法定の時間とかけ離れていないか。
