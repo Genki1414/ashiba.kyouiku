@@ -3,7 +3,7 @@
 --
 -- 中身:
 --   1. マイグレーション 0001_init / 0002_rls / 0003_rules / 0004_auth / 0005_cert / 0006_version / 0007_admin / 0008_tenant / 0009_order / 0010_verify / 0011_course / 0012_member / 0013_keep / 0014_own / 0015_qual / 0016_keep3y / 0017_train / 0018_solo / 0019_view / 0020_sent / 0021_role / 0022_live / 0023_issue
---   2. lessons（単元の規定時間）13件を投入
+--   2. lessons（単元の規定時間）26件を投入
 --
 -- 何度実行しても壊れないように書いてある（作成済みなら飛ばす）。
 -- 自動生成: npm run build:sql　— 直接編集しないこと
@@ -2740,7 +2740,20 @@ insert into public.lessons (lesson_id, course_id, subject_id, title, legal_min, 
   ('ashiba:3-3', 'ashiba', 3, '保護具の使用方法と保守点検', 20, 202),
   ('ashiba:3-4', 'ashiba', 3, '感電・熱中症その他の危険の防止', 10, 203),
   ('ashiba:4-1', 'ashiba', 4, '法、令及び安衛則中の関係条項', 35, 300),
-  ('ashiba:4-2', 'ashiba', 4, '事業者と作業者の義務、企業責任', 25, 301)
+  ('ashiba:4-2', 'ashiba', 4, '事業者と作業者の義務、企業責任', 25, 301),
+  ('shokucho:1-1', 'shokucho', 1, '作業方法の決定と作業手順書', 60, 0),
+  ('shokucho:1-2', 'shokucho', 1, '労働者の配置と作業前打合せ', 60, 1),
+  ('shokucho:2-1', 'shokucho', 2, '部下に対する指導・育成', 75, 100),
+  ('shokucho:2-2', 'shokucho', 2, '作業中の監督と指示', 75, 101),
+  ('shokucho:3-1', 'shokucho', 3, '危険性又は有害性等の調査の方法', 65, 200),
+  ('shokucho:3-2', 'shokucho', 3, '調査の結果に基づき講ずる措置', 65, 201),
+  ('shokucho:3-3', 'shokucho', 3, '設備、作業等の具体的な改善の方法', 65, 202),
+  ('shokucho:4-1', 'shokucho', 4, '異常時における措置', 45, 300),
+  ('shokucho:4-2', 'shokucho', 4, '災害発生時における措置', 45, 301),
+  ('shokucho:5-1', 'shokucho', 5, '保守管理と安全衛生点検', 60, 400),
+  ('shokucho:5-2', 'shokucho', 5, '災害防止への関心の保持と創意工夫', 60, 401),
+  ('shokucho:6-1', 'shokucho', 6, '安全衛生責任者の職務と作業間の連絡調整', 60, 500),
+  ('shokucho:6-2', 'shokucho', 6, '安全施工サイクルによる安全衛生活動', 60, 501)
 on conflict (lesson_id) do update
   set course_id  = excluded.course_id,
       subject_id = excluded.subject_id,

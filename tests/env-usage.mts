@@ -101,7 +101,11 @@ for (const f of serverOnly) {
 
 /* ── 単価は必ずサーバ側から来る ── */
 {
-  const pricing = readFileSync(path.join(SRC, "lib/pricing.ts"), "utf-8");
+  /* コメントは外してから見る。「ここでは環境変数を読まない」という
+     注意書きそのものに引っかかると、直しようがない */
+  const pricing = readFileSync(path.join(SRC, "lib/pricing.ts"), "utf-8")
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/(^|[^:])\/\/.*$/gm, "$1");
   check(!/process\.env/.test(pricing), "src/lib/pricing.ts は環境変数を読まない（画面からも使うため）");
   const server = readFileSync(path.join(SRC, "lib/price.server.ts"), "utf-8");
   check(/SEAT_UNIT_PRICE/.test(server), "単価を読むのは src/lib/price.server.ts");

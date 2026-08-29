@@ -98,11 +98,23 @@ export function missingSeller(): string[] {
 
 const yen = (n: number) => `${n.toLocaleString("ja-JP")}円`;
 
-/** 特定商取引法に基づく表記。順番も決まりに沿って並べる。
-    単価はサーバから渡す（環境変数を読むのは src/lib/price.server.ts だけ） */
-export function tokushoho(price: number): Item[] {
-  const s = seller();
+/** 講座ごとの値段。特定商取引法の表記に載せる形 */
+export type CoursePrice = { id: string; name: string; price: number };
+
+/** 「受講1名につき 5,000円（税抜）／5,500円（税込）」 */
+const priceLine = (price: number): string => {
   const tax = Math.floor(price * TAX_RATE);
+  return `${yen(price)}（税抜）／${yen(price + tax)}（税込）`;
+};
+
+/** 特定商取引法に基づく表記。順番も決まりに沿って並べる。
+    単価はサーバから渡す（環境変数を読むのは src/lib/price.server.ts だけ）。
+
+    講座ごとに値段が違うので、受けられる講座を全部並べる。
+    1つしか載せないと、載っていない講座の値段が書いていないことになる。 */
+export function tokushoho(prices: CoursePrice[]): Item[] {
+  const s = seller();
+  const list = prices.length ? prices : [{ id: "", name: "受講", price: 0 }];
   return [
     { k: "販売事業者", v: s.name, env: "SELLER_NAME" },
     { k: "代表者", v: s.ceo, env: "SELLER_CEO" },
@@ -124,7 +136,7 @@ export function tokushoho(price: number): Item[] {
       : []),
     {
       k: "販売価格",
-      v: `受講1名につき ${yen(price)}（税抜）／${yen(price + tax)}（税込）`,
+      v: list.map((c) => `${c.name}　受講1名につき ${priceLine(c.price)}`).join("\n"),
       env: "SEAT_UNIT_PRICE",
       note: "申込みの画面に、人数を入れた合計金額を出します。",
     },

@@ -96,12 +96,11 @@ export const COURSES: CourseMeta[] = [
     ready: true,
   },
   {
-    /* 職長教育。カリキュラムが決まるまでは名前だけ出す。
+    /* 職長・安全衛生責任者教育。2026年8月29日から公開。
 
-       ・時間と科目は、令和5年4月の改正後のもので入れること
+       ・時間と科目は、令和5年4月の改正後のもの
        ・討議（グループ演習）はオンラインの同時双方向でやる
-       決まったら content/courses/shokucho.json を置いて ready: true に
-       （docs/13-講座を増やす.md／docs/17-職長教育.md） */
+       （docs/13-講座を増やす.md／docs/17-職長教育.md／docs/20-修了証の発行申請.md） */
     id: "shokucho",
     kind: "foreman",
     /* 各自で学ぶ部分と、決まった日時に集まる討議の組み合わせ。
@@ -117,7 +116,7 @@ export const COURSES: CourseMeta[] = [
        建設業では一体で実施し、1枚の修了証を出す（src/content/shokucho.ts） */
     totalMin: 840,
     file: "shokucho.json",
-    ready: false,
+    ready: true,
   },
 ];
 

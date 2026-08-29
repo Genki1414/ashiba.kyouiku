@@ -12,7 +12,9 @@
    受けているので、抜けていても 0件 として静かに出る。
    だから、書いてある字を突き合わせて見る。 */
 
-import { readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { COURSES } from "@/content/courses";
+import { DEFAULT_COURSE_PRICE } from "@/lib/pricing";
 
 let ok = 0;
 let ng = 0;
@@ -352,6 +354,47 @@ console.log("── データベースの版 ──");
   check(!/NEED_SCHEMA = "/.test(health), "つながり具合の確認に、版を手で書いていない");
 }
 
+console.log("── 講座ごとの値段 ──");
+{
+  /* 単価はサーバだけが読む。画面で読むと、見せている金額と
+     実際に請求する金額が食い違う */
+  const srv = read("src/lib/price.server.ts");
+  check(/^import "server-only"/m.test(srv), "単価を読むところは server-only");
+
+  /* コメントを外してから見る。注意書きに process.env と書いてあるだけで
+     引っかかると、直しようがない */
+  const code = (p: string) =>
+    read(p).replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/.*$/gm, "$1");
+  check(!/process\.env/.test(code("src/lib/pricing.ts")), "決め方の側は環境変数を読まない");
+
+  /* 画面（"use client"）から、単価を読むところを読み込んでいないこと */
+  const dir = (p: string): string[] => {
+    const out: string[] = [];
+    for (const e of readdirSync(new URL(`../${p}`, import.meta.url), { withFileTypes: true })) {
+      if (e.isDirectory()) out.push(...dir(`${p}/${e.name}`));
+      else if (/\.tsx?$/.test(e.name)) out.push(`${p}/${e.name}`);
+    }
+    return out;
+  };
+  const clients = dir("src").filter((f) => /^"use client"|^'use client'/m.test(read(f)));
+  const leak = clients.filter((f) => /from\s+["'][^"']*price\.server/.test(code(f)));
+  check(leak.length === 0, "画面から単価を読み込んでいない", leak.join(","));
+
+  /* 申込みの画面は、講座ごとの単価をサーバから受け取ること */
+  const order = read("src/app/api/order/route.ts");
+  check(/unitPrice\(course\.id\)/.test(order), "請求する金額は、選んだ講座の単価で立てる");
+  check(/unitPrice: unitPrice\(c\.id\)/.test(order), "講座ごとの単価を画面へ返す");
+  const oc = read("src/app/order/OrderClient.tsx");
+  check(
+    /courses\.find\(\(c\) => c\.id === courseId\)\?\.unitPrice/.test(oc),
+    "画面は、選んでいる講座の単価で計算する",
+  );
+
+  /* 特商法の表記には、売っている講座を全部載せる */
+  const legal = read("src/app/legal/tokushoho/page.tsx");
+  check(/allPrices\(\)/.test(legal), "特商法の表記に、全講座の値段を載せる");
+}
+
 console.log("── 修了証の発行申請 ──");
 {
   /* 学科のあとに討議や実技が残る講座は、押した瞬間に紙を出さない。
@@ -645,7 +688,20 @@ console.log("── 講座の種類（特別教育／職長教育）──");
   const co = read("src/content/courses.ts");
   check(/CourseKind/.test(co) && /foreman/.test(co), "講座に種類がある");
   check(/第60条/.test(co), "職長教育は安衛法60条で置いてある");
-  check(/ready: false/.test(co), "カリキュラムが決まるまでは、名前だけ出す");
+  /* 職長教育は 2026年8月29日から公開。
+     公開している講座は、教材と値段がそろっていること
+     （そろっていないと、中身の無い講座を売ることになる） */
+  check(/ready: true/.test(co), "職長教育を公開している");
+  for (const c of COURSES.filter((x) => x.ready)) {
+    check(
+      existsSync(new URL(`../content/courses/${c.file}`, import.meta.url)),
+      `${c.id}: 教材の json がある`,
+    );
+    check(
+      typeof DEFAULT_COURSE_PRICE[c.id] === "number" && DEFAULT_COURSE_PRICE[c.id] > 0,
+      `${c.id}: 値段が決まっている`,
+    );
+  }
 
   const home = read("src/app/page.tsx");
   check(/textOf\(c\)\.label/.test(home), "ホームの札も講座の種類から出す");

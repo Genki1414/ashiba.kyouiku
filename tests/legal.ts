@@ -34,9 +34,15 @@ clear();
 }
 clear();
 
+/* 講座ごとに値段が違う。表記には全部並べる */
+const PRICES = [
+  { id: "ashiba", name: "足場の組立て等の業務に係る特別教育", price: 5000 },
+  { id: "shokucho", name: "職長・安全衛生責任者教育", price: 9800 },
+];
+
 console.log("── 特商法の表記 ──");
 {
-  const items = tokushoho(3000);
+  const items = tokushoho(PRICES);
   /* 決まりで載せるもの */
   for (const k of [
     "販売事業者", "代表者", "所在地", "電話番号", "メールアドレス",
@@ -47,6 +53,14 @@ console.log("── 特商法の表記 ──");
   }
   const price = items.find((i) => i.k === "販売価格")!;
   check(/税抜/.test(price.v) && /税込/.test(price.v), `税抜と税込の両方を出す（${price.v}）`);
+  /* 講座ごとに値段が違う。1つしか載せないと、
+     載っていない講座の値段が書いていないことになる */
+  for (const c of PRICES) {
+    check(price.v.includes(c.name), `「${c.name}」の値段が載っている`);
+  }
+  check(price.v.includes("5,500円"), `税込を計算して出す（${price.v.replace(/\n/g, " ／ ")}）`);
+  check(price.v.includes("10,780円"), "講座ごとに税込を出す");
+  check(price.v.split("\n").length === PRICES.length, "講座の数だけ行がある");
   const back = items.find((i) => i.k === "返品・キャンセル")!;
   check(back.v.length > 30, "返品の決まりが書いてある");
   check(items.every((i) => i.k.length > 0), "見出しが空の欄は無い");
@@ -54,7 +68,7 @@ console.log("── 特商法の表記 ──");
 {
   /* 未設定の欄は、値が空のまま返る（画面が「未設定」と出せるように） */
   clear();
-  const items = tokushoho(3000);
+  const items = tokushoho(PRICES);
   check(items.find((i) => i.k === "所在地")!.v === "", "空の欄は空のまま返す");
   check(items.find((i) => i.k === "販売事業者")!.v !== "", "既定のある欄は埋まっている");
 }
@@ -88,7 +102,7 @@ console.log("── インボイス登録番号 ──");
   check(seller().invoiceNo === "", "登録していなければ空");
   check(invoiceOk(""), "空は通す（免税事業者）");
   check(
-    !tokushoho(3000).some((i) => i.k.includes("登録番号")),
+    !tokushoho(PRICES).some((i) => i.k.includes("登録番号")),
     "空のときは、特商法の表記に行ごと出さない",
   );
   check(
@@ -100,7 +114,7 @@ console.log("── インボイス登録番号 ──");
   check(seller().invoiceNo === "T1234567890123", "入れた番号が出る");
   check(invoiceOk("T1234567890123"), "T＋13桁は通る");
   {
-    const row = tokushoho(3000).find((i) => i.k.includes("登録番号"));
+    const row = tokushoho(PRICES).find((i) => i.k.includes("登録番号"));
     check(!!row, "入れたら、特商法の表記に行が出る");
     check(row?.v === "T1234567890123", `番号がそのまま出る（${row?.v}）`);
   }

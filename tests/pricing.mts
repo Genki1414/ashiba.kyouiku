@@ -1,6 +1,14 @@
 /* 値段の計算の試験。実行: npx tsx tests/pricing.ts */
 
 import { DEFAULT_UNIT_PRICE, MAX_SEATS, TAX_RATE, dueDate, parseUnitPrice, quote, yen } from "@/lib/pricing";
+import { DEFAULT_COURSE_PRICE, pickUnitPrice, priceEnvName } from "@/lib/pricing";
+import { COURSES } from "@/content/courses";
+
+/* 環境変数を読むのはサーバだけ（price.server.ts は server-only なので
+   ここからは読み込めない）。決め方そのものは pricing.ts にあるので、
+   値を渡して確かめる */
+const unitPrice = (courseId?: string, own?: string, all?: string) =>
+  pickUnitPrice({ courseId, own, all });
 
 let ok = 0;
 let ng = 0;
@@ -45,6 +53,57 @@ check(quote(Number.NaN, 3000) === null, "数字でないものは通さない");
 console.log("── 見せ方 ──");
 check(yen(33000) === "33,000円", `桁を区切る（${yen(33000)}）`);
 check(yen(0) === "0円", "0円");
+
+console.log("── 講座ごとの単価 ──");
+{
+  /* 前は全講座で1つの単価だった。それだと、14時間の職長教育が
+     6時間の特別教育と同じ値段になる。講座ごとに持たせてある。 */
+  check(priceEnvName("ashiba") === "SEAT_UNIT_PRICE_ASHIBA", "環境変数の名前を作れる");
+  check(priceEnvName("shokucho") === "SEAT_UNIT_PRICE_SHOKUCHO", "講座ごとに名前が変わる");
+  check(priceEnvName("a-b.c") === "SEAT_UNIT_PRICE_A_B_C", "使えない字は下線にする");
+
+  /* 決め方の順番 */
+  check(unitPrice("ashiba", "1234") === 1234, "講座ごとの設定がいちばん強い");
+  check(unitPrice("ashiba", "", "7777") === DEFAULT_COURSE_PRICE.ashiba, "無ければ既定の値");
+  check(unitPrice("よその講座", undefined, "7777") === 7777, "表に無ければ全体の設定");
+  check(unitPrice("ashiba", "  ", undefined) === DEFAULT_COURSE_PRICE.ashiba, "空白は設定していないのと同じ");
+  check(unitPrice("ashiba", "0") === 0, "0円も設定できる（無料で配るとき）");
+
+  /* 公開している講座には、必ず値段が付いていること。
+     付いていないと、仮置きの値で売ることになる */
+  const ready = COURSES.filter((c) => c.ready);
+  check(ready.length > 0, "公開している講座がある");
+  for (const c of ready) check(unitPrice(c.id) > 0, `${c.id}: 値段が付いている`);
+
+  /* 講座ごとに違う値段になっていること（同じだと分けた意味がない） */
+  const set = new Set(ready.map((c) => unitPrice(c.id)));
+  check(ready.length < 2 || set.size > 1, "講座ごとに値段が違う");
+
+  /* 時間の長い講座のほうが高いこと */
+  const has = (id: string) => ready.some((c) => c.id === id);
+  if (has("ashiba") && has("shokucho")) {
+    check(
+      unitPrice("shokucho") > unitPrice("ashiba"),
+      `14時間の職長教育のほうが高い（足場 ${unitPrice("ashiba")}／職長 ${unitPrice("shokucho")}）`,
+    );
+  }
+
+  /* よそのいちばん安いところより下にしてある（2026年8月に調べた・税込）。
+     ここが崩れたら「日本でいちばん安い」と言えなくなる */
+  const withTax = (p: number) => p + Math.floor(p * TAX_RATE);
+  check(
+    withTax(unitPrice("ashiba")) < 8000,
+    `足場：よその最安 8,000円より下（${withTax(unitPrice("ashiba"))}円）`,
+  );
+  check(
+    withTax(unitPrice("shokucho")) < 17600,
+    `職長：よその最安 17,600円より下（${withTax(unitPrice("shokucho"))}円）`,
+  );
+
+  /* 知らない講座を聞かれても、仮置きの値で答える（0円で配らない） */
+  check(unitPrice("nonsense") > 0, "知らない講座でも0円にはしない");
+  check(unitPrice() > 0, "講座を渡さなくても0円にはしない");
+}
 
 console.log("── 支払期限 ──");
 {

@@ -12,7 +12,7 @@ import { showSeatCode } from "@/training/joinCode";
    人数を決めて、カードか請求書かを選ぶ。
    金額はサーバでもう一度計算する。ここに出るのは目安。 */
 
-type CourseTab = { id: string; short: string; name: string };
+type CourseTab = { id: string; short: string; name: string; unitPrice: number };
 
 type Order = {
   id: string;
@@ -167,7 +167,10 @@ export function OrderClient() {
   if (!st) return null;
 
   /* 単価はサーバの値で計算する。実際に請求されるのと同じ額を見せるため */
-  const q = quote(seats, st.unitPrice);
+  /* 単価は講座ごとに違う。選んでいる講座のものを使う。
+     ここを1つの値にしていると、講座を選び直しても金額が変わらない */
+  const price = st.courses.find((c) => c.id === courseId)?.unitPrice ?? st.unitPrice;
+  const q = quote(seats, price);
 
   return (
     <main className="px-5 py-8 pb-12">

@@ -47,12 +47,20 @@ export async function GET() {
     company: admin.companyName,
     /* 単価はサーバだけが持つ（SEAT_UNIT_PRICE は NEXT_PUBLIC_ ではない）。
        画面で計算させると、見せる金額と請求する金額が食い違う */
-    unitPrice: unitPrice(),
+    /* 講座ごとに値段が違う。1つだけ返すと、選び直したときに
+       画面の金額が古いままになる。既定はいちばん上の講座 */
+    unitPrice: unitPrice(readyCourses()[0]?.id),
     orders: orders ?? [],
     seats: { total: counts.total, used: counts.used, paid: paid.total },
     codes,
-    /* 受講コードは講座ごと。どれを買うかを選んでもらう */
-    courses: readyCourses().map((c) => ({ id: c.id, short: c.short, name: c.name })),
+    /* 受講コードは講座ごと。どれを買うかを選んでもらう。
+       単価もここで一緒に返す（画面では計算しない） */
+    courses: readyCourses().map((c) => ({
+      id: c.id,
+      short: c.short,
+      name: c.name,
+      unitPrice: unitPrice(c.id),
+    })),
   });
 }
 
@@ -70,7 +78,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, reason: "講座がありません。" }, { status: 400 });
   }
   const method = b.method === "card" ? "card" : "invoice";
-  const q = quote(Number(b.seats), unitPrice());
+  const q = quote(Number(b.seats), unitPrice(course.id));
   if (!q) {
     return NextResponse.json({ ok: false, reason: "人数を確かめてください。" }, { status: 400 });
   }
