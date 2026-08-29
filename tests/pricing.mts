@@ -89,16 +89,23 @@ console.log("── 講座ごとの単価 ──");
   }
 
   /* よそのいちばん安いところより下にしてある（2026年8月に調べた・税込）。
-     ここが崩れたら「日本でいちばん安い」と言えなくなる */
+     ここが崩れたら「日本でいちばん安い」と言えなくなる。
+
+     よその最安（オンライン受講・税込）
+       足場 … 8,000円（茨城教育センター）
+       職長 … 17,600円（中小建設業特別教育協会 WEB講習） */
+  const OTHERS: Record<string, number> = { ashiba: 8000, shokucho: 17600 };
   const withTax = (p: number) => p + Math.floor(p * TAX_RATE);
-  check(
-    withTax(unitPrice("ashiba")) < 8000,
-    `足場：よその最安 8,000円より下（${withTax(unitPrice("ashiba"))}円）`,
-  );
-  check(
-    withTax(unitPrice("shokucho")) < 17600,
-    `職長：よその最安 17,600円より下（${withTax(unitPrice("shokucho"))}円）`,
-  );
+  for (const [id, other] of Object.entries(OTHERS)) {
+    const mine = withTax(unitPrice(id));
+    check(mine < other, `${id}：よその最安 ${other}円より下（${mine}円）`);
+  }
+
+  /* 決めた値段。変えたことに気づかず上げ直す事故を防ぐ */
+  check(unitPrice("ashiba") === 4500, `足場は4,500円（税抜）で固定（${unitPrice("ashiba")}）`);
+  check(unitPrice("shokucho") === 7000, `職長は7,000円（税抜）（${unitPrice("shokucho")}）`);
+  check(withTax(4500) === 4950, "足場の税込は4,950円");
+  check(withTax(7000) === 7700, "職長の税込は7,700円");
 
   /* 知らない講座を聞かれても、仮置きの値で答える（0円で配らない） */
   check(unitPrice("nonsense") > 0, "知らない講座でも0円にはしない");

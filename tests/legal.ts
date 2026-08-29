@@ -36,8 +36,8 @@ clear();
 
 /* 講座ごとに値段が違う。表記には全部並べる */
 const PRICES = [
-  { id: "ashiba", name: "足場の組立て等の業務に係る特別教育", price: 5000 },
-  { id: "shokucho", name: "職長・安全衛生責任者教育", price: 9800 },
+  { id: "ashiba", name: "足場の組立て等の業務に係る特別教育", price: 4500 },
+  { id: "shokucho", name: "職長・安全衛生責任者教育", price: 7000 },
 ];
 
 console.log("── 特商法の表記 ──");
@@ -58,8 +58,8 @@ console.log("── 特商法の表記 ──");
   for (const c of PRICES) {
     check(price.v.includes(c.name), `「${c.name}」の値段が載っている`);
   }
-  check(price.v.includes("5,500円"), `税込を計算して出す（${price.v.replace(/\n/g, " ／ ")}）`);
-  check(price.v.includes("10,780円"), "講座ごとに税込を出す");
+  check(price.v.includes("4,950円"), `税込を計算して出す（${price.v.replace(/\n/g, " ／ ")}）`);
+  check(price.v.includes("7,700円"), "講座ごとに税込を出す");
   check(price.v.split("\n").length === PRICES.length, "講座の数だけ行がある");
   const back = items.find((i) => i.k === "返品・キャンセル")!;
   check(back.v.length > 30, "返品の決まりが書いてある");
