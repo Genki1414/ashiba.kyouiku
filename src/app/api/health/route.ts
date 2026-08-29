@@ -119,18 +119,35 @@ export async function GET() {
   };
 
   /* 単元の数は、教材から数える。13で決め打つと、
-     講座を足した日に「足りない」と嘘をつく */
-  const want = (await Promise.all(readyCourses().map((c) => getLessonList(c.id))))
-    .reduce((n, ls) => n + ls.length, 0);
+     講座を足した日に「足りない」と嘘をつく。
+
+     講座ごとに数える。合計だけを見ていると、
+     「26件のはずが13件」としか出ず、どの講座が入っていないのか分からない。
+     公開に切り替えたあと apply-all.sql を流し忘れると必ずここに来るので、
+     足りない講座の名前を出す。 */
+  const wantEach = await Promise.all(
+    readyCourses().map(async (c) => ({ id: c.id, short: c.short, n: (await getLessonList(c.id)).length })),
+  );
+  const want = wantEach.reduce((n, c) => n + c.n, 0);
   await check("lessons", async () => {
-    const { count, error } = await supabase
-      .from("lessons")
-      .select("lesson_id", { count: "exact", head: true });
-    if (error) throw new Error(error.message);
-    if (count !== want) {
-      throw new Error(`${count} 件（${want}件のはず）。apply-all.sql を実行してください`);
+    const got = await Promise.all(
+      wantEach.map(async (c) => {
+        const { count, error } = await supabase
+          .from("lessons")
+          .select("lesson_id", { count: "exact", head: true })
+          .eq("course_id", c.id);
+        if (error) throw new Error(error.message);
+        return { ...c, got: count ?? 0 };
+      }),
+    );
+    const short = got.filter((c) => c.got !== c.n);
+    if (short.length) {
+      throw new Error(
+        `${short.map((c) => `${c.short} が ${c.got}件（${c.n}件のはず）`).join("、")}。` +
+          "npm run build:sql を流してから、supabase/apply-all.sql を SQL Editor で実行してください",
+      );
     }
-    return `${want}件`;
+    return `${want}件（${got.map((c) => `${c.short} ${c.got}`).join("／")}）`;
   });
 
   await check("enrollment", async () => {
