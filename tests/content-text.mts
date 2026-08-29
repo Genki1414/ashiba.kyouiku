@@ -34,7 +34,7 @@ const ALLOW = [
   [0xff00, 0xffef],   // 全角の英数字・記号・半角カナ
 ] as const;
 /* 教材で実際に使っている、上に入らない字 */
-const EXTRA = new Set([..."①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮—…〜※→←↑↓°±×÷≦≧♪"]);
+const EXTRA = new Set([..."①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮—…〜※→←↑↓°±×÷≦≧♪○◯●△▲□■"]);
 
 const okChar = (ch: string) => {
   const o = ch.codePointAt(0)!;
@@ -135,9 +135,21 @@ if (existsSync(wip)) {
     check(ashiba / l.script.length <= 0.25,
       `職長 ${f}: 足場の話に寄り切っていない（いま ${Math.round((ashiba / l.script.length) * 100)}%／25%まで）`);
 
-    /* 読み上げに乗るのは台本なので、そこは特に厳しく見る */
-    const eng = l.script.flatMap((x, i) => latinWords(x).map((w) => `${i + 1}行目「${w}」… ${x.slice(0, 34)}`));
-    check(eng.length === 0, `職長 ${f}: 台本に英語の単語が混ざっている\n    ${eng.slice(0, 8).join("\n    ")}`);
+    /* 台本だけでなく、図解と事例の文にも同じ見張りをかける。
+       台本しか見ていなかったので、事例に紛れた英語を拾えなかった */
+    const texts: string[] = [];
+    /* 目印（id）と種類（type）は英字でよい。読む文だけを集める */
+    const SKIP = new Set(["id", "type", "scene", "ok", "min"]);
+    const grab = (v: unknown) => {
+      if (typeof v === "string") texts.push(v);
+      else if (Array.isArray(v)) v.forEach(grab);
+      else if (v && typeof v === "object") {
+        for (const [k, x] of Object.entries(v)) if (!SKIP.has(k)) grab(x);
+      }
+    };
+    grab({ script: l.script, figures: l.figures, cases: l.cases, quiz: l.quiz });
+    const eng = texts.flatMap((x) => latinWords(x).map((w) => `「${w}」… ${x.slice(0, 34)}`));
+    check(eng.length === 0, `職長 ${f}: 英語の単語が混ざっている\n    ${eng.slice(0, 8).join("\n    ")}`);
     check(f === `${l.id}.json`, `職長 ${f}: ファイル名と単元の目印が合っている（${l.id}）`);
 
     /* 時間の見積りが、法定の時間とかけ離れていないか。
