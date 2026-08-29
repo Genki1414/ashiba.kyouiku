@@ -2378,7 +2378,7 @@ grant execute on function public.schema_version() to anon, authenticated, servic
 -- ═══════════════════════════════════════════════════════════
 insert into public.courses (id, name, basis, total_min, sort_order) values
   ('ashiba', '足場の組立て等の業務に係る特別教育', '労働安全衛生法第59条第3項／労働安全衛生規則第36条第39号', 360, 1),
-  ('shokucho', '職長・安全衛生責任者教育', '労働安全衛生法第60条／労働安全衛生規則第40条', 720, 2)
+  ('shokucho', '職長・安全衛生責任者教育', '労働安全衛生法第60条／労働安全衛生規則第40条', 840, 2)
 on conflict (id) do update
   set name       = excluded.name,
       basis      = excluded.basis,

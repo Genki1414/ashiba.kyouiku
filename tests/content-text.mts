@@ -16,6 +16,8 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { CurriculumSchema, LessonSchema } from "../src/types/curriculum";
+import { COURSES } from "../src/content/courses";
+import { SYLLABUS, syllabusOf } from "../src/content/syllabus";
 
 let ok = 0;
 let ng = 0;
@@ -55,6 +57,23 @@ function scan(where: string, v: unknown, hits: string[]) {
     for (const [k, x] of Object.entries(v)) scan(`${where}.${k}`, x, hits);
   }
 }
+
+/* ── 章立ての出どころ ──
+   章立てを頭だけで決めると必ずずれる（docs/19-教材の章立ての決まり.md）。
+   実際、職長教育では細目が1つ抜け、安全衛生責任者教育の2時間がまるごと抜けた。
+   だから、講座には必ず出どころを残させる */
+for (const c of COURSES) {
+  const sy = syllabusOf(c.id);
+  check(!!sy, `${c.id}: 章立ての出どころが syllabus.ts にある`);
+  if (!sy) continue;
+  check(sy.basis === c.basis, `${c.id}: 根拠の条文が courses.ts と一致している`);
+  check(sy.totalMin === c.totalMin, `${c.id}: 時間が courses.ts と一致している（${sy.totalMin} / ${c.totalMin}）`);
+  check(!!sy.saimokuFrom.trim(), `${c.id}: 細目をどの条文から取ったかが書いてある`);
+  check(sy.refs.length >= 1, `${c.id}: 参考にした公開の章立てが書いてある`);
+  check(sy.refs.every((r) => !!r.name.trim() && !!r.what.trim()), `${c.id}: 参考の中身まで書いてある`);
+  check(!!sy.doc.trim(), `${c.id}: 裏取りの記録がどこにあるか書いてある`);
+}
+check(SYLLABUS.length === COURSES.length, `出どころの数と講座の数が合っている（${SYLLABUS.length} / ${COURSES.length}）`);
 
 const dir = path.join(process.cwd(), "content", "courses");
 const files = readdirSync(dir).filter((f) => f.endsWith(".json"));

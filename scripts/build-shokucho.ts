@@ -12,7 +12,7 @@
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import path from "node:path";
 import { CurriculumSchema, LessonSchema } from "../src/types/curriculum";
-import { SHOKUCHO, SHOKUCHO_TOTAL_MIN, TALK_MIN } from "../src/content/shokucho";
+import { SHOKUCHO, SEKININSHA, COURSE_TOTAL_MIN, TALK_MIN } from "../src/content/shokucho";
 import { findCourse } from "../src/content/courses";
 
 /* どの科目に、どの単元が入るか。時間は各単元の json が持つ。
@@ -20,8 +20,10 @@ import { findCourse } from "../src/content/courses";
    **単元は、法定の細目に1つずつ対応させる**（安衛則第40条第2項の表の左欄）。
    細目の数＝単元の数。だから並びは shokucho.ts の saimoku から作る。
    こうしておくと、細目のどれかが抜けたまま公開されることが無い。 */
+const ALL = [...SHOKUCHO, SEKININSHA];
+
 const LAYOUT: Record<number, string[]> = Object.fromEntries(
-  SHOKUCHO.map((s) => [s.id, s.saimoku.map((_, i) => `${s.id}-${i + 1}`)]),
+  ALL.map((s) => [s.id, s.saimoku.map((_, i) => `${s.id}-${i + 1}`)]),
 );
 
 const root = process.cwd();
@@ -29,7 +31,7 @@ const src = path.join(root, "content", "shokucho");
 
 const subjects = [];
 let missing = 0;
-for (const s of SHOKUCHO) {
+for (const s of ALL) {
   const lessons = [];
   for (const id of LAYOUT[s.id] ?? []) {
     const f = path.join(src, `${id}.json`);
@@ -61,8 +63,8 @@ if (missing) {
 }
 
 const total = subjects.reduce((n, s) => n + s.legal_min, 0);
-if (total + TALK_MIN !== SHOKUCHO_TOTAL_MIN) {
-  console.error(`NG 各自で見るぶん ${total}分 ＋ 討議 ${TALK_MIN}分 ≠ ${SHOKUCHO_TOTAL_MIN}分`);
+if (total + TALK_MIN !== COURSE_TOTAL_MIN) {
+  console.error(`NG 各自で見るぶん ${total}分 ＋ 討議 ${TALK_MIN}分 ≠ ${COURSE_TOTAL_MIN}分`);
   process.exit(1);
 }
 
@@ -88,5 +90,5 @@ const out = CurriculumSchema.parse({
 });
 
 writeFileSync(path.join(root, "content", "courses", "shokucho.json"), JSON.stringify(out, null, 1) + "\n");
-console.log(`OK  content/courses/shokucho.json（各自 ${total}分 ＋ 討議 ${TALK_MIN}分 = ${SHOKUCHO_TOTAL_MIN}分）`);
+console.log(`OK  content/courses/shokucho.json（各自 ${total}分 ＋ 討議 ${TALK_MIN}分 = ${COURSE_TOTAL_MIN}分＝14時間）`);
 console.log(`    台本 ${stats.narration_lines}行 / ${stats.narration_chars}字　図解 ${stats.figures}　事例 ${stats.cases}　確認 ${stats.quiz}`);

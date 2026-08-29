@@ -8,7 +8,7 @@ import {
   judgeHours, judgeTalk, attendedMin, planTotal, shortOf, hm, TALK_MAX,
   type SubjectHours,
 } from "@/lib/hours";
-import { SHOKUCHO, SHOKUCHO_TOTAL_MIN, TALK_MIN, TALK_SUBJECT } from "@/content/shokucho";
+import { SHOKUCHO, SHOKUCHO_TOTAL_MIN, SEKININSHA, SEKININSHA_MIN, COURSE_TOTAL_MIN, TALK_MIN, TALK_SUBJECT } from "@/content/shokucho";
 import { inWindow, EARLY_MIN, LATE_MIN } from "@/lib/liveQuery";
 
 let ok = 0;
@@ -81,6 +81,17 @@ console.log("── 職長教育の中身 ──");
   /* 法定の細目（安衛則第40条第2項の表の左欄）が、科目ごとに入っているか。
      単元はこの細目に1つずつ対応させる。細目が抜けると、
      12時間ぶんの中身に穴が空いたまま公開されることになる */
+  /* 建設業は、職長教育12時間に安全衛生責任者教育2時間を足して14時間。
+     講座の名前を「職長・安全衛生責任者教育」にしている以上、この2時間が要る。
+     12時間だけで修了証を出すと、受けていない教育の名前が紙に載る */
+  check(SEKININSHA_MIN === 120, "安全衛生責任者教育は2時間");
+  check(COURSE_TOTAL_MIN === 840, `講座ぜんぶで14時間（いま ${hm(COURSE_TOTAL_MIN)}）`);
+  check(COURSE_TOTAL_MIN === SHOKUCHO_TOTAL_MIN + SEKININSHA_MIN, "12時間＋2時間になっている");
+  check(SEKININSHA.saimoku.length >= 1, "安全衛生責任者のぶんにも章立てがある");
+  check(!SHOKUCHO.some((s) => s.id === SEKININSHA.id), "法定の5科目とは別に持つ（混ぜない）");
+  const sekiPlan = SEKININSHA.plan.lecture + SEKININSHA.plan.talk + SEKININSHA.plan.drill;
+  check(sekiPlan === SEKININSHA_MIN, `安全衛生責任者の割り振りが2時間ぴったり（いま ${hm(sekiPlan)}）`);
+
   const SAIMOKU = 2 + 2 + 3 + 2 + 2; // 11
   const saimokuAll = SHOKUCHO.reduce((n, s) => n + s.saimoku.length, 0);
   check(saimokuAll === SAIMOKU, `細目は全部で11（いま ${saimokuAll}）`);

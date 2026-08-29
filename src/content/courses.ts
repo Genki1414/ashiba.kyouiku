@@ -90,7 +90,9 @@ export const COURSES: CourseMeta[] = [
     name: "職長・安全衛生責任者教育",
     short: "職長・安責者",
     basis: "労働安全衛生法第60条／労働安全衛生規則第40条",
-    totalMin: 720,
+    /* 職長教育の12時間に、安全衛生責任者教育の2時間を足して14時間。
+       建設業では一体で実施し、1枚の修了証を出す（src/content/shokucho.ts） */
+    totalMin: 840,
     file: "shokucho.json",
     ready: false,
   },
