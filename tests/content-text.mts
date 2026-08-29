@@ -55,7 +55,7 @@ const okChar = (ch: string) => {
 const WORD_OK = new Set([
   "KY", "KYT", "KYK", "PDCA", "RA", "TBM", "OJT", "TWI", "QC", "SDS",
   "cm", "mm", "kg", "kN", "mA", "kW", "ppm", "dB", "CSV", "PDF", "URL",
-  "Zoom", "WEB", "Web", "ISO", "JIS", "LED",
+  "Zoom", "WEB", "Web", "ISO", "JIS", "LED", "AED", "CPR", "SDGs",
 ]);
 
 function latinWords(v: string): string[] {
