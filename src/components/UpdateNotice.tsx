@@ -5,6 +5,18 @@ import { usePathname } from "next/navigation";
 import { LATEST, unseen, type Release } from "@/content/changelog";
 import { Btn } from "@/components/ui/Btn";
 
+/* お知らせの本文で **ここ** と書いたところを太字にする。
+
+   そのまま出していたので、画面に「**」が見えていた。
+   使えるのは太字だけ。ほかの記法は入れない
+   （お知らせは自分たちで書くもので、外から来る文ではない）。 */
+function bold(t: string): React.ReactNode[] {
+  return t.split(/\*\*(.+?)\*\*/g).map((part, i) =>
+    i % 2 === 1 ? <strong key={i} className="font-extrabold">{part}</strong> : part,
+  );
+}
+
+
 /* 開いたときに、前に見たときから何が変わったかを知らせる。
    一度閉じれば、次の更新まで出ない。 */
 
@@ -68,7 +80,7 @@ export function UpdateNotice() {
                   >
                     {c.k}
                   </span>
-                  <span className="text-[12.5px] leading-relaxed">{c.t}</span>
+                  <span className="text-[12.5px] leading-relaxed">{bold(c.t)}</span>
                 </div>
               ))}
             </div>

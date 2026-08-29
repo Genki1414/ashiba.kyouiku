@@ -28,6 +28,8 @@
     "test:record": "tsx tests/record.ts",
     "test:authgate": "tsx tests/auth-gate.ts",
     "test:cert": "tsx tests/cert.ts",
+    "test:issue": "tsx tests/issue.ts",
+    "test:e2e:issue": "node tests/e2e-issue.mjs",
     "test:sfx": "tsx tests/sfx.mts",
     "test:face": "tsx tests/face.mts",
     "test:ch1": "tsx tests/ch1-rules.ts",

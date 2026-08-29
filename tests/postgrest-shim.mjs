@@ -135,7 +135,17 @@ const server = createServer(async (req, res) => {
       const sql = `select public.${ident(name)}(${keys
         .map((k, i) => `${ident(k)} => $${i + 1}`)
         .join(", ")}) as result`;
-      const r = await client.query(sql, keys.map((k) => args[k]));
+      /* json / jsonb の引数は、文字列にしてから渡す。
+         そのまま渡すと node-postgres が配列を Postgres の配列リテラル
+         （{...}）にしてしまい、jsonb の引数で構文エラーになる。
+         本物の PostgREST は JSON のまま渡すので、そちらに合わせる。 */
+      const r = await client.query(
+        sql,
+        keys.map((k) => {
+          const v = args[k];
+          return v !== null && typeof v === "object" ? JSON.stringify(v) : v;
+        }),
+      );
       await client.query("commit");
       return send(200, r.rows[0].result ?? null);
     }

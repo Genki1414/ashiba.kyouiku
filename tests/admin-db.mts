@@ -21,7 +21,11 @@ import { KEEP_YEARS, erasable, keepUntil } from "@/lib/retention";
 import { isFreeChapter, trainFor } from "@/lib/trainingGate";
 import { buildCheck, checkTotals } from "@/training/verifyLog";
 import { maySeeInvoice, unpaidInvoices } from "@/lib/invoiceAccess";
-import { myLive, openSessions, doneOf, minOf, talkDone, inWindow } from "@/lib/liveQuery";
+import {
+  myLive, openSessions, doneOf, minOf, talkDone, inWindow, mySessions, mergeSessions,
+} from "@/lib/liveQuery";
+import { requestOf, slotsOf, toState, queue } from "@/lib/issueQuery";
+import { gateReason, sortQueue, waitingCount } from "@/lib/issue";
 import { TALK_MIN, TALK_SUBJECT } from "@/content/shokucho";
 
 const URL = process.env.SHIM_URL ?? "http://127.0.0.1:54321";
@@ -1656,6 +1660,221 @@ console.log("── 個人の注文 ──");
   await raw.query("delete from public.orders where user_id = any($1::uuid[])", [PEOPLE]);
   await raw.query("delete from public.orders where id = $1", [coOrder.rows[0].id]);
   await raw.query("delete from public.training_access where user_id = any($1::uuid[])", [PEOPLE]);
+}
+
+console.log("── 修了証の発行申請 ──");
+{
+  /* 学科を見終わった人が申請を出す。こちらが討議の候補日を返し、
+     本人が選んだ日に討議をやって、そこではじめて修了になる。
+     押した瞬間に紙が出ないことを、本物のスキーマで確かめる。 */
+  const E9 = "aaaaaaaa-0000-0000-0000-000000000029";
+  const U9 = "aaaaaaaa-0000-0000-0000-000000000019";
+  await raw.query("delete from public.cert_requests where enrollment_id in ($1, $2)", [E2, E9]);
+  await raw.query("delete from public.live_attend where user_id = any($1::uuid[])", [[U2, U9]]);
+  await raw.query("delete from public.live_sessions where by_request", []);
+  await raw.query("delete from public.enrollments where id = $1", [E9]);
+  await raw.query("delete from public.users where id = $1", [U9]);
+  await raw.query("delete from auth.users where id = $1", [U9]);
+  await raw.query(
+    "insert into auth.users (id, email) values ($1, 'kari@example.com') on conflict do nothing",
+    [U9],
+  );
+  await raw.query("update public.users set company_id = null, name = 'かり' where id = $1", [U9]);
+  await raw.query(
+    "insert into public.enrollments (id, user_id, course_id) values ($1, $2, 'shokucho')",
+    [E9, U9],
+  );
+
+  /* 申請を出す */
+  const r1 = await db.rpc("request_cert", {
+    p_enrollment: E2, p_user: U2, p_course: "shokucho", p_kind: "talk",
+    p_subject: TALK_SUBJECT, p_note: "平日の夕方だと助かります",
+  });
+  check(!r1.error && typeof r1.data === "string", `申請を出せる（${r1.error?.message ?? "ok"}）`);
+  const r2 = await db.rpc("request_cert", {
+    p_enrollment: E9, p_user: U9, p_course: "shokucho", p_kind: "talk",
+    p_subject: TALK_SUBJECT, p_note: "",
+  });
+  check(!r2.error, `もう一人も出せる（${r2.error?.message ?? "ok"}）`);
+
+  const got = await requestOf(db, E2);
+  check(got?.status === "open", `出したては返事待ち（${got?.status}）`);
+  check(got?.kind === "talk", "討議の関門として記録される");
+  check(got?.talkSubject === TALK_SUBJECT, `討議を数える科目が入る（${got?.talkSubject}）`);
+  check(got?.note.includes("夕方"), "本人の一言が残る");
+  /* ここが肝。申請しただけでは修了証を出さない */
+  check(
+    gateReason("talk", toState(got!, [])).length > 0,
+    "申請しただけでは、まだ修了証は出せない",
+  );
+
+  /* 1受講に1件。二重には作らない */
+  const again = await db.rpc("request_cert", {
+    p_enrollment: E2, p_user: U2, p_course: "shokucho", p_kind: "talk",
+    p_subject: TALK_SUBJECT, p_note: "書き直し",
+  });
+  check(!again.error && again.data === r1.data, "出し直しても同じ1件を使う");
+  const n1 = (await raw.query(
+    "select count(*)::int as n from public.cert_requests where enrollment_id = $1", [E2],
+  )).rows[0].n;
+  check(n1 === 1, `1受講につき1件（いま ${n1}件）`);
+
+  /* 候補日を出す。同じ日を2人に出す */
+  const d5 = new Date(Date.now() + 5 * 86400000);
+  d5.setSeconds(0, 0);
+  const d6 = new Date(Date.now() + 6 * 86400000);
+  d6.setSeconds(0, 0);
+  const off = await db.rpc("offer_slots", {
+    p_request: r1.data, p_by: "owner@example.com", p_note: "ご都合のよい日を",
+    p_slots: [
+      { startsAt: d5.toISOString(), minutes: TALK_MIN, note: "" },
+      { startsAt: d6.toISOString(), minutes: TALK_MIN, note: "" },
+    ],
+  });
+  check(!off.error && off.data === 2, `候補日を2件出せる（${off.error?.message ?? off.data}）`);
+  await db.rpc("offer_slots", {
+    p_request: r2.data, p_by: "owner@example.com", p_note: "",
+    p_slots: [{ startsAt: d5.toISOString(), minutes: TALK_MIN, note: "" }],
+  });
+
+  const offered = await requestOf(db, E2);
+  check(offered?.status === "offered", `候補日を出すと offered（${offered?.status}）`);
+  const slots = await slotsOf(db, r1.data as string);
+  check(slots.length === 2, `候補日が2件（${slots.length}件）`);
+  check(slots[0].startsAt < slots[1].startsAt, "早い順に並ぶ");
+  check(slots.every((x) => !x.picked), "まだ誰も選んでいない");
+  check(
+    gateReason("talk", toState(offered!, slots)).includes("選んで"),
+    "候補日が来たら、選ぶよう案内する",
+  );
+
+  /* よその人の候補日は選べない */
+  const steal = await db.rpc("pick_slot", { p_slot: slots[0].id, p_user: U9 });
+  check(!!steal.error, "よその申請の候補日は選べない");
+
+  /* 2人が同じ日を選ぶ → 同じ回に入る（別々の部屋になったら討議にならない） */
+  const p1 = await db.rpc("pick_slot", { p_slot: slots[0].id, p_user: U2 });
+  check(!p1.error && typeof p1.data === "string", `候補日を選べる（${p1.error?.message ?? "ok"}）`);
+  const slots9 = await slotsOf(db, r2.data as string);
+  const p2 = await db.rpc("pick_slot", { p_slot: slots9[0].id, p_user: U9 });
+  check(!p2.error, `もう一人も選べる（${p2.error?.message ?? "ok"}）`);
+  check(p1.data === p2.data, "同じ日を選んだ2人は、同じ回に入る");
+
+  const picked = await requestOf(db, E2);
+  check(picked?.status === "picked", `選ぶと picked（${picked?.status}）`);
+  check(picked?.sessionId === p1.data, "どの回になったかが残る");
+  const pickedSlots = await slotsOf(db, r1.data as string);
+  check(pickedSlots.filter((x) => x.picked).length === 1, "選んだ候補は1件だけ");
+
+  /* 申請から作った回は、みんなの一覧には出さない。
+     出すと、一人で受けている人の討議によその人が申し込める */
+  const openList = await openSessions(db, "shokucho", null);
+  check(
+    !openList.some((x) => x.id === p1.data),
+    "申請から作った回は、申し込みの一覧に出ない",
+  );
+  const own = await mySessions(db, [p1.data as string]);
+  check(own.length === 1 && own[0].byRequest, "本人には、申し込みの行から引いて出せる");
+  check(
+    mergeSessions(openList, own).some((x) => x.id === p1.data),
+    "一覧と自分の回を、重複なく1本にできる",
+  );
+
+  /* 日が決まったあとに出し直せない（勝手に日が消える） */
+  const redo = await db.rpc("request_cert", {
+    p_enrollment: E2, p_user: U2, p_course: "shokucho", p_kind: "talk",
+    p_subject: TALK_SUBJECT, p_note: "",
+  });
+  check(!!redo.error, "日が決まったあとは、勝手に出し直せない");
+
+  /* こちらの都合で、日を出し直すことがある。
+     前の回の申し込みを外さないと、その人が2つの回に居ることになる */
+  {
+    const before = (await raw.query(
+      "select count(*)::int as n from public.live_attend where session_id = $1", [p1.data],
+    )).rows[0].n;
+    check(before === 2, `出し直す前は2人（${before}人）`);
+    const re = await db.rpc("offer_slots", {
+      p_request: r1.data, p_by: "owner@example.com", p_note: "都合が変わりました",
+      p_slots: [{ startsAt: new Date(Date.now() + 9 * 86400000).toISOString(), minutes: TALK_MIN, note: "" }],
+    });
+    check(!re.error, `日が決まったあとでも出し直せる（${re.error?.message ?? "ok"}）`);
+    const back = await requestOf(db, E2);
+    check(back?.status === "offered", `出し直すと offered に戻る（${back?.status}）`);
+    check(back?.sessionId === null, "前の回との紐付けが外れる");
+    const after = (await raw.query(
+      "select count(*)::int as n from public.live_attend where session_id = $1 and user_id = $2",
+      [p1.data, U2],
+    )).rows[0].n;
+    check(after === 0, `前の回の申し込みも外れる（${after}件）`);
+    const still = (await raw.query(
+      "select count(*)::int as n from public.live_attend where session_id = $1", [p1.data],
+    )).rows[0].n;
+    check(still === 1, `同じ回の別の人はそのまま（${still}人）`);
+    const closed = (await raw.query(
+      "select closed_at from public.live_sessions where id = $1", [p1.data],
+    )).rows[0].closed_at;
+    check(!closed, "まだ人が居る回は閉じない");
+
+    /* もう一度選び直して、通せる状態に戻す */
+    const s2 = await slotsOf(db, r1.data as string);
+    const again2 = await db.rpc("pick_slot", { p_slot: s2[0].id, p_user: U2 });
+    check(!again2.error, `出し直した候補を選べる（${again2.error?.message ?? "ok"}）`);
+    check(again2.data !== p1.data, "新しい回になる");
+  }
+
+  /* 討議が済むまで通らない。通してはじめて修了証が出せる */
+  const cl = await db.rpc("clear_request", {
+    p_request: r1.data, p_note: "お疲れさまでした", p_by: "owner@example.com",
+  });
+  check(!cl.error, `通せる（${cl.error?.message ?? "ok"}）`);
+  const cleared = await requestOf(db, E2);
+  check(cleared?.status === "cleared", `通すと cleared（${cleared?.status}）`);
+  check(!!cleared?.clearedAt, "通した時刻が残る");
+  check(gateReason("talk", toState(cleared!, [])) === "", "通ったら、修了証を止める理由が無くなる");
+
+  /* 二度押しても壊れない */
+  const twice = await db.rpc("clear_request", { p_request: r1.data, p_note: "", p_by: "" });
+  check(!twice.error, "二度押しても壊れない");
+
+  /* 修了したものは触らせない（修了を取り消すことになる） */
+  const after = await db.rpc("request_cert", {
+    p_enrollment: E2, p_user: U2, p_course: "shokucho", p_kind: "talk",
+    p_subject: TALK_SUBJECT, p_note: "",
+  });
+  check(!!after.error, "修了したあとは、出し直せない");
+
+  /* 断るときは理由が要る。理由は本人に届く */
+  const noWhy = await db.rpc("decline_request", { p_request: r2.data, p_note: "  ", p_by: "o" });
+  check(!!noWhy.error, "理由なしでは断れない");
+  const dec = await db.rpc("decline_request", {
+    p_request: r2.data, p_note: "その週は都合がつきません", p_by: "owner@example.com",
+  });
+  check(!dec.error, `理由を付ければ断れる（${dec.error?.message ?? "ok"}）`);
+  const declined = await requestOf(db, E9);
+  check(declined?.status === "declined", `断ると declined（${declined?.status}）`);
+  check(
+    gateReason("talk", toState(declined!, [])).includes("都合がつきません"),
+    "断った理由が本人に届く",
+  );
+
+  /* 本部の一覧。待たせている人が上に来る */
+  const q = await queue(db);
+  check(q.length >= 2, `一覧に出る（${q.length}件）`);
+  check(q.some((x) => x.name === "かり"), "名前が引けている");
+  const sorted = sortQueue(q);
+  check(
+    sorted.findIndex((x) => x.status === "cleared") >= sorted.findIndex((x) => x.status === "declined"),
+    "済んだものは後ろ",
+  );
+  check(typeof waitingCount(q) === "number", "返事待ちの数を数えられる");
+
+  await raw.query("delete from public.cert_requests where enrollment_id in ($1, $2)", [E2, E9]);
+  await raw.query("delete from public.live_attend where user_id = any($1::uuid[])", [[U2, U9]]);
+  await raw.query("delete from public.live_sessions where by_request", []);
+  await raw.query("delete from public.enrollments where id = $1", [E9]);
+  await raw.query("delete from public.users where id = $1", [U9]);
+  await raw.query("delete from auth.users where id = $1", [U9]);
 }
 
 await raw.end();

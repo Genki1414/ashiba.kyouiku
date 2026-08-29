@@ -352,6 +352,52 @@ console.log("── データベースの版 ──");
   check(!/NEED_SCHEMA = "/.test(health), "つながり具合の確認に、版を手で書いていない");
 }
 
+console.log("── 修了証の発行申請 ──");
+{
+  /* 学科のあとに討議や実技が残る講座は、押した瞬間に紙を出さない。
+     ここが崩れると、まだ修了していない人に修了証が出る */
+  const cert = read("src/app/api/cert/route.ts");
+  check(/gateOf\(/.test(cert), "修了証は、講座の関門を見ている");
+  check(/gateReason\(/.test(cert), "関門が通っていない理由を、そのまま断りに使う");
+  check(/eligible\(\{[^}]*gate/s.test(cert), "関門を判定に渡している");
+
+  const lib = read("src/lib/cert.ts");
+  check(/gate\?\.reason/.test(lib), "関門が残っていれば、修了証を出さない");
+
+  /* 候補日を出すのは本部だけ。受講する人には作らせない */
+  const mine = read("src/app/api/issue/route.ts");
+  check(!/offer_slots/.test(mine), "受講する人の側から、候補日は作れない");
+  check(!/clear_request/.test(mine), "受講する人の側から、自分を修了にできない");
+  check(/canRequest\(/.test(mine), "学科が終わるまで申請を受けない");
+
+  const own = read("src/app/api/owner/issue/route.ts");
+  check(/currentOwner\(/.test(own), "本部かどうかを見ている");
+  check(/checkSlots\(/.test(own), "出す候補日を、先に検査している");
+
+  /* 申請から作った回を、みんなの一覧に出さない
+     （一人で受けている人の討議に、よその人が申し込める） */
+  const live = read("src/lib/liveQuery.ts");
+  check(/by_request/.test(live), "申請から作った回に印が付いている");
+  check(/\.eq\("by_request", false\)/.test(live), "申し込みの一覧からは外している");
+
+  /* 書き込みのポリシーを置かない（＝画面から直接は書けない） */
+  const sql = read("supabase/migrations/0023_issue.sql");
+  /* create policy … for insert / update が無いこと。
+     行ロックの for update とは別物なので、policy の文だけを見る */
+  const policies = [...sql.matchAll(/create policy[\s\S]*?for (\w+)/g)].map((m) => m[1]);
+  check(policies.length > 0, "select のポリシーは置いてある");
+  check(
+    policies.every((p) => p === "select"),
+    "申請の表に、書き込みのポリシーを置いていない",
+    policies.join(","),
+  );
+  check(/security definer/.test(sql), "状態を進めるのは関数だけ");
+  check(
+    /revoke all on function public\.pick_slot/.test(sql),
+    "関数は service_role だけが呼べる",
+  );
+}
+
 console.log("── 取得済みの資格 ──");
 {
   /* 自己申告と「会社が確かめた」は分ける。

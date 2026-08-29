@@ -6,6 +6,7 @@ import { drawCert } from "@/components/edu/drawCert";
 import type { CertData } from "@/lib/cert";
 import { KIND_TEXT, type CourseKind } from "@/content/courses";
 import { Btn } from "@/components/ui/Btn";
+import { IssuePanel } from "@/components/edu/IssuePanel";
 
 /* 修了証の画面。
    出せるかどうかはサーバが決める（/api/cert）。
@@ -39,6 +40,10 @@ export function CertClient({ courseId }: { courseId: string }) {
   const [birth, setBirth] = useState("");
   const [busy, setBusy] = useState(false);
   const [url, setUrl] = useState<string | null>(null);
+  /* 関門のある講座か。あるなら、出せない理由は申請の枠の中で言う。
+     上にも出すと、同じ文が2回並ぶ */
+  const [gated, setGated] = useState(false);
+  const onGate = useCallback((g: string | null) => setGated(!!g), []);
 
   const load = useCallback(async () => {
     try {
@@ -55,7 +60,7 @@ export function CertClient({ courseId }: { courseId: string }) {
     } catch {
       setReason("うまく読み込めませんでした。電波の届く所でもう一度。");
     }
-  }, []);
+  }, [courseId]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -124,16 +129,19 @@ export function CertClient({ courseId }: { courseId: string }) {
           ← 科目一覧
         </Link>
         <h1 className="mt-2 text-[19px] font-black">修了証</h1>
-        {reason ? (
+        {reason && !gated ? (
           <div
             className="mt-4 rounded-xl border border-line bg-panel p-4 text-[13px] leading-relaxed text-dim"
             data-testid="cert-reason"
           >
             {reason}
           </div>
-        ) : (
+        ) : reason ? null : (
           <div className="mt-4 text-[13px] text-dim">読み込んでいます…</div>
         )}
+        {/* 学科のあとに討議や実技が残る講座は、ここから発行申請を出す。
+            出しても、その場では発行されない（討議が済んでいないため） */}
+        <IssuePanel courseId={courseId} onChange={() => void load()} onGate={onGate} />
       </main>
     );
   }
@@ -205,6 +213,8 @@ export function CertClient({ courseId }: { courseId: string }) {
           画像として保存する
         </Btn>
       </div>
+
+      <IssuePanel courseId={courseId} onChange={() => void load()} onGate={onGate} />
 
       <p className="mt-5 text-[11.5px] leading-relaxed text-dim2">
         事業者名と教育実施責任者は空欄で出ます。刷ってから書き入れ、事業者の印を押してください。

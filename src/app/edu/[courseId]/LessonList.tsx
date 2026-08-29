@@ -185,12 +185,17 @@ export function LessonList({
           </div>
         )}
 
-        {/* 修了証。試験に受かっていれば出せる */}
+        {/* 修了証。試験に受かっていれば出せる。
+
+            討議や実技が残る講座は、ここが「発行申請」の入口になる。
+            全単元を見終わって申請を出すと、こちらが候補日を返す
+            （src/components/edu/IssuePanel.tsx） */}
         <Link
           href={`/edu/${course.id}/cert`}
+          data-testid="go-cert"
           className="mt-2 block rounded-lg border border-line p-3 text-center text-[12.5px] text-dim no-underline"
         >
-          修了証を見る
+          {live ? "修了証と発行申請" : "修了証を見る"}
         </Link>
       </div>
     </main>

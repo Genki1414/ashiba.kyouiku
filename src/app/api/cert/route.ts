@@ -4,7 +4,10 @@ import { currentEnrollment } from "@/lib/enrollment";
 import { getCurriculum } from "@/lib/curriculum";
 import { eligible } from "@/lib/cert";
 import { issuerName, issuerResponsible } from "@/lib/issuer";
-import { findCourse, kindOf, type CourseKind } from "@/content/courses";
+import { gateReason } from "@/lib/issue";
+import { requestOf, slotsOf, toState } from "@/lib/issueQuery";
+import { myLive, doneOf, mySessions } from "@/lib/liveQuery";
+import { findCourse, gateOf, kindOf, type CourseKind } from "@/content/courses";
 
 /* 修了証。
    GET  … 出せるかどうかと、載せる中身を返す
@@ -69,7 +72,33 @@ async function gather(courseId: string): Promise<Gathered> {
     .limit(1)
     .maybeSingle();
 
-  const v = eligible({ lessons, lessonsPassed, examPassed: !!exam });
+  /* 学科のあとに残る関門（討議・実技）。
+     ここを見ないと、討議が済んでいない人に職長教育の修了証が出る。 */
+  const gate = gateOf(course);
+  let gateBlock: { reason: string } | null = null;
+  if (gate) {
+    const row = await requestOf(supabase, who.enrollmentId);
+    let st = row ? toState(row, await slotsOf(supabase, row.id)) : null;
+
+    /* 討議の日が決まっている人は、済んだかどうかをその場で見る。
+       時間・課題への回答・講師の確認の3つがそろっていれば通す。
+       本部がボタンを押すまで修了にならない作りにすると、
+       押し忘れた人がいつまでも修了できない。
+       講師の確認（teacher_ok）は judgeTalk の中で見ている。 */
+    if (row && row.status === "picked" && row.sessionId) {
+      const [ses] = await mySessions(supabase, [row.sessionId]);
+      const mine = await myLive(supabase, who.userId);
+      const m = ses ? mine.get(ses.id) : null;
+      if (ses && m && doneOf(m, ses.minutes).ok) {
+        await supabase.rpc("clear_request", { p_request: row.id, p_note: "", p_by: "" });
+        st = st ? { ...st, status: "cleared" } : st;
+      }
+    }
+    const reason = gateReason(gate, st);
+    if (reason) gateBlock = { reason };
+  }
+
+  const v = eligible({ lessons, lessonsPassed, examPassed: !!exam, gate: gateBlock });
   if (!v.ok) return { ok: false, status: 409, reason: v.reason };
 
   const { data: user } = await supabase

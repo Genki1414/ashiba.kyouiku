@@ -20,6 +20,8 @@ export type LiveSession = {
   roomUrl: string | null;
   note: string;
   closedAt: string | null;
+  /** 発行申請の候補日から作った回か。一覧には出さない */
+  byRequest: boolean;
   /** いま申し込んでいる人数 */
   booked: number;
 };
@@ -45,11 +47,12 @@ const toSession = (o: Record<string, unknown>, booked: number): LiveSession => (
   roomUrl: (o.room_url as string | null) ?? null,
   note: (o.note as string) ?? "",
   closedAt: (o.closed_at as string | null) ?? null,
+  byRequest: o.by_request === true,
   booked,
 });
 
 const COLS =
-  "id, course_id, subject_id, company_id, starts_at, minutes, capacity, teacher, room_url, note, closed_at";
+  "id, course_id, subject_id, company_id, starts_at, minutes, capacity, teacher, room_url, note, closed_at, by_request";
 
 /** 申し込める回。自分の事業者の回と、誰でも入れる回（company_id が空）だけ。
     よその会社の回に入れると、討議の中身がその会社の外に出る */
@@ -71,6 +74,13 @@ export async function openSessions(
       .select(COLS)
       .eq("course_id", courseId)
       .is("closed_at", null)
+      /* 発行申請の候補日から作った回は、一覧に出さない。
+
+         0022 は「company_id が空＝誰でも申し込める回」という作りなので、
+         申請から作った回をそのまま入れると、一人で受けている人の討議が
+         全員の一覧に出て、よその人が申し込めてしまう。
+         本人には、申し込みの行から引いて出す（mySessions）。 */
+      .eq("by_request", false)
       .gte("starts_at", from.toISOString());
 
   const [pub, ours] = await Promise.all([
@@ -95,6 +105,39 @@ export async function openSessions(
     n.set(k, (n.get(k) ?? 0) + 1);
   }
   return rows.map((r) => toSession(r, n.get(r.id as string) ?? 0));
+}
+
+/** その人が申し込んでいる回そのもの。
+
+    openSessions は「これから申し込める回」なので、申請から作った回は
+    入っていない。日が決まった人に自分の回を見せるには、こちらで引く。 */
+export async function mySessions(
+  supabase: SupabaseClient,
+  ids: string[],
+): Promise<LiveSession[]> {
+  if (!ids.length) return [];
+  const { data } = await supabase.from("live_sessions").select(COLS).in("id", ids);
+  const rows = ((data ?? []) as unknown as Record<string, unknown>[]).filter((r) => !r.closed_at);
+  if (!rows.length) return [];
+  const { data: att } = await supabase
+    .from("live_attend")
+    .select("session_id")
+    .in("session_id", rows.map((r) => r.id as string));
+  const n = new Map<string, number>();
+  for (const a of att ?? []) {
+    const k = a.session_id as string;
+    n.set(k, (n.get(k) ?? 0) + 1);
+  }
+  return rows
+    .map((r) => toSession(r, n.get(r.id as string) ?? 0))
+    .sort((a, b) => a.startsAt.localeCompare(b.startsAt));
+}
+
+/** 申し込める回と、自分の回を、重複なく1本に並べる */
+export function mergeSessions(open: LiveSession[], mine: LiveSession[]): LiveSession[] {
+  const seen = new Map<string, LiveSession>();
+  for (const s of [...open, ...mine]) seen.set(s.id, s);
+  return [...seen.values()].sort((a, b) => a.startsAt.localeCompare(b.startsAt));
 }
 
 /** その人が申し込んでいる回 */

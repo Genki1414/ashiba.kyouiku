@@ -1,6 +1,10 @@
 /* 修了証の決まり。画面から切り離してあるので、ここだけで試験できる。 */
 
-/** 修了証を出せるか。学科の全単元に合格し、修了試験にも受かっていること */
+/** 修了証を出せるか。学科の全単元に合格し、修了試験にも受かっていること。
+
+    学科のあとに討議や実技が残る講座（courses.ts の gate）は、
+    それも通っていること。ここを見ないと、**まだ修了していない人に
+    修了証が出る**。職長教育は討議が済むまで修了ではない。 */
 export type Requirement = {
   /** 単元の総数 */
   lessons: number;
@@ -8,6 +12,11 @@ export type Requirement = {
   lessonsPassed: number;
   /** 修了試験に合格しているか */
   examPassed: boolean;
+  /** 学科のあとの関門。無ければ書かない */
+  gate?: {
+    /** まだ通っていない理由。通っていれば空 */
+    reason: string;
+  } | null;
 };
 
 export type Eligibility =
@@ -23,6 +32,9 @@ export function eligible(r: Requirement): Eligibility {
   if (!r.examPassed) {
     return { ok: false, reason: "修了試験にまだ合格していません。" };
   }
+  /* 学科が終わっただけでは修了ではない講座がある。
+     討議・実技が残っているあいだは、ここで止める */
+  if (r.gate?.reason) return { ok: false, reason: r.gate.reason };
   return { ok: true };
 }
 
