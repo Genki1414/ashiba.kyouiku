@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getBrowserClient } from "@/lib/supabase/browser";
 import { claimDevice } from "@/lib/device";
+import { siteUrl } from "@/lib/siteUrl";
 import { Btn } from "@/components/ui/Btn";
 
 /* メールと合言葉でログインする。
@@ -15,8 +16,17 @@ import { Btn } from "@/components/ui/Btn";
 type Mode = "in" | "up" | "forgot";
 
 /* 合言葉を忘れたときの戻り先。
-   /auth/confirm が合図をログインに引き換えてから、ここへ送る */
-const RESET_TO = "/auth/confirm?next=/login/new";
+
+   登録の確認（/auth/confirm）とは道を分けてある。
+   いまの作りのリンクには code しか付いてこないので、
+   中身を見ても「決め直しかどうか」が分からない。
+   分からないまま中へ通すと、決め直さないまま入ってしまい、
+   次に閉じたときにまた入れなくなる。
+
+   住所そのものは決め打ち。Vercel は配信のたびに違う住所も配るので、
+   いま開いている住所を使うと、Supabase の許した住所と合わずに弾かれる
+   （src/lib/siteUrl.ts） */
+const RESET_PATH = "/auth/reset";
 
 export function LoginClient() {
   const router = useRouter();
@@ -62,7 +72,7 @@ export function LoginClient() {
     setBusy(true);
     try {
       await supabase.auth.resetPasswordForEmail(email.trim(), {
-        redirectTo: `${window.location.origin}${RESET_TO}`,
+        redirectTo: `${siteUrl(window.location.origin)}${RESET_PATH}`,
       });
     } catch {
       /* 押し黙る。ここで出し分けると、登録の有無が外から分かる */

@@ -5,6 +5,7 @@
 
 import { readFileSync } from "node:fs";
 import { OPEN_PATHS, isOpenPath } from "../src/lib/authGate";
+import { FALLBACK_SITE, siteUrl } from "../src/lib/siteUrl";
 
 let ok = 0;
 let ng = 0;
@@ -107,7 +108,8 @@ check(isOpenPath("/setup"), "/setup はログイン無しで開ける");
    その会社で唯一の教育担当者が忘れたら、頼む相手が居ない。
    ここが閉じていると、メールのリンクを踏んでも入れない */
 check(isOpenPath("/login/new"), "合言葉の決め直しは、ログイン無しで開ける");
-check(isOpenPath("/auth/confirm"), "メールのリンクの戻り先は開いている");
+check(isOpenPath("/auth/confirm"), "登録の確認リンクの戻り先は開いている");
+check(isOpenPath("/auth/reset"), "決め直しのリンクの戻り先も開いている");
 
 /* ── 見張りを通さないもの ──
    置いてあるだけのファイルまで見張ると、1本読むたびに
@@ -153,12 +155,45 @@ check(isOpenPath("/auth/confirm"), "メールのリンクの戻り先は開い�
   check(/login-forgot/.test(src), "「合言葉を忘れた」の入口がある");
   /* 登録の有無で出し分けると、誰が登録しているかを外から当てられる */
   check(/setMailed\(true\)/.test(src), "送れても送れなくても、同じ返事をする");
-  check(/next=\/login\/new/.test(src), "戻り先は、決め直しの画面");
+  check(/RESET_PATH = "\/auth\/reset"/.test(src), "戻り先は、決め直し専用の道");
+  /* Vercel は配信のたびに違う住所も配る。いま開いている住所を使うと、
+     Supabase の許した住所と合わずに弾かれる */
+  check(/siteUrl\(window\.location\.origin\)/.test(src), "戻り先の住所は決め打ちにする");
 
   const np = readFileSync(new URL("../src/app/login/new/NewPasswordClient.tsx", import.meta.url), "utf8");
   check(/updateUser\(\{ password/.test(np), "新しい合言葉を入れられる");
   /* リンクの期限切れ・別の端末。黙って失敗させない */
   check(/newpw-expired/.test(np), "リンクが使えないときは、そう言って送り直しへ戻す");
+}
+
+/* ── 決め直しの戻り先は、登録の確認と道を分ける ──
+   いまの作り（PKCE）のリンクには code しか付いてこないので、
+   中身を見ても「決め直しかどうか」が分からない。
+   分からないまま中へ通すと、決め直さないまま入ってしまい、
+   次に閉じたときにまた入れなくなる */
+{
+  const reset = readFileSync(new URL("../src/app/auth/reset/route.ts", import.meta.url), "utf8");
+  check(/confirmTo\(req, "\/login\/new"\)/.test(reset), "決め直しの道は、決め直しの画面へ送る");
+  const conf = readFileSync(new URL("../src/app/auth/confirm/route.ts", import.meta.url), "utf8");
+  check(/confirmTo\(req, "\/"\)/.test(conf), "登録の確認は、いままでどおり中へ通す");
+
+}
+
+/* ── 決め直しのメールの戻り先の住所 ── */
+{
+  check(FALLBACK_SITE.startsWith("https://"), "本番の住所は https");
+  check(!FALLBACK_SITE.endsWith("/"), "終わりに / を付けない（つなぐと // になる）");
+  /* 配信ごとの住所から送ると、Supabase の許した住所と合わずに弾かれる */
+  check(
+    siteUrl("https://ashiba-kyouiku-nkdr-abc123.vercel.app") === FALLBACK_SITE,
+    "配信ごとの住所で開いても、戻り先は本番の住所",
+  );
+  check(siteUrl(null) === FALLBACK_SITE, "住所が分からなくても、本番の住所");
+  /* 手元で直しているものを、本番へ飛ばして確かめられなくなると困る */
+  check(siteUrl("http://localhost:3100") === "http://localhost:3100", "手元なら手元へ戻す");
+  check(siteUrl("http://127.0.0.1:3000") === "http://127.0.0.1:3000", "127.0.0.1 も手元");
+  /* 名前に localhost が入っているだけの、よその住所に引っかからないこと */
+  check(siteUrl("https://localhost.example.com") === FALLBACK_SITE, "似た名前のよそは手元ではない");
 }
 
 console.log("── まとめ ──");
@@ -174,11 +209,15 @@ if (ng) process.exit(1);
   check(/login-forgot/.test(src), "「合言葉を忘れた」の入口がある");
   /* 登録の有無で出し分けると、誰が登録しているかを外から当てられる */
   check(/setMailed\(true\)/.test(src) && /finally/.test(src), "送れても送れなくても、同じ返事をする");
-  check(/next=\/login\/new/.test(src), "戻り先は、決め直しの画面");
+  check(/RESET_PATH = "\/auth\/reset"/.test(src), "戻り先は、決め直し専用の道");
+  /* Vercel は配信のたびに違う住所も配る。いま開いている住所を使うと、
+     Supabase の許した住所と合わずに弾かれる */
+  check(/siteUrl\(window\.location\.origin\)/.test(src), "戻り先の住所は決め打ちにする");
 
   const np = readFileSync(new URL("../src/app/login/new/NewPasswordClient.tsx", import.meta.url), "utf8");
   check(/updateUser\(\{ password/.test(np), "新しい合言葉を入れられる");
   /* リンクの期限切れ・別の端末。黙って失敗させない */
   check(/newpw-expired/.test(np), "リンクが使えないときは、そう言って送り直しへ戻す");
 }
+
 
