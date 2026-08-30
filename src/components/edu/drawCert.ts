@@ -15,7 +15,11 @@ import type { CertData } from "@/lib/cert";
 
    ── 事業者印 ──
    public/seal.png があれば、それを刷り込む。
-   無ければ朱色の枠だけ出して、手で押せるようにする。 */
+   無ければ朱色の枠だけ出して、手で押せるようにする。
+
+   拡張子は問わない（png / jpg / jpeg / webp を順に探す）。
+   手元の印の画像が png とは限らないので、変換させないため。
+   ただし iPhone の HEIC は、ブラウザによって出ないので不可。 */
 
 const JP = '"Hiragino Kaku Gothic ProN","Noto Sans JP","Yu Gothic",sans-serif';
 
@@ -33,37 +37,130 @@ export const CERT_H = px(CARD_MM.h); // 650
 export const CERT_MIN_H = CERT_H;
 export const certHeight = (): number => CERT_H;
 
-/** 事業者印の画像。置いてあれば刷り込む */
-export const SEAL_SRC = "/seal.png";
+/** 事業者印の画像。置いてあれば刷り込む。
+    拡張子を揃えさせない。手元にある形のまま public に置けばよい */
+export const SEAL_SRCS = ["/seal.png", "/seal.jpg", "/seal.jpeg", "/seal.webp"] as const;
+
+/** 古い呼び出しのために残してある */
+export const SEAL_SRC = SEAL_SRCS[0];
 
 /* 印の画像は読み込みに時間がかかる。1度読んだら覚えておく。
    読めなければ null のまま（枠だけ出す） */
 let sealImg: HTMLImageElement | null = null;
+/* 紙を抜いたあとの絵。1度作ったら使い回す */
+let sealArt: HTMLCanvasElement | null = null;
 let sealTried = false;
 
-/** 印の画像を先に読んでおく。読めたら true */
-export function loadSeal(src: string = SEAL_SRC): Promise<boolean> {
-  if (sealTried) return Promise.resolve(!!sealImg);
-  if (typeof window === "undefined") return Promise.resolve(false);
-  return new Promise((done) => {
+/* 1つ読んでみる。読めなければ false。次の拡張子へ進むため、ここでは覚えない */
+const tryOne = (src: string): Promise<HTMLImageElement | null> =>
+  new Promise((done) => {
     const img = new Image();
-    img.onload = () => {
-      sealImg = img;
-      sealTried = true;
-      done(true);
-    };
-    img.onerror = () => {
-      sealTried = true;
-      done(false);
-    };
+    img.onload = () => done(img);
+    img.onerror = () => done(null);
     img.src = src;
   });
+
+/** 印の画像を先に読んでおく。読めたら true。
+
+    候補を順に当たる。置いていない拡張子は 404 になるが、
+    画面には出ないし、1度で終わる（読めても読めなくても sealTried が立つ）。 */
+export async function loadSeal(
+  src?: string | readonly string[],
+): Promise<boolean> {
+  if (sealTried) return !!sealImg;
+  if (typeof window === "undefined") return false;
+  const list = src === undefined ? SEAL_SRCS : typeof src === "string" ? [src] : src;
+  for (const one of list) {
+    const img = await tryOne(one);
+    if (img) {
+      sealImg = img;
+      sealArt = null;
+      sealTried = true;
+      return true;
+    }
+  }
+  sealTried = true;
+  return false;
 }
 
 /** 試験から差し替えるための入口 */
 export function setSeal(img: HTMLImageElement | null): void {
   sealImg = img;
+  sealArt = null;
   sealTried = true;
+}
+
+/* 印の画像から紙を抜く。
+
+   写真やスキャンで撮った印は、白い紙の上に朱色が乗っている。
+   そのまま貼ると、生成りの台紙（#F7F4EC）の上に白い四角が出る。
+   朱肉の印に白いインクは無いので、白い所は紙だと見なして抜いてよい。
+
+   すでに透過を持っている画像（自分で背景を抜いた png）は、
+   作った人の意図なので触らない。 */
+
+/** 透過を持っているか。1画素でも透けていれば、抜く作業はしない */
+function hasAlpha(d: Uint8ClampedArray): boolean {
+  for (let i = 3; i < d.length; i += 4) if (d[i] < 250) return true;
+  return false;
+}
+
+/** 紙の明るさを見積もる。真っ白とは限らない（影・黄ばみ）ので、
+    明るいほうから1割の所を「紙」とみなす */
+function paperLevel(d: Uint8ClampedArray): number {
+  const hist = new Uint32Array(256);
+  let n = 0;
+  for (let i = 0; i < d.length; i += 4) {
+    hist[Math.round((d[i] + d[i + 1] + d[i + 2]) / 3)]++;
+    n++;
+  }
+  let seen = 0;
+  for (let v = 255; v >= 0; v--) {
+    seen += hist[v];
+    if (seen >= n * 0.1) return v;
+  }
+  return 255;
+}
+
+function knockOutPaper(img: HTMLImageElement): HTMLCanvasElement | null {
+  const w = img.naturalWidth || img.width;
+  const h = img.naturalHeight || img.height;
+  if (!w || !h) return null;
+  const cv = document.createElement("canvas");
+  cv.width = w;
+  cv.height = h;
+  const ctx = cv.getContext("2d", { willReadFrequently: true });
+  if (!ctx) return null;
+  ctx.drawImage(img, 0, 0, w, h);
+
+  let px: ImageData;
+  try {
+    px = ctx.getImageData(0, 0, w, h);
+  } catch {
+    /* よそのドメインの画像だと読めない。そのときは元のまま使う */
+    return null;
+  }
+  const d = px.data;
+  if (hasAlpha(d)) return null;
+
+  /* 紙より少し暗い所から下を、だんだん残す。
+     境目をきっぱり切ると、輪郭がぎざぎざになる */
+  const paper = paperLevel(d);
+  const keepBelow = paper * 0.72;
+  const span = Math.max(1, paper - keepBelow);
+  for (let i = 0; i < d.length; i += 4) {
+    const r = d[i];
+    const g = d[i + 1];
+    const b = d[i + 2];
+    const lum = (r + g + b) / 3;
+    /* 色が付いていれば（朱色）、明るくても印。無彩色だけを紙とみなす */
+    const sat = Math.max(r, g, b) - Math.min(r, g, b);
+    if (sat > 40) continue;
+    if (lum >= paper) d[i + 3] = 0;
+    else if (lum > keepBelow) d[i + 3] = Math.round(255 * (1 - (lum - keepBelow) / span));
+  }
+  ctx.putImageData(px, 0, 0);
+  return cv;
 }
 
 /** 枠に収まるまで字を小さくする。長い講座名で紙からはみ出さないため */
@@ -163,11 +260,16 @@ export function drawCert(cv: HTMLCanvasElement, c: CertData) {
   const sealY = H - 62 - sealSize;
 
   if (sealImg) {
+    /* 白い紙を抜いてから貼る。1度だけやって覚えておく */
+    if (!sealArt) sealArt = knockOutPaper(sealImg);
+    const art: CanvasImageSource = sealArt ?? sealImg;
+    const iw = sealArt ? sealArt.width : sealImg.naturalWidth || sealImg.width;
+    const ih = sealArt ? sealArt.height : sealImg.naturalHeight || sealImg.height;
     /* 画像は正方形に収める。縦横比が違っても潰さない */
-    const s = Math.min(sealSize / sealImg.width, sealSize / sealImg.height);
-    const w = sealImg.width * s;
-    const h = sealImg.height * s;
-    ctx.drawImage(sealImg, sealX + (sealSize - w) / 2, sealY + (sealSize - h) / 2, w, h);
+    const s = Math.min(sealSize / iw, sealSize / ih);
+    const w = iw * s;
+    const h = ih * s;
+    ctx.drawImage(art, sealX + (sealSize - w) / 2, sealY + (sealSize - h) / 2, w, h);
   } else {
     /* 画像が無いときは枠だけ。刷ってから手で押せる */
     ctx.strokeStyle = "#B03A2E";
