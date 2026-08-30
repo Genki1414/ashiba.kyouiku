@@ -4,7 +4,7 @@
 import { readFileSync } from "node:fs";
 import { CERT_NO_RE, eligible, isCertNo, totalLabel } from "../src/lib/cert";
 import { COURSES, needsLive, totalNoteOf } from "../src/content/courses";
-import { CERT_MIN_H, CERT_W, certHeight } from "../src/components/edu/drawCert";
+import { CARD_MM, CERT_H, CERT_MIN_H, CERT_W, DPI, certHeight } from "../src/components/edu/drawCert";
 import { ISSUER_NAME, ISSUER_RESPONSIBLE, issuerName, issuerResponsible } from "../src/lib/issuer";
 
 let ok = 0;
@@ -77,14 +77,19 @@ console.log("── 合計時間 ──");
 check(totalLabel([{ min: 180 }, { min: 30 }, { min: 90 }, { min: 60 }]) === "6時間（学科）", "6時間");
 check(totalLabel([{ min: 90 }]) === "1時間30分（学科）", "端数は分で出す");
 
-console.log("── 紙の大きさ ──");
-/* 科目が増えたら紙も伸びる。伸ばさないと、下の署名欄が本文に重なる */
-check(CERT_W === 1240, "横は1240");
-check(certHeight(4) === 966, `科目4つで966（いま ${certHeight(4)}）`);
-check(certHeight(5) - certHeight(4) === 30, "科目が1つ増えると30伸びる");
-check(certHeight(8) > certHeight(4), "科目が多いほど高い");
-check(certHeight(1) === CERT_MIN_H, `科目が少なくても${CERT_MIN_H}より低くしない`);
-check(certHeight(0) === CERT_MIN_H, "科目0でも紙の形は保つ");
+console.log("── 紙の大きさ（名刺サイズ）──");
+/* 現場に持って行くものなので、財布に入る大きさにしてある。
+   91mm × 55mm を 300dpi で刷る */
+check(CARD_MM.w === 91 && CARD_MM.h === 55, `名刺サイズ（${CARD_MM.w}×${CARD_MM.h}mm）`);
+check(DPI === 300, "刷るので300dpi");
+check(CERT_W === 1075, `横は1075（91mm）。いま ${CERT_W}`);
+check(CERT_H === 650, `縦は650（55mm）。いま ${CERT_H}`);
+/* 縦横比が名刺のものになっていること。ここが崩れると刷ったときに歪む */
+const ratio = CERT_W / CERT_H;
+check(Math.abs(ratio - 91 / 55) < 0.01, `縦横比が名刺と合う（${ratio.toFixed(3)}）`);
+/* 科目の数で大きさが変わらない（科目を載せないので） */
+check(certHeight() === CERT_H, "科目の数で高さは変わらない");
+check(CERT_MIN_H === CERT_H, "いちばん短いときも同じ高さ");
 
 console.log("\n── 修了証に載る時間は、法定時間 ──");
 {

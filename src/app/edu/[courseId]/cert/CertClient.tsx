@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { drawCert } from "@/components/edu/drawCert";
+import { drawCert, loadSeal } from "@/components/edu/drawCert";
 import type { CertData } from "@/lib/cert";
 import { KIND_TEXT, type CourseKind } from "@/content/courses";
 import { Btn } from "@/components/ui/Btn";
@@ -64,6 +64,13 @@ export function CertClient({ courseId }: { courseId: string }) {
 
   useEffect(() => { void load(); }, [load]);
 
+  /* 事業者印の画像を先に読む。読めたら描き直す
+     （画像が来る前に描くと、印の無い紙になる） */
+  const [sealed, setSealed] = useState(false);
+  useEffect(() => {
+    void loadSeal().then(setSealed);
+  }, []);
+
   /* 絵を描き直す */
   useEffect(() => {
     if (!info || !cv.current) return;
@@ -91,7 +98,7 @@ export function CertClient({ courseId }: { courseId: string }) {
     } catch {
       setUrl(null);
     }
-  }, [info, name, birth]);
+  }, [info, name, birth, sealed]);
 
   const issue = async () => {
     setBusy(true);
@@ -116,7 +123,7 @@ export function CertClient({ courseId }: { courseId: string }) {
     if (!url || !info) return;
     const a = document.createElement("a");
     a.href = url;
-    a.download = `特別教育修了証_${name || "受講者"}_${info.certNo}.png`;
+    a.download = `${(info.course?.name ?? "修了証").replace(/[\\/:*?"<>|]/g, "")}_${name || "受講者"}_${info.certNo}.png`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
