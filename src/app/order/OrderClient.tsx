@@ -67,7 +67,10 @@ export function OrderClient() {
   const [st, setSt] = useState<Loaded | null>(null);
   const [ng, setNg] = useState<string>("");
   const [note, setNote] = useState<string>("");
-  const [seats, setSeats] = useState(10);
+  /* 初期値は1名。10人ぶんが入っていると、そのまま押した人が
+     10人ぶん申し込むことになる。足す側の操作は取り返しがつくが、
+     多い数で申し込んでしまうのは請求に効く */
+  const [seats, setSeats] = useState(1);
   const [courseId, setCourseId] = useState("");
   const [billTo, setBillTo] = useState("");
   const [memo, setMemo] = useState("");
