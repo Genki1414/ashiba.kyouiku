@@ -135,6 +135,11 @@ export const gateOf = (c: CourseMeta): CourseGate | null => c.gate ?? null;
 /** 修了証を、押した瞬間に出さず、いったん申請にする講座か */
 export const needsRequest = (c: CourseMeta): boolean => gateOf(c) !== null;
 
+/** 修了証の合計時間に添える札。
+    討議のある講座に「（学科）」と書くと嘘になる */
+export const totalNoteOf = (c: CourseMeta): string =>
+  needsLive(c) ? "学科・討議" : "学科";
+
 /** 関門ごとの言い方。画面で使う */
 export const GATE_TEXT: Record<CourseGate, { label: string; what: string }> = {
   talk: {

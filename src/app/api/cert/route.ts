@@ -7,7 +7,7 @@ import { issuerName, issuerResponsible } from "@/lib/issuer";
 import { gateReason } from "@/lib/issue";
 import { requestOf, slotsOf, toState } from "@/lib/issueQuery";
 import { myLive, doneOf, mySessions } from "@/lib/liveQuery";
-import { findCourse, gateOf, kindOf, type CourseKind } from "@/content/courses";
+import { findCourse, gateOf, kindOf, totalNoteOf, type CourseKind } from "@/content/courses";
 
 /* 修了証。
    GET  … 出せるかどうかと、載せる中身を返す
@@ -28,7 +28,7 @@ type Gathered =
       birth: string;
       exam: { score: number; total: number };
       subjects: { id: number; name: string; min: number }[];
-      course: { id: string; name: string; basis: string; kind: CourseKind };
+      course: { id: string; name: string; basis: string; kind: CourseKind; totalNote: string };
       issuedAt: Date;
       no: string;
       already: string | null;
@@ -40,10 +40,16 @@ async function gather(courseId: string): Promise<Gathered> {
   if (!course || !cur) {
     return { ok: false, status: 404, reason: "その講座はありません。" };
   }
+  /* 修了証に載せるのは**法定時間**。
+
+     各自で見るぶん（legal_min）だけを載せると、討議のある講座で
+     時間が足りない紙が出る。職長教育は 795分 + 討議45分 = 840分（14時間）。
+     討議を落とすと「13時間15分」と書いた修了証になり、
+     法定時間を満たしていない証明書を出すことになる。 */
   const subjects = cur.subjects.map((s) => ({
     id: s.id,
     name: s.name,
-    min: s.lessons.reduce((n, l) => n + l.legal_min, 0),
+    min: s.legal_min + (s.talk_min ?? 0),
   }));
   const lessons = cur.subjects.reduce((n, s) => n + s.lessons.length, 0);
 
@@ -125,7 +131,14 @@ async function gather(courseId: string): Promise<Gathered> {
     birth: (user?.birth_date as string) ?? "",
     exam: { score: (exam?.score as number) ?? 0, total: (exam?.total as number) ?? 0 },
     subjects,
-    course: { id: course.id, name: course.name, basis: course.basis, kind: kindOf(course) },
+    course: {
+      id: course.id,
+      name: course.name,
+      basis: course.basis,
+      kind: kindOf(course),
+      /* 討議のある講座に「（学科）」と書くと嘘になる */
+      totalNote: totalNoteOf(course),
+    },
     issuedAt,
     no: (cert?.cert_no as string) ?? "",
     already: (cert?.cert_no as string) ?? null,

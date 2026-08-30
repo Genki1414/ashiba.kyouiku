@@ -54,7 +54,9 @@ for (const s of ALL) {
     console.error(`NG 科目${s.id}: 単元の合計 ${sum}分 ≠ 各自で見るぶん ${onDemand}分（法定${s.legalMin} − 討議${s.plan.talk}）`);
     process.exit(1);
   }
-  subjects.push({ id: s.id, name: s.name, legal_min: onDemand, lessons });
+  /* 討議のぶんも書き出す。修了証は法定時間（legal_min + talk_min）を載せる。
+     ここを落とすと、14時間の講座に「13時間15分」と書いた紙が出る */
+  subjects.push({ id: s.id, name: s.name, legal_min: onDemand, talk_min: s.plan.talk, lessons });
 }
 
 if (missing) {
@@ -65,6 +67,14 @@ if (missing) {
 const total = subjects.reduce((n, s) => n + s.legal_min, 0);
 if (total + TALK_MIN !== COURSE_TOTAL_MIN) {
   console.error(`NG 各自で見るぶん ${total}分 ＋ 討議 ${TALK_MIN}分 ≠ ${COURSE_TOTAL_MIN}分`);
+  process.exit(1);
+}
+
+/* 修了証に載る法定時間。ここが法定の合計と合わないと、
+   足りない時間の紙が出る */
+const legal = subjects.reduce((n, s) => n + s.legal_min + s.talk_min, 0);
+if (legal !== COURSE_TOTAL_MIN) {
+  console.error(`NG 修了証に載る合計 ${legal}分 ≠ 法定 ${COURSE_TOTAL_MIN}分`);
   process.exit(1);
 }
 

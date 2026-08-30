@@ -1,7 +1,9 @@
 /* 修了証の決まりのテスト。
    実行: npm run test:cert */
 
+import { readFileSync } from "node:fs";
 import { CERT_NO_RE, eligible, isCertNo, totalLabel } from "../src/lib/cert";
+import { COURSES, needsLive, totalNoteOf } from "../src/content/courses";
 import { CERT_MIN_H, CERT_W, certHeight } from "../src/components/edu/drawCert";
 import { ISSUER_NAME, ISSUER_RESPONSIBLE, issuerName, issuerResponsible } from "../src/lib/issuer";
 
@@ -84,6 +86,51 @@ check(certHeight(8) > certHeight(4), "科目が多いほど高い");
 check(certHeight(1) === CERT_MIN_H, `科目が少なくても${CERT_MIN_H}より低くしない`);
 check(certHeight(0) === CERT_MIN_H, "科目0でも紙の形は保つ");
 
+console.log("\n── 修了証に載る時間は、法定時間 ──");
+{
+  /* 討議のある講座で、各自で見るぶんだけを載せると、
+     14時間の職長教育に「13時間15分」と書いた紙が出る。
+     法定時間（legal_min + talk_min）を載せること。 */
+  for (const c of COURSES.filter((x) => x.ready)) {
+    const d = JSON.parse(
+      readFileSync(new URL(`../content/courses/${c.file}`, import.meta.url), "utf8"),
+    ) as { subjects: { id: number; name: string; legal_min: number; talk_min?: number }[] };
+    const subs = d.subjects.map((s) => ({ min: s.legal_min + (s.talk_min ?? 0) }));
+    const min = subs.reduce((n, s) => n + s.min, 0);
+    check(
+      min === c.totalMin,
+      `${c.id}: 修了証の合計が法定時間と合う（${min}分 ／ 法定${c.totalMin}分）`,
+    );
+    /* 単元だけの合計では足りない講座があること自体を、ここで示しておく */
+    const onDemand = d.subjects.reduce((n, s) => n + s.legal_min, 0);
+    if (onDemand !== c.totalMin) {
+      check(
+        min > onDemand,
+        `${c.id}: 討議のぶんが足されている（各自${onDemand}分 → ${min}分）`,
+      );
+    }
+  }
+
+  /* 札。討議のある講座に「（学科）」と書くと嘘になる */
+  const six = [{ min: 360 }];
+  check(totalLabel(six) === "6時間（学科）", "学科だけなら「（学科）」", totalLabel(six));
+  check(
+    totalLabel([{ min: 840 }], "学科・討議") === "14時間（学科・討議）",
+    "討議があれば札を変えられる",
+    totalLabel([{ min: 840 }], "学科・討議"),
+  );
+  for (const c of COURSES.filter((x) => x.ready)) {
+    const note = totalNoteOf(c);
+    check(
+      needsLive(c) ? note.includes("討議") : note === "学科",
+      `${c.id}: 札が講座に合っている（${note}）`,
+    );
+  }
+  /* 端数のある時間も出せること */
+  check(totalLabel([{ min: 795 }], "") === "13時間15分", "端数は「◯時間◯分」", totalLabel([{ min: 795 }], ""));
+}
+
 console.log("── まとめ ──");
+
 console.log(`${ok} 件通過 / ${ng} 件失敗`);
 if (ng) process.exit(1);

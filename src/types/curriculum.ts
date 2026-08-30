@@ -76,7 +76,17 @@ export const LessonSchema = z.object({
 export const SubjectSchema = z.object({
   id: z.number().int(),
   name: z.string(),
+  /* 各自で見るぶん（分）。単元の合計と一致する。
+     討議のある科目では、法定時間そのものではないことに注意
+     （法定 = legal_min + talk_min） */
   legal_min: z.number(),
+  /* そのうち、決まった日時の討議でやるぶん（分）。
+     討議の無い科目・講座では 0。
+
+     修了証には**法定時間**を載せる（legal_min + talk_min）。
+     ここを分けていなかったので、14時間の職長教育に
+     「13時間15分」と書いた紙が出るところだった。 */
+  talk_min: z.number().default(0),
   lessons: z.array(LessonSchema),
 });
 

@@ -77,14 +77,20 @@ export type CertData = {
   company: string;
   /** 教育実施責任者。同上 */
   responsible: string;
-  /** 科目と時間 */
+  /** 科目と時間。時間は法定時間（討議のぶんも入っている） */
   subjects: { id: number; name: string; min: number }[];
+  /** 合計時間に添える札。「学科」「学科・討議」など。
+      討議のある講座に「（学科）」と書くと嘘になる */
+  totalNote?: string;
 };
 
-/** 学科の合計時間（分）を「6時間（学科）」の形にする */
-export function totalLabel(subjects: { min: number }[]): string {
+/** 合計時間（分）を「6時間（学科）」の形にする。
+
+    討議のある講座に「（学科）」と書くと嘘になる。
+    職長教育の14時間には、45分の討議が入っている。 */
+export function totalLabel(subjects: { min: number }[], note = "学科"): string {
   const min = subjects.reduce((s, x) => s + x.min, 0);
   const h = min / 60;
   const t = Number.isInteger(h) ? `${h}時間` : `${Math.floor(h)}時間${min % 60}分`;
-  return `${t}（学科）`;
+  return note ? `${t}（${note}）` : t;
 }

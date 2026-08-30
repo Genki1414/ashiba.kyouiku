@@ -107,7 +107,7 @@ export function drawCert(cv: HTMLCanvasElement, c: CertData) {
   ctx.font = `700 20px ${JP}`;
   ctx.fillText("合　計", L + 12, y + 4);
   ctx.textAlign = "right";
-  ctx.fillText(totalLabel(c.subjects), W - L, y + 4);
+  ctx.fillText(totalLabel(c.subjects, c.totalNote ?? "学科"), W - L, y + 4);
   ctx.textAlign = "left";
   y += 46;
 

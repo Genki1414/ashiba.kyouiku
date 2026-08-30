@@ -21,7 +21,7 @@ type Info = {
   date: string;
   exam: { score: number; total: number };
   subjects: { id: number; name: string; min: number }[];
-  course: { id: string; name: string; basis: string; kind: CourseKind };
+  course: { id: string; name: string; basis: string; kind: CourseKind; totalNote?: string };
   company: string;
   responsible: string;
 };
@@ -83,6 +83,7 @@ export function CertClient({ courseId }: { courseId: string }) {
       company: info.company,
       responsible: info.responsible,
       subjects: info.subjects,
+      totalNote: info.course?.totalNote,
     };
     drawCert(cv.current, data);
     try {
