@@ -22,10 +22,14 @@ const get = (name: string, fallback = "") => (process.env[name] ?? "").trim() ||
 export function seller() {
   return {
     name: get("SELLER_NAME", "東北三上機材株式会社"),
-    /** 会社の代表者。**教育実施責任者（中川元基）とは別**。
-        登記上の代表者なので、勝手に埋めない。
-        ここが空だと特商法の表示義務を満たしません */
-    ceo: get("SELLER_CEO"),
+    /** 会社の代表者。特商法の表記に載る、登記上の代表者。
+
+        いまは修了証の教育実施責任者（src/lib/issuer.ts）と同じ人だが、
+        **同じ値を持つだけで、同じものではない**。
+        issuer.ts から持ってこないこと。持ってくると、
+        教育実施責任者だけを別の人に替えた日に、
+        特商法の代表者まで一緒に変わってしまう。 */
+    ceo: get("SELLER_CEO", "中川元基"),
     address: get("SELLER_ADDRESS", "宮城県名取市牛野八幡23"),
     tel: get("SELLER_TEL", "022-738-7913"),
     email: get("SELLER_EMAIL", "info@tohoku-mikamikizai.co.jp"),

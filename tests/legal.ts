@@ -2,6 +2,7 @@
    ここが空のまま売ると、特定商取引法の表示義務を満たしません。
    実行: npx tsx tests/legal.ts */
 
+import { readFileSync } from "node:fs";
 import { PERSONAL_DATA, THIRD_PARTIES, invoiceOk, bankReady, tidyInvoice, missingSeller, seller, tokushoho } from "@/content/legal";
 
 let ok = 0;
@@ -14,25 +15,24 @@ const clear = () => { for (const e of ENVS) delete process.env[e]; };
 console.log("── 何が空か分かる ──");
 clear();
 {
-  /* 所在地・電話・メールは決まったので直接書いてある。
-     環境変数を入れ忘れたまま売ると表示義務を満たさないため。
-
-     代表者だけは登記上の名前で、教育実施責任者（中川元基）とは別。
-     勝手に埋めると嘘の表記になるので、空のまま残してある */
+  /* 全部決まったので直接書いてある。
+     環境変数を入れ忘れたまま売ると表示義務を満たさないため */
   const m = missingSeller();
-  check(m.length === 1, `未設定は代表者だけ（${m.join("・") || "無し"}）`);
-  check(m.includes("代表者"), "代表者が空だと分かる");
-  for (const k of ["所在地", "電話番号", "メールアドレス"]) {
-    check(!m.includes(k), `${k}は決まっている`);
-  }
+  check(m.length === 0, `未設定は無し（${m.join("・") || "無し"}）`);
   const d = seller();
-  check(d.name === "東北三上機材株式会社", "事業者名は決まっている");
+  check(d.name === "東北三上機材株式会社", "事業者名");
+  check(d.ceo === "中川元基", "代表者", d.ceo);
   check(d.address === "宮城県名取市牛野八幡23", "所在地", d.address);
   check(d.tel === "022-738-7913", "電話番号", d.tel);
   check(d.email === "info@tohoku-mikamikizai.co.jp", "メールアドレス", d.email);
-  check(d.ceo === "", "代表者は空のまま（登記上の名前を勝手に入れない）", d.ceo);
-  /* 教育実施責任者を代表者の欄に流用していないこと。別物 */
-  check(d.ceo !== "中川元基", "教育実施責任者を代表者に流用していない");
+
+  /* 特商法の代表者と、修了証の教育実施責任者は、いま同じ人。
+     だからといって片方から持ってこないこと。持ってくると、
+     教育実施責任者だけを替えた日に、特商法の代表者まで一緒に変わる。
+     同じ値を持つのと、同じものであるのは違う */
+  const src = readFileSync(new URL("../src/content/legal.ts", import.meta.url), "utf8");
+  check(!/from\s+["'][^"']*issuer["']/.test(src), "issuer.ts から代表者を持ってきていない");
+  check(!src.includes("issuerName"), "修了証の名義を流用していない");
 }
 {
   process.env.SELLER_CEO = "中川 元基";
@@ -47,7 +47,7 @@ clear();
   process.env.SELLER_TEL = "   ";
   check(seller().tel === "022-738-7913", "空白だけなら決め打ちに戻る", seller().tel);
   process.env.SELLER_CEO = "   ";
-  check(missingSeller().includes("代表者"), "決め打ちの無い欄は、空白だけなら未設定");
+  check(seller().ceo === "中川元基", "代表者も空白だけなら決め打ちに戻る", seller().ceo);
 }
 clear();
 
@@ -86,9 +86,9 @@ console.log("── 特商法の表記 ──");
   /* 未設定の欄は、値が空のまま返る（画面が「未設定」と出せるように） */
   clear();
   const items = tokushoho(PRICES);
-  check(items.find((i) => i.k === "代表者")!.v === "", "空の欄は空のまま返す");
-  check(items.find((i) => i.k === "販売事業者")!.v !== "", "既定のある欄は埋まっている");
-  for (const k of ["所在地", "電話番号", "メールアドレス"]) {
+  /* 特商法で名前・住所・電話・メール・代表者は載せる決まり。
+     どれか1つでも空のまま売ると、表示義務を満たさない */
+  for (const k of ["販売事業者", "代表者", "所在地", "電話番号", "メールアドレス"]) {
     check(items.find((i) => i.k === k)!.v !== "", `${k}が表記に出る`);
   }
 }
