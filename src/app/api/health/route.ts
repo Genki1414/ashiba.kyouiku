@@ -5,6 +5,8 @@ import { currentUser } from "@/lib/supabase/session";
 import { LATEST } from "@/content/changelog";
 import { bankReady, invoiceOk, missingSeller, seller } from "@/content/legal";
 import { isOwnerEmail, ownerEmails } from "@/lib/owner";
+import { FALLBACK_SITE, siteUrl as resetSiteUrl } from "@/lib/siteUrl";
+import { siteUrl as paySiteUrl } from "@/lib/stripe";
 import { currentAdmin } from "@/lib/admin";
 import { myCompany } from "@/lib/tenant";
 import { canLearn } from "@/lib/entitle";
@@ -83,6 +85,20 @@ export async function GET() {
     stripeHook: !!process.env.STRIPE_WEBHOOK_SECRET,
     /* 本番の住所。決めていないと、支払い後の戻り先が配信ごとに変わる */
     siteUrl: !!(process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL),
+    /* 実際に使われる住所を、そのまま返す。
+
+       戻り先を決める所が2つあり、読む変数が違う。
+         ・支払いの戻り先 … SITE_URL → NEXT_PUBLIC_SITE_URL → VERCEL_URL
+         ・合言葉の決め直しの戻り先 … NEXT_PUBLIC_SITE_URL だけ
+           （画面から送るので NEXT_PUBLIC_ でないと読めない）
+       だから SITE_URL だけを入れると、上は正しく直り、
+       下は決め打ちの住所（FALLBACK_SITE）のまま残る。
+       「設定済み」と緑で出ているのに、決め直しのメールだけ古い住所へ飛ぶ。
+       独自ドメインに移すときに必ず踏むので、両方そのまま出す。 */
+    payBase: paySiteUrl(),
+    resetBase: resetSiteUrl(),
+    /* 決め直しの戻り先が、決め打ちのままか */
+    resetFallback: resetSiteUrl() === FALLBACK_SITE,
     /* 特商法の表記で、まだ空の項目 */
     sellerMissing: missingSeller(),
     /* 振込先。空だと請求書に「別途ご案内」としか出ず、そのぶん入金が遅れる */

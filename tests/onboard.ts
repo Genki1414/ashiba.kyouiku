@@ -113,6 +113,30 @@ console.log("\n── 講座を足したときに置き去りにならないか 
   }
 }
 
+console.log("\n── 独自ドメインへ移すとき ──");
+{
+  /* 戻り先を決める所が2つあり、読む変数が違う。
+     SITE_URL だけを入れると、支払いは直るのに決め直しは古い住所のまま。
+     /setup が「設定済み」と緑で出すので、そのままでは気づけない */
+  const health = code("src/app/api/health/route.ts");
+  check(health.includes("resetBase"), "決め直しの戻り先を /setup に出す");
+  check(health.includes("payBase"), "支払いの戻り先も /setup に出す");
+  check(health.includes("resetFallback"), "決め打ちのままかどうかを見ている");
+
+  const setup = code("src/app/setup/SetupClient.tsx");
+  check(setup.includes("resetFallback"), "決め打ちのままなら赤くする");
+  check(setup.includes("NEXT_PUBLIC_SITE_URL"), "直す変数の名前を画面に出す");
+
+  /* ホーム画面のアイコンは、入れたときの住所に張り付く。
+     manifest の中を絶対URLにすると、住所を変えたときに直しきれない */
+  const mani = JSON.parse(read("public/manifest.webmanifest"));
+  check(mani.start_url === "/", "manifest の start_url が相対", mani.start_url);
+  check(mani.scope === "/", "manifest の scope が相対", mani.scope);
+  const abs = [...mani.icons.map((i: { src: string }) => i.src),
+               ...(mani.shortcuts ?? []).map((x: { url: string }) => x.url)];
+  check(abs.every((u: string) => u.startsWith("/")), "manifest に絶対URLが無い", abs.join(" "));
+}
+
 console.log("\n── まとめ ──");
 console.log(`${ok} 件通過 / ${ng} 件失敗`);
 if (ng) process.exit(1);

@@ -28,6 +28,9 @@ type Health = {
     stripeKey: boolean;
     stripeHook: boolean;
     siteUrl: boolean;
+    payBase: string;
+    resetBase: string;
+    resetFallback: boolean;
     sellerMissing: string[];
     invoiceNo?: boolean;
     invoiceShape?: boolean;
@@ -223,6 +226,17 @@ export function SetupClient() {
                     ["本部のメール（OWNER_EMAILS）", h.sell.owners ? `${h.sell.owners}人` : "未設定", h.sell.owners > 0, true],
                     ["単価（SEAT_UNIT_PRICE）", h.sell.unitPrice ? "設定済み" : "未設定（仮の値）", h.sell.unitPrice, true],
                     ["本番のURL（SITE_URL / NEXT_PUBLIC_SITE_URL）", h.sell.siteUrl ? "設定済み" : "未設定（配信ごとの住所を使う）", h.sell.siteUrl, true],
+                    /* 住所そのものを出す。「設定済み」だけだと、
+                       どちらの変数を入れたかで戻り先が食い違っていても気づけない */
+                    ["支払い後の戻り先", h.sell.payBase, !!h.sell.payBase, false],
+                    [
+                      "合言葉の決め直しの戻り先",
+                      h.sell.resetFallback
+                        ? `${h.sell.resetBase}（決め打ちのまま。NEXT_PUBLIC_SITE_URL を入れてください）`
+                        : h.sell.resetBase,
+                      !h.sell.resetFallback,
+                      true,
+                    ],
                     ["特商法の表記", h.sell.sellerMissing.length ? `${h.sell.sellerMissing.join("・")}が空` : "そろっている", h.sell.sellerMissing.length === 0, true],
                     ["インボイス登録番号（SELLER_INVOICE_NO）",
                       h.sell.invoiceShape === false
