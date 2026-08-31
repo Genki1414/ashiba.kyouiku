@@ -188,11 +188,39 @@ function fit(
 /* 社名から角印を描く。
 
    印の画像を置いていないときの代わり。枠と「事業者印」だけを出していたが、
-   それだと誰が出した紙か分からない。角印は社名が彫ってあるものなので、
-   社名をそのまま彫る。
+   それだと誰が出した紙か分からず、刷ってから1枚ずつ押すことになる。
 
-   縦書きで、右の列から左へ。印はそう読む。
-   列の数は字数から決める。10字を2列にすると縦に細長くなって印に見えない。 */
+   東北三上機材株式会社の実物に合わせてある。
+   ・横書き。左から右へ、上の行から下の行へ
+     （篆書の角印は右の列から縦に読むが、この印はそうではない）
+   ・社名のうしろに「之印」が付いて12字。4字×3行で正方形に収まる
+   ・枠の角は丸い */
+
+/** 角の丸い四角。roundRect は古い端末に無いので、arcTo で引く */
+function roundRect(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  r: number,
+): void {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+/** 印に彫る字。社名＋「之印」。すでに「印」で終わっていれば足さない */
+export const kakuinText = (company: string): string => {
+  const name = company.replace(/[\s\u3000]/g, "");
+  if (!name) return "";
+  return name.endsWith("印") ? name : `${name}之印`;
+};
+
 export function drawKakuin(
   ctx: CanvasRenderingContext2D,
   company: string,
@@ -200,17 +228,18 @@ export function drawKakuin(
   y: number,
   size: number,
 ): void {
-  /* 空白は彫らない。字数がずれて列が崩れる */
-  const chars = [...company.replace(/[\s\u3000]/g, "")];
+  const chars = [...kakuinText(company)];
   if (!chars.length) return;
 
   const edge = Math.max(3, Math.round(size * 0.035));
   ctx.strokeStyle = SEAL_RED;
   ctx.lineWidth = edge;
-  ctx.strokeRect(x + edge / 2, y + edge / 2, size - edge, size - edge);
+  roundRect(ctx, x + edge / 2, y + edge / 2, size - edge, size - edge, size * 0.09);
+  ctx.stroke();
 
-  /* 正方形に近い並びにする。列数と行数が離れるほど印から遠ざかる */
-  const cols = Math.min(4, Math.max(2, Math.round(Math.sqrt(chars.length))));
+  /* 正方形に近い並びにする。12字なら4字×3行。
+     行数のほうを少なくする（横に長い行のほうが読みやすい） */
+  const cols = Math.max(2, Math.ceil(Math.sqrt(chars.length)));
   const rows = Math.ceil(chars.length / cols);
 
   const pad = edge * 2;
@@ -224,14 +253,13 @@ export function drawKakuin(
   ctx.font = `700 ${fs}px ${JP}`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  chars.forEach((ch1, i) => {
-    const col = Math.floor(i / rows);
-    const row = i % rows;
-    /* 右の列から。col が増えるほど左へ */
-    const cx = x + size - pad - (col + 0.5) * cw;
+  for (let row = 0; row < rows; row++) {
+    const inRow = chars.slice(row * cols, (row + 1) * cols);
+    /* 最後の行が埋まらないときは真ん中に寄せる。左に寄せると穴が空いて見える */
+    const left = x + pad + (inner - inRow.length * cw) / 2;
     const cy = y + pad + (row + 0.5) * ch;
-    ctx.fillText(ch1, cx, cy);
-  });
+    inRow.forEach((ch1, i) => ctx.fillText(ch1, left + (i + 0.5) * cw, cy));
+  }
   /* 触ったものは戻す。この後の行が縦にずれる */
   ctx.textBaseline = "alphabetic";
 }
@@ -333,23 +361,11 @@ export function drawCert(cv: HTMLCanvasElement, c: CertData) {
   ctx.textAlign = "right";
   const nameRight = sealX - 22;
 
-  /* 事業者名は朱色。すぐ右の印と揃えて、誰が出した紙かを一目で分からせる。
-     見出し（「事業者名」）は朱色にしない。朱いのは名前だけにする。
-
-     見出しと名前で色が違うので、1つの文字列では描けない。
-     大きさは見出しごと入れて決める（名前だけで測ると、
-     長い社名のときに見出しが枠から出る）。 */
-  const coLabel = "事業者名　";
-  const coName = c.company || "（　　　　　　　）";
-  const coSize = fit(ctx, coLabel + coName, nameRight - L, 19, 13, 400);
-  ctx.font = `400 ${coSize}px ${JP}`;
-  ctx.fillStyle = SEAL_RED;
-  ctx.fillText(coName, nameRight, sealY + 46);
-  /* 見出しは名前の左に置く。右揃えなので、名前のぶんだけ左へ寄せる */
-  ctx.fillStyle = "#5A5A55";
-  ctx.fillText(coLabel, nameRight - ctx.measureText(coName).width, sealY + 46);
-
+  /* 朱いのは印だけにする。名義の行まで朱くすると、印が目立たなくなる */
   ctx.fillStyle = "#1A1D21";
+  const co = `事業者名　${c.company || "（　　　　　　　）"}`;
+  fit(ctx, co, nameRight - L, 19, 13, 400);
+  ctx.fillText(co, nameRight, sealY + 46);
   const re = `教育実施責任者　${c.responsible || "（　　　　　　　）"}`;
   fit(ctx, re, nameRight - L, 19, 13, 400);
   ctx.fillText(re, nameRight, sealY + 86);
