@@ -4,6 +4,7 @@ import { loadedCourses } from "@/lib/curriculum";
 import { AccountBar } from "@/components/AccountBar";
 import { HomeCards } from "@/components/HomeCards";
 import { FirstSteps } from "@/components/FirstSteps";
+import { Notices } from "@/components/Notices";
 
 /* ここはサーバ側で誰かを見ていない（立場ごとの出し分けは HomeCards が
    あとから聞きに行く）。作り置きにしておけば、開いた瞬間に出る */
@@ -32,6 +33,11 @@ export default async function Home() {
             初めての人がまずやるのは、大きく出ている講座の札を押すこと。
             受講コードが無いとその先で断られるので、押す前に道のりを見せる。
             受講できるようになったら、自分で消える */}
+        {/* こちらからの返事。**はじめかたより上**に置く。
+            返事が返るのは待っているときなので、いちばん先に目に入る所へ。
+            1件も無ければ、自分で消える */}
+        <Notices />
+
         <FirstSteps />
 
         {ready.map((c) => (

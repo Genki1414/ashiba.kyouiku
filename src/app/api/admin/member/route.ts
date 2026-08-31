@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase/server";
 import { currentAdmin } from "@/lib/admin";
+import { addNotice } from "@/lib/notice.server";
 
 /* 在籍の出し入れ。教育担当者だけ。
 
@@ -52,6 +53,9 @@ export async function POST(req: NextRequest) {
       p_company: admin.companyId,
     });
     if (error) return NextResponse.json({ ok: false, reason: error.message }, { status: 500 });
+    /* 待っていた本人に返す。許可しても、相手には何も伝わらないままだった。
+       宛先は申し込んだ人。押した担当者ではない */
+    await addNotice(userId, "member_ok");
     return NextResponse.json({ ok: true, left: false });
   }
 
@@ -62,6 +66,7 @@ export async function POST(req: NextRequest) {
       p_company: admin.companyId,
     });
     if (error) return NextResponse.json({ ok: false, reason: error.message }, { status: 500 });
+    await addNotice(userId, "member_ng");
     return NextResponse.json({ ok: true, left: true });
   }
 

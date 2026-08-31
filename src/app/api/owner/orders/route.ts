@@ -4,6 +4,7 @@ import { currentOwner, ownerEmails } from "@/lib/owner";
 import { currentUser } from "@/lib/supabase/session";
 import { issueSeats } from "@/lib/seats";
 import { seller } from "@/content/legal";
+import { addNotice } from "@/lib/notice.server";
 
 /* 運営（売っている側）の画面。すべての事業者の注文を見て、
    請求書払いの入金を確認する。
@@ -127,7 +128,7 @@ export async function POST(req: NextRequest) {
   }
   const { data: order } = await supabase
     .from("orders")
-    .select("id, seats, status, method, kind, user_id")
+    .select("id, seats, status, method, kind, user_id, ordered_by")
     .eq("id", id)
     .maybeSingle();
   if (!order) {
@@ -177,6 +178,9 @@ export async function POST(req: NextRequest) {
     if (done === false) {
       return NextResponse.json({ ok: false, reason: "その注文がありません。" }, { status: 404 });
     }
+    /* 買った本人に返す。入金を確認しても、相手は開くまで分からない。
+       個人の注文は実務トレーニングだけ（pay_solo_order が見ている） */
+    await addNotice(order.user_id as string, "train");
     return NextResponse.json({ ok: true, granted: true });
   }
   if (order.method === "card") {
@@ -211,5 +215,8 @@ export async function POST(req: NextRequest) {
     .eq("order_id", id);
   const short = (order.seats as number) - (count ?? 0);
   const made = short > 0 ? await issueSeats(supabase, id, short) : 0;
+  /* 申し込んだ担当者に返す。コードが出たことが伝わらないと、
+     受講する人に配られないまま止まる */
+  await addNotice(order.ordered_by as string | null, "seat");
   return NextResponse.json({ ok: true, seatsIssued: made });
 }

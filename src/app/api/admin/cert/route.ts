@@ -3,6 +3,7 @@ import { getServiceClient } from "@/lib/supabase/server";
 import { currentAdmin } from "@/lib/admin";
 import { getCurriculum } from "@/lib/curriculum";
 import { eligible } from "@/lib/cert";
+import { addNotice } from "@/lib/notice.server";
 
 /* 教育担当者が修了証を出す／取り消す。
 
@@ -122,5 +123,9 @@ export async function POST(req: NextRequest) {
     issued_by: admin.userId,
   });
   if (error) return NextResponse.json({ ok: false, reason: error.message }, { status: 409 });
+  /* 出したことを本人に返す。担当者が出しても、本人は開くまで気づかない。
+     取り消しでは出さない。取り消す前に、担当者から一言あるべき話なので、
+     知らせだけが先に届くほうが困る */
+  await addNotice(en.user_id as string, "cert", { courseId: en.course_id as string });
   return NextResponse.json({ ok: true, certNo: no, issued: true });
 }

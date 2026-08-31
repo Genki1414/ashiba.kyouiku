@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase/server";
 import { currentOwner } from "@/lib/owner";
+import { addNotice } from "@/lib/notice.server";
 
 /* 実務トレーニングの利用権（本部だけ）。
 
@@ -122,5 +123,9 @@ export async function POST(req: NextRequest) {
   if (data === false) {
     return NextResponse.json({ ok: false, reason: "その人が見つかりません。" }, { status: 404 });
   }
+  /* 振込を確認して付けたことを、本人に返す。
+     取り消しでは出さない（こちらから一言ある話なので、
+     知らせだけが先に届くほうが困る） */
+  await addNotice(userId, "train");
   return NextResponse.json({ ok: true, rows: await held(supabase) });
 }

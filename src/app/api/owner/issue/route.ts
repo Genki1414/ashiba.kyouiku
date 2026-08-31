@@ -5,6 +5,7 @@ import { checkRoom, checkSlots, sortQueue, waitingCount, type SlotIn } from "@/l
 import { queue } from "@/lib/issueQuery";
 import { myLive, doneOf, mySessions } from "@/lib/liveQuery";
 import { findCourse } from "@/content/courses";
+import { addNotice } from "@/lib/notice.server";
 
 /* 発行申請（本部の側）。
 
@@ -112,6 +113,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, reason: "どの申請か分かりません。" }, { status: 400 });
   }
 
+  /* 誰の、どの講座の申請か。返事のたびに本人へ知らせるので、
+     どの返事でも要る。ここで1回だけ読む */
+  const { data: reqRow } = await supabase
+    .from("cert_requests")
+    .select("user_id, course_id, session_id")
+    .eq("id", id)
+    .maybeSingle();
+  const to = (reqRow?.user_id as string | null) ?? null;
+  const courseId = (reqRow?.course_id as string | null) ?? null;
+
   if (b.action === "offer") {
     /* 過ぎた日・重なった日・多すぎる候補は、ここで弾く。
        出してしまうと、選べない候補が本人の画面に並ぶ */
@@ -124,6 +135,9 @@ export async function POST(req: NextRequest) {
       p_by: g.email,
     });
     if (error) return NextResponse.json({ ok: false, reason: error.message }, { status: 409 });
+    /* 待っているのは本人。出しただけでは伝わらない。
+       添えた一言も返す（都合の付け方が書いてあることがある） */
+    await addNotice(to, "slot", { courseId, note: b.note });
     return NextResponse.json({ ok: true, n: v.slots.length });
   }
 
@@ -134,6 +148,7 @@ export async function POST(req: NextRequest) {
       p_by: g.email,
     });
     if (error) return NextResponse.json({ ok: false, reason: error.message }, { status: 409 });
+    await addNotice(to, "pass", { courseId, note: b.note });
     return NextResponse.json({ ok: true });
   }
 
@@ -142,12 +157,7 @@ export async function POST(req: NextRequest) {
        一覧には出さない。当日「入る」を押した人にだけ渡る */
     const v = checkRoom(b.url ?? "");
     if (!v.ok) return NextResponse.json({ ok: false, reason: v.reason }, { status: 400 });
-    const { data: r } = await supabase
-      .from("cert_requests")
-      .select("session_id")
-      .eq("id", id)
-      .maybeSingle();
-    const ses = (r?.session_id as string | null) ?? null;
+    const ses = (reqRow?.session_id as string | null) ?? null;
     if (!ses) {
       return NextResponse.json(
         { ok: false, reason: "まだ日が決まっていません。日が決まってから入れてください。" },
@@ -159,6 +169,9 @@ export async function POST(req: NextRequest) {
       .update({ room_url: v.url })
       .eq("id", ses);
     if (error) return NextResponse.json({ ok: false, reason: error.message }, { status: 500 });
+    /* 入り口の住所そのものは知らせに入れない。「決まった」とだけ返す。
+       当日その画面から入れる（住所は回のほうに入っている） */
+    await addNotice(to, "room", { courseId });
     return NextResponse.json({ ok: true });
   }
 
@@ -176,6 +189,9 @@ export async function POST(req: NextRequest) {
       p_by: g.email,
     });
     if (error) return NextResponse.json({ ok: false, reason: error.message }, { status: 409 });
+    /* 理由をそのまま返す。理由の無い「断られました」では、
+       受け取った人が次に何をすればいいか分からない */
+    await addNotice(to, "issue_ng", { courseId, note });
     return NextResponse.json({ ok: true });
   }
 
