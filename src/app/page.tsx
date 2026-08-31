@@ -1,8 +1,9 @@
 import Link from "next/link";
-import { COURSES, textOf } from "@/content/courses";
+import { COURSES, hoursText, textOf, totalNoteOf } from "@/content/courses";
 import { loadedCourses } from "@/lib/curriculum";
 import { AccountBar } from "@/components/AccountBar";
 import { HomeCards } from "@/components/HomeCards";
+import { FirstSteps } from "@/components/FirstSteps";
 
 /* ここはサーバ側で誰かを見ていない（立場ごとの出し分けは HomeCards が
    あとから聞きに行く）。作り置きにしておけば、開いた瞬間に出る */
@@ -27,6 +28,12 @@ export default async function Home() {
       </div>
 
       <div className="grid gap-3 px-5 pb-10">
+        {/* はじめて使う人への道のり。講座の札より**上**に置く。
+            初めての人がまずやるのは、大きく出ている講座の札を押すこと。
+            受講コードが無いとその先で断られるので、押す前に道のりを見せる。
+            受講できるようになったら、自分で消える */}
+        <FirstSteps />
+
         {ready.map((c) => (
           <Link
             key={c.id}
@@ -43,7 +50,10 @@ export default async function Home() {
             <div className="mt-2 text-[12px] leading-relaxed text-dim">
               {c.basis}
               <br />
-              学科 計{Math.round(c.totalMin / 60)}時間
+              {/* 「学科」で決め打ちにしていたので、討議まで含む職長教育にも
+                  「学科 計14時間」と出ていた。時間も Math.round では
+                  半端のある講座で法定時間とずれる（/edu と同じ直し） */}
+              {totalNoteOf(c)} 計{hoursText(c.totalMin)}
             </div>
           </Link>
         ))}
