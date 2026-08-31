@@ -22,6 +22,22 @@ import { getLessonList } from "@/lib/curriculum";
    鍵そのものは返さない（設定されているかどうかだけ）。 */
 
 
+/** データベースの版を読む。読めなければ空。
+    service_role で聞くので、**ログインしていなくても分かる** */
+async function readSchema(
+  supabase: ReturnType<typeof getServiceClient>,
+): Promise<{ now: string; need: string; ok: boolean }> {
+  const need = NEED_SCHEMA;
+  if (!supabase) return { now: "", need, ok: false };
+  try {
+    const { data, error } = await supabase.rpc("schema_version");
+    const now = error ? "" : String(data ?? "");
+    return { now, need, ok: !!now && now >= need };
+  } catch {
+    return { now: "", need, ok: false };
+  }
+}
+
 export async function GET() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
   const hasAnon = !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -162,6 +178,15 @@ export async function GET() {
     invoiceShape: invoiceOk(seller().invoiceNo),
   };
 
+  /* データベースの版は、**誰が見ているかと関係ない。** サーバ側の話なので、
+     ログインの手前で読む。
+
+     前はログインして受講の行がある人にしか返していなかった。
+     SQL を流したあと版を見にくるとき、たまたま合言葉が切れていると
+     何も出ないうえ、画面には「未設定（端末内記録）」と出る。
+     Supabase は正しく入っているのに、入っていないように読める。 */
+  const schema = await readSchema(supabase);
+
   if (!supabase || !enrollmentId) {
     return NextResponse.json({
       mode: "local",
@@ -170,17 +195,12 @@ export async function GET() {
       auth,
       appVersion,
       sell,
+      schema,
       message: !supabase
         ? "Supabase 未設定です。視聴記録はブラウザ内（localStorage）に保存されます。"
         : "ログインしていないので、視聴記録はブラウザ内（localStorage）に保存されます。",
     });
   }
-
-  /* データベースの版。**数字そのものを返す。**
-     いままでは checks の中に「0024 まで入っている」と紛れているだけで、
-     ページのいちばん下まで探しにいく必要があった。
-     SQL を流すたびに見る所なので、上に出せるように分けて返す */
-  let schemaNow = "";
 
   const checks: Record<string, { ok: boolean; detail: string }> = {};
   const check = async (name: string, fn: () => Promise<string>) => {
@@ -234,16 +254,14 @@ export async function GET() {
     return "あり";
   });
 
-  /* apply-all.sql を流したか。版を返す関数があるかで見る */
+  /* apply-all.sql を流したか。上で読んだ版をそのまま使う（2度聞かない） */
   await check("schema", async () => {
-    const { data, error } = await supabase.rpc("schema_version");
-    if (error) {
+    const now = schema.now;
+    if (!now) {
       throw new Error(
         "版が読めません。supabase/apply-all.sql を SQL Editor で実行してください",
       );
     }
-    const now = String(data ?? "");
-    schemaNow = now;
     if (now < NEED_SCHEMA) {
       throw new Error(
         `いま ${now}。${NEED_SCHEMA} が要ります。supabase/apply-all.sql を SQL Editor でもう一度実行してください`,
@@ -295,7 +313,7 @@ export async function GET() {
     sell,
     /* いま入っている版と、このアプリが要る版。
        片方だけでは「流し終わったのか」が分からない */
-    schema: { now: schemaNow, need: NEED_SCHEMA, ok: !!schemaNow && schemaNow >= NEED_SCHEMA },
+    schema,
     checks,
     message: ok
       ? "Supabase に接続できています。視聴記録・照合ログ・受験記録はサーバに保存されます。"

@@ -356,7 +356,7 @@ console.log("── データベースの版 ──");
   /* SQL を流したあとに毎回見る所。○×だけでなく**数字そのもの**を返す。
      前は checks の中に「0024 まで入っている」と紛れているだけで、
      ページのいちばん下まで探しにいく必要があった */
-  check(/schema: \{ now: schemaNow, need: NEED_SCHEMA/.test(health),
+  check(/return \{ now, need, ok:/.test(health),
     "いま入っている版と、要る版の両方を返す");
   const setup = read("src/app/setup/SetupClient.tsx");
   check(/data-testid="schema-row"/.test(setup), "/setup に版の行がある");
@@ -365,6 +365,28 @@ console.log("── データベースの版 ──");
   /* いちばん上の札のすぐ下。下まで探させない */
   check(setup.indexOf('data-testid="schema-row"') < setup.indexOf("サーバ側（実行時に読まれる）"),
     "版は、環境変数より上に出す");
+
+  /* 版は**誰が見ているかと関係ない**。ログインの手前で読むこと。
+     前は受講の行がある人にしか返しておらず、合言葉が切れていると
+     何も出ないうえ「未設定（端末内記録）」と出ていた。
+     Supabase は正しく入っているのに、入っていないように読める */
+  const early = health.slice(0, health.indexOf("if (!supabase || !enrollmentId)"));
+  check(/const schema = await readSchema\(supabase\)/.test(early),
+    "版は、ログインの手前で読む");
+  const localOut = health.slice(
+    health.indexOf("if (!supabase || !enrollmentId)"),
+    health.indexOf("if (!supabase || !enrollmentId)") + 500,
+  );
+  check(/\n\s*schema,/.test(localOut), "ログインしていない人にも版を返す");
+  /* 同じことを2度聞かない */
+  check((health.match(/rpc\("schema_version"\)/g) ?? []).length === 1,
+    "版を聞くのは1回だけ");
+
+  /* mode が "local" になる理由は2つあり、意味がまるで違う。
+     鍵が無いのか、鍵はあって未ログインなのか */
+  check(/justSignedOut/.test(setup), "未設定と未ログインを区別する");
+  check(setup.includes("ログインしていません（設定は入っています）"),
+    "設定が入っているのに「未設定」と出さない");
 }
 
 console.log("── 講座ごとの値段 ──");

@@ -90,6 +90,16 @@ export function SetupClient() {
     load();
   }, [load]);
 
+  /* Supabase の設定そのものは入っているか。
+     mode が "local" になる理由は2つあって、意味がまるで違う。
+       ・鍵が入っていない      → 本当に未設定
+       ・入っているが未ログイン → 設定は済んでいて、いま見ている人の話
+     前は両方まとめて「未設定（端末内記録）」と出していた。
+     **設定は正しいのに、入っていないように読める。**
+     SQL を流したあと版を確かめに来て、ここで詰まった */
+  const configured = !!h?.env?.url && h.env.anonKey;
+  const justSignedOut = h?.mode === "local" && configured;
+
   const tone =
     h?.mode === "supabase"
       ? "border-grn text-grn"
@@ -123,7 +133,9 @@ export function SetupClient() {
                     ? "動いています（版が古い）"
                     : h.mode === "error"
                       ? "初期化が未完了"
-                      : "未設定（端末内記録）"}
+                      : justSignedOut
+                        ? "ログインしていません（設定は入っています）"
+                        : "未設定（端末内記録）"}
               </div>
               <div className="mt-1.5 text-[13px] leading-relaxed text-txt">{h.message}</div>
             </div>
