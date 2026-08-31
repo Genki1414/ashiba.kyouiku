@@ -10,6 +10,7 @@ import { readFileSync } from "node:fs";
 import { orderLabel, TRAIN_LABEL } from "../src/lib/orderLabel";
 import { COURSES, readyCourses, findCourse, totalNoteOf, SERVICE_NAME } from "../src/content/courses";
 import { isOpenPath } from "../src/lib/authGate";
+import { DEFAULT_COURSE_PRICE } from "../src/lib/pricing";
 
 let ok = 0;
 let ng = 0;
@@ -135,6 +136,26 @@ console.log("\n── 独自ドメインへ移すとき ──");
   const abs = [...mani.icons.map((i: { src: string }) => i.src),
                ...(mani.shortcuts ?? []).map((x: { url: string }) => x.url)];
   check(abs.every((u: string) => u.startsWith("/")), "manifest に絶対URLが無い", abs.join(" "));
+}
+
+console.log("\n── リリース前の確認（/setup）が嘘をつかないか ──");
+{
+  /* 環境変数の有無で警告を出していると、決めた値が pricing.ts に
+     入っている今は「未設定（仮の値）」と橙で出てしまう。
+     嘘の警告を1つ出すと、本当に困る警告まで見なくなる */
+  const health = code("src/app/api/health/route.ts");
+  check(health.includes("priceMissing"), "0円のまま公開している講座を見ている");
+  check(health.includes("allPrices()"), "実際に請求する金額を返す");
+
+  const setup = code("src/app/setup/SetupClient.tsx");
+  check(!setup.includes("未設定（仮の値）"), "環境変数の有無だけで橙にしない");
+  check(setup.includes("priceMissing"), "0円のときだけ橙にする");
+
+  /* いま公開している講座は、全部きちんと値が付いていること */
+  for (const c of readyCourses()) {
+    check(DEFAULT_COURSE_PRICE[c.id] > 0, `${c.id}: 既定の単価が入っている`,
+      `${DEFAULT_COURSE_PRICE[c.id]}`);
+  }
 }
 
 console.log("\n── まとめ ──");

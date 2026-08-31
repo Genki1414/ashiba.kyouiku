@@ -6,6 +6,7 @@ import { LATEST } from "@/content/changelog";
 import { bankReady, invoiceOk, missingSeller, seller } from "@/content/legal";
 import { isOwnerEmail, ownerEmails } from "@/lib/owner";
 import { FALLBACK_SITE, siteUrl as resetSiteUrl } from "@/lib/siteUrl";
+import { allPrices, missingPrice } from "@/lib/price.server";
 import { siteUrl as paySiteUrl } from "@/lib/stripe";
 import { currentAdmin } from "@/lib/admin";
 import { myCompany } from "@/lib/tenant";
@@ -78,8 +79,20 @@ export async function GET() {
   const sell = {
     /* 運営の画面を開ける人。0人だと入金の確認ができない */
     owners: ownerEmails().length,
-    /* 1人あたりの単価。未設定だと仮の値になる */
+    /* 1人あたりの単価。
+
+       環境変数が入っているかどうかで見ていたので、入れていないと
+       「未設定（仮の値）」と橙で出ていた。いまは pricing.ts に
+       決めた値（足場4,500・職長7,000）が入っているので、
+       環境変数が無くても正しい金額で売れる。
+       それを警告として出すと、本当に困る警告まで見なくなる。
+
+       見るべきは「公開しているのに0円の講座があるか」。 */
     unitPrice: !!process.env.SEAT_UNIT_PRICE,
+    /* 講座ごとの、いま実際に請求する単価（税抜） */
+    prices: allPrices().map((p) => ({ id: p.id, name: p.name, price: p.price })),
+    /* 0円のまま公開している講座。ここが空でないときだけ困る */
+    priceMissing: missingPrice(),
     /* カード払い。無くても請求書払いで売れる */
     stripeKey: !!process.env.STRIPE_SECRET_KEY,
     stripeHook: !!process.env.STRIPE_WEBHOOK_SECRET,

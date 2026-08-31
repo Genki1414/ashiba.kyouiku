@@ -25,6 +25,8 @@ type Health = {
   sell?: {
     owners: number;
     unitPrice: boolean;
+    prices: { id: string; name: string; price: number }[];
+    priceMissing: string[];
     stripeKey: boolean;
     stripeHook: boolean;
     siteUrl: boolean;
@@ -224,7 +226,19 @@ export function SetupClient() {
                   [
                     ["修了試験の合言葉（EXAM_SECRET）", h.env?.examSecret ? "設定済み" : "未設定（本番では試験が止まります）", !!h.env?.examSecret, true],
                     ["本部のメール（OWNER_EMAILS）", h.sell.owners ? `${h.sell.owners}人` : "未設定", h.sell.owners > 0, true],
-                    ["単価（SEAT_UNIT_PRICE）", h.sell.unitPrice ? "設定済み" : "未設定（仮の値）", h.sell.unitPrice, true],
+                    /* 環境変数の有無ではなく、実際に請求する金額を出す。
+                       決めた値が pricing.ts に入っているので、
+                       環境変数が無くても正しい金額で売れる */
+                    [
+                      "単価（税抜）",
+                      h.sell.priceMissing.length
+                        ? `${h.sell.priceMissing.join("・")}が0円のまま`
+                        : (h.sell.prices ?? [])
+                            .map((p) => `${p.name} ${p.price.toLocaleString()}円`)
+                            .join("／") || "公開中の講座がありません",
+                      h.sell.priceMissing.length === 0 && (h.sell.prices ?? []).length > 0,
+                      true,
+                    ],
                     ["本番のURL（SITE_URL / NEXT_PUBLIC_SITE_URL）", h.sell.siteUrl ? "設定済み" : "未設定（配信ごとの住所を使う）", h.sell.siteUrl, true],
                     /* 住所そのものを出す。「設定済み」だけだと、
                        どちらの変数を入れたかで戻り先が食い違っていても気づけない */
