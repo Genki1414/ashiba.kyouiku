@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase/server";
 import { currentUser } from "@/lib/supabase/session";
+import { notify } from "@/lib/notify.server";
 
 /* 受講者から見た「会社との紐付け」。
 
@@ -78,5 +79,8 @@ export async function POST(req: NextRequest) {
     p_company: companyId,
   });
   if (error) return NextResponse.json({ ok: false, reason: error.message }, { status: 500 });
+  /* 運営に知らせる。許可を出すまで、この人の教材は開かない。
+     送れなくても申込は通す（notify は失敗しても投げない） */
+  await notify("member");
   return NextResponse.json({ ok: true, state: "pending" });
 }

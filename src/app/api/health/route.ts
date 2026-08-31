@@ -9,6 +9,7 @@ import { isOwnerEmail, ownerEmails } from "@/lib/owner";
 import { FALLBACK_SITE, sameSite, siteUrl as resetSiteUrl } from "@/lib/siteUrl";
 import { allPrices, missingPrice } from "@/lib/price.server";
 import { AUTH_MAIL_FROM, AUTH_MAIL_OWN } from "@/content/authMail";
+import { notifyReady } from "@/lib/notify.server";
 import { siteUrl as paySiteUrl } from "@/lib/stripe";
 import { currentAdmin } from "@/lib/admin";
 import { myCompany } from "@/lib/tenant";
@@ -145,6 +146,10 @@ export async function GET() {
        直し忘れると、画面に嘘の差出人が出たままになる。 */
     mailFrom: AUTH_MAIL_FROM,
     mailOwn: AUTH_MAIL_OWN,
+    /* 申込が来たときの LINE への知らせ（docs/22）。
+       無くても売れるので「！」にはしないが、入れていないと
+       許可の出し忘れに気づけない */
+    notify: notifyReady(),
     /* 特商法の表記で、まだ空の項目 */
     sellerMissing: missingSeller(),
     /* 振込先。空だと請求書に「別途ご案内」としか出ず、そのぶん入金が遅れる */

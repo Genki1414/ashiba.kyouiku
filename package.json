@@ -23,6 +23,7 @@
     "test:onboard": "tsx tests/onboard.ts",
     "test:menu": "tsx tests/menu.ts",
     "test:onboarding": "tsx tests/onboarding.ts",
+    "test:notify": "tsx tests/notify.ts",
     "test:envusage": "tsx tests/env-usage.mts",
     "test:admindb": "tsx tests/admin-db.mts",
     "test:apishape": "tsx tests/api-shape.mts",

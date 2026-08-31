@@ -5,6 +5,7 @@ import { listSeats, seatCounts } from "@/lib/seats";
 import { findCourse, readyCourses } from "@/content/courses";
 import { dueDate, quote } from "@/lib/pricing";
 import { unitPrice } from "@/lib/price.server";
+import { notify } from "@/lib/notify.server";
 
 /* 申込み。教育担当者だけ。
 
@@ -104,6 +105,8 @@ export async function POST(req: NextRequest) {
   if (error || !order) {
     return NextResponse.json({ ok: false, reason: error?.message ?? "作れません" }, { status: 500 });
   }
+  /* 運営に知らせる。請求書を送るまで受講コードが出ない */
+  await notify("order");
 
   /* 受講コードは、ここでは作らない。
      入金を確認してから作る（本部の画面の「入金を確認した」）。

@@ -4,6 +4,7 @@ import { currentUser } from "@/lib/supabase/session";
 import { dueDate, quote } from "@/lib/pricing";
 import { trainPrice } from "@/lib/price.server";
 import { trainFor } from "@/lib/trainingGate";
+import { notify } from "@/lib/notify.server";
 
 /* 実務トレーニング（第2章から先）を、本人が申し込む。
 
@@ -120,5 +121,7 @@ export async function POST(req: NextRequest) {
   if (error) {
     return NextResponse.json({ ok: false, reason: error.message }, { status: 500 });
   }
+  /* 運営に知らせる。請求書を送るまで開かない */
+  await notify("train");
   return NextResponse.json({ ok: true, order: data });
 }

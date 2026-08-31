@@ -6,6 +6,7 @@ import { canRequest, gateReason, nextAction, type StudyDone } from "@/lib/issue"
 import { requestOf, slotsOf, toState } from "@/lib/issueQuery";
 import { findCourse, gateOf, GATE_TEXT } from "@/content/courses";
 import { TALK_SUBJECT } from "@/content/shokucho";
+import { notify } from "@/lib/notify.server";
 
 /* 修了証の発行申請（受講する人の側）。
 
@@ -150,6 +151,8 @@ export async function POST(req: NextRequest) {
       p_drill_by: (b.drillBy ?? "").trim().slice(0, 100),
     });
     if (error) return NextResponse.json({ ok: false, reason: error.message }, { status: 409 });
+    /* 運営に知らせる。候補日を出すまで、この人は先へ進めない */
+    await notify("cert");
     return NextResponse.json({ ok: true });
   }
 

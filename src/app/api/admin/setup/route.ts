@@ -3,6 +3,7 @@ import { getServiceClient } from "@/lib/supabase/server";
 import { currentUser } from "@/lib/supabase/session";
 import { newJoinCode } from "@/training/joinCode";
 import { likeCompany, sameCompany } from "@/training/companyName";
+import { notify } from "@/lib/notify.server";
 
 /* 事業者を新しく作り、作った人が最初の教育担当者になる。
 
@@ -113,6 +114,8 @@ export async function POST(req: NextRequest) {
   if (!companyId) {
     return NextResponse.json({ ok: false, reason: "作れませんでした。もう一度お試しください。" }, { status: 500 });
   }
+  /* 運営に知らせる。新しい会社が使い始めた */
+  await notify("company");
 
   /* 作った人は、その事業者に在籍する。
      users.company_id を直に書くだけでは在籍（memberships）が立たず、

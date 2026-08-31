@@ -34,6 +34,7 @@ type Health = {
     resetBase: string;
     mailFrom: string;
     mailOwn: boolean;
+    notify: boolean;
     resetEnv: boolean;
     resetDefault: string;
     here: string;
@@ -293,6 +294,14 @@ export function SetupClient() {
                         ? h.sell.mailFrom
                         : `${h.sell.mailFrom}（共用の送信元。1時間に数通まで）`,
                       h.sell.mailOwn,
+                      false,
+                    ],
+                    /* 申込が来たときの知らせ。無くても売れるので「！」にはしない。
+                       ただ、入れていないと許可の出し忘れに気づけない */
+                    [
+                      "申込の知らせ（LINE_TOKEN / LINE_TO）",
+                      h.sell.notify ? "設定済み" : "未設定（申込が来ても知らせません）",
+                      h.sell.notify,
                       false,
                     ],
                     ["カード払い（STRIPE_SECRET_KEY）", h.sell.stripeKey ? "設定済み" : "未設定（請求書払いのみ）", h.sell.stripeKey, false],
