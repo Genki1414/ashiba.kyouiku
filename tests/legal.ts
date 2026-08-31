@@ -14,12 +14,25 @@ const clear = () => { for (const e of ENVS) delete process.env[e]; };
 console.log("── 何が空か分かる ──");
 clear();
 {
+  /* 所在地・電話・メールは決まったので直接書いてある。
+     環境変数を入れ忘れたまま売ると表示義務を満たさないため。
+
+     代表者だけは登記上の名前で、教育実施責任者（中川元基）とは別。
+     勝手に埋めると嘘の表記になるので、空のまま残してある */
   const m = missingSeller();
-  check(m.length === 4, `未設定が4つ（${m.join("・")}）`);
-  for (const k of ["代表者", "所在地", "電話番号", "メールアドレス"]) {
-    check(m.includes(k), `${k}が空だと分かる`);
+  check(m.length === 1, `未設定は代表者だけ（${m.join("・") || "無し"}）`);
+  check(m.includes("代表者"), "代表者が空だと分かる");
+  for (const k of ["所在地", "電話番号", "メールアドレス"]) {
+    check(!m.includes(k), `${k}は決まっている`);
   }
-  check(seller().name === "東北三上機材株式会社", "事業者名は決まっている");
+  const d = seller();
+  check(d.name === "東北三上機材株式会社", "事業者名は決まっている");
+  check(d.address === "宮城県名取市牛野八幡23", "所在地", d.address);
+  check(d.tel === "022-738-7913", "電話番号", d.tel);
+  check(d.email === "info@tohoku-mikamikizai.co.jp", "メールアドレス", d.email);
+  check(d.ceo === "", "代表者は空のまま（登記上の名前を勝手に入れない）", d.ceo);
+  /* 教育実施責任者を代表者の欄に流用していないこと。別物 */
+  check(d.ceo !== "中川元基", "教育実施責任者を代表者に流用していない");
 }
 {
   process.env.SELLER_CEO = "中川 元基";
@@ -29,8 +42,12 @@ clear();
   check(missingSeller().length === 0, "4つとも入れれば空は無くなる");
   const s = seller();
   check(s.ceo === "中川 元基" && s.tel === "022-000-0000", "入れた値が読める");
+  /* 空白だけを入れたら、決め打ちの値に戻る（未設定にはならない）。
+     戻り先が空だった頃は「未設定」になっていた */
   process.env.SELLER_TEL = "   ";
-  check(missingSeller().includes("電話番号"), "空白だけは未設定として扱う");
+  check(seller().tel === "022-738-7913", "空白だけなら決め打ちに戻る", seller().tel);
+  process.env.SELLER_CEO = "   ";
+  check(missingSeller().includes("代表者"), "決め打ちの無い欄は、空白だけなら未設定");
 }
 clear();
 
@@ -69,8 +86,11 @@ console.log("── 特商法の表記 ──");
   /* 未設定の欄は、値が空のまま返る（画面が「未設定」と出せるように） */
   clear();
   const items = tokushoho(PRICES);
-  check(items.find((i) => i.k === "所在地")!.v === "", "空の欄は空のまま返す");
+  check(items.find((i) => i.k === "代表者")!.v === "", "空の欄は空のまま返す");
   check(items.find((i) => i.k === "販売事業者")!.v !== "", "既定のある欄は埋まっている");
+  for (const k of ["所在地", "電話番号", "メールアドレス"]) {
+    check(items.find((i) => i.k === k)!.v !== "", `${k}が表記に出る`);
+  }
 }
 
 console.log("── 個人情報の表 ──");

@@ -1,11 +1,15 @@
 /* 売るために要る表記の中身。
 
    特定商取引法に基づく表記は、住所や電話番号まで載せる決まりです。
-   ここに直接書かず、Vercel の環境変数から取ります。
-   （リポジトリは外の人にも見えるため。値そのものは公開情報ですが、
-     直すたびに組み立て直すのも面倒なので設定にしてあります）
 
-   埋まっていない項目は画面に「未設定」と出ます。
+   もとは全部を Vercel の環境変数から取っていましたが、
+   **入れ忘れると「未設定」と出たまま売ることになり、表示義務を満たしません。**
+   ここに載るのは、刷って配る紙にも載せる公開情報です
+   （振込先・修了証の名義と同じ扱い。src/lib/issuer.ts）。
+   隠す意味が無いので、決まっているものは直接書きます。
+   環境変数を入れれば、そちらが勝ちます。
+
+   まだ埋まっていない項目は画面に「未設定」と出ます。
    /setup でも、どれが空かが分かります。 */
 
 import { TAX_RATE } from "@/lib/pricing";
@@ -18,11 +22,13 @@ const get = (name: string, fallback = "") => (process.env[name] ?? "").trim() ||
 export function seller() {
   return {
     name: get("SELLER_NAME", "東北三上機材株式会社"),
-    /** 会社の代表者。教育実施責任者とは別 */
+    /** 会社の代表者。**教育実施責任者（中川元基）とは別**。
+        登記上の代表者なので、勝手に埋めない。
+        ここが空だと特商法の表示義務を満たしません */
     ceo: get("SELLER_CEO"),
-    address: get("SELLER_ADDRESS"),
-    tel: get("SELLER_TEL"),
-    email: get("SELLER_EMAIL"),
+    address: get("SELLER_ADDRESS", "宮城県名取市牛野八幡23"),
+    tel: get("SELLER_TEL", "022-738-7913"),
+    email: get("SELLER_EMAIL", "info@tohoku-mikamikizai.co.jp"),
     /** 電話を受けられる時間 */
     hours: get("SELLER_HOURS", "平日 9:00〜17:00（土日祝を除く）"),
     /** 問い合わせ窓口の名前 */
