@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { loadMe, readMe, sameMe, type Me } from "@/lib/me";
+import { ADD_STEPS, isInstalled } from "@/lib/pwa";
 import {
   guideFor,
   nowStep,
@@ -78,9 +79,13 @@ export function FirstSteps() {
   /* 開け閉めは端末に覚える。一度読んだ人に、開くたび開いた状態で
      出すと邪魔になる（src/lib/onboarding.ts） */
   const [open, setOpen] = useState(true);
+  /* ホーム画面に追加してあるか。追加済みなら案内を出さない。
+     はじめの一度だけ見て、以後は変えない（描き直しのたびに測らない） */
+  const [added, setAdded] = useState(true);
 
   useEffect(() => {
     setOpen(readGuideOpen());
+    setAdded(isInstalled());
   }, []);
 
   useEffect(() => {
@@ -133,6 +138,34 @@ export function FirstSteps() {
           <Row key={s.t} s={s} n={i + 1} />
         ))}
       </div>
+
+      {/* ホーム画面への追加。番号を振った道のりには入れない。
+          これをやらなくても先へは進めるので、番号に混ぜると
+          「いまやること」がぼやける。
+          ただ **iPhone では追加しないと通知が届かない** ので、
+          ついでの話にはせず、独立した枠で出す（src/lib/pwa.ts） */}
+      {!added && (
+        <div
+          className="mt-3 rounded-lg border border-line bg-bg p-3.5"
+          data-testid="add-home"
+        >
+          <div className="text-[11px] tracking-[2px] text-dim2">やっておくと良いこと</div>
+          <div className="mt-1 text-[13px] font-bold text-txt">ホーム画面に追加する</div>
+          <div className="mt-1 text-[12px] leading-relaxed text-dim">
+            アプリのように開けて、画面が広く使えます。
+            <br />
+            <strong className="text-txt">iPhone は、追加しないとお知らせが届きません。</strong>
+          </div>
+          <div className="mt-2 grid gap-1">
+            {ADD_STEPS.map((a) => (
+              <div key={a.os} className="text-[12px] leading-relaxed text-dim">
+                <span className="block text-[11px] font-bold text-dim2">{a.os}</span>
+                {a.how}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </details>
   );
 }

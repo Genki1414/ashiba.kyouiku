@@ -2,6 +2,7 @@
    実行: npm run test:onboarding */
 
 import { readFileSync } from "node:fs";
+import { ADD_STEPS, isInstalled } from "../src/lib/pwa";
 import {
   GUIDE_OPEN_KEY,
   adminSteps,
@@ -171,6 +172,54 @@ console.log("\n── 開け閉め ──");
   check(ui.includes("readGuideOpen"), "覚えを読んでから描く");
   /* 前は添え書きに「（押すと閉じます）」と書いていた。ボタンにしたので要らない */
   check(!ui.includes("押すと閉じます"), "添え書きの説明はボタンに寄せた");
+}
+
+console.log("\n── ホーム画面に追加する ──");
+{
+  /* iPhone は、ホーム画面に追加していないと Push が届かない。
+     「あると便利」ではなく、通知の前提として案内する */
+  const ui = code("src/components/FirstSteps.tsx");
+  check(ui.includes('data-testid="add-home"'), "追加の案内がある");
+  check(ui.includes("!added &&"), "追加済みの人には出さない");
+  check(ui.includes("isInstalled"), "追加してあるかを見てから決める");
+
+  /* 番号を振った道のりには混ぜない。やらなくても先へ進めるので、
+     番号に入れると「いまやること」がぼやける */
+  for (const w of [who(), who({ member: "active" }), who({ admin: true })]) {
+    const { steps } = guideFor(w);
+    check(
+      !steps.some((x) => x.t.includes("ホーム画面")),
+      "番号の道のりには入れない",
+      steps.map((x) => x.t).join("／"),
+    );
+  }
+  const box = ui.slice(ui.indexOf("!added &&"));
+  const rows = ui.slice(ui.indexOf("steps.map"), ui.indexOf("!added &&"));
+  check(!rows.includes("add-home"), "道のりの並びの外に置く");
+
+  /* iPhone の一言。ここを落とすと、追加しない人に通知が届かないまま */
+  check(box.includes("お知らせが届きません"), "iPhone は追加しないと届かないと書く");
+  check(box.includes("iPhone"), "どの端末の話かを書く");
+
+  /* 端末を当てにいかず両方出す。外すと逆の手順を読ませる */
+  check(ADD_STEPS.length === 2, "iPhone と Android の両方を出す");
+  check(ADD_STEPS.some((a) => a.os.includes("iPhone")), "iPhone の手順がある");
+  check(ADD_STEPS.some((a) => a.os.includes("Android")), "Android の手順がある");
+  check(ADD_STEPS.every((a) => a.how.includes("ホーム画面") || a.how.includes("インストール")),
+    "何を押すところまで書く", ADD_STEPS.map((a) => a.how).join("／"));
+  check(ui.includes("ADD_STEPS.map"), "手順は pwa.ts から出す（画面に書き写さない）");
+
+  /* window の無い所（この試験・サーバ描画）で落ちないこと */
+  let threw = false;
+  let v = true;
+  try { v = isInstalled(); } catch { threw = true; }
+  check(!threw, "window が無くても落ちない");
+  check(v === false, "分からないときは「追加していない」とみなす");
+
+  /* 初回の描き直しで一瞬出て消えるのを避ける。
+     追加済みから始めて、測ってから出す */
+  check(/added,\s*setAdded\]\s*=\s*useState\(true\)/.test(ui),
+    "はじめは出さずに、測ってから出す");
 }
 
 console.log("\n── まとめ ──");
