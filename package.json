@@ -21,6 +21,7 @@
     "test:pricing": "tsx tests/pricing.mts",
     "test:legal": "tsx tests/legal.ts",
     "test:onboard": "tsx tests/onboard.ts",
+    "test:menu": "tsx tests/menu.ts",
     "test:envusage": "tsx tests/env-usage.mts",
     "test:admindb": "tsx tests/admin-db.mts",
     "test:apishape": "tsx tests/api-shape.mts",

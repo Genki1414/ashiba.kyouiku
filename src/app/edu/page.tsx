@@ -1,58 +1,125 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { COURSES } from "@/content/courses";
+import {
+  COURSES,
+  KIND_TEXT,
+  hoursText,
+  kindOf,
+  menuOf,
+  splitMenu,
+  totalNoteOf,
+  type CourseMeta,
+} from "@/content/courses";
 import { loadedCourses } from "@/lib/curriculum";
 
 export const dynamic = "force-dynamic";
 
-/* 講座（特別教育）の一覧。
+/* 講座の一覧。
 
-   特別教育は種類が増えていく。受けられるものが1つしか無いあいだは、
-   一覧を挟まずそのまま中へ通す（余計な1手を増やさない）。 */
+   受けられるものが1つしか無いあいだは、一覧を挟まずそのまま中へ通す
+   （余計な1手を増やさない）。
+
+   特別教育は種類が増えていく。全部そのまま並べると、
+   足場を受けに来た人が長い一覧から探すことになる。
+   これから足す特別教育は「その他特別教育」を開いてから選ぶ
+   （courses.ts の menu: "other"）。
+
+   開け閉めは <details> でやる。JavaScript が動かなくても開くし、
+   キーボードでも開ける。圏外で開いた人が詰まらない。 */
+
+function Card({ c }: { c: CourseMeta }) {
+  return (
+    <Link
+      href={`/edu/${c.id}`}
+      className="block rounded-xl border border-yel bg-panel p-4 no-underline"
+      data-testid="course-card"
+    >
+      {/* 種類は講座から出す。「特別教育（学科）」で決め打ちにしていたので、
+          職長教育のカードにも特別教育と出ていた */}
+      <div className="text-[11px] font-extrabold tracking-widest text-yel">
+        {KIND_TEXT[kindOf(c)].label}
+      </div>
+      <div className="mt-1 text-[16px] font-black leading-snug text-txt">{c.name}</div>
+      <div className="mt-1.5 text-[11.5px] leading-relaxed text-dim">
+        {c.basis}
+        <br />
+        {totalNoteOf(c)} {hoursText(c.totalMin)}
+      </div>
+    </Link>
+  );
+}
+
+function Soon({ c }: { c: CourseMeta }) {
+  return (
+    <div className="rounded-xl border border-line bg-bg p-3.5" data-testid="course-soon">
+      <div className="text-[13.5px] font-bold text-dim">{c.name}</div>
+      <div className="mt-0.5 text-[11px] text-dim2">準備中</div>
+    </div>
+  );
+}
 
 export default async function EduPage() {
   const ready = await loadedCourses();
   if (ready.length === 1) redirect(`/edu/${ready[0].id}`);
 
   const soon = COURSES.filter((c) => !c.ready);
+  const r = splitMenu(ready);
+  const s = splitMenu(soon);
+  /* 中身が無ければ、開く所そのものを出さない。
+     押しても何も出てこない見出しは、置かないほうがいい */
+  const others = r.other.length + s.other.length;
 
   return (
     <main className="px-5 py-8" data-testid="course-list">
       <div className="tape -mx-5 mb-6" />
       <Link href="/" className="backlink text-[13px] text-dim no-underline">← ホーム</Link>
-      <h1 className="mt-2 text-[19px] font-black">特別教育</h1>
+      {/* 特別教育だけを出しているわけではない（職長教育もここに並ぶ） */}
+      <h1 className="mt-2 text-[19px] font-black">受ける講座</h1>
       <p className="mt-1 text-[12px] leading-relaxed text-dim">
         受ける講座を選んでください。修了証は講座ごとに出ます。
       </p>
 
       <div className="mt-5 grid gap-2.5">
-        {ready.map((c) => (
-          <Link
-            key={c.id}
-            href={`/edu/${c.id}`}
-            className="block rounded-xl border border-yel bg-panel p-4 no-underline"
-            data-testid="course-card"
-          >
-            <div className="text-[11px] font-extrabold tracking-widest text-yel">特別教育（学科）</div>
-            <div className="mt-1 text-[16px] font-black leading-snug text-txt">{c.name}</div>
-            <div className="mt-1.5 text-[11.5px] leading-relaxed text-dim">
-              {c.basis}
-              <br />
-              学科 {Math.floor(c.totalMin / 60)}時間
-            </div>
-          </Link>
+        {r.main.map((c) => (
+          <Card key={c.id} c={c} />
         ))}
       </div>
 
-      {!!soon.length && (
+      {others > 0 && (
+        <details className="group mt-3 rounded-xl border border-line bg-bg" data-testid="course-other">
+          <summary
+            className="flex cursor-pointer list-none items-center gap-2 p-4 text-[14px] font-black text-txt"
+            data-testid="course-other-open"
+          >
+            {/* 押せることが見た目で分かるように印を出す。
+                list-none で既定の三角を消しているので、無いと
+                ただの見出しにしか見えない */}
+            <span
+              className="inline-block text-[11px] text-yel transition-transform group-open:rotate-90"
+              aria-hidden
+            >
+              ▶
+            </span>
+            その他特別教育
+            <span className="text-[11.5px] font-normal text-dim">{others}件</span>
+          </summary>
+          <div className="grid gap-2.5 px-4 pb-4">
+            {r.other.map((c) => (
+              <Card key={c.id} c={c} />
+            ))}
+            {s.other.map((c) => (
+              <Soon key={c.id} c={c} />
+            ))}
+          </div>
+        </details>
+      )}
+
+      {!!s.main.length && (
         <div className="mt-6">
           <div className="mb-2 text-[11px] tracking-[2px] text-dim">これから増えるもの</div>
           <div className="grid gap-2">
-            {soon.map((c) => (
-              <div key={c.id} className="rounded-xl border border-line bg-bg p-3.5" data-testid="course-soon">
-                <div className="text-[13.5px] font-bold text-dim">{c.name}</div>
-                <div className="mt-0.5 text-[11px] text-dim2">準備中</div>
-              </div>
+            {s.main.map((c) => (
+              <Soon key={c.id} c={c} />
             ))}
           </div>
         </div>

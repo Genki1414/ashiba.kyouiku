@@ -81,6 +81,17 @@ export type CourseMeta = {
   file: string;
   /** 受講できるか。教材がまだなら false（画面には「準備中」と出る） */
   ready: boolean;
+  /** 一覧のどこに出すか。
+
+      "main" … そのまま並べる（既定）
+      "other" … 「その他特別教育」を開いてから選ぶ
+
+      特別教育は種類が増える。全部そのまま並べると、
+      足場を受けに来た人が長い一覧から探すことになる。
+      これから足す特別教育は "other" にする。
+      見出しが「その他特別教育」なので、ここへ入れてよいのは
+      特別教育（kind: "special"）だけ。 */
+  menu?: CourseMenu;
 };
 
 export const COURSES: CourseMeta[] = [
@@ -158,6 +169,36 @@ export const textOf = (c: CourseMeta) => KIND_TEXT[kindOf(c)];
 /** 受けられる講座だけ */
 /** サービスの名前。ログインの画面など、講座を1つに絞れない所で使う。
     「足場の特別教育」と書いていたので、職長教育を売り始めてから合わなくなった */
+/** 「6時間」「14時間」「6時間30分」。
+
+    Math.floor(min/60) で「時間」と出していたので、
+    半端のある講座を足したときに、短いほうへ切り捨てた時間が出る。
+    法定時間を短く見せることになる。 */
+export const hoursText = (min: number): string => {
+  const m = Math.max(0, Math.round(min));
+  const h = Math.floor(m / 60);
+  const r = m % 60;
+  if (!h) return `${r}分`;
+  return r ? `${h}時間${r}分` : `${h}時間`;
+};
+
+/** 一覧での置き場所 */
+export type CourseMenu = "main" | "other";
+
+/** その講座をどこに出すか。書いていなければ、そのまま並べる */
+export const menuOf = (c: CourseMeta): CourseMenu => c.menu ?? "main";
+
+/** 一覧を2つに分ける。「その他特別教育」を開く前と、開いた中身。
+
+    並び順は COURSES のまま。ここで並べ替えると、
+    足場をいちばん上に置いてある意味が無くなる。 */
+export const splitMenu = (
+  list: CourseMeta[],
+): { main: CourseMeta[]; other: CourseMeta[] } => ({
+  main: list.filter((c) => menuOf(c) === "main"),
+  other: list.filter((c) => menuOf(c) === "other"),
+});
+
 export const SERVICE_NAME = "足場屋革命";
 
 export const readyCourses = (): CourseMeta[] => COURSES.filter((c) => c.ready);
