@@ -283,11 +283,26 @@ export function drawCert(cv: HTMLCanvasElement, c: CertData) {
   }
 
   ctx.textAlign = "right";
-  ctx.fillStyle = "#1A1D21";
   const nameRight = sealX - 22;
-  const co = `事業者名　${c.company || "（　　　　　　　）"}`;
-  fit(ctx, co, nameRight - L, 19, 13, 400);
-  ctx.fillText(co, nameRight, sealY + 46);
+
+  /* 事業者名は朱色。すぐ右の印と揃えて、誰が出した紙かを一目で分からせる。
+     見出し（「事業者名」）は朱色にしない。朱いのは名前だけにする。
+
+     見出しと名前で色が違うので、1つの文字列では描けない。
+     大きさは見出しごと入れて決める（名前だけで測ると、
+     長い社名のときに見出しが枠から出る）。 */
+  const SEAL_RED = "#B03A2E";
+  const coLabel = "事業者名　";
+  const coName = c.company || "（　　　　　　　）";
+  const coSize = fit(ctx, coLabel + coName, nameRight - L, 19, 13, 400);
+  ctx.font = `400 ${coSize}px ${JP}`;
+  ctx.fillStyle = SEAL_RED;
+  ctx.fillText(coName, nameRight, sealY + 46);
+  /* 見出しは名前の左に置く。右揃えなので、名前のぶんだけ左へ寄せる */
+  ctx.fillStyle = "#5A5A55";
+  ctx.fillText(coLabel, nameRight - ctx.measureText(coName).width, sealY + 46);
+
+  ctx.fillStyle = "#1A1D21";
   const re = `教育実施責任者　${c.responsible || "（　　　　　　　）"}`;
   fit(ctx, re, nameRight - L, 19, 13, 400);
   ctx.fillText(re, nameRight, sealY + 86);
