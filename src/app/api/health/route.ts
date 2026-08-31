@@ -8,7 +8,7 @@ import { bankReady, invoiceOk, missingSeller, seller } from "@/content/legal";
 import { isOwnerEmail, ownerEmails } from "@/lib/owner";
 import { FALLBACK_SITE, sameSite, siteUrl as resetSiteUrl } from "@/lib/siteUrl";
 import { allPrices, missingPrice } from "@/lib/price.server";
-import { AUTH_MAIL_FROM } from "@/content/authMail";
+import { AUTH_MAIL_FROM, AUTH_MAIL_OWN } from "@/content/authMail";
 import { siteUrl as paySiteUrl } from "@/lib/stripe";
 import { currentAdmin } from "@/lib/admin";
 import { myCompany } from "@/lib/tenant";
@@ -137,12 +137,14 @@ export async function GET() {
     here,
     payHere: sameSite(paySiteUrl(), here),
     resetHere: sameSite(resetSiteUrl(), here),
-    /* 認証メールの差出人。自前の SMTP を入れるまでは Supabase の共用送信元。
+    /* 認証メールの差出人。
 
-       これは見た目だけの話ではない。標準の送信は1時間に数通までなので、
-       講習の当日に何人か重なると黙って届かなくなる（docs/21）。
-       忘れないよう、ここに出しておく。 */
+       共用送信元のままだと、見た目が怪しいだけでなく
+       1時間に数通までしか出ない（docs/21）。忘れないよう、ここに出す。
+       送信元を変えたら src/content/authMail.ts を直すこと。
+       直し忘れると、画面に嘘の差出人が出たままになる。 */
     mailFrom: AUTH_MAIL_FROM,
+    mailOwn: AUTH_MAIL_OWN,
     /* 特商法の表記で、まだ空の項目 */
     sellerMissing: missingSeller(),
     /* 振込先。空だと請求書に「別途ご案内」としか出ず、そのぶん入金が遅れる */

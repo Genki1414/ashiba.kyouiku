@@ -8,7 +8,7 @@ import { claimDevice } from "@/lib/device";
 import { siteUrl } from "@/lib/siteUrl";
 import { Btn } from "@/components/ui/Btn";
 import { SERVICE_NAME } from "@/content/courses";
-import { AUTH_MAIL_FROM, showMailFrom } from "@/content/authMail";
+import { AUTH_MAIL_FROM, mailFromNote, showMailFrom } from "@/content/authMail";
 
 /* メールと合言葉でログインする。
    受講の記録を本人のものとして残すために要ります。
@@ -162,10 +162,7 @@ export function LoginClient() {
           >
             <div className="mb-1 text-[11px] tracking-[2px] text-dim2">差出人</div>
             <div className="break-all font-bold text-txt">{AUTH_MAIL_FROM}</div>
-            <div className="mt-1.5">
-              英語のメールで届くことがあります。こちらから送ったものなので、
-              そのままリンクを押して構いません。
-            </div>
+            <div className="mt-1.5">{mailFromNote()}</div>
           </div>
         )}
         <Btn onClick={() => { setMailed(false); setMode("in"); }} className="mt-6">
@@ -200,10 +197,7 @@ export function LoginClient() {
           >
             <div className="mb-1 text-[11px] tracking-[2px] text-dim2">差出人</div>
             <div className="break-all font-bold text-txt">{AUTH_MAIL_FROM}</div>
-            <div className="mt-1.5">
-              英語のメールで届くことがあります。こちらから送ったものなので、
-              そのままリンクを押して構いません。
-            </div>
+            <div className="mt-1.5">{mailFromNote()}</div>
           </div>
         )}
         <Btn onClick={() => { setSent(false); setMode("in"); }} className="mt-6">
