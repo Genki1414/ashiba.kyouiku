@@ -17,6 +17,7 @@ type Health = {
     examSecret: boolean;
   };
   checks?: Record<string, { ok: boolean; detail: string }>;
+  schema?: { now: string; need: string; ok: boolean };
   /* いま誰として記録しているか */
   auth?: { required: boolean; signedIn: boolean; enrollment: string; email?: string | null; owner?: boolean; admin?: boolean; company?: string; canLearn?: boolean; learnBy?: string };
   /* この版がいつのものか。新しい版が届いているかを見る目印 */
@@ -126,6 +127,29 @@ export function SetupClient() {
               </div>
               <div className="mt-1.5 text-[13px] leading-relaxed text-txt">{h.message}</div>
             </div>
+
+            {/* データベースの版。**SQL を流すたびに見る所**なので、
+                いちばん上に置く。前は checks の中に紛れていて、
+                ページのいちばん下まで探しにいく必要があった。
+                いま入っている版と、要る版の**両方**を出す。
+                片方だけでは、流し終わったのかが分からない */}
+            {h.schema && (
+              <div
+                className={`mt-3 flex items-baseline gap-2 rounded-xl border bg-panel p-4 ${
+                  h.schema.ok ? "border-line" : "border-org"
+                }`}
+                data-testid="schema-row"
+              >
+                <span className={`text-[13px] ${h.schema.ok ? "text-grn" : "text-org"}`}>
+                  {h.schema.ok ? "✓" : "！"}
+                </span>
+                <span className="text-[12.5px] text-dim">データベースの版</span>
+                <span className="ml-auto shrink-0 font-mono text-[13px] font-bold text-txt">
+                  {h.schema.now || "読めません"}
+                </span>
+                <span className="shrink-0 text-[11.5px] text-dim2">／ 要る版 {h.schema.need}</span>
+              </div>
+            )}
 
             <div className="mt-4 rounded-xl border border-line bg-panel p-4">
               <div className="mb-2 text-[11px] tracking-[2px] text-dim">サーバ側（実行時に読まれる）</div>

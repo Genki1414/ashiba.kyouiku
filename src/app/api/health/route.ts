@@ -176,6 +176,12 @@ export async function GET() {
     });
   }
 
+  /* データベースの版。**数字そのものを返す。**
+     いままでは checks の中に「0024 まで入っている」と紛れているだけで、
+     ページのいちばん下まで探しにいく必要があった。
+     SQL を流すたびに見る所なので、上に出せるように分けて返す */
+  let schemaNow = "";
+
   const checks: Record<string, { ok: boolean; detail: string }> = {};
   const check = async (name: string, fn: () => Promise<string>) => {
     try {
@@ -237,6 +243,7 @@ export async function GET() {
       );
     }
     const now = String(data ?? "");
+    schemaNow = now;
     if (now < NEED_SCHEMA) {
       throw new Error(
         `いま ${now}。${NEED_SCHEMA} が要ります。supabase/apply-all.sql を SQL Editor でもう一度実行してください`,
@@ -286,6 +293,9 @@ export async function GET() {
     auth,
     appVersion,
     sell,
+    /* いま入っている版と、このアプリが要る版。
+       片方だけでは「流し終わったのか」が分からない */
+    schema: { now: schemaNow, need: NEED_SCHEMA, ok: !!schemaNow && schemaNow >= NEED_SCHEMA },
     checks,
     message: ok
       ? "Supabase に接続できています。視聴記録・照合ログ・受験記録はサーバに保存されます。"

@@ -352,6 +352,19 @@ console.log("── データベースの版 ──");
   const health = read("src/app/api/health/route.ts");
   check(/from "@\/content\/schema"/.test(health), "つながり具合の確認は、書き出した版を見る");
   check(!/NEED_SCHEMA = "/.test(health), "つながり具合の確認に、版を手で書いていない");
+
+  /* SQL を流したあとに毎回見る所。○×だけでなく**数字そのもの**を返す。
+     前は checks の中に「0024 まで入っている」と紛れているだけで、
+     ページのいちばん下まで探しにいく必要があった */
+  check(/schema: \{ now: schemaNow, need: NEED_SCHEMA/.test(health),
+    "いま入っている版と、要る版の両方を返す");
+  const setup = read("src/app/setup/SetupClient.tsx");
+  check(/data-testid="schema-row"/.test(setup), "/setup に版の行がある");
+  check(/h\.schema\.now/.test(setup) && /h\.schema\.need/.test(setup),
+    "どちらの数字も画面に出す（片方では流し終わったか分からない）");
+  /* いちばん上の札のすぐ下。下まで探させない */
+  check(setup.indexOf('data-testid="schema-row"') < setup.indexOf("サーバ側（実行時に読まれる）"),
+    "版は、環境変数より上に出す");
 }
 
 console.log("── 講座ごとの値段 ──");
