@@ -15,13 +15,17 @@ import type { CertData } from "@/lib/cert";
 
    ── 事業者印 ──
    public/seal.png があれば、それを刷り込む。
-   無ければ朱色の枠だけ出して、手で押せるようにする。
+   無ければ社名から角印を描く（drawKakuin）。
+   枠だけ出して手で押させると、1枚ずつ押すことになる。
 
    拡張子は問わない（png / jpg / jpeg / webp を順に探す）。
    手元の印の画像が png とは限らないので、変換させないため。
    ただし iPhone の HEIC は、ブラウザによって出ないので不可。 */
 
 const JP = '"Hiragino Kaku Gothic ProN","Noto Sans JP","Yu Gothic",sans-serif';
+
+/** 朱肉の色。印と事業者名で同じ色を使う */
+const SEAL_RED = "#B03A2E";
 
 /* 名刺サイズ 91mm × 55mm を 300dpi で。
    刷ることを考えて300dpi。画面で見るぶんには大きすぎるくらいでちょうどいい */
@@ -181,6 +185,57 @@ function fit(
   return size;
 }
 
+/* 社名から角印を描く。
+
+   印の画像を置いていないときの代わり。枠と「事業者印」だけを出していたが、
+   それだと誰が出した紙か分からない。角印は社名が彫ってあるものなので、
+   社名をそのまま彫る。
+
+   縦書きで、右の列から左へ。印はそう読む。
+   列の数は字数から決める。10字を2列にすると縦に細長くなって印に見えない。 */
+export function drawKakuin(
+  ctx: CanvasRenderingContext2D,
+  company: string,
+  x: number,
+  y: number,
+  size: number,
+): void {
+  /* 空白は彫らない。字数がずれて列が崩れる */
+  const chars = [...company.replace(/[\s\u3000]/g, "")];
+  if (!chars.length) return;
+
+  const edge = Math.max(3, Math.round(size * 0.035));
+  ctx.strokeStyle = SEAL_RED;
+  ctx.lineWidth = edge;
+  ctx.strokeRect(x + edge / 2, y + edge / 2, size - edge, size - edge);
+
+  /* 正方形に近い並びにする。列数と行数が離れるほど印から遠ざかる */
+  const cols = Math.min(4, Math.max(2, Math.round(Math.sqrt(chars.length))));
+  const rows = Math.ceil(chars.length / cols);
+
+  const pad = edge * 2;
+  const inner = size - pad * 2;
+  const cw = inner / cols;
+  const ch = inner / rows;
+  /* 字は枠いっぱいに。印は字が詰まっているほうがそれらしい */
+  const fs = Math.floor(Math.min(cw, ch) * 0.94);
+
+  ctx.fillStyle = SEAL_RED;
+  ctx.font = `700 ${fs}px ${JP}`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  chars.forEach((ch1, i) => {
+    const col = Math.floor(i / rows);
+    const row = i % rows;
+    /* 右の列から。col が増えるほど左へ */
+    const cx = x + size - pad - (col + 0.5) * cw;
+    const cy = y + pad + (row + 0.5) * ch;
+    ctx.fillText(ch1, cx, cy);
+  });
+  /* 触ったものは戻す。この後の行が縦にずれる */
+  ctx.textBaseline = "alphabetic";
+}
+
 export function drawCert(cv: HTMLCanvasElement, c: CertData) {
   const W = CERT_W;
   const H = CERT_H;
@@ -271,15 +326,8 @@ export function drawCert(cv: HTMLCanvasElement, c: CertData) {
     const h = ih * s;
     ctx.drawImage(art, sealX + (sealSize - w) / 2, sealY + (sealSize - h) / 2, w, h);
   } else {
-    /* 画像が無いときは枠だけ。刷ってから手で押せる */
-    ctx.strokeStyle = "#B03A2E";
-    ctx.lineWidth = 3;
-    ctx.strokeRect(sealX, sealY, sealSize, sealSize);
-    ctx.fillStyle = "#B03A2E";
-    ctx.font = `700 16px ${JP}`;
-    ctx.textAlign = "center";
-    ctx.fillText("事業者", sealX + sealSize / 2, sealY + sealSize / 2 - 6);
-    ctx.fillText("印", sealX + sealSize / 2, sealY + sealSize / 2 + 22);
+    /* 画像が無いときは、社名から角印を描く */
+    drawKakuin(ctx, c.company || "事業者印", sealX, sealY, sealSize);
   }
 
   ctx.textAlign = "right";
@@ -291,7 +339,6 @@ export function drawCert(cv: HTMLCanvasElement, c: CertData) {
      見出しと名前で色が違うので、1つの文字列では描けない。
      大きさは見出しごと入れて決める（名前だけで測ると、
      長い社名のときに見出しが枠から出る）。 */
-  const SEAL_RED = "#B03A2E";
   const coLabel = "事業者名　";
   const coName = c.company || "（　　　　　　　）";
   const coSize = fit(ctx, coLabel + coName, nameRight - L, 19, 13, 400);
