@@ -3,7 +3,14 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { loadMe, readMe, sameMe, type Me } from "@/lib/me";
-import { guideFor, nowStep, showGuide, type Step } from "@/lib/onboarding";
+import {
+  guideFor,
+  nowStep,
+  readGuideOpen,
+  showGuide,
+  writeGuideOpen,
+  type Step,
+} from "@/lib/onboarding";
 
 /* はじめて使う人への道のり。ホームのいちばん上に出す。
 
@@ -68,6 +75,13 @@ function Row({ s, n }: { s: Step; n: number }) {
    断られてから道のりを見せても遅い。押す前に置く。 */
 export function FirstSteps() {
   const [me, setMe] = useState<Me | null>(null);
+  /* 開け閉めは端末に覚える。一度読んだ人に、開くたび開いた状態で
+     出すと邪魔になる（src/lib/onboarding.ts） */
+  const [open, setOpen] = useState(true);
+
+  useEffect(() => {
+    setOpen(readGuideOpen());
+  }, []);
 
   useEffect(() => {
     let alive = true;
@@ -86,16 +100,33 @@ export function FirstSteps() {
   const now = nowStep(steps);
   return (
     <details
-      open
-      className="rounded-xl border border-yel bg-[#1A1F14] p-4"
+      open={open}
+      onToggle={(e) => {
+        const v = e.currentTarget.open;
+        setOpen(v);
+        writeGuideOpen(v);
+      }}
+      className="group rounded-xl border border-yel bg-[#1A1F14] p-4"
       data-testid="first-steps"
     >
-      <summary className="cursor-pointer list-none">
-        <span className="text-[11px] font-extrabold tracking-widest text-yel">{title}</span>
-        <span className="mt-1 block text-[15px] font-black text-txt">
-          {now ? `つぎは「${now.t}」です` : "はじめかた"}
+      {/* 押す所をはっきり出す。既定の三角を消しているので、
+          印が無いとただの見出しにしか見えない。
+          字で出すのは、三角だけだと何が起きるか分からないため */}
+      <summary className="flex cursor-pointer list-none items-start justify-between gap-3">
+        <span className="min-w-0">
+          <span className="text-[11px] font-extrabold tracking-widest text-yel">{title}</span>
+          <span className="mt-1 block text-[15px] font-black text-txt">
+            {now ? `つぎは「${now.t}」です` : "はじめかた"}
+          </span>
+          <span className="mt-1 block text-[11.5px] text-dim2">{lead}</span>
         </span>
-        <span className="mt-1 block text-[11.5px] text-dim2">{lead}（押すと閉じます）</span>
+        <span
+          className="shrink-0 rounded-lg border border-line px-2.5 py-1.5 text-[11.5px] font-bold text-dim"
+          data-testid="first-steps-toggle"
+        >
+          <span className="group-open:hidden">ひらく</span>
+          <span className="hidden group-open:inline">とじる</span>
+        </span>
       </summary>
       <div className="mt-3 border-t border-line pt-1">
         {steps.map((s, i) => (

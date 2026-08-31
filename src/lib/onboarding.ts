@@ -138,3 +138,34 @@ export function guideFor(me: Who): { title: string; lead: string; steps: Step[] 
 /** いまやること。1つだけ */
 export const nowStep = (steps: Step[]): Step | null =>
   steps.find((s) => s.state === "now") ?? null;
+
+/** 道のりを開いているか、端末に覚えておく鍵。
+
+    一度読んだ人に、開くたび開いた状態で出すと邪魔になる。
+    閉じたら閉じたままにする。
+
+    「ashiba.」で始めてあるので、端末の持ち主が変わったときに
+    まとめて消える（src/lib/device.ts の wipeDevice）。
+    消えれば既定の「開いている」に戻るので、
+    **次に使う人には、また開いた状態で出る。** それでよい。
+    設定として残す物（音の入切など）とは違う。 */
+export const GUIDE_OPEN_KEY = "ashiba.guide-open";
+
+/** 覚えを読む。書いていなければ開いておく（初めての人に見せるため） */
+export function readGuideOpen(): boolean {
+  try {
+    return localStorage.getItem(GUIDE_OPEN_KEY) !== "0";
+  } catch {
+    /* 読めない端末（プライベートモード等）。開いておく */
+    return true;
+  }
+}
+
+/** 開け閉めを覚える */
+export function writeGuideOpen(open: boolean): void {
+  try {
+    localStorage.setItem(GUIDE_OPEN_KEY, open ? "1" : "0");
+  } catch {
+    /* 覚えられなくても、その場の開け閉めは効いている */
+  }
+}

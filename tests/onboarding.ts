@@ -3,11 +3,14 @@
 
 import { readFileSync } from "node:fs";
 import {
+  GUIDE_OPEN_KEY,
   adminSteps,
   guideFor,
   learnerSteps,
   nowStep,
+  readGuideOpen,
   showGuide,
+  writeGuideOpen,
   type Who,
 } from "../src/lib/onboarding";
 
@@ -142,6 +145,32 @@ console.log("\n── ホームの札 ──");
   check(!page.includes("学科 計"), "「学科」で決め打ちにしていない");
   check(page.includes("totalNoteOf(c)"), "学科か学科・討議かは講座から出す");
   check(!page.includes("Math.round(c.totalMin / 60)"), "時間の丸めをやめた");
+}
+
+console.log("\n── 開け閉め ──");
+{
+  /* localStorage が無い所（この試験）でも落ちないこと。
+     プライベートモードの端末で同じことが起きる */
+  check(readGuideOpen() === true, "読めない端末では開いておく");
+  let threw = false;
+  try { writeGuideOpen(false); } catch { threw = true; }
+  check(!threw, "書けない端末でも落ちない");
+
+  /* 端末の持ち主が変わったら消える鍵であること。
+     消えれば既定に戻り、次の人にはまた開いて出る */
+  check(GUIDE_OPEN_KEY.startsWith("ashiba."), "wipeDevice が消す鍵の形", GUIDE_OPEN_KEY);
+  const dev = code("src/lib/device.ts");
+  const keep = dev.slice(dev.indexOf("KEEP"), dev.indexOf("KEEP") + 200);
+  check(!keep.includes("guide-open"), "端末の持ち主が変わったら消す（KEEP に入れない）");
+
+  const ui = code("src/components/FirstSteps.tsx");
+  check(ui.includes('data-testid="first-steps-toggle"'), "開け閉めのボタンがある");
+  check(ui.includes("ひらく") && ui.includes("とじる"), "いま押すと何が起きるかを字で出す");
+  check(ui.includes("group-open:"), "開いているかで字を出し分ける");
+  check(ui.includes("writeGuideOpen"), "開け閉めを覚える");
+  check(ui.includes("readGuideOpen"), "覚えを読んでから描く");
+  /* 前は添え書きに「（押すと閉じます）」と書いていた。ボタンにしたので要らない */
+  check(!ui.includes("押すと閉じます"), "添え書きの説明はボタンに寄せた");
 }
 
 console.log("\n── まとめ ──");
