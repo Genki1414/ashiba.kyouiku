@@ -1,15 +1,22 @@
 import { Article, LegalPage } from "@/components/legal/Page";
 import { seller } from "@/content/legal";
+import { needsLive, readyCourses, totalNoteOf } from "@/content/courses";
 
 export const metadata = { title: "利用規約" };
 
 /* 利用規約。げんきさんの確認が要る文言です（docs/12） */
 export default function TermsPage() {
   const s = seller();
+  /* 対象の講座は決め打ちにしない。
+     「足場の特別教育および実務トレーニング」と書いてあったので、
+     職長教育を売り始めたときに、規約の対象から外れていた。
+     講座を足すたびに規約を直すのは、必ず忘れる */
+  const courses = readyCourses();
+  const names = courses.map((c) => c.name).join("、");
   return (
     <LegalPage
       title="利用規約"
-      lead={`${s.name}（以下「当社」）が提供する足場の特別教育および実務トレーニング（以下「本サービス」）の利用条件を定めます。`}
+      lead={`${s.name}（以下「当社」）が提供する教育（${names}）および実務トレーニング（以下「本サービス」）の利用条件を定めます。`}
       updated="2026年8月24日"
     >
       <div data-testid="terms">
@@ -19,9 +26,20 @@ export default function TermsPage() {
         </Article>
 
         <Article n={2} t="本サービスの内容">
-          本サービスは、労働安全衛生法第59条第3項および労働安全衛生規則第36条第39号に定める
-          足場の組立て等の業務に係る特別教育のうち、<strong className="text-txt">学科</strong>を
-          インターネットを通じて提供するものです。あわせて、実務の手順を学ぶトレーニングを提供します。
+          本サービスは、次の教育をインターネットを通じて提供するものです。
+          あわせて、実務の手順を学ぶトレーニングを提供します。
+          <br />
+          {courses.map((c) => (
+            <span key={c.id} className="mt-2 block">
+              ・<strong className="text-txt">{c.name}</strong>
+              <br />
+              　{c.basis.replace(/／/g, "および")}に基づくもののうち、
+              <strong className="text-txt">{totalNoteOf(c)}</strong>
+              {needsLive(c)
+                ? "（討議は、当社が日時を定めてオンラインの同時双方向で行います）"
+                : ""}
+            </span>
+          ))}
           <br />
           <strong className="text-txt">実技については本サービスに含まれません。</strong>
           事業者において別途行ってください。
@@ -44,6 +62,10 @@ export default function TermsPage() {
         <Article n={5} t="修了証">
           全ての単元の確認問題および修了試験に合格し、かつ受講料の入金が確認できた場合に、
           修了証を発行します。修了証は当社の名義で発行します。
+          <br />
+          討議のある教育については、上記に加えて討議を修了していることが必要です。
+          討議の日は、受講者からの発行申請を受けて当社が候補日をお示しし、
+          受講者にお選びいただきます。
           <br />
           修了証に載る氏名・生年月日は受講者ご本人に入力していただきます。
           誤りがあった場合は、当社が取り消したうえで再発行します。
@@ -80,7 +102,7 @@ export default function TermsPage() {
         </Article>
 
         <Article n={10} t="免責">
-          当社は、本サービスが法令の定める特別教育の学科として行われるよう努めますが、
+          当社は、本サービスが法令の定める教育として行われるよう努めますが、
           受講者が現場で行う作業の安全そのものを保証するものではありません。
           <br />
           通信の障害、端末の不具合その他当社の責めに帰さない事由により

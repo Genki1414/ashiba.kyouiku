@@ -27,7 +27,7 @@ export default function PrivacyPage() {
         </Article>
 
         <Article n={2} t="使う目的">
-          （1）特別教育を行い、その記録を残すため
+          （1）特別教育・職長教育などの教育を行い、その記録を残すため
           <br />
           （2）修了証を発行し、その真偽の照会に応じるため
           <br />

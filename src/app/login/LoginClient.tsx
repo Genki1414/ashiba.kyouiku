@@ -1,11 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getBrowserClient } from "@/lib/supabase/browser";
 import { claimDevice } from "@/lib/device";
 import { siteUrl } from "@/lib/siteUrl";
 import { Btn } from "@/components/ui/Btn";
+import { SERVICE_NAME } from "@/content/courses";
 
 /* メールと合言葉でログインする。
    受講の記録を本人のものとして残すために要ります。
@@ -181,7 +183,7 @@ export function LoginClient() {
   return (
     <main className="px-5 py-8" data-testid="login">
       <div className="tape -mx-5 mb-6" />
-      <div className="text-[11px] font-extrabold tracking-[2px] text-yel">足場の特別教育</div>
+      <div className="text-[11px] font-extrabold tracking-[2px] text-yel">{SERVICE_NAME}</div>
       <h1 className="mt-1.5 text-[20px] font-black">
         {mode === "in" ? "ログイン" : mode === "up" ? "はじめて使う" : "合言葉を忘れた"}
       </h1>
@@ -192,6 +194,23 @@ export function LoginClient() {
             ? "氏名は修了証と受講記録に載ります。本名を入れてください。"
             : "登録したメールアドレスを入れてください。決め直しのリンクを送ります。"}
       </p>
+
+      {/* 規約に同意する場面は、これまで申込みの画面（/order）にしか無かった。
+          受講コードや参加コードで入った人は、そこを通らないまま修了していた。
+          登録はどの入り方でも必ず通るので、ここに置く。
+          氏名とメールを預かるのもここなので、個人情報の扱いも同じ場所で示す */}
+      {mode === "up" && (
+        <p
+          className="mt-3 rounded-lg border border-line bg-panel p-3 text-[11.5px] leading-relaxed text-dim2"
+          data-testid="login-consent"
+        >
+          登録すると{" "}
+          <Link href="/legal/terms" className="text-cyan no-underline">利用規約</Link>{" "}
+          と{" "}
+          <Link href="/legal/privacy" className="text-cyan no-underline">個人情報の取扱い</Link>{" "}
+          に同意したものとします。
+        </p>
+      )}
 
       <div className="mt-5 grid gap-3">
         {mode === "up" && (
@@ -263,6 +282,20 @@ export function LoginClient() {
       <p className="mt-4 text-[11.5px] leading-relaxed text-dim2">
         メールが使えないときは、教育担当者に連絡してください。
       </p>
+
+      {/* ログインしていない人が開ける画面は、ここと /verify だけ。
+          ここにリンクが無いと、買う前の人が条件を読む道がどこにも無い。
+          特定商取引法の表記は、買う前に見られることが要る */}
+      <nav
+        className="mt-8 flex flex-wrap gap-x-4 gap-y-2 border-t border-line pt-4 text-[11.5px]"
+        data-testid="login-legal"
+      >
+        <Link href="/legal/tokushoho" className="text-dim no-underline">
+          特定商取引法に基づく表記
+        </Link>
+        <Link href="/legal/terms" className="text-dim no-underline">利用規約</Link>
+        <Link href="/legal/privacy" className="text-dim no-underline">個人情報の取扱い</Link>
+      </nav>
     </main>
   );
 }

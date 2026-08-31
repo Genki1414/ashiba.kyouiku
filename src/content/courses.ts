@@ -156,6 +156,10 @@ export const GATE_TEXT: Record<CourseGate, { label: string; what: string }> = {
 export const textOf = (c: CourseMeta) => KIND_TEXT[kindOf(c)];
 
 /** 受けられる講座だけ */
+/** サービスの名前。ログインの画面など、講座を1つに絞れない所で使う。
+    「足場の特別教育」と書いていたので、職長教育を売り始めてから合わなくなった */
+export const SERVICE_NAME = "足場屋革命";
+
 export const readyCourses = (): CourseMeta[] => COURSES.filter((c) => c.ready);
 
 export const findCourse = (id: string | null | undefined): CourseMeta | null =>

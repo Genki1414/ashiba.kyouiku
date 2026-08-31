@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase/server";
 import { currentAdmin } from "@/lib/admin";
 import { getStripe, siteUrl } from "@/lib/stripe";
+import { orderLabel } from "@/lib/orderLabel";
 
 /* カード払いの支払い画面を作る。
 
@@ -25,7 +26,7 @@ export async function POST(req: NextRequest) {
   const { orderId } = (await req.json().catch(() => ({}))) as { orderId?: string };
   const { data: order } = await supabase
     .from("orders")
-    .select("id, company_id, seats, amount, status, method")
+    .select("id, company_id, seats, amount, status, method, kind, course_id")
     .eq("id", (orderId ?? "").trim())
     .maybeSingle();
   if (!order || order.company_id !== admin.companyId) {
@@ -47,7 +48,12 @@ export async function POST(req: NextRequest) {
           currency: "jpy",
           unit_amount: order.amount as number,
           product_data: {
-            name: "足場の特別教育（学科）受講コード",
+            /* 品名は注文から作る。決め打ちにすると、
+               職長を買った人の領収書に「足場の特別教育」と残る */
+            name: orderLabel({
+              kind: order.kind as string | null,
+              courseId: order.course_id as string | null,
+            }),
             description: `${order.seats}名ぶん・税込`,
           },
         },
