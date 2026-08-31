@@ -32,7 +32,8 @@ type Health = {
     siteUrl: boolean;
     payBase: string;
     resetBase: string;
-    resetFallback: boolean;
+    resetEnv: boolean;
+    resetDefault: string;
     here: string;
     payHere: boolean;
     resetHere: boolean;
@@ -260,12 +261,13 @@ export function SetupClient() {
                     ],
                     [
                       "合言葉の決め直しの戻り先",
-                      h.sell.resetFallback
-                        ? `${h.sell.resetBase}（決め打ちのまま。NEXT_PUBLIC_SITE_URL を入れてください）`
-                        : h.sell.resetHere
+                      h.sell.resetHere
+                        ? /* 合っている。環境変数で決めていなければ、そこだけ添える */
+                          h.sell.resetEnv
                           ? h.sell.resetBase
-                          : `${h.sell.resetBase}（いま開いているのは ${h.sell.here}。NEXT_PUBLIC_SITE_URL を直して再デプロイ）`,
-                      !h.sell.resetFallback && h.sell.resetHere,
+                          : `${h.sell.resetBase}（NEXT_PUBLIC_SITE_URL は空。コードの決め打ちで動いています）`
+                        : `${h.sell.resetBase}（いま開いているのは ${h.sell.here}。NEXT_PUBLIC_SITE_URL を直して再デプロイ）`,
+                      h.sell.resetHere,
                       true,
                     ],
                     ["特商法の表記", h.sell.sellerMissing.length ? `${h.sell.sellerMissing.join("・")}が空` : "そろっている", h.sell.sellerMissing.length === 0, true],
@@ -283,14 +285,33 @@ export function SetupClient() {
                     ["カードの入金確認（STRIPE_WEBHOOK_SECRET）", h.sell.stripeHook ? "設定済み" : "未設定", h.sell.stripeHook, false],
                   ] as [string, string, boolean, boolean][]
                 ).map(([k, v, ok, need]) => (
+                  /* 見出しと値を足して長いときは、値を下の行に落とす。
+                     横に並べたままだと、値が幅を取り切って見出しが
+                     1文字ずつ縦に折れる（「単価」「合言葉の決め直しの戻り先」
+                     「インボイス登録番号」で実際にそうなっていた）。
+
+                     値の長さだけで決めると、見出しが長い行を取りこぼす。
+                     狭い画面に収まるかは**両方の長さの合計**で決まる。 */
                   <div key={k} className="mb-1.5 flex items-baseline gap-2">
-                    <span className={`text-[13px] ${ok ? "text-grn" : need ? "text-org" : "text-dim2"}`}>
+                    <span className={`shrink-0 text-[13px] ${ok ? "text-grn" : need ? "text-org" : "text-dim2"}`}>
                       {ok ? "✓" : need ? "！" : "−"}
                     </span>
-                    <span className="min-w-0 flex-1 text-[12.5px] text-dim">{k}</span>
-                    <span className={`shrink-0 text-[12.5px] ${ok ? "text-txt" : need ? "text-org" : "text-dim2"}`}>
-                      {v}
-                    </span>
+                    {k.length + v.length > 30 ? (
+                      <span className="min-w-0 flex-1 text-[12.5px] text-dim">
+                        {k}
+                        <br />
+                        <span className={`break-all ${ok ? "text-txt" : need ? "text-org" : "text-dim2"}`}>
+                          {v}
+                        </span>
+                      </span>
+                    ) : (
+                      <>
+                        <span className="min-w-0 flex-1 text-[12.5px] text-dim">{k}</span>
+                        <span className={`shrink-0 text-[12.5px] ${ok ? "text-txt" : need ? "text-org" : "text-dim2"}`}>
+                          {v}
+                        </span>
+                      </>
+                    )}
                   </div>
                 ))}
                 <div className="mt-2 border-t border-line pt-2 text-[11.5px] leading-relaxed text-dim2">

@@ -122,10 +122,21 @@ console.log("\n── 独自ドメインへ移すとき ──");
   const health = code("src/app/api/health/route.ts");
   check(health.includes("resetBase"), "決め直しの戻り先を /setup に出す");
   check(health.includes("payBase"), "支払いの戻り先も /setup に出す");
-  check(health.includes("resetFallback"), "決め打ちのままかどうかを見ている");
+  /* 「設定済みか」では足りない。決め打ちを本番の住所に直したので、
+     値を決め打ちと比べても、環境変数を入れたかどうかは分からない。
+     いま開いている入口と突き合わせるのが、唯一まともな判定 */
+  check(health.includes("resetHere"), "決め直しの戻り先を、いまの入口と突き合わせる");
+  check(health.includes("payHere"), "支払いの戻り先も、いまの入口と突き合わせる");
+  check(health.includes("sameSite("), "突き合わせは sameSite を使う");
+  check(health.includes("x-forwarded-host"), "いまの入口は x-forwarded-host から取る");
+  check(health.includes("resetEnv"), "環境変数を入れたかどうかは、値ではなく環境変数で見る");
 
   const setup = code("src/app/setup/SetupClient.tsx");
-  check(setup.includes("resetFallback"), "決め打ちのままなら赤くする");
+  check(setup.includes("resetHere"), "食い違っていたら橙にする");
+  check(setup.includes("再デプロイ"), "直し方（再デプロイ）まで書く");
+  /* 決め打ちと値を比べる判定に戻さないこと。
+     決め打ち＝本番の住所になった今、正しく設定していても橙が出る */
+  check(!setup.includes("resetFallback"), "決め打ちとの値比べに戻していない");
   check(setup.includes("NEXT_PUBLIC_SITE_URL"), "直す変数の名前を画面に出す");
 
   /* ホーム画面のアイコンは、入れたときの住所に張り付く。

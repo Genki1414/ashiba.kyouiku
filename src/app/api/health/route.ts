@@ -117,8 +117,16 @@ export async function GET() {
        独自ドメインに移すときに必ず踏むので、両方そのまま出す。 */
     payBase: paySiteUrl(),
     resetBase: resetSiteUrl(),
-    /* 決め直しの戻り先が、決め打ちのままか */
-    resetFallback: resetSiteUrl() === FALLBACK_SITE,
+    /* 決め直しの戻り先を、環境変数で決めているか。
+
+       前は resetSiteUrl() === FALLBACK_SITE で見ていた。
+       決め打ちが古い vercel.app だった頃はそれで区別できたが、
+       決め打ちを本番の住所に直した今は、環境変数を正しく入れていても
+       値が同じになるので「決め打ちのまま」と橙が出てしまう。
+       **値ではなく、環境変数が入っているかどうか**を見る。 */
+    resetEnv: !!(process.env.NEXT_PUBLIC_SITE_URL ?? "").trim(),
+    /* 決め打ちの値そのもの。食い違ったときに、どこを直すかの手がかり */
+    resetDefault: FALLBACK_SITE,
     /* いま開いている入口。設定した住所と食い違っていないかを見るため。
 
        独自ドメインに移したとき、環境変数が古い住所のまま残っていると
