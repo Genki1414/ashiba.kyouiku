@@ -14,8 +14,12 @@
    （NEXT_PUBLIC_ が付くのは、画面から読むため。
      ここに入るのは公開している住所なので、隠す必要は無い） */
 
-/** 仮の本番の住所。独自ドメインにしたら、ここを変える */
-export const FALLBACK_SITE = "https://ashiba-kyouiku-nkdr.vercel.app";
+/** 本番の住所。
+
+    環境変数 NEXT_PUBLIC_SITE_URL を入れ忘れたときの落ち先でもあるので、
+    ここが古いままだと、決め直しのメールだけ古い住所へ飛び続ける。
+    住所を変えたら、ここと Supabase の許した住所の両方を変えること。 */
+export const FALLBACK_SITE = "https://kyouiku.ashibase.jp";
 
 const trim = (s: string) => s.replace(/\/+$/, "");
 

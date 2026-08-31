@@ -196,9 +196,6 @@ check(isOpenPath("/auth/reset"), "決め直しのリンクの戻り先も開い�
   check(siteUrl("https://localhost.example.com") === FALLBACK_SITE, "似た名前のよそは手元ではない");
 }
 
-console.log("── まとめ ──");
-console.log(`${ok} 件通過 / ${ng} 件失敗`);
-if (ng) process.exit(1);
 
 /* ── 合言葉を忘れたときの道が、画面にあるか ──
    前は「教育担当者に連絡してください」としか書いていなかった。
@@ -219,5 +216,14 @@ if (ng) process.exit(1);
   /* リンクの期限切れ・別の端末。黙って失敗させない */
   check(/newpw-expired/.test(np), "リンクが使えないときは、そう言って送り直しへ戻す");
 }
+/* 決め打ちの住所そのものの決まり。
+   ここが古いままだと、環境変数を入れ忘れたときに
+   決め直しのメールだけ古い住所へ飛び続ける */
+check(FALLBACK_SITE.startsWith("https://"), "決め打ちの住所は https", FALLBACK_SITE);
+check(!FALLBACK_SITE.endsWith("/"), "末尾に / を付けない", FALLBACK_SITE);
+check(!FALLBACK_SITE.includes("vercel.app"), "配信ごとに変わる住所を決め打ちにしない", FALLBACK_SITE);
+check(!FALLBACK_SITE.includes("localhost"), "手元の住所を決め打ちにしない", FALLBACK_SITE);
 
-
+console.log("\n── まとめ ──");
+console.log(`${ok} 件通過 / ${ng} 件失敗`);
+if (ng) process.exit(1);
