@@ -33,3 +33,22 @@ export function siteUrl(origin?: string | null): string {
   const set = (process.env.NEXT_PUBLIC_SITE_URL ?? "").trim();
   return trim(set || FALLBACK_SITE);
 }
+
+/** 住所から入口（ホスト名）だけ取り出す。読めなければ空 */
+export const hostOf = (u: string): string => {
+  try {
+    return new URL(u.trim()).host.toLowerCase();
+  } catch {
+    return "";
+  }
+};
+
+/** 2つの住所が同じ入口を指しているか。
+
+    決め直しの戻り先が「設定済み」でも、中身が古い住所のままなら
+    メールのリンクだけ古い所へ飛ぶ。設定してあるかどうかではなく、
+    **いま人が開いている入口と同じか**を見ないと気づけない。 */
+export const sameSite = (a: string, b: string): boolean => {
+  const x = hostOf(a);
+  return !!x && x === hostOf(b);
+};

@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
+import { headers } from "next/headers";
 import { getServiceClient, getDevEnrollmentId } from "@/lib/supabase/server";
 import { currentEnrollment } from "@/lib/enrollment";
 import { currentUser } from "@/lib/supabase/session";
 import { LATEST } from "@/content/changelog";
 import { bankReady, invoiceOk, missingSeller, seller } from "@/content/legal";
 import { isOwnerEmail, ownerEmails } from "@/lib/owner";
-import { FALLBACK_SITE, siteUrl as resetSiteUrl } from "@/lib/siteUrl";
+import { FALLBACK_SITE, sameSite, siteUrl as resetSiteUrl } from "@/lib/siteUrl";
 import { allPrices, missingPrice } from "@/lib/price.server";
 import { siteUrl as paySiteUrl } from "@/lib/stripe";
 import { currentAdmin } from "@/lib/admin";
@@ -32,6 +33,12 @@ export async function GET() {
 
   /* Vercel 上か手元か。手順の出し分けに使う（VERCEL は Vercel が自動で入れる） */
   const host: "vercel" | "local" = process.env.VERCEL ? "vercel" : "local";
+
+  /* いま開いている入口。Vercel は本来の宛先を x-forwarded-host に入れる */
+  const h = await headers();
+  const hHost = h.get("x-forwarded-host") || h.get("host") || "";
+  const hProto = h.get("x-forwarded-proto") || (hHost.startsWith("localhost") ? "http" : "https");
+  const here = hHost ? `${hProto}://${hHost}` : "";
 
   const env = {
     url: url ? url.replace(/^https:\/\/([^.]{4})[^.]*/, "https://$1…") : null,
@@ -112,6 +119,15 @@ export async function GET() {
     resetBase: resetSiteUrl(),
     /* 決め直しの戻り先が、決め打ちのままか */
     resetFallback: resetSiteUrl() === FALLBACK_SITE,
+    /* いま開いている入口。設定した住所と食い違っていないかを見るため。
+
+       独自ドメインに移したとき、環境変数が古い住所のまま残っていると
+       「設定済み」と緑で出るのに、メールのリンクだけ古い所へ飛ぶ。
+       設定してあるかどうかではなく、**いま人が開いている入口と同じか**
+       を見ないと気づけない。 */
+    here,
+    payHere: sameSite(paySiteUrl(), here),
+    resetHere: sameSite(resetSiteUrl(), here),
     /* 特商法の表記で、まだ空の項目 */
     sellerMissing: missingSeller(),
     /* 振込先。空だと請求書に「別途ご案内」としか出ず、そのぶん入金が遅れる */

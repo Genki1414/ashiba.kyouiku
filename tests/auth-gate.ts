@@ -5,7 +5,7 @@
 
 import { readFileSync } from "node:fs";
 import { OPEN_PATHS, isOpenPath } from "../src/lib/authGate";
-import { FALLBACK_SITE, siteUrl } from "../src/lib/siteUrl";
+import { FALLBACK_SITE, hostOf, sameSite, siteUrl } from "../src/lib/siteUrl";
 
 let ok = 0;
 let ng = 0;
@@ -223,6 +223,28 @@ check(FALLBACK_SITE.startsWith("https://"), "決め打ちの住所は https", FA
 check(!FALLBACK_SITE.endsWith("/"), "末尾に / を付けない", FALLBACK_SITE);
 check(!FALLBACK_SITE.includes("vercel.app"), "配信ごとに変わる住所を決め打ちにしない", FALLBACK_SITE);
 check(!FALLBACK_SITE.includes("localhost"), "手元の住所を決め打ちにしない", FALLBACK_SITE);
+
+
+console.log("\n── 戻り先が、いま開いている入口と同じか ──");
+{
+  /* 「設定済み」かどうかでは足りない。独自ドメインに移したとき、
+     環境変数が古い住所のまま残っていると緑で出るのに、
+     メールのリンクだけ古い所へ飛ぶ */
+  check(hostOf("https://kyouiku.ashibase.jp") === "kyouiku.ashibase.jp", "入口だけ取り出せる");
+  check(hostOf("https://kyouiku.ashibase.jp/auth/reset") === "kyouiku.ashibase.jp", "道が付いていても入口は同じ");
+  check(hostOf("") === "" && hostOf("ここ") === "", "読めない住所は空");
+
+  check(sameSite("https://kyouiku.ashibase.jp", "https://kyouiku.ashibase.jp"), "同じなら同じ");
+  check(
+    !sameSite("https://ashiba-kyouiku-nkdr.vercel.app", "https://kyouiku.ashibase.jp"),
+    "古い住所が残っていたら、食い違いとして出す",
+  );
+  /* 移行のあいだ、apex と kyouiku は別の入口。混ぜない */
+  check(!sameSite("https://ashibase.jp", "https://kyouiku.ashibase.jp"), "apex とサブドメインは別");
+  check(sameSite("https://X.example.com/", "https://x.example.com"), "大文字小文字と末尾の / は無視");
+  check(!sameSite("", "https://kyouiku.ashibase.jp"), "空とは一致させない");
+  check(!sameSite("https://kyouiku.ashibase.jp", ""), "入口が分からなければ一致としない");
+}
 
 console.log("\n── まとめ ──");
 console.log(`${ok} 件通過 / ${ng} 件失敗`);

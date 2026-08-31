@@ -33,6 +33,9 @@ type Health = {
     payBase: string;
     resetBase: string;
     resetFallback: boolean;
+    here: string;
+    payHere: boolean;
+    resetHere: boolean;
     sellerMissing: string[];
     invoiceNo?: boolean;
     invoiceShape?: boolean;
@@ -241,14 +244,28 @@ export function SetupClient() {
                     ],
                     ["本番のURL（SITE_URL / NEXT_PUBLIC_SITE_URL）", h.sell.siteUrl ? "設定済み" : "未設定（配信ごとの住所を使う）", h.sell.siteUrl, true],
                     /* 住所そのものを出す。「設定済み」だけだと、
-                       どちらの変数を入れたかで戻り先が食い違っていても気づけない */
-                    ["支払い後の戻り先", h.sell.payBase, !!h.sell.payBase, false],
+                       どちらの変数を入れたかで戻り先が食い違っていても気づけない。
+
+                       さらに、いま開いている入口と同じかまで見る。
+                       独自ドメインに移したとき、環境変数が古い住所のまま
+                       残っていても「設定済み」で緑になってしまい、
+                       メールのリンクだけ古い所へ飛ぶ。 */
+                    [
+                      "支払い後の戻り先",
+                      h.sell.payHere
+                        ? h.sell.payBase
+                        : `${h.sell.payBase}（いま開いているのは ${h.sell.here}。SITE_URL を直して再デプロイ）`,
+                      h.sell.payHere,
+                      true,
+                    ],
                     [
                       "合言葉の決め直しの戻り先",
                       h.sell.resetFallback
                         ? `${h.sell.resetBase}（決め打ちのまま。NEXT_PUBLIC_SITE_URL を入れてください）`
-                        : h.sell.resetBase,
-                      !h.sell.resetFallback,
+                        : h.sell.resetHere
+                          ? h.sell.resetBase
+                          : `${h.sell.resetBase}（いま開いているのは ${h.sell.here}。NEXT_PUBLIC_SITE_URL を直して再デプロイ）`,
+                      !h.sell.resetFallback && h.sell.resetHere,
                       true,
                     ],
                     ["特商法の表記", h.sell.sellerMissing.length ? `${h.sell.sellerMissing.join("・")}が空` : "そろっている", h.sell.sellerMissing.length === 0, true],
