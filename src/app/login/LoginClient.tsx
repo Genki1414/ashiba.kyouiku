@@ -8,6 +8,7 @@ import { claimDevice } from "@/lib/device";
 import { siteUrl } from "@/lib/siteUrl";
 import { Btn } from "@/components/ui/Btn";
 import { SERVICE_NAME } from "@/content/courses";
+import { AUTH_MAIL_FROM, showMailFrom } from "@/content/authMail";
 
 /* メールと合言葉でログインする。
    受講の記録を本人のものとして残すために要ります。
@@ -151,6 +152,22 @@ export function LoginClient() {
             そのメールで登録していない場合は、届きません。
           </span>
         </p>
+        {/* 差出人を先に伝える。自前の SMTP を入れるまでは
+            知らない英語の差出人から届くので、詐欺メールと思われて
+            押してもらえない（src/content/authMail.ts・docs/21） */}
+        {showMailFrom() && (
+          <div
+            className="mt-4 rounded-xl border border-line bg-panel p-3.5 text-[12.5px] leading-relaxed text-dim"
+            data-testid="mail-from"
+          >
+            <div className="mb-1 text-[11px] tracking-[2px] text-dim2">差出人</div>
+            <div className="break-all font-bold text-txt">{AUTH_MAIL_FROM}</div>
+            <div className="mt-1.5">
+              英語のメールで届くことがあります。こちらから送ったものなので、
+              そのままリンクを押して構いません。
+            </div>
+          </div>
+        )}
         <Btn onClick={() => { setMailed(false); setMode("in"); }} className="mt-6">
           ログインの画面へ戻る
         </Btn>
@@ -173,6 +190,22 @@ export function LoginClient() {
           <br />
           届かないときは、迷惑メールに入っていないか見てください。
         </p>
+        {/* 差出人を先に伝える。自前の SMTP を入れるまでは
+            知らない英語の差出人から届くので、詐欺メールと思われて
+            押してもらえない（src/content/authMail.ts・docs/21） */}
+        {showMailFrom() && (
+          <div
+            className="mt-4 rounded-xl border border-line bg-panel p-3.5 text-[12.5px] leading-relaxed text-dim"
+            data-testid="mail-from"
+          >
+            <div className="mb-1 text-[11px] tracking-[2px] text-dim2">差出人</div>
+            <div className="break-all font-bold text-txt">{AUTH_MAIL_FROM}</div>
+            <div className="mt-1.5">
+              英語のメールで届くことがあります。こちらから送ったものなので、
+              そのままリンクを押して構いません。
+            </div>
+          </div>
+        )}
         <Btn onClick={() => { setSent(false); setMode("in"); }} className="mt-6">
           ログインの画面へ戻る
         </Btn>

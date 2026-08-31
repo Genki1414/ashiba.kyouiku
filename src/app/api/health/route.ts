@@ -8,6 +8,7 @@ import { bankReady, invoiceOk, missingSeller, seller } from "@/content/legal";
 import { isOwnerEmail, ownerEmails } from "@/lib/owner";
 import { FALLBACK_SITE, sameSite, siteUrl as resetSiteUrl } from "@/lib/siteUrl";
 import { allPrices, missingPrice } from "@/lib/price.server";
+import { AUTH_MAIL_FROM } from "@/content/authMail";
 import { siteUrl as paySiteUrl } from "@/lib/stripe";
 import { currentAdmin } from "@/lib/admin";
 import { myCompany } from "@/lib/tenant";
@@ -136,6 +137,12 @@ export async function GET() {
     here,
     payHere: sameSite(paySiteUrl(), here),
     resetHere: sameSite(resetSiteUrl(), here),
+    /* 認証メールの差出人。自前の SMTP を入れるまでは Supabase の共用送信元。
+
+       これは見た目だけの話ではない。標準の送信は1時間に数通までなので、
+       講習の当日に何人か重なると黙って届かなくなる（docs/21）。
+       忘れないよう、ここに出しておく。 */
+    mailFrom: AUTH_MAIL_FROM,
     /* 特商法の表記で、まだ空の項目 */
     sellerMissing: missingSeller(),
     /* 振込先。空だと請求書に「別途ご案内」としか出ず、そのぶん入金が遅れる */

@@ -32,6 +32,7 @@ type Health = {
     siteUrl: boolean;
     payBase: string;
     resetBase: string;
+    mailFrom: string;
     resetEnv: boolean;
     resetDefault: string;
     here: string;
@@ -281,6 +282,18 @@ export function SetupClient() {
                     ["振込先（SELLER_BANK_NAME ほか）",
                       h.sell.bank ? "設定済み" : "未設定（請求書に「別途ご案内」と出ます）",
                       h.sell.bank === true, true],
+                    /* 自前の SMTP を入れるまでは Supabase の共用送信元から出る。
+                       見た目だけでなく、1時間に数通までしか出ない（docs/21）。
+                       「！」にはしない。3人程度なら上限に当たらず、
+                       本当に売れなくなるわけではないため */
+                    [
+                      "認証メールの差出人",
+                      h.sell.mailFrom
+                        ? `${h.sell.mailFrom}（自前のSMTPを入れるまで。1時間に数通まで）`
+                        : "自前のSMTP",
+                      !h.sell.mailFrom,
+                      false,
+                    ],
                     ["カード払い（STRIPE_SECRET_KEY）", h.sell.stripeKey ? "設定済み" : "未設定（請求書払いのみ）", h.sell.stripeKey, false],
                     ["カードの入金確認（STRIPE_WEBHOOK_SECRET）", h.sell.stripeHook ? "設定済み" : "未設定", h.sell.stripeHook, false],
                   ] as [string, string, boolean, boolean][]
