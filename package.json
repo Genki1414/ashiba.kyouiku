@@ -25,6 +25,7 @@
     "test:onboarding": "tsx tests/onboarding.ts",
     "test:notify": "tsx tests/notify.ts",
     "test:notice": "tsx tests/notice.ts",
+    "test:tokubetsu": "tsx tests/tokubetsu.ts",
     "test:envusage": "tsx tests/env-usage.mts",
     "test:admindb": "tsx tests/admin-db.mts",
     "test:apishape": "tsx tests/api-shape.mts",

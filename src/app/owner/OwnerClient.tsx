@@ -9,6 +9,7 @@ import { LedgerClient } from "./LedgerClient";
 import { RetentionClient } from "./RetentionClient";
 import { TrainingClient } from "./TrainingClient";
 import { IssueClient } from "./IssueClient";
+import { CatalogClient } from "./CatalogClient";
 
 /* 本部の画面。二つある。
 
@@ -58,7 +59,7 @@ export function OwnerClient() {
   const [hint, setHint] = useState("");
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
-  const [tab, setTab] = useState<"orders" | "issue" | "ledger" | "train" | "keep">("orders");
+  const [tab, setTab] = useState<"orders" | "issue" | "ledger" | "train" | "keep" | "catalog">("orders");
   /* 請求書に載せる登録番号。書くときに毎回どこかから探すことになるので、
      入金待ちの並びのすぐ上に出しておく */
   const [invoiceNo, setInvoiceNo] = useState("");
@@ -132,6 +133,7 @@ export function OwnerClient() {
           ["ledger", "事業者と記録"],
           ["train", "実務"],
           ["keep", "保存期間"],
+          ["catalog", "特別教育の目録"],
         ] as const).map(([k, t]) => (
           <button
             key={k}
@@ -152,6 +154,7 @@ export function OwnerClient() {
       {tab === "ledger" && <LedgerClient onNote={setNote} />}
       {tab === "train" && <TrainingClient onNote={setNote} />}
       {tab === "keep" && <RetentionClient onNote={setNote} />}
+      {tab === "catalog" && <CatalogClient />}
 
       {tab === "orders" && (
       <>
