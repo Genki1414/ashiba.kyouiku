@@ -7,6 +7,8 @@ import {
   hasJitsugi,
   isReady,
   sourceOf,
+  toCsv,
+  toRows,
   totalMinOf,
   trustedHours,
   type Tokubetsu,
@@ -93,6 +95,72 @@ function Row({ t }: { t: Tokubetsu }) {
   );
 }
 
+/* 持ち出し。この目録は、いずれ単体で事業にする。
+   **画面から手で写すのでは、写し間違いが入る。**
+
+   端末によっては clipboard が使えない（古い端末、http、権限）。
+   そのときは黙って何も起きないのではなく、
+   /api/tokubetsu を開いてもらう案内を出す。 */
+function Copy() {
+  const [said, setSaid] = useState("");
+
+  const copy = async (what: "csv" | "json") => {
+    const text = what === "csv" ? toCsv() : JSON.stringify(toRows(), null, 2);
+    try {
+      await navigator.clipboard.writeText(text);
+      setSaid(`${what.toUpperCase()} をコピーしました（${toRows().length}件）`);
+    } catch {
+      setSaid("この端末ではコピーできません。下の「開く」から取ってください。");
+    }
+    setTimeout(() => setSaid(""), 4000);
+  };
+
+  return (
+    <div className="mt-3 rounded-lg border border-line bg-bg p-3">
+      <div className="text-[11px] tracking-[2px] text-dim2">持ち出す</div>
+      <div className="mt-1 text-[11.5px] leading-relaxed text-dim">
+        単体で事業にするときに、丸ごと移せるようにしてあります。
+        <strong className="text-txt">確かめたかどうかの印も一緒に出ます。</strong>
+      </div>
+      <div className="mt-2 flex flex-wrap gap-2">
+        <button
+          onClick={() => void copy("csv")}
+          className="rounded-lg border border-line px-2.5 py-1.5 text-[12px] text-dim"
+          data-testid="catalog-copy-csv"
+        >
+          CSV をコピー
+        </button>
+        <button
+          onClick={() => void copy("json")}
+          className="rounded-lg border border-line px-2.5 py-1.5 text-[12px] text-dim"
+          data-testid="catalog-copy-json"
+        >
+          JSON をコピー
+        </button>
+        <a
+          href="/api/tokubetsu?format=csv"
+          className="rounded-lg border border-line px-2.5 py-1.5 text-[12px] text-dim no-underline"
+          data-testid="catalog-open-csv"
+        >
+          CSV を開く
+        </a>
+        <a
+          href="/api/tokubetsu"
+          className="rounded-lg border border-line px-2.5 py-1.5 text-[12px] text-dim no-underline"
+          data-testid="catalog-open-json"
+        >
+          JSON を開く
+        </a>
+      </div>
+      {said && (
+        <div className="mt-2 text-[11.5px] text-grn" data-testid="catalog-copied">
+          {said}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function CatalogClient() {
   const [f, setF] = useState<Filter>("all");
   const list = pick(f);
@@ -120,6 +188,7 @@ export function CatalogClient() {
           <strong className="text-txt">講座にするときは、必ず規程の条文から取り直してください。</strong>
         </div>
         <div className="mt-2 text-[11px] text-dim2">{LISTED_ON} 現在</div>
+        <Copy />
       </div>
 
       <div className="mt-3 flex flex-wrap gap-2">

@@ -692,3 +692,180 @@ export const splitReady = (): { ready: Tokubetsu[]; todo: Tokubetsu[] } => ({
   ready: TOKUBETSU.filter(isReady),
   todo: TOKUBETSU.filter((t) => !isReady(t)),
 });
+
+/* ── 探すための別名 ──────────────────────────
+   正式名称は法令の言い方で、現場の言い方と違うものが多い。
+   「石綿」を「アスベスト」、「酸素欠乏」を「酸欠」、
+   「小型車両系建設機械」を「ユンボ」と打つ人のほうが多い。
+   **正式名称でしか引けないと、有るのに無いと思われる。**
+
+   ここに足すのは**探すための言葉だけ**。画面に出る名前ではない。
+   間違った別名を足しても、余計なものが引っかかるだけで、
+   法令の名前や時間には触らない。 */
+export const ALIAS: Record<string, string> = {
+  machine_grinding_wheel: "といし 砥石 研削 グラインダー 機械研削",
+  free_grinding_wheel: "といし 砥石 研削 グラインダー 自由研削",
+  power_press_die: "プレス 金型",
+  arc_welding: "アーク溶接 溶接 ようせつ 半自動",
+  high_voltage_electrical: "高圧電気 電気取扱 特別高圧 充電電路",
+  low_voltage_electrical: "低圧電気 電気取扱 開閉器",
+  electric_vehicle_maintenance: "EV 電気自動車 整備",
+  forklift_under_1t: "フォークリフト フォーク 1トン未満",
+  shovel_loader_under_1t: "ショベルローダー ローダー",
+  rough_terrain_vehicle_under_1t: "不整地運搬車 キャリア クローラ",
+  tailgate_lifter: "テールゲート リフター パワーゲート",
+  cargo_lifting_appliance_under_5t: "揚貨装置",
+  felling_machine: "伐木 林業 ハーベスタ",
+  running_yarding_machine: "集材 林業 フォワーダ",
+  mechanical_yarding_system: "集材 架線 林業",
+  simple_cable_yarding: "集材 架線 林業",
+  chainsaw_felling: "チェーンソー 伐木 造材 かかり木 林業",
+  small_vehicle_construction_leveling: "小型車両系 整地 バックホウ ユンボ 3トン未満 建設機械",
+  small_vehicle_construction_foundation: "小型車両系 基礎工事 建設機械",
+  small_vehicle_construction_demolition: "小型車両系 解体 建設機械 ニブラ",
+  foundation_construction_machine: "基礎工事用 くい打機 アースドリル",
+  foundation_machine_attachment: "基礎工事用 作業装置",
+  roller_operation: "ローラー 転圧 ロードローラー",
+  concrete_placing_machine: "コンクリート ポンプ車 打設 圧送",
+  boring_machine: "ボーリング さく孔",
+  jack_lifting_machine: "ジャッキ つり上げ リフトアップ",
+  aerial_work_platform_under_10m: "高所作業車 高所 10メートル未満 10m未満",
+  winch_operation: "巻上げ機 ウインチ ウィンチ",
+  railway_power_vehicle: "軌道装置 動力車",
+  small_boiler: "ボイラー 小型ボイラー",
+  crane_under_5t: "クレーン 5トン未満 天井クレーン",
+  overhead_traverser_5t_plus: "跨線テルハ テルハ",
+  mobile_crane_under_1t: "移動式クレーン ユニック 積載型 1トン未満",
+  derrick_under_5t: "デリック",
+  construction_lift: "建設用リフト リフト 荷揚げ",
+  slinging_under_1t: "玉掛け たまがけ 玉掛 1トン未満",
+  gondola_operation: "ゴンドラ",
+  air_compressor_hyperbaric: "高気圧 空気圧縮機 コンプレッサー 潜函",
+  work_chamber_air_valve: "高気圧 送気 バルブ 作業室",
+  airlock_air_valve: "高気圧 送気 排気 気こう室",
+  diver_air_supply_valve: "潜水 送気 バルブ",
+  hyperbaric_work: "高圧室内 高気圧 潜函 ケーソン",
+  tetraalkyl_lead: "四アルキル鉛 鉛",
+  oxygen_deficiency_type1: "酸欠 さんけつ 酸素欠乏 第1種 1種",
+  oxygen_deficiency_type2: "酸欠 さんけつ 酸素欠乏 硫化水素 第2種 2種",
+  special_chemical_equipment: "特殊化学設備 化学設備",
+  xray_gamma_device: "エックス線 X線 レントゲン ガンマ線 放射線 非破壊",
+  nuclear_fuel_processing_facility: "核燃料 加工施設 放射線",
+  nuclear_reactor_facility: "核燃料 原子炉 放射線",
+  accident_radioactive_waste_disposal: "放射性物質 処分 除染 汚染",
+  special_emergency_radiation_work: "電離則 緊急作業 放射線",
+  specified_dust_work: "粉じん ふんじん 特定粉じん じん肺",
+  tunnel_excavation_lining: "ずい道 トンネル 隧道 掘削",
+  industrial_robot_teaching: "ロボット 産業用ロボット 教示 ティーチング",
+  industrial_robot_inspection: "ロボット 産業用ロボット 検査",
+  tire_air_inflation: "タイヤ 空気充てん 組立て",
+  dioxin_ash_handling: "ダイオキシン 焼却 ばいじん 焼却灰",
+  dioxin_maintenance: "ダイオキシン 焼却炉 集じん機 保守点検",
+  dioxin_demolition: "ダイオキシン 焼却炉 解体 燃え殻",
+  asbestos_demolition: "石綿 せきめん アスベスト 解体 除去",
+  decontamination_work: "除染 電離 汚染",
+  specified_dose_work: "特定線量下 線量 除染",
+  scaffolding_assembly: "足場 あしば 組立て 解体 くさび ビケ",
+  rope_access_work: "ロープ高所 ロープ ブランコ 特殊高所",
+  full_harness: "フルハーネス ハーネス 墜落制止 安全帯 胴ベルト",
+};
+
+/* ── 探す ────────────────────────────────────
+   打ち方の揺れを吸う。ここを雑にすると
+   「アスベスト」で石綿が出ず、有るのに無いと思われる。
+
+   ・大文字小文字、全角半角をそろえる（NFKC）
+   ・**カタカナをひらがなに寄せる。**「サンケツ」と「さんけつ」で
+     結果が変わってはいけない
+   ・空白で区切った語は全部を含むもの（AND）。
+     絞り込むために足した語で、かえって増えるのはおかしい */
+
+/** 打ち方の揺れをそろえる */
+export function norm(s: string): string {
+  return s
+    .normalize("NFKC")
+    .toLowerCase()
+    /* カタカナ → ひらがな。長音符（ー）はそのまま */
+    .replace(/[\u30a1-\u30f6]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0x60))
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** その行が、探している言葉に当たるか */
+export function matches(t: Tokubetsu, q: string): boolean {
+  const words = norm(q).split(" ").filter(Boolean);
+  if (!words.length) return true;
+  /* 目印（slug）は探す対象に入れない。人が打つものではないうえ、
+     英字の切れ端が中で当たる（「EV」が leveling に当たっていた） */
+  const hay = norm(`${t.name} ${t.basis} ${ALIAS[t.slug] ?? ""}`);
+  return words.every((w) => hay.includes(w));
+}
+
+/** 探した結果。並び順は目録のまま（法令の番号順） */
+export const searchTokubetsu = (q: string, from: Tokubetsu[] = TOKUBETSU): Tokubetsu[] =>
+  from.filter((t) => matches(t, q));
+
+/* ── 持ち出す ────────────────────────────────
+   この目録は、いずれ単体で事業にする。**そのとき丸ごと持ち出せること。**
+
+   ・この file は何も import していない（試験で見張っている）。
+     コピーすれば、そのまま別の仕組みで動く
+   ・下の2つで、機械（JSON）にも表計算（CSV）にも出せる
+   ・列は渡された一覧と同じ形にそろえてある。行って戻れる
+
+   確かめたかどうか（checked）も一緒に出す。
+   **出した先で「全部裏を取ってある」と誤解されると、
+   足りない時間の修了証が出る。** 印は付いたまま持ち出す。 */
+
+/** 持ち出す形。1行1件 */
+export type TokubetsuOut = {
+  course_id: number;
+  slug: string;
+  title_ja: string;
+  theory_minutes: number;
+  practical_minutes: number;
+  total_minutes: number;
+  practical_required: boolean;
+  legal_basis_note: string;
+  source_url: string;
+  effective_from: string;
+  /** 条文か実物で時間を確かめたか。false の行を信用しないこと */
+  hours_verified: boolean;
+  /** もう受けられる講座の目印。無ければ空 */
+  course_slug: string;
+  /** 探すための別名（空白区切り） */
+  alias: string;
+  listed_on: string;
+};
+
+/** 全部を、持ち出す形にする */
+export const toRows = (): TokubetsuOut[] =>
+  TOKUBETSU.map((t) => ({
+    course_id: t.no,
+    slug: t.slug,
+    title_ja: t.name,
+    theory_minutes: t.gakkaMin,
+    practical_minutes: t.jitsugiMin,
+    total_minutes: totalMinOf(t),
+    practical_required: hasJitsugi(t),
+    legal_basis_note: t.basis,
+    source_url: sourceOf(t).url,
+    effective_from: t.from ?? "",
+    hours_verified: trustedHours(t),
+    course_slug: t.courseId ?? "",
+    alias: ALIAS[t.slug] ?? "",
+    listed_on: LISTED_ON,
+  }));
+
+/** 表計算に貼れる形。Excel が文字化けしないよう、呼ぶ側で BOM を足す */
+export function toCsv(): string {
+  const rows = toRows();
+  const cols = Object.keys(rows[0]) as (keyof TokubetsuOut)[];
+  /* 引用符とカンマと改行を含む値を壊さない。
+     名前に「、」ではなく「,」が入る日が来ても崩れないように */
+  const cell = (v: string | number | boolean): string => {
+    const s = typeof v === "boolean" ? (v ? "TRUE" : "FALSE") : String(v);
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  return [cols.join(","), ...rows.map((r) => cols.map((c) => cell(r[c])).join(","))].join("\n");
+}

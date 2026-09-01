@@ -3,6 +3,7 @@
 
 import { readFileSync } from "node:fs";
 import {
+  ALIAS,
   LISTED_ON,
   SOURCES,
   TOKUBETSU,
@@ -11,6 +12,11 @@ import {
   isReady,
   sourceOf,
   splitReady,
+  matches,
+  norm,
+  searchTokubetsu,
+  toCsv,
+  toRows,
   tokubetsuOfCourse,
   totalMinOf,
   trustedHours,
@@ -156,6 +162,122 @@ console.log("\n── 数え方 ──");
   check(todo.every((t) => !t.courseId), "これからの行は講座を指していない");
 }
 
+console.log("\n── 探す ──");
+{
+  /* 法令の名前と現場の言い方は違う。正式名称でしか引けないと、
+     **有るのに無いと思われる** */
+  const one = (q: string) => searchTokubetsu(q);
+  const hit = (q: string, want: string) => {
+    const r = one(q);
+    check(r.length > 0 && r.some((t) => t.slug === want),
+      `「${q}」で ${want} が出る`, `${r.length}件 ${r.map((t) => t.slug).join("／")}`);
+  };
+  hit("アスベスト", "asbestos_demolition");
+  hit("せきめん", "asbestos_demolition");
+  hit("酸欠", "oxygen_deficiency_type1");
+  hit("ユンボ", "small_vehicle_construction_leveling");
+  hit("ハーネス", "full_harness");
+  hit("たまがけ", "slinging_under_1t");
+  hit("トンネル", "tunnel_excavation_lining");
+  hit("ふんじん", "specified_dust_work");
+  hit("足場", "scaffolding_assembly");
+
+  /* カタカナとひらがなで結果が変わってはいけない */
+  check(one("サンケツ").length === one("さんけつ").length, "カタカナとひらがなで同じ");
+  check(one("ＥＶ").length === one("ev").length, "全角と半角で同じ");
+  check(one("フォークリフト").length === one("ふぉーくりふと").length, "長音も含めて同じ");
+  check(norm("　アスベスト　") === "あすべすと", "前後の空白を落として、かなに寄せる", norm("　アスベスト　"));
+
+  /* 空白で区切った語は、全部を含むもの。絞るために足した語で増えるのはおかしい */
+  const two = one("ロボット 検査");
+  check(two.length === 1 && two[0].slug === "industrial_robot_inspection",
+    "語を足すと絞れる", `${two.length}件`);
+  check(one("ロボット").length === 2, "語がひとつなら広い");
+
+  check(one("").length === 65, "空なら全部");
+  check(one("   ").length === 65, "空白だけでも全部");
+  check(one("そんな教育").length === 0, "無いものは0件");
+
+  /* 目印（slug）は探す対象に入れない。人が打つものではないうえ、
+     英字の切れ端が中で当たる（「EV」が leveling に当たっていた） */
+  check(one("ev").length === 1, "「EV」で leveling を拾わない",
+    one("ev").map((t) => t.slug).join("／"));
+  check(!matches(TOKUBETSU[0], "machine_grinding_wheel"),
+    "目印そのものでは当たらない");
+
+  /* 別名は、探すためだけのもの。画面に出る名前ではない */
+  check(Object.keys(ALIAS).every((k) => TOKUBETSU.some((t) => t.slug === k)),
+    "別名の宛先が全部ある",
+    Object.keys(ALIAS).filter((k) => !TOKUBETSU.some((t) => t.slug === k)).join("／"));
+  check(Object.keys(ALIAS).length >= 60, `ほとんどの行に別名がある（${Object.keys(ALIAS).length}件）`);
+  const ui = code("src/app/edu/OtherCourses.tsx");
+  check(!ui.includes("ALIAS"), "別名を画面に出していない（探すためだけ）");
+}
+
+console.log("\n── その他特別教育に出す ──");
+{
+  const page = code("src/app/edu/page.tsx");
+  check(page.includes("<OtherCourses"), "その他特別教育の中に出している");
+  /* 開く前は出さない。64件がいきなり並ぶと、足場を受けに来た人が迷う */
+  check(page.indexOf("<OtherCourses") > page.indexOf("course-other-open"),
+    "開いてから出す");
+  check(page.includes("TOKUBETSU.filter((t) => !isReady(t)).length"),
+    "件数に、まだ作っていないものを数える");
+
+  const ui = code("src/app/edu/OtherCourses.tsx");
+  check(ui.includes("!isReady(t)"), "もう受けられるものは、ここに二重に出さない");
+  /* 受けられるように見せない。押せる札にすると、押した先が無い */
+  check(!ui.includes("<Link") && !ui.includes("href={`/edu/"), "作っていないものを押せる札にしない");
+  check(ui.includes("準備中"), "準備中と書く");
+  /* 実技は事業者が自社でやる。黙って並べると「ここで全部済む」と思われる */
+  check(ui.includes("実技は事業者で"), "実技のものは、そう書く");
+  check(ui.includes("学科だけで修了"), "学科だけのものも分かる");
+  check(ui.includes('data-testid="other-search"'), "探す所がある");
+  /* 空で終わらせない。打ち方が悪いのか無いのかが分からない */
+  check(ui.includes("見つからないとき"), "見つからないときの案内がある");
+}
+
+console.log("\n── 持ち出す ──");
+{
+  /* 単体で事業にするときに、丸ごと移せること */
+  const rows = toRows();
+  check(rows.length === 65, "全部が出る");
+  check(rows.every((r) => typeof r.hours_verified === "boolean"),
+    "確かめたかどうかも一緒に出す（出した先で誤解されないため）");
+  check(rows.filter((r) => r.hours_verified).length === TOKUBETSU.filter(trustedHours).length,
+    "確かめた件数が合う");
+  check(rows.find((r) => r.slug === "oxygen_deficiency_type1")?.theory_minutes === 330,
+    "直した時間で出る");
+  check(rows.find((r) => r.slug === "scaffolding_assembly")?.course_slug === "ashiba",
+    "作ってある講座がつながって出る");
+  check(rows.every((r) => r.theory_minutes + r.practical_minutes === r.total_minutes),
+    "合計が合う");
+  check(rows.every((r) => r.source_url.startsWith("https://")), "出典の住所も出る");
+
+  /* 渡された一覧と同じ列から始まる。行って戻れる */
+  const csv = toCsv();
+  const lines = csv.split("\n");
+  check(lines.length === 66, `CSV は65行＋見出し（${lines.length}）`);
+  check(lines[0].startsWith("course_id,slug,title_ja,theory_minutes,practical_minutes,total_minutes"),
+    "渡された一覧と同じ列の並び", lines[0].slice(0, 60));
+  /* 名前に「,」や「"」が入る日が来ても崩れないこと */
+  const tricky = ['a,b', 'a"b', "ふつう"].map((v) =>
+    /[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
+  check(tricky[0] === '"a,b"' && tricky[1] === '"a""b"' && tricky[2] === "ふつう",
+    "カンマと引用符の逃がし方");
+  check(lines.every((l) => l.split(",").length >= 14 || l.includes('"')),
+    "どの行も列が欠けていない");
+
+  const api = code("src/app/api/tokubetsu/route.ts");
+  check(api.includes("toCsv") && api.includes("toRows"), "API から両方の形で出せる");
+  check(api.includes("\ufeff") || api.includes("\u{feff}") || /`\W?\$\{toCsv\(\)\}`/.test(api),
+    "CSV に BOM を付ける（Excel が文字化けする）");
+  check(api.includes("hours_verified"), "API の説明に、確かめた印のことが書いてある");
+  /* 目録は何にも依存しない。コピーすればそのまま別の仕組みで動く */
+  const cat = read("src/content/tokubetsu.ts");
+  check(!/^import /m.test(cat), "目録は何も import していない（丸ごと持ち出せる）");
+}
+
 console.log("\n── 書き残し ──");
 {
   /* 見つけた間違いは、docs にも残す。コードのコメントだけだと、
@@ -166,6 +288,11 @@ console.log("\n── 書き残し ──");
   check(doc.includes("規程の条文から"), "条文から取り直す決まりが書いてある");
   /* 実技の要らないものから作る、という順番の理由 */
   check(doc.includes("実技の要らないものが13種類"), "どこから手を付けるかが書いてある");
+  /* 探し方と持ち出し方も、コードの外に残す */
+  check(doc.includes("/api/tokubetsu"), "持ち出し先が書いてある");
+  check(doc.includes("BOM"), "Excel が文字化けする話が書いてある");
+  check(doc.includes("hours_verified"), "確かめた印も持ち出すことが書いてある");
+  check(doc.includes("アスベスト"), "別名で探せることが書いてある");
 }
 
 console.log("\n── まとめ ──");

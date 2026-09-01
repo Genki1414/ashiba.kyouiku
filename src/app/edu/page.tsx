@@ -11,6 +11,8 @@ import {
   type CourseMeta,
 } from "@/content/courses";
 import { loadedCourses } from "@/lib/curriculum";
+import { OtherCourses } from "./OtherCourses";
+import { TOKUBETSU, isReady } from "@/content/tokubetsu";
 
 export const dynamic = "force-dynamic";
 
@@ -65,9 +67,14 @@ export default async function EduPage() {
   const soon = COURSES.filter((c) => !c.ready);
   const r = splitMenu(ready);
   const s = splitMenu(soon);
-  /* 中身が無ければ、開く所そのものを出さない。
-     押しても何も出てこない見出しは、置かないほうがいい */
-  const others = r.other.length + s.other.length;
+  /* 「その他特別教育」の中身。
+     講座として作ったもの（menu: "other"）に加えて、
+     **まだ作っていない特別教育の目録**も並べる。
+
+     並べておかないと「足場だけの会社」と思われて終わる。
+     石綿も粉じんも酸欠も、同じ現場で要る（src/content/tokubetsu.ts）。 */
+  const todo = TOKUBETSU.filter((t) => !isReady(t)).length;
+  const others = r.other.length + s.other.length + todo;
 
   return (
     <main className="px-5 py-8" data-testid="course-list">
@@ -110,6 +117,8 @@ export default async function EduPage() {
             {s.other.map((c) => (
               <Soon key={c.id} c={c} />
             ))}
+            {/* 法令で定められている特別教育の目録。探す所も、ここに置く */}
+            <OtherCourses />
           </div>
         </details>
       )}
