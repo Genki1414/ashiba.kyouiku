@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import {
   TOKUBETSU,
   hasJitsugi,
+  isBuilding,
   isReady,
   searchTokubetsu,
   totalMinOf,
@@ -39,9 +40,18 @@ function Row({ t }: { t: Tokubetsu }) {
         <span className="text-dim2">　計 {hoursText(totalMinOf(t))}</span>
       </div>
       <div className="mt-1 flex flex-wrap gap-1.5">
-        <span className="rounded border border-line px-1.5 py-0.5 text-[10.5px] text-dim2">
-          準備中
-        </span>
+        {/* いま作っているものは、そう出す。
+            「準備中」だけだと、いつになるか分からないものと同じに見える。
+            待てるかどうかは、この差で決まる */}
+        {isBuilding(t) ? (
+          <span className="rounded border border-yel px-1.5 py-0.5 text-[10.5px] text-yel">
+            いま作っています
+          </span>
+        ) : (
+          <span className="rounded border border-line px-1.5 py-0.5 text-[10.5px] text-dim2">
+            準備中
+          </span>
+        )}
         {hasJitsugi(t) ? (
           /* 実技は事業者が自社で行う。ここだけでは終わらないと先に言う */
           <span className="rounded border border-line px-1.5 py-0.5 text-[10.5px] text-dim2">
@@ -65,7 +75,10 @@ export function OtherCourses() {
   const todo = useMemo(() => TOKUBETSU.filter((t) => !isReady(t)), []);
   const list = useMemo(() => {
     const base = gakkaOnly ? todo.filter((t) => !hasJitsugi(t)) : todo;
-    return searchTokubetsu(q, base);
+    const found = searchTokubetsu(q, base);
+    /* いま作っているものを先頭へ。**次に出るものが下に埋もれない**。
+       ほかは目録のまま（法令の番号順） */
+    return [...found.filter(isBuilding), ...found.filter((t) => !isBuilding(t))];
   }, [q, gakkaOnly, todo]);
 
   const nGakka = todo.filter((t) => !hasJitsugi(t)).length;

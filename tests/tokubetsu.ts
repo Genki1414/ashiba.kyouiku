@@ -9,6 +9,7 @@ import {
   TOKUBETSU,
   findTokubetsu,
   hasJitsugi,
+  isBuilding,
   isReady,
   sourceOf,
   splitReady,
@@ -118,6 +119,45 @@ console.log("\n── 作ってある講座とのつながり ──");
   );
   check(orphan.length === 0, "特別教育の講座は全部が目録につながっている",
     orphan.map((c) => c.id).join("／"));
+}
+
+console.log("\n── いま作っているもの ──");
+{
+  /* 「準備中」だけだと、いつになるか分からないものと同じに見える。
+     待てるかどうかは、この差で決まる */
+  const b = TOKUBETSU.filter(isBuilding);
+  check(b.length >= 1, `作っているものがある（${b.length}件）`);
+  check(b.every((t) => !isReady(t)), "作り終えたら、この印は落ちる");
+  /* 調べ直しを防ぐ。条文に当たった記録は、行から辿れること */
+  check(b.every((t) => !!t.doc), "作っている行には裏取りの記録がある",
+    b.filter((t) => !t.doc).map((t) => t.slug).join("／"));
+
+  const ishi = findTokubetsu("asbestos_demolition");
+  check(!!ishi && isBuilding(ishi), "石綿を作っている");
+  /* 渡された一覧の根拠は第3条第1項（事前調査の条）だった。
+     特別教育を義務づけているのは第27条第1項。
+     そのまま修了証に載せていたら、根拠の条文が違う紙が出ていた */
+  check(!!ishi && ishi.basis.includes("第27条第1項"), "石綿の根拠は第27条第1項", ishi?.basis);
+  check(!!ishi && !ishi.basis.includes("第3条第1項"), "第3条（事前調査の条）ではない");
+  check(!!ishi && ishi.basis.includes("第36条第37号"), "安衛則の号まで入っている");
+  /* 告示の名前に合わせる。「石綿障害予防規則第3条第1項の…」は業務の説明であって
+     教育の名前ではない */
+  check(!!ishi && ishi.name === "石綿使用建築物等解体等業務に係る特別教育",
+    "教育の名前は告示に合わせる", ishi?.name);
+  check(!!ishi && ishi.gakkaMin === 270 && ishi.jitsugiMin === 0,
+    "学科4時間30分、実技なし");
+  check(!!ishi && trustedHours(ishi), "合計は確かめてある");
+
+  const ui = code("src/app/edu/OtherCourses.tsx");
+  check(ui.includes("いま作っています"), "受ける人にも、作っていることを出す");
+  check(ui.includes("isBuilding"), "作っているものを先頭に出す");
+
+  /* まだ決まっていないことを、決まったふりで書かない */
+  const doc = read("docs/25-石綿の根拠と裏取り.md");
+  check(doc.includes("まだ確かめていないこと"), "残っていることが書いてある");
+  check(doc.includes("科目ごとの時間の割り振り"), "何が残っているかまで書いてある");
+  check(doc.includes("第27条第1項"), "直した根拠が書いてある");
+  check(doc.includes("成形板"), "例をどう選ぶかが書いてある");
 }
 
 console.log("\n── 出典 ──");

@@ -5,6 +5,7 @@ import {
   LISTED_ON,
   TOKUBETSU,
   hasJitsugi,
+  isBuilding,
   isReady,
   sourceOf,
   toCsv,
@@ -62,6 +63,8 @@ function Row({ t }: { t: Tokubetsu }) {
       <div className="mt-0.5 flex flex-wrap items-baseline gap-x-2 pl-5 text-[11px] text-dim2">
         <span>{t.basis}</span>
         {t.from && <span>（{t.from} 施行）</span>}
+        {/* 裏取りの記録。次に開いた人が、条文を調べ直さなくて済む */}
+        {t.doc && <span className="text-dim">{t.doc}</span>}
         {s.url && (
           <a href={s.url} target="_blank" rel="noreferrer" className="text-dim underline">
             出典
@@ -72,6 +75,11 @@ function Row({ t }: { t: Tokubetsu }) {
         {isReady(t) && (
           <span className="rounded border border-yel px-1.5 py-0.5 text-[10.5px] text-yel">
             作ってある
+          </span>
+        )}
+        {isBuilding(t) && (
+          <span className="rounded border border-yel px-1.5 py-0.5 text-[10.5px] text-yel">
+            いま作っています
           </span>
         )}
         {!hasJitsugi(t) && (

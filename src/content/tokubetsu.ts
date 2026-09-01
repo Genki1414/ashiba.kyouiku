@@ -33,6 +33,10 @@ export const SOURCES: Record<string, { name: string; url: string }> = {
     name: "東京労働局 安全衛生教育の一覧",
     url: "https://jsite.mhlw.go.jp/tokyo-roudoukyoku/hourei_seido_tetsuzuki/anzen_eisei/a-kyoiku.html",
   },
+  ishiwata: {
+    name: "石綿使用建築物等解体等業務特別教育規程",
+    url: "https://www.mhlw.go.jp/web/t_doc?dataId=74aa7005&dataType=0&pageNo=1",
+  },
   xray: {
     name: "エックス線装置及びガンマ線照射装置取扱業務特別教育規程",
     url: "https://www.mhlw.go.jp/web/t_doc?dataId=74104000&dataType=0&pageNo=1",
@@ -61,6 +65,12 @@ export type Tokubetsu = {
   /** 規程の条文か、実物で確かめた行。
       **付いていない行の時間で修了証を出さないこと** */
   checked?: true;
+  /** いま作っている最中。まだ受けられないが、「いつか」ではない。
+      作る順が見えると、待つ人は待てる */
+  building?: true;
+  /** 裏取りの記録（docs/…）。作り始めた行に付ける。
+      ここが無いと、次に開いたときに条文を調べ直すことになる */
+  doc?: string;
 };
 
 /** 一覧を写した日 */
@@ -602,14 +612,23 @@ export const TOKUBETSU: Tokubetsu[] = [
     basis: "安全衛生特別教育規程",
     src: "roudoukyoku",
   },
+  /* 名前と根拠を条文に合わせた。渡された一覧は
+     「石綿障害予防規則第3条第1項の…」となっていたが、第3条は事前調査の条。
+     特別教育を義務づけているのは**第27条第1項**（docs/25）。
+     教育の名前も、告示（石綿使用建築物等解体等業務特別教育規程）に合わせる。
+
+     合計4時間30分は確かめた。**科目ごとの割り振りはまだ**（docs/25）。 */
   {
     no: 60,
     slug: "asbestos_demolition",
-    name: "石綿障害予防規則第3条第1項の建築物又は工作物の解体・破砕等の作業に係る業務",
+    name: "石綿使用建築物等解体等業務に係る特別教育",
     gakkaMin: 270,
     jitsugiMin: 0,
-    basis: "石綿障害予防規則に基づく特別教育",
-    src: "roudoukyoku",
+    basis: "労働安全衛生規則第36条第37号／石綿障害予防規則第27条第1項",
+    src: "ishiwata",
+    checked: true,
+    building: true,
+    doc: "docs/25-石綿の根拠と裏取り.md",
   },
   {
     no: 61,
@@ -667,6 +686,9 @@ export const hasJitsugi = (t: Tokubetsu): boolean => t.jitsugiMin > 0;
 
 /** もう受けられるか */
 export const isReady = (t: Tokubetsu): boolean => !!t.courseId;
+
+/** いま作っている最中か。受けられるようになったら、この印は落とす */
+export const isBuilding = (t: Tokubetsu): boolean => !isReady(t) && t.building === true;
 
 /** その時間で修了証を出してよいか。
 
@@ -831,6 +853,8 @@ export type TokubetsuOut = {
   effective_from: string;
   /** 条文か実物で時間を確かめたか。false の行を信用しないこと */
   hours_verified: boolean;
+  /** いま作っている最中か */
+  building: boolean;
   /** もう受けられる講座の目印。無ければ空 */
   course_slug: string;
   /** 探すための別名（空白区切り） */
@@ -852,6 +876,7 @@ export const toRows = (): TokubetsuOut[] =>
     source_url: sourceOf(t).url,
     effective_from: t.from ?? "",
     hours_verified: trustedHours(t),
+    building: isBuilding(t),
     course_slug: t.courseId ?? "",
     alias: ALIAS[t.slug] ?? "",
     listed_on: LISTED_ON,

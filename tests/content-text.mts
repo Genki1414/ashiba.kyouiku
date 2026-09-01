@@ -18,6 +18,7 @@ import path from "node:path";
 import { CurriculumSchema, LessonSchema } from "../src/types/curriculum";
 import { COURSES } from "../src/content/courses";
 import { SYLLABUS, syllabusOf } from "../src/content/syllabus";
+import { TOKUBETSU, isBuilding } from "../src/content/tokubetsu";
 
 let ok = 0;
 let ng = 0;
@@ -93,7 +94,23 @@ for (const c of COURSES) {
   check(sy.refs.every((r) => !!r.name.trim() && !!r.what.trim()), `${c.id}: 参考の中身まで書いてある`);
   check(!!sy.doc.trim(), `${c.id}: 裏取りの記録がどこにあるか書いてある`);
 }
-check(SYLLABUS.length === COURSES.length, `出どころの数と講座の数が合っている（${SYLLABUS.length} / ${COURSES.length}）`);
+/* 前は「出どころの数＝講座の数」で見ていた。狙いは
+   **courseId の打ち間違いを見つけること**（どの講座にも当たらない出どころ）。
+
+   いまは、作っている途中の講座の出どころを先に置くようにした。
+   docs/19 の手順①（法令の細目を取る）は、教材より先に済ませるもので、
+   済ませた記録が置けないと、次に開いたときに調べ直しになる。
+
+   数で見るのをやめて、**宛先があるか**で見る。
+   打ち間違いは今までどおり見つかるし、途中のものは通る。 */
+for (const sy of SYLLABUS) {
+  const built = COURSES.some((c) => c.id === sy.courseId);
+  const building = TOKUBETSU.some((t) => isBuilding(t) && t.doc === sy.doc);
+  check(
+    built || building,
+    `${sy.courseId}: 出どころの宛先がある（講座になっているか、いま作っている最中か）`,
+  );
+}
 
 const dir = path.join(process.cwd(), "content", "courses");
 const files = readdirSync(dir).filter((f) => f.endsWith(".json"));
