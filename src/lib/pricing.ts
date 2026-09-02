@@ -68,6 +68,13 @@ export function parseUnitPrice(raw: string | undefined): number {
         実技3時間は事業者が自社で行う。実技の手引きと実施記録の様式が付く。
         → ここ 6,000円（税抜）＝ 6,600円（税込）
 
+      特定粉じん作業（学科4時間30分・実技なし）
+        中小建設業特別教育協会 WEB講習        9,900円
+        安全衛生マネジメント協会 WEB講習      9,900円
+        CIC日本建設情報センター Web         10,450円（カード型修了証付き）
+        → ここ 4,500円（税抜）＝ 4,950円（税込）
+        石綿と同じく学科だけで修了まで出せる講座なので、石綿と同じ値段に置いた。
+
       職長・安全衛生責任者教育（14時間・討議つき）
         中小建設業特別教育協会 WEB講習  17,600円
           （動画12時間18分＋Zoom討議2時間30分。うちと同じ作り）
@@ -85,6 +92,7 @@ export const DEFAULT_COURSE_PRICE: Record<string, number> = {
   kousho: 7000,
   harness: 6000,
   rope: 6000,
+  funjin: 4500,
 };
 
 /** 講座の目印から環境変数の名前を作る。ashiba → SEAT_UNIT_PRICE_ASHIBA */

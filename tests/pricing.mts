@@ -97,7 +97,7 @@ console.log("── 講座ごとの単価 ──");
        石綿 … 7,700円（株式会社斉藤商会 WEB）
        高所作業車 … 10,500円（オンライン講習の最安。CIC は 11,000円） */
   const OTHERS: Record<string, number> = {
-    ashiba: 8000, shokucho: 17600, ishiwata: 7700, kousho: 10500,
+    ashiba: 8000, shokucho: 17600, ishiwata: 7700, kousho: 10500, funjin: 9900,
   };
   const withTax = (p: number) => p + Math.floor(p * TAX_RATE);
   for (const [id, other] of Object.entries(OTHERS)) {
@@ -114,6 +114,8 @@ console.log("── 講座ごとの単価 ──");
   /* 高所作業車は 7,000円。はじめ 4,500円に置いたのを「安すぎる」と決め直した。
      実技の手引きと実施記録の様式が付く（/edu/kousho/drill） */
   check(unitPrice("kousho") === 7000, `高所作業車は7,000円（税抜）（${unitPrice("kousho")}）`);
+  /* 粉じんは石綿と同じ作り（学科だけで修了）なので同じ値段。よそは 9,900円台 */
+  check(unitPrice("funjin") === 4500, `粉じんは4,500円（税抜）（${unitPrice("funjin")}）`);
 
   /* 知らない講座を聞かれても、仮置きの値で答える（0円で配らない） */
   check(unitPrice("nonsense") > 0, "知らない講座でも0円にはしない");

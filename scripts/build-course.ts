@@ -14,7 +14,8 @@
      npm run build:ishiwata   # 石綿
      npm run build:kousho     # 高所作業車
      npm run build:harness    # フルハーネス
-     npm run build:rope       # ロープ高所作業 */
+     npm run build:rope       # ロープ高所作業
+     npm run build:funjin     # 特定粉じん作業 */
 
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import path from "node:path";
@@ -25,6 +26,9 @@ import {
 import {
   KOUSHO_BASIS, KOUSHO_LESSONS, KOUSHO_NAME, KOUSHO_SUBJECTS, KOUSHO_TOTAL_MIN,
 } from "../src/content/kousho";
+import {
+  FUNJIN_BASIS, FUNJIN_LESSONS, FUNJIN_NAME, FUNJIN_SUBJECTS, FUNJIN_TOTAL_MIN,
+} from "../src/content/funjin";
 import {
   ROPE_BASIS, ROPE_LESSONS, ROPE_NAME, ROPE_SUBJECTS, ROPE_TOTAL_MIN,
 } from "../src/content/rope";
@@ -50,6 +54,14 @@ const PLANS: Record<string, Plan> = {
     subjects: ISHIWATA_SUBJECTS,
     lessons: ISHIWATA_LESSONS,
     totalMin: ISHIWATA_TOTAL_MIN,
+  },
+  funjin: {
+    id: "funjin",
+    name: `${FUNJIN_NAME}（学科）`,
+    basis: FUNJIN_BASIS,
+    subjects: FUNJIN_SUBJECTS,
+    lessons: FUNJIN_LESSONS,
+    totalMin: FUNJIN_TOTAL_MIN,
   },
   rope: {
     id: "rope",

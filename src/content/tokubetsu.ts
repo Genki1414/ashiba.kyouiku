@@ -37,6 +37,10 @@ export const SOURCES: Record<string, { name: string; url: string }> = {
     name: "石綿使用建築物等解体等業務特別教育規程",
     url: "https://www.mhlw.go.jp/web/t_doc?dataId=74aa7005&dataType=0&pageNo=1",
   },
+  funjin: {
+    name: "粉じん作業特別教育規程",
+    url: "https://www.mhlw.go.jp/web/t_doc?dataId=74109000&dataType=0&pageNo=1",
+  },
   xray: {
     name: "エックス線装置及びガンマ線照射装置取扱業務特別教育規程",
     url: "https://www.mhlw.go.jp/web/t_doc?dataId=74104000&dataType=0&pageNo=1",
@@ -231,14 +235,18 @@ export const TOKUBETSU: Tokubetsu[] = [
     basis: "安全衛生特別教育規程",
     src: "roudoukyoku",
   },
+  /* 合計（学科7時間＋実技6時間）は確かめた。**科目ごとの時間はまだ**（docs/29）。
+     確かめるまで単元を書かない。高所作業車で逆に思い込んでいたのと同じ危険 */
   {
     no: 18,
     slug: "small_vehicle_construction_leveling",
     name: "小型車両系建設機械（整地・運搬・積込み用及び掘削用）の運転の業務",
     gakkaMin: 420,
     jitsugiMin: 360,
-    basis: "安全衛生特別教育規程",
-    src: "roudoukyoku",
+    basis: "労働安全衛生規則第36条第9号／安全衛生特別教育規程 第11条",
+    src: "kitei",
+    building: true,
+    doc: "docs/29-小型車両系建設機械の根拠と裏取り.md",
   },
   {
     no: 19,
@@ -550,14 +558,20 @@ export const TOKUBETSU: Tokubetsu[] = [
     basis: "関係特別教育規程",
     src: "roudoukyoku",
   },
+  /* 根拠を直した。粉じんは「安全衛生特別教育規程」ではなく、
+     **粉じん作業特別教育規程（昭和54年労働省告示第68号）**。
+     義務づけは粉じん則第22条。学科だけ4時間30分（docs/30） */
   {
     no: 52,
     slug: "specified_dust_work",
     name: "特定粉じん作業に係る業務",
     gakkaMin: 270,
     jitsugiMin: 0,
-    basis: "安全衛生特別教育規程",
-    src: "roudoukyoku",
+    basis: "労働安全衛生規則第36条第29号／粉じん障害防止規則第22条／粉じん作業特別教育規程",
+    src: "funjin",
+    checked: true,
+    courseId: "funjin",
+    doc: "docs/30-粉じんの根拠と裏取り.md",
   },
   {
     no: 53,
