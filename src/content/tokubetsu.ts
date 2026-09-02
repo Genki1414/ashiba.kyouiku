@@ -214,6 +214,7 @@ export const TOKUBETSU: Tokubetsu[] = [
     jitsugiMin: 360,
     basis: "労働安全衛生規則第36条第6号の2／安全衛生特別教育規程 第8条の2",
     src: "kitei",
+    checked: true,
   },
   {
     no: 14,
@@ -223,6 +224,7 @@ export const TOKUBETSU: Tokubetsu[] = [
     jitsugiMin: 360,
     basis: "労働安全衛生規則第36条第6号の3／安全衛生特別教育規程 第8条の3",
     src: "kitei",
+    checked: true,
   },
   {
     no: 15,
@@ -232,6 +234,7 @@ export const TOKUBETSU: Tokubetsu[] = [
     jitsugiMin: 480,
     basis: "労働安全衛生規則第36条第7号／安全衛生特別教育規程 第9条",
     src: "kitei",
+    checked: true,
   },
   {
     no: 16,
@@ -241,6 +244,7 @@ export const TOKUBETSU: Tokubetsu[] = [
     jitsugiMin: 480,
     basis: "労働安全衛生規則第36条第7号の2／安全衛生特別教育規程 第9条の2",
     src: "kitei",
+    checked: true,
   },
   {
     no: 17,
@@ -250,6 +254,7 @@ export const TOKUBETSU: Tokubetsu[] = [
     jitsugiMin: 540,
     basis: "労働安全衛生規則第36条第8号／安全衛生特別教育規程 第10条",
     src: "kitei",
+    checked: true,
   },
   /* 合計（学科7時間＋実技6時間）は確かめた。**科目ごとの時間はまだ**（docs/29）。
      確かめるまで単元を書かない。高所作業車で逆に思い込んでいたのと同じ危険 */
@@ -261,6 +266,7 @@ export const TOKUBETSU: Tokubetsu[] = [
     jitsugiMin: 360,
     basis: "労働安全衛生規則第36条第9号（令別表第7第1号・第2号）／安全衛生特別教育規程 第11条",
     src: "kitei",
+    checked: true,
     building: true,
     doc: "docs/29-小型車両系建設機械の根拠と裏取り.md",
   },
@@ -272,6 +278,7 @@ export const TOKUBETSU: Tokubetsu[] = [
     jitsugiMin: 360,
     basis: "労働安全衛生規則第36条第9号（令別表第7第3号）／安全衛生特別教育規程 第11条の2",
     src: "kitei",
+    checked: true,
   },
   {
     no: 20,
@@ -281,6 +288,7 @@ export const TOKUBETSU: Tokubetsu[] = [
     jitsugiMin: 420,
     basis: "労働安全衛生規則第36条第9号（令別表第7第6号）／安全衛生特別教育規程 第11条の3",
     src: "kitei",
+    checked: true,
   },
   {
     no: 21,
@@ -290,6 +298,7 @@ export const TOKUBETSU: Tokubetsu[] = [
     jitsugiMin: 300,
     basis: "労働安全衛生規則第36条第9号の2／安全衛生特別教育規程 第11条の4",
     src: "kitei",
+    checked: true,
   },
   {
     no: 22,
@@ -299,6 +308,7 @@ export const TOKUBETSU: Tokubetsu[] = [
     jitsugiMin: 240,
     basis: "労働安全衛生規則第36条第9号の3／安全衛生特別教育規程 第11条の5",
     src: "kitei",
+    checked: true,
   },
   {
     no: 23,
@@ -308,6 +318,7 @@ export const TOKUBETSU: Tokubetsu[] = [
     jitsugiMin: 240,
     basis: "労働安全衛生規則第36条第10号／安全衛生特別教育規程 第12条",
     src: "kitei",
+    checked: true,
   },
   {
     no: 24,
@@ -317,6 +328,7 @@ export const TOKUBETSU: Tokubetsu[] = [
     jitsugiMin: 300,
     basis: "労働安全衛生規則第36条第10号の2／安全衛生特別教育規程 第12条の2",
     src: "kitei",
+    checked: true,
   },
   {
     no: 25,
@@ -326,6 +338,7 @@ export const TOKUBETSU: Tokubetsu[] = [
     jitsugiMin: 300,
     basis: "労働安全衛生規則第36条第10号の3／安全衛生特別教育規程 第12条の3",
     src: "kitei",
+    checked: true,
   },
   {
     no: 26,
@@ -335,6 +348,7 @@ export const TOKUBETSU: Tokubetsu[] = [
     jitsugiMin: 240,
     basis: "労働安全衛生規則第36条第10号の4／安全衛生特別教育規程 第12条の4",
     src: "kitei",
+    checked: true,
   },
   /* 根拠に条番号を足した。渡された一覧は「安全衛生特別教育規程」までで、
      どの条かが分からなかった。特別教育を義務づけているのは
@@ -363,6 +377,7 @@ export const TOKUBETSU: Tokubetsu[] = [
     jitsugiMin: 240,
     basis: "労働安全衛生規則第36条第11号／安全衛生特別教育規程 第14条",
     src: "kitei",
+    checked: true,
   },
   {
     no: 29,
@@ -372,6 +387,7 @@ export const TOKUBETSU: Tokubetsu[] = [
     jitsugiMin: 240,
     basis: "労働安全衛生規則第36条第13号／安全衛生特別教育規程 第15条",
     src: "kitei",
+    checked: true,
   },
   {
     no: 30,
@@ -541,6 +557,7 @@ export const TOKUBETSU: Tokubetsu[] = [
     jitsugiMin: 900,
     basis: "労働安全衛生規則第36条第27号／安全衛生特別教育規程 第16条",
     src: "kitei",
+    checked: true,
   },
   {
     no: 47,
@@ -611,6 +628,7 @@ export const TOKUBETSU: Tokubetsu[] = [
     jitsugiMin: 0,
     basis: "労働安全衛生規則第36条第30号／安全衛生特別教育規程 第17条",
     src: "kitei",
+    checked: true,
   },
   {
     no: 54,
@@ -620,6 +638,7 @@ export const TOKUBETSU: Tokubetsu[] = [
     jitsugiMin: 180,
     basis: "労働安全衛生規則第36条第31号／安全衛生特別教育規程 第18条",
     src: "kitei",
+    checked: true,
   },
   {
     no: 55,
@@ -629,6 +648,7 @@ export const TOKUBETSU: Tokubetsu[] = [
     jitsugiMin: 240,
     basis: "労働安全衛生規則第36条第32号／安全衛生特別教育規程 第19条",
     src: "kitei",
+    checked: true,
   },
   {
     no: 56,
@@ -638,6 +658,7 @@ export const TOKUBETSU: Tokubetsu[] = [
     jitsugiMin: 240,
     basis: "労働安全衛生規則第36条第33号／安全衛生特別教育規程 第20条",
     src: "kitei",
+    checked: true,
   },
   {
     no: 57,
@@ -647,6 +668,7 @@ export const TOKUBETSU: Tokubetsu[] = [
     jitsugiMin: 0,
     basis: "労働安全衛生規則第36条第34号〜第36号／安全衛生特別教育規程 第21条",
     src: "kitei",
+    checked: true,
   },
   {
     no: 58,
