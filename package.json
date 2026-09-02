@@ -18,6 +18,7 @@
     "build:funjin": "tsx scripts/build-course.ts funjin",
     "build:sanketsu": "tsx scripts/build-course.ts sanketsu",
     "build:kogata": "tsx scripts/build-course.ts kogata",
+    "build:forklift": "tsx scripts/build-course.ts forklift",
     "dump:why": "tsx scripts/dump-demo-why.ts",
     "test:score": "tsx tests/score.ts",
     "test:changelog": "tsx tests/changelog.ts",

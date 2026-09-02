@@ -121,6 +121,8 @@ console.log("── 講座ごとの単価 ──");
   check(unitPrice("sanketsu") === 5500, `酸欠は5,500円（税抜）（${unitPrice("sanketsu")}）`);
   /* 小型車両系は学科7時間＋実技6時間。実技の手引きが付くので高所作業車と同じ 7,000円 */
   check(unitPrice("kogata") === 7000, `小型車両系は7,000円（税抜）（${unitPrice("kogata")}）`);
+  /* フォークリフトは学科6時間＋実技6時間。受ける人が広いので 6,000円 */
+  check(unitPrice("forklift") === 6000, `フォークリフトは6,000円（税抜）（${unitPrice("forklift")}）`);
 
   /* 知らない講座を聞かれても、仮置きの値で答える（0円で配らない） */
   check(unitPrice("nonsense") > 0, "知らない講座でも0円にはしない");

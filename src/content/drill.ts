@@ -12,6 +12,14 @@
    ここは、講座の id から手引きを引くだけ。 */
 
 import {
+  FORKLIFT_DRILL_FORM,
+  FORKLIFT_DRILL_PREP,
+  FORKLIFT_DRILL_STEPS,
+  FORKLIFT_DRILL_TEACHER,
+  FORKLIFT_DRILL_TOTAL_MIN,
+  FORKLIFT_JITSUGI,
+} from "./forklift";
+import {
   KOGATA_DRILL_FORM,
   KOGATA_DRILL_PREP,
   KOGATA_DRILL_STEPS,
@@ -92,6 +100,18 @@ const GUIDES: Record<string, DrillGuide> = {
     prep: HARNESS_DRILL_PREP,
     keepYears: 3,
     form: HARNESS_DRILL_FORM,
+  },
+  forklift: {
+    courseId: "forklift",
+    subject: FORKLIFT_JITSUGI.name,
+    scope: FORKLIFT_JITSUGI.scope,
+    legalMin: FORKLIFT_JITSUGI.legalMin,
+    steps: FORKLIFT_DRILL_STEPS,
+    totalMin: FORKLIFT_DRILL_TOTAL_MIN,
+    teacher: FORKLIFT_DRILL_TEACHER,
+    prep: FORKLIFT_DRILL_PREP,
+    keepYears: 3,
+    form: FORKLIFT_DRILL_FORM,
   },
   kogata: {
     courseId: "kogata",

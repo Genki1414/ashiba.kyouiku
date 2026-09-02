@@ -17,7 +17,8 @@
      npm run build:rope       # ロープ高所作業
      npm run build:funjin     # 特定粉じん作業
      npm run build:sanketsu   # 酸素欠乏・硫化水素
-     npm run build:kogata     # 小型車両系建設機械（整地等） */
+     npm run build:kogata     # 小型車両系建設機械（整地等）
+     npm run build:forklift   # フォークリフト（1トン未満） */
 
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import path from "node:path";
@@ -31,6 +32,9 @@ import {
 import {
   FUNJIN_BASIS, FUNJIN_LESSONS, FUNJIN_NAME, FUNJIN_SUBJECTS, FUNJIN_TOTAL_MIN,
 } from "../src/content/funjin";
+import {
+  FORKLIFT_BASIS, FORKLIFT_LESSONS, FORKLIFT_NAME, FORKLIFT_SUBJECTS, FORKLIFT_TOTAL_MIN,
+} from "../src/content/forklift";
 import {
   KOGATA_BASIS, KOGATA_LESSONS, KOGATA_NAME, KOGATA_SUBJECTS, KOGATA_TOTAL_MIN,
 } from "../src/content/kogata";
@@ -70,6 +74,14 @@ const PLANS: Record<string, Plan> = {
     subjects: FUNJIN_SUBJECTS,
     lessons: FUNJIN_LESSONS,
     totalMin: FUNJIN_TOTAL_MIN,
+  },
+  forklift: {
+    id: "forklift",
+    name: `${FORKLIFT_NAME}（学科）`,
+    basis: FORKLIFT_BASIS,
+    subjects: FORKLIFT_SUBJECTS,
+    lessons: FORKLIFT_LESSONS,
+    totalMin: FORKLIFT_TOTAL_MIN,
   },
   kogata: {
     id: "kogata",

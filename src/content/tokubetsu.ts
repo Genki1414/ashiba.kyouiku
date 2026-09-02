@@ -163,8 +163,10 @@ export const TOKUBETSU: Tokubetsu[] = [
     gakkaMin: 360,
     jitsugiMin: 360,
     basis: "労働安全衛生規則第36条第5号／安全衛生特別教育規程 第7条",
-    src: "roudoukyoku",
+    src: "kitei",
     checked: true,
+    courseId: "forklift",
+    doc: "docs/32-フォークリフトの根拠と裏取り.md",
   },
   {
     no: 9,
