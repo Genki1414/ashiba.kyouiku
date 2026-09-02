@@ -20,6 +20,7 @@ import { COURSES, drillMinOf, gateOf, needsRequest, findCourse } from "../src/co
 import { readFileSync } from "node:fs";
 import { DRILL_GUIDE_IDS, drillGuideOf } from "../src/content/drill";
 import { KOUSHO_JITSUGI } from "../src/content/kousho";
+import { ROPE_JITSUGI } from "../src/content/rope";
 
 let ok = 0;
 let ng = 0;
@@ -308,6 +309,28 @@ console.log("\n── 実技の手引き ──");
   /* 高所作業車の様式には、乗った機械が残ること（10メートル未満だったと示せるように） */
   const kform = g.form.map((r) => `${r.k}${r.v}`).join("");
   check(kform.includes("作業床の高さ"), "高所作業車の様式には作業床の高さが要る");
+
+  /* ロープ高所作業。**告示の実技は2科目（2時間＋1時間）で、この内訳は告示。**
+     段の合計が科目ごとに合っていないと、片方が法定に届かない */
+  const r = drillGuideOf("rope")!;
+  check(r.legalMin === 180, "ロープ高所作業の実技は3時間（規程第23条）", `${r.legalMin}`);
+  ROPE_JITSUGI.scope.forEach((sc, i) => {
+    const sum = r.steps.filter((s) => s.scope === sc).reduce((n, s) => n + s.min, 0);
+    check(sum === ROPE_JITSUGI.scopeMin[i],
+      `ロープ：実技科目${i + 1}の段の合計が告示と同じ（${ROPE_JITSUGI.scopeMin[i]}分）`, `${sum}`);
+  });
+  check(r.steps.some((s) => s.items.join("").includes("別の堅固な支持物")),
+    "ライフラインを別の支持物に張らせる（法令の生い立ちそのもの）");
+  check(r.steps.some((s) => s.items.join("").includes("上から降ろす")),
+    "支持物側に、上から降ろす下降器を付けさせる");
+  check(r.steps.some((s) => s.items.join("").includes("手でしごく")),
+    "ロープを手でしごかせる（外皮が無事でも芯が切れている）");
+  check(r.teacher.not.join("").includes("フルハーネス"),
+    "フルハーネスの実技の流用は不可と書く");
+  const rform = r.form.map((x) => `${x.k}${x.v}`).join("");
+  check(rform.includes("ライフライン") && rform.includes("支持物"),
+    "ロープの様式に、ライフラインと支持物の欄がある");
+  check(!rform.includes("作業床の高さ"), "ロープの様式に「作業床の高さ」が無い");
 
   /* 画面。受講者・本部・会社の担当者、三方から辿れること。
      辿れない画面は、作っていないのと同じ */

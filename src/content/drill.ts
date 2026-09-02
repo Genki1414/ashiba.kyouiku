@@ -12,6 +12,14 @@
    ここは、講座の id から手引きを引くだけ。 */
 
 import {
+  ROPE_DRILL_FORM,
+  ROPE_DRILL_PREP,
+  ROPE_DRILL_STEPS,
+  ROPE_DRILL_TEACHER,
+  ROPE_DRILL_TOTAL_MIN,
+  ROPE_JITSUGI,
+} from "./rope";
+import {
   HARNESS_DRILL_FORM,
   HARNESS_DRILL_PREP,
   HARNESS_DRILL_STEPS,
@@ -53,6 +61,18 @@ export type DrillGuide = {
 };
 
 const GUIDES: Record<string, DrillGuide> = {
+  rope: {
+    courseId: "rope",
+    subject: ROPE_JITSUGI.name,
+    scope: ROPE_JITSUGI.scope,
+    legalMin: ROPE_JITSUGI.legalMin,
+    steps: ROPE_DRILL_STEPS,
+    totalMin: ROPE_DRILL_TOTAL_MIN,
+    teacher: ROPE_DRILL_TEACHER,
+    prep: ROPE_DRILL_PREP,
+    keepYears: 3,
+    form: ROPE_DRILL_FORM,
+  },
   harness: {
     courseId: "harness",
     subject: HARNESS_JITSUGI.name,

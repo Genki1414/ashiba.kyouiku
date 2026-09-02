@@ -14,6 +14,7 @@
     "build:ishiwata": "tsx scripts/build-course.ts ishiwata",
     "build:kousho": "tsx scripts/build-course.ts kousho",
     "build:harness": "tsx scripts/build-course.ts harness",
+    "build:rope": "tsx scripts/build-course.ts rope",
     "dump:why": "tsx scripts/dump-demo-why.ts",
     "test:score": "tsx tests/score.ts",
     "test:changelog": "tsx tests/changelog.ts",

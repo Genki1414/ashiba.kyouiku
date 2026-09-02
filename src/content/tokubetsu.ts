@@ -669,14 +669,20 @@ export const TOKUBETSU: Tokubetsu[] = [
     courseId: "ashiba",
     checked: true,
   },
+  /* 根拠に条番号を足した。特別教育を義務づけているのは安衛則第36条第40号、
+     科目と時間は規程第23条（docs/28）。学科4時間・実技3時間。
+     **学科だけをここで出す。実技は事業者が自社で行う**（gate: "drill"）。 */
   {
     no: 64,
     slug: "rope_access_work",
     name: "ロープ高所作業に係る業務",
     gakkaMin: 240,
     jitsugiMin: 180,
-    basis: "安全衛生特別教育規程",
+    basis: "労働安全衛生規則第36条第40号／安全衛生特別教育規程 第23条",
     src: "kitei",
+    checked: true,
+    courseId: "rope",
+    doc: "docs/28-ロープ高所作業の根拠と裏取り.md",
   },
   /* 根拠に条番号を足した。特別教育を義務づけているのは安衛則第36条第41号、
      科目と時間は規程第24条（docs/27）。

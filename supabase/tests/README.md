@@ -111,6 +111,7 @@ psql -d appdb -q -t -A \
 
 psql -d appdb -q -t -A -f supabase/tests/drill.sql                   # 高所作業車
 psql -d appdb -q -t -A -v course=harness -f supabase/tests/drill.sql # フルハーネス
+psql -d appdb -q -t -A -v course=rope -f supabase/tests/drill.sql    # ロープ高所作業
 ```
 
 それぞれ「28 件通過 / 0 件失敗」と出れば通っている。
