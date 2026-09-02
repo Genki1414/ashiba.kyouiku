@@ -75,6 +75,12 @@ export function parseUnitPrice(raw: string | undefined): number {
         → ここ 4,500円（税抜）＝ 4,950円（税込）
         石綿と同じく学科だけで修了まで出せる講座なので、石綿と同じ値段に置いた。
 
+      酸素欠乏・硫化水素危険作業（第2種。学科5時間30分・実技なし）
+        中小建設業特別教育協会 WEB講習        9,515円
+        （ほかは検索の上限で値段まで取れていない。docs/31）
+        → ここ 5,500円（税抜）＝ 6,050円（税込）
+        学科だけで修了まで出せる講座だが、石綿・粉じんより1時間長いので、1時間ぶん上げた。
+
       職長・安全衛生責任者教育（14時間・討議つき）
         中小建設業特別教育協会 WEB講習  17,600円
           （動画12時間18分＋Zoom討議2時間30分。うちと同じ作り）
@@ -93,6 +99,7 @@ export const DEFAULT_COURSE_PRICE: Record<string, number> = {
   harness: 6000,
   rope: 6000,
   funjin: 4500,
+  sanketsu: 5500,
 };
 
 /** 講座の目印から環境変数の名前を作る。ashiba → SEAT_UNIT_PRICE_ASHIBA */

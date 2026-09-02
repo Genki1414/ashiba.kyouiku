@@ -16,6 +16,7 @@
     "build:harness": "tsx scripts/build-course.ts harness",
     "build:rope": "tsx scripts/build-course.ts rope",
     "build:funjin": "tsx scripts/build-course.ts funjin",
+    "build:sanketsu": "tsx scripts/build-course.ts sanketsu",
     "dump:why": "tsx scripts/dump-demo-why.ts",
     "test:score": "tsx tests/score.ts",
     "test:changelog": "tsx tests/changelog.ts",

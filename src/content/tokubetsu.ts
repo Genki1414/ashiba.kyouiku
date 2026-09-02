@@ -41,6 +41,10 @@ export const SOURCES: Record<string, { name: string; url: string }> = {
     name: "粉じん作業特別教育規程",
     url: "https://www.mhlw.go.jp/web/t_doc?dataId=74109000&dataType=0&pageNo=1",
   },
+  sanketsu: {
+    name: "酸素欠乏危険作業特別教育規程",
+    url: "https://www.mhlw.go.jp/web/t_doc?dataId=74106000&dataType=0&pageNo=1",
+  },
   xray: {
     name: "エックス線装置及びガンマ線照射装置取扱業務特別教育規程",
     url: "https://www.mhlw.go.jp/web/t_doc?dataId=74104000&dataType=0&pageNo=1",
@@ -490,9 +494,13 @@ export const TOKUBETSU: Tokubetsu[] = [
     name: "第1種酸素欠乏危険作業に係る業務",
     gakkaMin: 330,
     jitsugiMin: 0,
-    basis: "安全衛生特別教育規程",
-    src: "roudoukyoku",
+    /* 一覧は「安全衛生特別教育規程」と書いていたが、酸欠の告示は別（酸素欠乏危険作業特別教育規程）。
+       第2種の講座（sanketsu）は第1種を含むので、同じ講座に当てる（docs/31） */
+    basis: "酸素欠乏症等防止規則第12条／酸素欠乏危険作業特別教育規程",
+    src: "sanketsu",
     checked: true,
+    courseId: "sanketsu",
+    doc: "docs/31-酸欠の根拠と裏取り.md",
   },
   {
     no: 45,
@@ -500,8 +508,11 @@ export const TOKUBETSU: Tokubetsu[] = [
     name: "第2種酸素欠乏危険作業に係る業務",
     gakkaMin: 330,
     jitsugiMin: 0,
-    basis: "安全衛生特別教育規程",
-    src: "roudoukyoku",
+    basis: "酸素欠乏症等防止規則第12条／酸素欠乏危険作業特別教育規程",
+    src: "sanketsu",
+    checked: true,
+    courseId: "sanketsu",
+    doc: "docs/31-酸欠の根拠と裏取り.md",
   },
   {
     no: 46,

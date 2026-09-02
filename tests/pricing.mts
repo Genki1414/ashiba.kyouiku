@@ -98,6 +98,7 @@ console.log("── 講座ごとの単価 ──");
        高所作業車 … 10,500円（オンライン講習の最安。CIC は 11,000円） */
   const OTHERS: Record<string, number> = {
     ashiba: 8000, shokucho: 17600, ishiwata: 7700, kousho: 10500, funjin: 9900,
+    sanketsu: 9515,
   };
   const withTax = (p: number) => p + Math.floor(p * TAX_RATE);
   for (const [id, other] of Object.entries(OTHERS)) {
@@ -116,6 +117,8 @@ console.log("── 講座ごとの単価 ──");
   check(unitPrice("kousho") === 7000, `高所作業車は7,000円（税抜）（${unitPrice("kousho")}）`);
   /* 粉じんは石綿と同じ作り（学科だけで修了）なので同じ値段。よそは 9,900円台 */
   check(unitPrice("funjin") === 4500, `粉じんは4,500円（税抜）（${unitPrice("funjin")}）`);
+  /* 酸欠は学科5時間30分。石綿・粉じんより1時間長いぶん上げて 5,500円。よそは 9,515円 */
+  check(unitPrice("sanketsu") === 5500, `酸欠は5,500円（税抜）（${unitPrice("sanketsu")}）`);
 
   /* 知らない講座を聞かれても、仮置きの値で答える（0円で配らない） */
   check(unitPrice("nonsense") > 0, "知らない講座でも0円にはしない");
