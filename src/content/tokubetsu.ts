@@ -627,7 +627,7 @@ export const TOKUBETSU: Tokubetsu[] = [
     basis: "労働安全衛生規則第36条第37号／石綿障害予防規則第27条第1項",
     src: "ishiwata",
     checked: true,
-    building: true,
+    courseId: "ishiwata",
     doc: "docs/25-石綿の根拠と裏取り.md",
   },
   {

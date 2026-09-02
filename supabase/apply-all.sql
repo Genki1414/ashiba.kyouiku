@@ -3,7 +3,7 @@
 --
 -- 中身:
 --   1. マイグレーション 0001_init / 0002_rls / 0003_rules / 0004_auth / 0005_cert / 0006_version / 0007_admin / 0008_tenant / 0009_order / 0010_verify / 0011_course / 0012_member / 0013_keep / 0014_own / 0015_qual / 0016_keep3y / 0017_train / 0018_solo / 0019_view / 0020_sent / 0021_role / 0022_live / 0023_issue / 0024_notice
---   2. lessons（単元の規定時間）26件を投入
+--   2. lessons（単元の規定時間）39件を投入
 --
 -- 何度実行しても壊れないように書いてある（作成済みなら飛ばす）。
 -- 自動生成: npm run build:sql　— 直接編集しないこと
@@ -2867,7 +2867,8 @@ grant execute on function public.schema_version() to anon, authenticated, servic
 -- ═══════════════════════════════════════════════════════════
 insert into public.courses (id, name, basis, total_min, sort_order) values
   ('ashiba', '足場の組立て等の業務に係る特別教育', '労働安全衛生法第59条第3項／労働安全衛生規則第36条第39号', 360, 1),
-  ('shokucho', '職長・安全衛生責任者教育', '労働安全衛生法第60条／労働安全衛生規則第40条', 840, 2)
+  ('shokucho', '職長・安全衛生責任者教育', '労働安全衛生法第60条／労働安全衛生規則第40条', 840, 2),
+  ('ishiwata', '石綿使用建築物等解体等業務に係る特別教育', '労働安全衛生法第59条第3項／労働安全衛生規則第36条第37号／石綿障害予防規則第27条第1項', 270, 3)
 on conflict (id) do update
   set name       = excluded.name,
       basis      = excluded.basis,
@@ -2903,7 +2904,20 @@ insert into public.lessons (lesson_id, course_id, subject_id, title, legal_min, 
   ('shokucho:5-1', 'shokucho', 5, '保守管理と安全衛生点検', 60, 400),
   ('shokucho:5-2', 'shokucho', 5, '災害防止への関心の保持と創意工夫', 60, 401),
   ('shokucho:6-1', 'shokucho', 6, '安全衛生責任者の職務と作業間の連絡調整', 60, 500),
-  ('shokucho:6-2', 'shokucho', 6, '安全施工サイクルによる安全衛生活動', 60, 501)
+  ('shokucho:6-2', 'shokucho', 6, '安全施工サイクルによる安全衛生活動', 60, 501),
+  ('ishiwata:1-1', 'ishiwata', 1, '石綿の性状', 10, 0),
+  ('ishiwata:1-2', 'ishiwata', 1, '石綿による疾病の病理及び症状', 10, 1),
+  ('ishiwata:1-3', 'ishiwata', 1, '喫煙の影響', 10, 2),
+  ('ishiwata:2-1', 'ishiwata', 2, '石綿を含有する製品の種類及び用途', 30, 100),
+  ('ishiwata:2-2', 'ishiwata', 2, '事前調査の方法', 30, 101),
+  ('ishiwata:3-1', 'ishiwata', 3, '解体等の作業の方法', 20, 200),
+  ('ishiwata:3-2', 'ishiwata', 3, '湿潤化の方法', 15, 201),
+  ('ishiwata:3-3', 'ishiwata', 3, '作業場所の隔離の方法', 15, 202),
+  ('ishiwata:3-4', 'ishiwata', 3, 'その他の発散を抑制するための措置', 10, 203),
+  ('ishiwata:4-1', 'ishiwata', 4, '保護具の種類と性能', 30, 300),
+  ('ishiwata:4-2', 'ishiwata', 4, '保護具の使用方法及び管理', 30, 301),
+  ('ishiwata:5-1', 'ishiwata', 5, '法、令、安衛則及び石綿則中の関係条項', 35, 400),
+  ('ishiwata:5-2', 'ishiwata', 5, '石綿等による健康障害の防止', 25, 401)
 on conflict (lesson_id) do update
   set course_id  = excluded.course_id,
       subject_id = excluded.subject_id,

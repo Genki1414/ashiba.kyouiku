@@ -132,14 +132,17 @@ console.log("\n── いま作っているもの ──");
   /* 「準備中」だけだと、いつになるか分からないものと同じに見える。
      待てるかどうかは、この差で決まる */
   const b = TOKUBETSU.filter(isBuilding);
-  check(b.length >= 1, `作っているものがある（${b.length}件）`);
   check(b.every((t) => !isReady(t)), "作り終えたら、この印は落ちる");
   /* 調べ直しを防ぐ。条文に当たった記録は、行から辿れること */
   check(b.every((t) => !!t.doc), "作っている行には裏取りの記録がある",
     b.filter((t) => !t.doc).map((t) => t.slug).join("／"));
 
   const ishi = findTokubetsu("asbestos_demolition");
-  check(!!ishi && isBuilding(ishi), "石綿を作っている");
+  /* 石綿は作り終えて講座になった。印は落ちて、courseId が入っている */
+  check(!!ishi && !isBuilding(ishi), "石綿は作り終えた（印が落ちている）");
+  check(!!ishi && isReady(ishi) && ishi.courseId === "ishiwata", "石綿は講座になっている",
+    ishi?.courseId);
+  check(!!ishi && !!ishi.doc, "作り終えても、裏取りの記録は残す");
   /* 渡された一覧の根拠は第3条第1項（事前調査の条）だった。
      特別教育を義務づけているのは第27条第1項。
      そのまま修了証に載せていたら、根拠の条文が違う紙が出ていた */
@@ -163,6 +166,10 @@ console.log("\n── いま作っているもの ──");
   check(doc.includes("成形板"), "例をどう選ぶかが書いてある");
   check(doc.includes("時間以上"), "告示が「時間以上」であることが書いてある");
   check(doc.includes("保護具は1時間"), "食い違っていた所と、決まった値が書いてある");
+  /* 作ったあとの記録。次に別の講座を作る人が、同じ道をたどれるように */
+  check(doc.includes("単元の割り付け"), "単元の割り方が書いてある");
+  check(doc.includes("解説文は書き下ろし"), "写していないことが書いてある");
+  check(doc.includes("3,500円"), "値段と、その決め方が書いてある");
 }
 
 console.log("\n── 石綿の科目（告示の表） ──");

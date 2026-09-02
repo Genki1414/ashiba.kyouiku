@@ -129,6 +129,27 @@ export const COURSES: CourseMeta[] = [
     file: "shokucho.json",
     ready: true,
   },
+  {
+    /* 石綿使用建築物等解体等業務の特別教育。
+
+       ・学科のみ4時間30分。実技は無いので、この仕組みだけで修了証まで出せる
+       ・科目・範囲・時間は告示のまま（src/content/ishiwata.ts）
+       ・裏取りは docs/25-石綿の根拠と裏取り.md
+
+       menu は "other"。足場を受けに来た人の一覧を長くしない
+       （「その他特別教育」を開いてから選ぶ）。 */
+    id: "ishiwata",
+    kind: "special",
+    type: "ondemand",
+    name: "石綿使用建築物等解体等業務に係る特別教育",
+    short: "石綿（アスベスト）",
+    basis:
+      "労働安全衛生法第59条第3項／労働安全衛生規則第36条第37号／石綿障害予防規則第27条第1項",
+    totalMin: 270,
+    file: "ishiwata.json",
+    ready: true,
+    menu: "other",
+  },
 ];
 
 /** その講座の種類。書いていなければ特別教育 */

@@ -74,9 +74,7 @@ export const SYLLABUS: Syllabus[] = [
     doc: "docs/18-職長教育の根拠と裏取り.md",
   },
   {
-    /* まだ受けられない。docs/19 の手順①が途中
-       （科目ごとの時間の割り振りが未確定。docs/25） */
-    courseId: "asbestos",
+    courseId: "ishiwata",
     basis:
       "労働安全衛生法第59条第3項／労働安全衛生規則第36条第37号／石綿障害予防規則第27条第1項",
     saimokuFrom:

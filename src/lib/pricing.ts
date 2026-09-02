@@ -36,6 +36,13 @@ export function parseUnitPrice(raw: string | undefined): number {
         労働技能講習協会                11,130円
         → ここ 4,500円（税抜）＝ 4,950円（税込）
 
+      石綿使用建築物等解体等業務（学科4時間30分）
+        株式会社斉藤商会 WEB              7,700円
+        中小建設業特別教育協会 WEB講習     8,525円
+        CIC日本建設情報センター WEB      10,450円
+        → ここ 3,500円（税抜）＝ 3,850円（税込）
+        足場（6時間）の4,500円に対して、4時間30分ぶんで揃えた
+
       職長・安全衛生責任者教育（14時間・討議つき）
         中小建設業特別教育協会 WEB講習  17,600円
           （動画12時間18分＋Zoom討議2時間30分。うちと同じ作り）
@@ -49,6 +56,7 @@ export function parseUnitPrice(raw: string | undefined): number {
 export const DEFAULT_COURSE_PRICE: Record<string, number> = {
   ashiba: 4500,
   shokucho: 7000,
+  ishiwata: 3500,
 };
 
 /** 講座の目印から環境変数の名前を作る。ashiba → SEAT_UNIT_PRICE_ASHIBA */

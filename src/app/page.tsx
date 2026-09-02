@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { COURSES, hoursText, textOf, totalNoteOf } from "@/content/courses";
+import { COURSES, hoursText, splitMenu, textOf, totalNoteOf } from "@/content/courses";
 import { loadedCourses } from "@/lib/curriculum";
 import { AccountBar } from "@/components/AccountBar";
 import { HomeCards } from "@/components/HomeCards";
@@ -13,7 +13,12 @@ export const revalidate = 3600;
 
 export default async function Home() {
   /* 特別教育は種類が増えていく。受けられるものを並べる */
-  const ready = await loadedCourses();
+  const all = await loadedCourses();
+  /* 「その他特別教育」に入れた講座（menu: "other"）は、大きな札には出さない。
+     足場を受けに来た人の一覧を長くしないため（courses.ts の menu）。
+     ただし**開いた中には必ず出す。** 出し忘れると、受けられるのに
+     行き着けない講座ができる（石綿でそうなった） */
+  const { main: ready, other: otherReady } = splitMenu(all);
   const soon = COURSES.filter((c) => !c.ready);
   return (
     <main>
@@ -70,7 +75,7 @@ export default async function Home() {
             前は講座の一覧（/edu）にだけ置いていたが、**ホームの札は
             各講座へ直接飛ぶ**ので、一覧に辿り着く道がどこにも無かった。
             置いたのに誰にも見えていなかった。人が見ているのはホーム。 */}
-        <OtherTokubetsu />
+        <OtherTokubetsu ready={otherReady} />
 
         <Link
           href="/training"
