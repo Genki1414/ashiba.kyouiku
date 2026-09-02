@@ -11,6 +11,7 @@
     "upload:curriculum": "tsx scripts/upload-curriculum.ts",
     "build:sql": "tsx scripts/build-apply-all.ts",
     "build:shokucho": "tsx scripts/build-shokucho.ts",
+    "build:ishiwata": "tsx scripts/build-ishiwata.ts",
     "dump:why": "tsx scripts/dump-demo-why.ts",
     "test:score": "tsx tests/score.ts",
     "test:changelog": "tsx tests/changelog.ts",
