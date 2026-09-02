@@ -20,6 +20,14 @@ import {
   FORKLIFT_JITSUGI,
 } from "./forklift";
 import {
+  ARC_DRILL_FORM,
+  ARC_DRILL_PREP,
+  ARC_DRILL_STEPS,
+  ARC_DRILL_TEACHER,
+  ARC_DRILL_TOTAL_MIN,
+  ARC_JITSUGI,
+} from "./arc";
+import {
   CHAINSAW_DRILL_FORM,
   CHAINSAW_DRILL_PREP,
   CHAINSAW_DRILL_STEPS,
@@ -172,6 +180,18 @@ const GUIDES: Record<string, DrillGuide> = {
     prep: KOGATA_DRILL_PREP,
     keepYears: 3,
     form: KOGATA_DRILL_FORM,
+  },
+  arc: {
+    courseId: "arc",
+    subject: ARC_JITSUGI.name,
+    scope: ARC_JITSUGI.scope,
+    legalMin: ARC_JITSUGI.legalMin,
+    steps: ARC_DRILL_STEPS,
+    totalMin: ARC_DRILL_TOTAL_MIN,
+    teacher: ARC_DRILL_TEACHER,
+    prep: ARC_DRILL_PREP,
+    keepYears: 3,
+    form: ARC_DRILL_FORM,
   },
   chainsaw: {
     courseId: "chainsaw",

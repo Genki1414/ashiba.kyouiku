@@ -24,7 +24,8 @@
      npm run build:teiatsu    # 低圧電気取扱
      npm run build:winch      # 巻上げ機
      npm run build:roller     # ローラー
-     npm run build:chainsaw   # チェーンソー */
+     npm run build:chainsaw   # チェーンソー
+     npm run build:arc        # アーク溶接 */
 
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import path from "node:path";
@@ -38,6 +39,9 @@ import {
 import {
   FUNJIN_BASIS, FUNJIN_LESSONS, FUNJIN_NAME, FUNJIN_SUBJECTS, FUNJIN_TOTAL_MIN,
 } from "../src/content/funjin";
+import {
+  ARC_BASIS, ARC_LESSONS, ARC_NAME, ARC_SUBJECTS, ARC_TOTAL_MIN,
+} from "../src/content/arc";
 import {
   CHAINSAW_BASIS, CHAINSAW_LESSONS, CHAINSAW_NAME, CHAINSAW_SUBJECTS, CHAINSAW_TOTAL_MIN,
 } from "../src/content/chainsaw";
@@ -98,6 +102,14 @@ const PLANS: Record<string, Plan> = {
     subjects: FUNJIN_SUBJECTS,
     lessons: FUNJIN_LESSONS,
     totalMin: FUNJIN_TOTAL_MIN,
+  },
+  arc: {
+    id: "arc",
+    name: `${ARC_NAME}（学科）`,
+    basis: ARC_BASIS,
+    subjects: ARC_SUBJECTS,
+    lessons: ARC_LESSONS,
+    totalMin: ARC_TOTAL_MIN,
   },
   chainsaw: {
     id: "chainsaw",

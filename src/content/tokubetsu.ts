@@ -126,6 +126,8 @@ export const TOKUBETSU: Tokubetsu[] = [
     basis: "労働安全衛生規則第36条第3号／安全衛生特別教育規程 第4条",
     src: "kitei",
     checked: true,
+    courseId: "arc",
+    doc: "docs/39-アーク溶接の根拠と裏取り.md",
   },
   {
     no: 5,
