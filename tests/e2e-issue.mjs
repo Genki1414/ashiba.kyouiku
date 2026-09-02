@@ -230,7 +230,7 @@ await page.screenshot({ path: `${SC}/issue-08-drill.png` });
 
 /* 実技の手引き。会社の人が見る画面なので、ログイン無しで開けること。
    **実技のある講座は増える。決め打ちにせず、全部を回す。** */
-for (const [id, mins] of [["kousho", 180], ["harness", 90], ["rope", 180], ["kogata", 360], ["forklift", 360], ["tailgate", 120]]) {
+for (const [id, mins] of [["kousho", 180], ["harness", 90], ["rope", 180], ["kogata", 360], ["forklift", 360], ["tailgate", 120], ["toishi", 120]]) {
   await page.goto(`${BASE}/edu/${id}/drill`);
   await dismissNotice();
   await page.getByTestId("drill-guide").waitFor({ timeout: 6000 })
@@ -259,6 +259,10 @@ for (const [id, mins] of [["kousho", 180], ["harness", 90], ["rope", 180], ["kog
     check(form.includes("最大荷重") && form.includes("1トン未満"), "フォークリフトの様式に最大荷重と1トン未満の但し書きがある");
     check(form.includes("カウンター式") && form.includes("リーチ式"), "フォークリフトの様式に型式の欄がある");
     check(!form.includes("作業床の高さ"), "フォークリフトの様式に「作業床の高さ」が無い");
+  } else if (id === "toishi") {
+    check(form.includes("最高使用周速度") && form.includes("試運転の時間"), "自由研削の様式に最高使用周速度と試運転の時間の欄がある");
+    check(form.includes("3分以上") && form.includes("1分以上"), "自由研削の様式に3分・1分の但し書きがある");
+    check(!form.includes("作業床の高さ"), "自由研削の様式に「作業床の高さ」が無い");
   } else if (id === "tailgate") {
     check(form.includes("リフターの種類") && form.includes("垂直式"), "テールゲートリフターの様式にリフターの種類の欄がある");
     check(form.includes("最大積載荷重") && form.includes("使った台車"), "テールゲートリフターの様式に最大積載荷重と台車の欄がある");

@@ -20,6 +20,14 @@ import {
   FORKLIFT_JITSUGI,
 } from "./forklift";
 import {
+  TOISHI_DRILL_FORM,
+  TOISHI_DRILL_PREP,
+  TOISHI_DRILL_STEPS,
+  TOISHI_DRILL_TEACHER,
+  TOISHI_DRILL_TOTAL_MIN,
+  TOISHI_JITSUGI,
+} from "./toishi";
+import {
   TAILGATE_DRILL_FORM,
   TAILGATE_DRILL_PREP,
   TAILGATE_DRILL_STEPS,
@@ -132,6 +140,18 @@ const GUIDES: Record<string, DrillGuide> = {
     prep: KOGATA_DRILL_PREP,
     keepYears: 3,
     form: KOGATA_DRILL_FORM,
+  },
+  toishi: {
+    courseId: "toishi",
+    subject: TOISHI_JITSUGI.name,
+    scope: TOISHI_JITSUGI.scope,
+    legalMin: TOISHI_JITSUGI.legalMin,
+    steps: TOISHI_DRILL_STEPS,
+    totalMin: TOISHI_DRILL_TOTAL_MIN,
+    teacher: TOISHI_DRILL_TEACHER,
+    prep: TOISHI_DRILL_PREP,
+    keepYears: 3,
+    form: TOISHI_DRILL_FORM,
   },
   tailgate: {
     courseId: "tailgate",

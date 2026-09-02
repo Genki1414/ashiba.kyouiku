@@ -321,6 +321,30 @@ export const COURSES: CourseMeta[] = [
     menu: "other",
   },
   {
+    /* 自由研削用といしの取替え又は取替え時の試運転の業務の特別教育。
+
+       ・学科4時間のあと、**実技2時間**が残る（gate: "drill"）。実技は事業者が自社で行う
+       ・科目・範囲・時間は**安全衛生特別教育規程第2条の表のまま**（条文で確認済み。src/content/toishi.ts）
+       ・裏取りは docs/34-自由研削といしの根拠と裏取り.md
+       ・グラインダー（卓上・両頭・携帯用・切断機）のといしを替える人、全員。機械研削（規程第1条）は別
+
+       鉄工・製缶、建設（鉄筋・型枠・設備・内装・解体）、自動車整備、造船、農機、木工、石材、
+       金属加工、設備の保守、学校の実習。**グラインダーのある所ぜんぶ。** */
+    id: "toishi",
+    kind: "special",
+    type: "ondemand",
+    gate: "drill",
+    drillMin: 120,
+    name: "自由研削用といしの取替え又は取替え時の試運転の業務に係る特別教育",
+    short: "自由研削といし",
+    basis:
+      "労働安全衛生法第59条第3項／労働安全衛生規則第36条第1号／安全衛生特別教育規程第2条",
+    totalMin: 240,
+    file: "toishi.json",
+    ready: true,
+    menu: "other",
+  },
+  {
     id: "kogata",
     kind: "special",
     type: "ondemand",
