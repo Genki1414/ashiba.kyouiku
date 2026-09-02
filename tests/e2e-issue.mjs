@@ -228,17 +228,35 @@ check(await page.getByTestId("cert-issue").count() === 0, "実技が済むまで
 check(await page.getByTestId("issue-go-drill").count() === 1, "実技の手引きへの入口がある");
 await page.screenshot({ path: `${SC}/issue-08-drill.png` });
 
-/* 実技の手引き。会社の人が見る画面なので、ログイン無しで開けること */
-await page.goto(`${BASE}/edu/kousho/drill`);
-await dismissNotice();
-await page.getByTestId("drill-guide").waitFor({ timeout: 6000 }).catch(() => check(false, "手引きが開く"));
-check((await page.getByTestId("drill-step").count()) >= 6, "3時間の割り振りが並ぶ");
-check(await page.getByTestId("drill-form").count() === 1, "実施記録の様式がある");
-check(await page.getByTestId("drill-print").count() === 1, "印刷ボタンがある");
-const t8b = await page.getByTestId("drill-guide").textContent();
-check(t8b.includes("計 180分"), "合計が3時間になっている");
-check(t8b.includes("うちの案"), "案であって告示ではないと書いてある");
-await page.screenshot({ path: `${SC}/issue-08b-drill-guide.png`, fullPage: true });
+/* 実技の手引き。会社の人が見る画面なので、ログイン無しで開けること。
+   **実技のある講座は増える。決め打ちにせず、全部を回す。** */
+for (const [id, mins] of [["kousho", 180], ["harness", 90]]) {
+  await page.goto(`${BASE}/edu/${id}/drill`);
+  await dismissNotice();
+  await page.getByTestId("drill-guide").waitFor({ timeout: 6000 })
+    .catch(() => check(false, `${id}: 手引きが開く`));
+  check((await page.getByTestId("drill-step").count()) >= 4, `${id}: 割り振りが並ぶ`);
+  check(await page.getByTestId("drill-form").count() === 1, `${id}: 実施記録の様式がある`);
+  check(await page.getByTestId("drill-print").count() === 1, `${id}: 印刷ボタンがある`);
+  const g = await page.getByTestId("drill-guide").textContent();
+  check(g.includes(`計 ${mins}分`), `${id}: 合計が法定と同じ（計 ${mins}分）`);
+  check(g.includes("うちの案"), `${id}: 案であって告示ではないと書いてある`);
+  check(g.includes("3年間保存"), `${id}: 記録を3年残すと書いてある`);
+  /* 段取りに時間が入っていること。0分の段があると合計が合わない */
+  check(!g.includes("　0分"), `${id}: 0分の段が無い`);
+  /* 太字の印が、そのまま紙に刷られていないか。
+     段取りの中身だけ bold() を通していて、講師・用意するものが素通りしていた */
+  check(!g.includes("**"), `${id}: 「**」がそのまま出ていない`);
+  /* 様式が講座のものになっているか（流用すると関係のない欄が紙に残る） */
+  const form = await page.getByTestId("drill-form").textContent();
+  if (id === "harness") {
+    check(!form.includes("作業床の高さ"), "フルハーネスの様式に「作業床の高さ」が無い");
+    check(form.includes("ランヤード"), "フルハーネスの様式にランヤードの欄がある");
+  } else {
+    check(form.includes("作業床の高さ"), "高所作業車の様式に作業床の高さがある");
+  }
+  await page.screenshot({ path: `${SC}/issue-08b-drill-${id}.png`, fullPage: true });
+}
 /* 実技の無い講座では出ない */
 const r404 = await page.goto(`${BASE}/edu/ashiba/drill`);
 check(r404 && r404.status() === 404, "学科だけの講座には手引きが無い（404）");

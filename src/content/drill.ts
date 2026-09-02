@@ -12,6 +12,15 @@
    ここは、講座の id から手引きを引くだけ。 */
 
 import {
+  HARNESS_DRILL_FORM,
+  HARNESS_DRILL_PREP,
+  HARNESS_DRILL_STEPS,
+  HARNESS_DRILL_TEACHER,
+  HARNESS_DRILL_TOTAL_MIN,
+  HARNESS_JITSUGI,
+} from "./harness";
+import {
+  KOUSHO_DRILL_FORM,
   KOUSHO_DRILL_PREP,
   KOUSHO_DRILL_STEPS,
   KOUSHO_DRILL_TEACHER,
@@ -38,9 +47,24 @@ export type DrillGuide = {
   prep: string[];
   /** 記録を何年残すか（安衛則第38条） */
   keepYears: number;
+  /** 実施記録の、上半分の記入欄。**講座ごとに違う。**
+      流用すると、その講座に関係のない欄が空のまま紙に残る */
+  form: { k: string; v: string }[];
 };
 
 const GUIDES: Record<string, DrillGuide> = {
+  harness: {
+    courseId: "harness",
+    subject: HARNESS_JITSUGI.name,
+    scope: HARNESS_JITSUGI.scope,
+    legalMin: HARNESS_JITSUGI.legalMin,
+    steps: HARNESS_DRILL_STEPS,
+    totalMin: HARNESS_DRILL_TOTAL_MIN,
+    teacher: HARNESS_DRILL_TEACHER,
+    prep: HARNESS_DRILL_PREP,
+    keepYears: 3,
+    form: HARNESS_DRILL_FORM,
+  },
   kousho: {
     courseId: "kousho",
     subject: KOUSHO_JITSUGI.name,
@@ -51,6 +75,7 @@ const GUIDES: Record<string, DrillGuide> = {
     teacher: KOUSHO_DRILL_TEACHER,
     prep: KOUSHO_DRILL_PREP,
     keepYears: 3,
+    form: KOUSHO_DRILL_FORM,
   },
 };
 

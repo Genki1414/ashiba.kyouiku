@@ -29,7 +29,7 @@ export default async function DrillPage({
           ← {course.short}の一覧
         </Link>
       </div>
-      <DrillGuideView course={{ id: course.id, name: course.name, basis: course.basis }} guide={guide} />
+      <DrillGuideView course={{ id: course.id, name: course.name, basis: course.basis, totalMin: course.totalMin }} guide={guide} />
     </main>
   );
 }

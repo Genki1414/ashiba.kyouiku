@@ -3,7 +3,7 @@
 --
 -- 中身:
 --   1. マイグレーション 0001_init / 0002_rls / 0003_rules / 0004_auth / 0005_cert / 0006_version / 0007_admin / 0008_tenant / 0009_order / 0010_verify / 0011_course / 0012_member / 0013_keep / 0014_own / 0015_qual / 0016_keep3y / 0017_train / 0018_solo / 0019_view / 0020_sent / 0021_role / 0022_live / 0023_issue / 0024_notice
---   2. lessons（単元の規定時間）47件を投入
+--   2. lessons（単元の規定時間）62件を投入
 --
 -- 何度実行しても壊れないように書いてある（作成済みなら飛ばす）。
 -- 自動生成: npm run build:sql　— 直接編集しないこと
@@ -2869,7 +2869,8 @@ insert into public.courses (id, name, basis, total_min, sort_order) values
   ('ashiba', '足場の組立て等の業務に係る特別教育', '労働安全衛生法第59条第3項／労働安全衛生規則第36条第39号', 360, 1),
   ('shokucho', '職長・安全衛生責任者教育', '労働安全衛生法第60条／労働安全衛生規則第40条', 840, 2),
   ('ishiwata', '石綿使用建築物等解体等業務に係る特別教育', '労働安全衛生法第59条第3項／労働安全衛生規則第36条第37号／石綿障害予防規則第27条第1項', 270, 3),
-  ('kousho', '高所作業車の運転の業務に係る特別教育', '労働安全衛生法第59条第3項／労働安全衛生規則第36条第10号の5／安全衛生特別教育規程第13条', 360, 4)
+  ('kousho', '高所作業車の運転の業務に係る特別教育', '労働安全衛生法第59条第3項／労働安全衛生規則第36条第10号の5／安全衛生特別教育規程第13条', 360, 4),
+  ('harness', '墜落制止用器具のうちフルハーネス型のものを用いて行う作業に係る特別教育', '労働安全衛生法第59条第3項／労働安全衛生規則第36条第41号／安全衛生特別教育規程第24条', 270, 5)
 on conflict (id) do update
   set name       = excluded.name,
       basis      = excluded.basis,
@@ -2926,7 +2927,22 @@ insert into public.lessons (lesson_id, course_id, subject_id, title, legal_min, 
   ('kousho:2-2', 'kousho', 2, '動力伝達装置及び走行装置の種類', 30, 101),
   ('kousho:3-1', 'kousho', 3, '運転に必要な力学', 30, 200),
   ('kousho:3-2', 'kousho', 3, '感電による危険性', 30, 201),
-  ('kousho:4-1', 'kousho', 4, '法、令及び安衛則中の関係条項', 60, 300)
+  ('kousho:4-1', 'kousho', 4, '法、令及び安衛則中の関係条項', 60, 300),
+  ('harness:1-1', 'harness', 1, '作業に用いる設備の種類、構造及び取扱い方法', 25, 0),
+  ('harness:1-2', 'harness', 1, '作業に用いる設備の点検及び整備の方法', 15, 1),
+  ('harness:1-3', 'harness', 1, '作業の方法', 20, 2),
+  ('harness:2-1', 'harness', 2, 'フルハーネスとランヤードの種類及び構造', 30, 100),
+  ('harness:2-2', 'harness', 2, 'フルハーネスの装着の方法', 25, 101),
+  ('harness:2-3', 'harness', 2, 'ランヤードの取付け方法及び選定方法', 30, 102),
+  ('harness:2-4', 'harness', 2, '墜落制止用器具の点検及び整備の方法', 20, 103),
+  ('harness:2-5', 'harness', 2, '関連器具の使用方法', 15, 104),
+  ('harness:3-1', 'harness', 3, '墜落による労働災害の防止のための措置', 10, 200),
+  ('harness:3-2', 'harness', 3, '落下物による危険防止のための措置', 10, 201),
+  ('harness:3-3', 'harness', 3, '感電防止のための措置', 10, 202),
+  ('harness:3-4', 'harness', 3, '保護帽の使用方法及び保守点検の方法', 10, 203),
+  ('harness:3-5', 'harness', 3, '事故発生時の措置', 10, 204),
+  ('harness:3-6', 'harness', 3, 'その他作業に伴う災害及びその防止方法', 10, 205),
+  ('harness:4-1', 'harness', 4, '法、令及び安衛則中の関係条項', 30, 300)
 on conflict (lesson_id) do update
   set course_id  = excluded.course_id,
       subject_id = excluded.subject_id,

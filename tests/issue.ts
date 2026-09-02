@@ -243,28 +243,71 @@ console.log("\n── 実技の手引き ──");
   }
   check(drillGuideOf("ashiba") === null, "学科だけの講座に手引きは無い");
 
+  /* 実技のある講座は、これから増える。**どれも同じ決まりで見る。**
+     高所作業車だけを決め打ちで見ていると、次の講座が素通りする */
+  for (const c of COURSES.filter((x) => gateOf(x) === "drill")) {
+    const gg = drillGuideOf(c.id)!;
+    check(gg.totalMin === gg.legalMin,
+      `${c.id}: 割り振りの合計が法定と同じ`, `${gg.totalMin} ≠ ${gg.legalMin}`);
+    check(gg.legalMin === drillMinOf(c), `${c.id}: courses.ts の drillMin と同じ`);
+    check(gg.steps.every((s) => s.min > 0 && s.items.length >= 3),
+      `${c.id}: 段取りごとに中身がある`);
+    check(new Set(gg.steps.map((s) => s.no)).size === gg.steps.length,
+      `${c.id}: 番号が重なっていない`);
+    check(gg.teacher.who.length >= 2 && gg.teacher.not.length >= 1,
+      `${c.id}: 誰がやるか・やらないかの両方がある`);
+    check(gg.prep.length >= 4, `${c.id}: 用意するものが書いてある`);
+    /* 実施記録の記入欄は講座ごと。流用すると、関係のない欄が空のまま紙に残る
+       （フルハーネスの様式に「作業床の高さ」が刷られていた） */
+    check(gg.form.length >= 5, `${c.id}: 実施記録の記入欄がある`);
+    check(gg.form.some((r) => r.k.includes("実施日")), `${c.id}: 実施日の欄がある`);
+    check(gg.form.some((r) => r.k.includes("実施者")), `${c.id}: 実施者の欄がある`);
+    check(gg.form.some((r) => r.k.includes("受講者")), `${c.id}: 受講者の欄がある`);
+    check(gg.keepYears === 3, `${c.id}: 記録は3年保存（安衛則38条）`);
+    /* 学科と結びつける先が、実在する単元であること */
+    const cc = JSON.parse(readFileSync(new URL(`../content/courses/${c.id}.json`, import.meta.url), "utf8"));
+    const lids = new Set<string>(
+      cc.subjects.flatMap((s: { lessons: { id: string }[] }) => s.lessons.map((l) => l.id)),
+    );
+    for (const s of gg.steps) {
+      for (const l of s.gakka) check(lids.has(l), `${c.id} ${s.no}: 学科 ${l} は実在する`);
+    }
+    /* 告示の範囲に、段取りが1つも当たっていない、が無いこと */
+    for (const sc of gg.scope) {
+      check(gg.steps.some((s) => s.scope === sc), `${c.id}: 範囲「${sc}」に段取りがある`);
+    }
+    check(gg.steps.every((s) => gg.scope.includes(s.scope)),
+      `${c.id}: 告示に無い範囲を指していない`);
+  }
+
   const g = drillGuideOf("kousho")!;
   /* **法定は「あわせて3時間」。割り振りの合計がそれを下回ってはいけない** */
   check(g.legalMin === 180, "高所作業車の実技は180分", `${g.legalMin}`);
-  check(g.totalMin === g.legalMin, "割り振りの合計が法定と同じ", `${g.totalMin}`);
-  check(g.legalMin === drillMinOf(findCourse("kousho")!), "courses.ts の drillMin と同じ");
-  /* 告示の範囲（中欄）に、段取りが1つも当たっていない、が無いこと */
-  for (const sc of KOUSHO_JITSUGI.scope) {
-    check(g.steps.some((s) => s.scope === sc), `範囲「${sc}」に段取りがある`);
-  }
-  check(g.steps.every((s) => KOUSHO_JITSUGI.scope.includes(s.scope)), "告示に無い範囲を指していない");
-  check(g.steps.every((s) => s.min > 0 && s.items.length >= 3), "段取りごとに中身がある");
-  check(new Set(g.steps.map((s) => s.no)).size === g.steps.length, "番号が重なっていない");
-  /* 学科と結びつける先が、実在する単元であること */
-  const cur = JSON.parse(readFileSync(new URL("../content/courses/kousho.json", import.meta.url), "utf8"));
-  const ids = new Set<string>(cur.subjects.flatMap((s: { lessons: { id: string }[] }) => s.lessons.map((l) => l.id)));
-  for (const s of g.steps) for (const l of s.gakka) check(ids.has(l), `${s.no}: 学科 ${l} は実在する`);
   /* 非常停止と緊急降下を、全員が自分の手で操作する段があること。
      ここを見学で済ませると、慌てた場面で探すことになる */
   check(g.steps.some((s) => s.items.join("").includes("緊急降下")), "緊急降下装置を実際に操作する");
   check(g.teacher.rule.includes("資格の定めはありません"), "講師の資格が法令に無いことを正直に書く");
-  check(g.teacher.who.length >= 2 && g.teacher.not.length >= 1, "誰がやるか・やらないかの両方がある");
-  check(g.keepYears === 3, "記録は3年保存（安衛則38条）");
+
+  /* フルハーネス。**ここでいちばん落とされているのは「落ちたあと」**。
+     宙づりは短い時間で危なくなるので、降ろす手立てを実技で決めさせる */
+  const h = drillGuideOf("harness")!;
+  check(h.legalMin === 90, "フルハーネスの実技は1時間30分（規程第24条）", `${h.legalMin}`);
+  check(h.steps.some((s) => s.items.join("").includes("降ろす")),
+    "宙づりの人をどう降ろすかを、実技で決めさせる");
+  check(h.steps.some((s) => s.items.join("").includes("二丁掛け")),
+    "二丁掛けを通しでやらせる");
+  check(h.steps.some((s) => s.items.join("").includes("カバーが開いていないか")),
+    "ショックアブソーバのカバーを見せる");
+  check(h.teacher.not.join("").includes("動画"),
+    "動画を見せるだけでは実技にならないと書く");
+  /* フルハーネスの様式に、高所作業車の欄が混ざっていないこと */
+  const hform = h.form.map((r) => `${r.k}${r.v}`).join("");
+  check(!hform.includes("作業床の高さ"), "フルハーネスの様式に「作業床の高さ」が無い");
+  check(hform.includes("ランヤード"), "フルハーネスの様式にランヤードの欄がある");
+  check(hform.includes("取付け設備"), "フルハーネスの様式に取付け設備の欄がある");
+  /* 高所作業車の様式には、乗った機械が残ること（10メートル未満だったと示せるように） */
+  const kform = g.form.map((r) => `${r.k}${r.v}`).join("");
+  check(kform.includes("作業床の高さ"), "高所作業車の様式には作業床の高さが要る");
 
   /* 画面。受講者・本部・会社の担当者、三方から辿れること。
      辿れない画面は、作っていないのと同じ */
@@ -279,6 +322,9 @@ console.log("\n── 実技の手引き ──");
   check(view.includes("うちの案") && view.includes("告示ではありません"), "割り振りは案であって告示ではないと書く");
   check(view.includes("下回らないこと"), "合計を下回らないことだけ守れと書く");
   check(view.includes("第38条"), "記録の根拠を書く");
+  /* 学科の時間を画面に書き込まない。講座ごとに違う（高所作業車6時間／フルハーネス4時間30分） */
+  check(view.includes("hoursText(course.totalMin)"), "学科の時間は講座から出す");
+  check(!view.includes("hoursText(360)"), "「360」を画面に書き込んでいない");
   check(code("src/app/edu/[courseId]/LessonList.tsx").includes('data-testid="go-drill"'), "受講者の一覧から辿れる");
   check(code("src/components/edu/IssuePanel.tsx").includes('data-testid="issue-go-drill"'), "発行申請の口から辿れる");
   check(code("src/app/admin/AdminClient.tsx").includes('data-testid="admin-go-drill"'), "教育担当者の画面から辿れる");

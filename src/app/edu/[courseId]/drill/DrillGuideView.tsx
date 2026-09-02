@@ -20,7 +20,7 @@ export function DrillGuideView({
   course,
   guide,
 }: {
-  course: { id: string; name: string; basis: string };
+  course: { id: string; name: string; basis: string; totalMin: number };
   guide: DrillGuide;
 }) {
   const byScope = guide.scope.map((sc) => ({
@@ -36,7 +36,7 @@ export function DrillGuideView({
       <section className="mt-4 rounded-xl border border-cyan bg-panel p-4" data-testid="drill-what">
         <div className="text-[11px] tracking-[2px] text-cyan">これは何か</div>
         <p className="mt-1 text-[13px] leading-relaxed">
-          この講座は、学科{hoursText(360)}のあとに<strong className="text-txt">実技{hoursText(guide.legalMin)}</strong>があります。
+          この講座は、学科{hoursText(course.totalMin)}のあとに<strong className="text-txt">実技{hoursText(guide.legalMin)}</strong>があります。
           実技は実機が要るので、この仕組みではできません。
           <strong className="text-txt">事業者が自社で行います。</strong>
         </p>
@@ -53,16 +53,16 @@ export function DrillGuideView({
       {/* 誰がやるか */}
       <section className="mt-4" data-testid="drill-teacher">
         <h2 className="text-[15px] font-extrabold">誰が行うか</h2>
-        <p className="mt-1 text-[13px] leading-relaxed text-dim">{guide.teacher.rule}</p>
+        <p className="mt-1 text-[13px] leading-relaxed text-dim">{bold(guide.teacher.rule)}</p>
         <ul className="mt-2 grid gap-1 text-[13px] leading-relaxed">
           {guide.teacher.who.map((w) => (
-            <li key={w} className="flex gap-2"><span className="text-grn">○</span><span>{w}</span></li>
+            <li key={w} className="flex gap-2"><span className="text-grn">○</span><span>{bold(w)}</span></li>
           ))}
         </ul>
         <div className="mt-2 text-[11.5px] text-dim2">実技にならないもの</div>
         <ul className="mt-1 grid gap-1 text-[13px] leading-relaxed text-dim">
           {guide.teacher.not.map((w) => (
-            <li key={w} className="flex gap-2"><span className="text-red">×</span><span>{w}</span></li>
+            <li key={w} className="flex gap-2"><span className="text-red">×</span><span>{bold(w)}</span></li>
           ))}
         </ul>
       </section>
@@ -72,7 +72,7 @@ export function DrillGuideView({
         <h2 className="text-[15px] font-extrabold">当日までに用意するもの</h2>
         <ul className="mt-2 grid gap-1 text-[13px] leading-relaxed">
           {guide.prep.map((w) => (
-            <li key={w} className="flex gap-2"><span className="text-dim2">□</span><span>{w}</span></li>
+            <li key={w} className="flex gap-2"><span className="text-dim2">□</span><span>{bold(w)}</span></li>
           ))}
         </ul>
       </section>
@@ -134,17 +134,12 @@ export function DrillGuideView({
         <div className="mt-0.5 text-center text-[11px]">{course.name}／科目「{guide.subject}」</div>
         <table className="mt-3 w-full border-collapse text-[12px]">
           <tbody>
-            {[
-              ["実施日", "　　　　年　　　月　　　日（　　：　　〜　　：　　）"],
-              ["実施場所", ""],
-              ["使用した機械", "型式：　　　　　　　　　　　作業床の高さ：　　　　m"],
-              ["機械の種類", "□ 垂直昇降型（シザース・マスト）　□ ブーム型　□ トラック式　□ その他："],
-              ["実施者（氏名）", "　　　　　　　　　　　　　資格・経験："],
-              ["受講者（氏名）", "①　　　　　　　②　　　　　　　③　　　　　　　④"],
-            ].map(([k, v]) => (
-              <tr key={k}>
-                <th className="w-[110px] border border-black bg-neutral-100 px-2 py-1.5 text-left font-bold">{k}</th>
-                <td className="border border-black px-2 py-1.5">{v}</td>
+            {/* 記入欄は講座から出す。ここに書き込むと、
+                別の講座で関係のない欄（機械の型式など）が空のまま紙に残る */}
+            {guide.form.map((row) => (
+              <tr key={row.k}>
+                <th className="w-[110px] border border-black bg-neutral-100 px-2 py-1.5 text-left font-bold">{row.k}</th>
+                <td className="border border-black px-2 py-1.5">{row.v}</td>
               </tr>
             ))}
           </tbody>

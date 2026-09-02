@@ -1,9 +1,15 @@
 -- 実技の関門（0023 の drill）を、素の PostgreSQL に当てて確かめる。
 --
 -- 手順は supabase/tests/README.md と同じ。シムと apply-all.sql を流したあと：
---   psql -d appdb -q -t -A -f supabase/tests/drill.sql
+--   psql -d appdb -q -t -A -f supabase/tests/drill.sql                   -- 高所作業車
+--   psql -d appdb -q -t -A -v course=harness -f supabase/tests/drill.sql -- フルハーネス
 --
--- **この関門を使う講座は高所作業車が初めて。**
+-- **実技のある講座は、これから増える。どれも同じ決まりで見る。**
+-- 講座は -v course=... で渡す（既定は高所作業車）。
+-- 単元の数と時間は渡さず、**courses 表と突き合わせる。**
+-- 渡すと、渡した数字が間違っていたときに気づけない。
+--
+-- **この関門を使う講座は高所作業車が初めてだった。**
 -- 学科だけで修了証を出せば、実技を受けていない人が
 -- 「資格がある」と思って高所作業車に乗る。
 -- 画面側は tests/issue.ts と tests/e2e-issue.mjs が見ている。
@@ -16,7 +22,15 @@
 
 \set ON_ERROR_STOP on
 \pset pager off
+\if :{?course}
+\else
+  \set course kousho
+\endif
+\echo '── 講座:' :course '──' 
 create temp table r(label text, got text, want text);
+-- psql の変数は $$ … $$ の中では展開されない（⑧⑨の do ブロックで使う）。
+-- セッションの設定に入れて、そちらから読む
+select set_config('drilltest.course', :'course', false);
 create or replace function t(l text, g text, w text) returns void language sql as $$
   insert into r values (l, g, w) $$;
 
@@ -35,21 +49,24 @@ delete from public.enrollments
 
 insert into public.enrollments (id, user_id, course_id)
 values ('44444444-4444-4444-4444-444444444444',
-        '33333333-3333-3333-3333-333333333333', 'kousho');
+        '33333333-3333-3333-3333-333333333333', :'course');
 
--- ① 高所作業車の講座と単元が入っている
+-- ① 講座と単元が入っている
 select t('①講座がある', count(*)::text, '1')
-  from public.courses where id = 'kousho';
-select t('①単元が8つ', count(*)::text, '8')
-  from public.lessons where course_id = 'kousho';
-select t('①学科は360分', sum(legal_min)::text, '360')
-  from public.lessons where course_id = 'kousho';
+  from public.courses where id = :'course';
+select t('①単元がある', (count(*) > 0)::text, 'true')
+  from public.lessons where course_id = :'course';
+-- 単元の合計が、講座に登録した総時間と合っているか。
+-- ずれると、受けた人の視聴時間の合計が法定に届かない
+select t('①単元の合計＝講座の総時間',
+  (select sum(legal_min)::text from public.lessons where course_id = :'course'),
+  (select total_min::text from public.courses where id = :'course'));
 
 -- ② 実技の実施日と実施者を付けて申請できる
 select public.request_cert(
   '44444444-4444-4444-4444-444444444444',
   '33333333-3333-3333-3333-333333333333',
-  'kousho', 'drill', 1, '天井の高い倉庫でやりました',
+  :'course', 'drill', 1, '天井の高い倉庫でやりました',
   date '2026-08-20', '中川　元基');
 select t('②1件ある', count(*)::text, '1')
   from public.cert_requests where enrollment_id='44444444-4444-4444-4444-444444444444';
@@ -79,7 +96,7 @@ select t('④理由が残る', (reply_note <> '')::text, 'true')
 select public.request_cert(
   '44444444-4444-4444-4444-444444444444',
   '33333333-3333-3333-3333-333333333333',
-  'kousho', 'drill', 1, '', date '2026-08-21', '佐藤　健一');
+  :'course', 'drill', 1, '', date '2026-08-21', '佐藤　健一');
 select t('⑤また open', status, 'open')
   from public.cert_requests where enrollment_id='44444444-4444-4444-4444-444444444444';
 select t('⑤日が入れ替わる', drill_on::text, '2026-08-21')
@@ -114,7 +131,7 @@ begin
   perform public.request_cert(
     '44444444-4444-4444-4444-444444444444',
     '33333333-3333-3333-3333-333333333333',
-    'kousho', 'drill', 1, '', date '2026-08-22', '別の人');
+    current_setting('drilltest.course'), 'drill', 1, '', date '2026-08-22', '別の人');
   insert into r values ('⑧通ったあとは出し直せない', 'とおった', 'はじかれる');
 exception when others then
   insert into r values ('⑧通ったあとは出し直せない', 'はじかれる', 'はじかれる');
@@ -126,7 +143,7 @@ begin
   perform public.request_cert(
     '44444444-4444-4444-4444-444444444444',
     '33333333-3333-3333-3333-333333333333',
-    'kousho', 'nanika');
+    current_setting('drilltest.course'), 'nanika');
   insert into r values ('⑨知らない関門ははじく', 'とおった', 'はじかれる');
 exception when others then
   insert into r values ('⑨知らない関門ははじく', 'はじかれる', 'はじかれる');

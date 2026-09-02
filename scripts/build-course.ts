@@ -12,7 +12,8 @@
 
    実行:
      npm run build:ishiwata   # 石綿
-     npm run build:kousho     # 高所作業車 */
+     npm run build:kousho     # 高所作業車
+     npm run build:harness    # フルハーネス */
 
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import path from "node:path";
@@ -23,6 +24,9 @@ import {
 import {
   KOUSHO_BASIS, KOUSHO_LESSONS, KOUSHO_NAME, KOUSHO_SUBJECTS, KOUSHO_TOTAL_MIN,
 } from "../src/content/kousho";
+import {
+  HARNESS_BASIS, HARNESS_LESSONS, HARNESS_NAME, HARNESS_SUBJECTS, HARNESS_TOTAL_MIN,
+} from "../src/content/harness";
 
 type Plan = {
   /** 講座の目印。content/<id>/ に単元の json を置き、content/courses/<id>.json に書き出す */
@@ -42,6 +46,14 @@ const PLANS: Record<string, Plan> = {
     subjects: ISHIWATA_SUBJECTS,
     lessons: ISHIWATA_LESSONS,
     totalMin: ISHIWATA_TOTAL_MIN,
+  },
+  harness: {
+    id: "harness",
+    name: `${HARNESS_NAME}（学科）`,
+    basis: HARNESS_BASIS,
+    subjects: HARNESS_SUBJECTS,
+    lessons: HARNESS_LESSONS,
+    totalMin: HARNESS_TOTAL_MIN,
   },
   kousho: {
     id: "kousho",

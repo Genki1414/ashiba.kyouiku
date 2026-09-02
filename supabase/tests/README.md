@@ -97,22 +97,28 @@ psql -d appdb -q -t -A -f supabase/tests/notices.sql
 
 `drill.sql` も、全部の版を流したあとに当てる。
 
-**この関門を使う講座は高所作業車が初めて。**
 学科だけで修了証を出せば、実技を受けていない人が
-「資格がある」と思って高所作業車に乗る。
+「資格がある」と思って現場に出る。
+
+**実技のある講座は増える。講座は `-v course=...` で渡す**（既定は高所作業車）。
+単元の数と時間は渡さず、`courses` 表と突き合わせる。
+渡すと、渡した数字が間違っていたときに気づけない。
 
 ```sh
 psql -d appdb -q -t -A \
   -f supabase/tests/00-supabase-shim.sql \
   -f supabase/apply-all.sql
-psql -d appdb -q -t -A -f supabase/tests/drill.sql
+
+psql -d appdb -q -t -A -f supabase/tests/drill.sql                   # 高所作業車
+psql -d appdb -q -t -A -v course=harness -f supabase/tests/drill.sql # フルハーネス
 ```
 
-最後に「28 件通過 / 0 件失敗」と出れば通っている。
+それぞれ「28 件通過 / 0 件失敗」と出れば通っている。
+**実技のある講座を足したら、その講座でも回すこと。**
 
 | # | 内容 |
 |---|---|
-| ① | 高所作業車の講座と8単元（計360分）が入っている |
+| ① | 講座と単元が入っていて、**単元の合計＝講座の総時間**（courses 表と突き合わせ） |
 | ② | 実技の実施日と実施者が、申請と一緒に残る |
 | ③ | **出しただけでは通っていない**（＝修了証は出ない） |
 | ④ | 断れる。理由が本人に届く |
