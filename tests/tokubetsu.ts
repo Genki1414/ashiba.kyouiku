@@ -137,6 +137,25 @@ console.log("\n── いま作っているもの ──");
   check(b.every((t) => !!t.doc), "作っている行には裏取りの記録がある",
     b.filter((t) => !t.doc).map((t) => t.slug).join("／"));
 
+  /* 高所作業車。**実技が3時間あるので、この仕組みだけでは修了しない。**
+     学科だけで修了証を出せば、実技を受けていない人が
+     「資格がある」と思って高所作業車に乗る */
+  const kousho = findTokubetsu("aerial_work_platform_under_10m");
+  check(!!kousho && isBuilding(kousho), "高所作業車を作っている");
+  check(!!kousho && kousho.basis.includes("第36条第10号の5"), "安衛則の号まで入っている",
+    kousho?.basis);
+  check(!!kousho && kousho.basis.includes("第13条"), "規程の条番号まで入っている");
+  check(!!kousho && kousho.gakkaMin === 360 && kousho.jitsugiMin === 180,
+    "学科6時間・実技3時間");
+  check(!!kousho && hasJitsugi(kousho), "実技のある講座として扱う");
+  /* 時間の割り振りが未確認のうちは、講座にしない */
+  check(!!kousho && !trustedHours(kousho), "科目ごとの時間はまだ確かめていない");
+  check(!!kousho && !isReady(kousho), "確かめるまで講座にしない");
+  const d26 = read("docs/26-高所作業車の根拠と裏取り.md");
+  check(d26.includes("この仕組みだけでは修了しない"), "実技があることが書いてある");
+  check(d26.includes("gate: \"drill\""), "どう扱うかが書いてある");
+  check(d26.includes("科目ごとの時間の割り振り"), "何が残っているかが書いてある");
+
   const ishi = findTokubetsu("asbestos_demolition");
   /* 石綿は作り終えて講座になった。印は落ちて、courseId が入っている */
   check(!!ishi && !isBuilding(ishi), "石綿は作り終えた（印が落ちている）");

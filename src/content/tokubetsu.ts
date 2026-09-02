@@ -312,14 +312,22 @@ export const TOKUBETSU: Tokubetsu[] = [
     basis: "安全衛生特別教育規程",
     src: "roudoukyoku",
   },
+  /* 根拠に条番号を足した。渡された一覧は「安全衛生特別教育規程」までで、
+     どの条かが分からなかった。特別教育を義務づけているのは
+     安衛則第36条第10号の5、科目と時間は規程第13条（docs/26）。
+
+     合計（学科6時間＋実技3時間）は確かめた。
+     **科目ごとの割り振りはまだ**（docs/26）。 */
   {
     no: 27,
     slug: "aerial_work_platform_under_10m",
-    name: "高所作業車（作業床高さ10メートル未満）の運転の業務",
+    name: "高所作業車（作業床の高さ10メートル未満）の運転の業務に係る特別教育",
     gakkaMin: 360,
     jitsugiMin: 180,
-    basis: "安全衛生特別教育規程",
-    src: "roudoukyoku",
+    basis: "労働安全衛生規則第36条第10号の5／安全衛生特別教育規程 第13条",
+    src: "kitei",
+    building: true,
+    doc: "docs/26-高所作業車の根拠と裏取り.md",
   },
   {
     no: 28,
