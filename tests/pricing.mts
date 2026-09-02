@@ -123,6 +123,8 @@ console.log("── 講座ごとの単価 ──");
   check(unitPrice("kogata") === 7000, `小型車両系は7,000円（税抜）（${unitPrice("kogata")}）`);
   /* フォークリフトは学科6時間＋実技6時間。受ける人が広いので 6,000円 */
   check(unitPrice("forklift") === 6000, `フォークリフトは6,000円（税抜）（${unitPrice("forklift")}）`);
+  /* テールゲートリフターは学科4時間＋実技2時間。配送の会社が人数分買う教育なので 5,000円 */
+  check(unitPrice("tailgate") === 5000, `テールゲートリフターは5,000円（税抜）（${unitPrice("tailgate")}）`);
 
   /* 知らない講座を聞かれても、仮置きの値で答える（0円で配らない） */
   check(unitPrice("nonsense") > 0, "知らない講座でも0円にはしない");

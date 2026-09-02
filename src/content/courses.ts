@@ -297,6 +297,30 @@ export const COURSES: CourseMeta[] = [
     menu: "other",
   },
   {
+    /* テールゲートリフターの操作の業務の特別教育。
+
+       ・学科4時間のあと、**実技2時間**が残る（gate: "drill"）。実技は事業者が自社で行う
+       ・科目・範囲・時間は**安全衛生特別教育規程第7条の4の表のまま**（条文で確認済み。src/content/tailgate.ts）
+       ・裏取りは docs/33-テールゲートリフターの根拠と裏取り.md
+       ・**2024年2月1日から義務。**トラックの荷台後ろの昇降装置（パワーゲート）を操作する人、全員
+
+       宅配・路線便、引越し、飲料・食品、家電・家具、リネン、医薬品卸、建材、廃棄物、農産物、
+       イベント機材、建設の資材搬入。**荷を運ぶ会社ぜんぶ。** */
+    id: "tailgate",
+    kind: "special",
+    type: "ondemand",
+    gate: "drill",
+    drillMin: 120,
+    name: "テールゲートリフターの操作の業務に係る特別教育",
+    short: "テールゲートリフター",
+    basis:
+      "労働安全衛生法第59条第3項／労働安全衛生規則第36条第5号の4／安全衛生特別教育規程第7条の4",
+    totalMin: 240,
+    file: "tailgate.json",
+    ready: true,
+    menu: "other",
+  },
+  {
     id: "kogata",
     kind: "special",
     type: "ondemand",

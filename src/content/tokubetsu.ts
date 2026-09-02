@@ -195,8 +195,10 @@ export const TOKUBETSU: Tokubetsu[] = [
     gakkaMin: 240,
     jitsugiMin: 120,
     basis: "労働安全衛生規則第36条第5号の4／安全衛生特別教育規程 第7条の4",
-    src: "roudoukyoku",
+    src: "kitei",
     checked: true,
+    courseId: "tailgate",
+    doc: "docs/33-テールゲートリフターの根拠と裏取り.md",
   },
   {
     no: 12,

@@ -18,7 +18,8 @@
      npm run build:funjin     # 特定粉じん作業
      npm run build:sanketsu   # 酸素欠乏・硫化水素
      npm run build:kogata     # 小型車両系建設機械（整地等）
-     npm run build:forklift   # フォークリフト（1トン未満） */
+     npm run build:forklift   # フォークリフト（1トン未満）
+     npm run build:tailgate   # テールゲートリフター */
 
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import path from "node:path";
@@ -32,6 +33,9 @@ import {
 import {
   FUNJIN_BASIS, FUNJIN_LESSONS, FUNJIN_NAME, FUNJIN_SUBJECTS, FUNJIN_TOTAL_MIN,
 } from "../src/content/funjin";
+import {
+  TAILGATE_BASIS, TAILGATE_LESSONS, TAILGATE_NAME, TAILGATE_SUBJECTS, TAILGATE_TOTAL_MIN,
+} from "../src/content/tailgate";
 import {
   FORKLIFT_BASIS, FORKLIFT_LESSONS, FORKLIFT_NAME, FORKLIFT_SUBJECTS, FORKLIFT_TOTAL_MIN,
 } from "../src/content/forklift";
@@ -74,6 +78,14 @@ const PLANS: Record<string, Plan> = {
     subjects: FUNJIN_SUBJECTS,
     lessons: FUNJIN_LESSONS,
     totalMin: FUNJIN_TOTAL_MIN,
+  },
+  tailgate: {
+    id: "tailgate",
+    name: `${TAILGATE_NAME}（学科）`,
+    basis: TAILGATE_BASIS,
+    subjects: TAILGATE_SUBJECTS,
+    lessons: TAILGATE_LESSONS,
+    totalMin: TAILGATE_TOTAL_MIN,
   },
   forklift: {
     id: "forklift",

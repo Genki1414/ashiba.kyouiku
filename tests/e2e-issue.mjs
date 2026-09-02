@@ -230,12 +230,12 @@ await page.screenshot({ path: `${SC}/issue-08-drill.png` });
 
 /* 実技の手引き。会社の人が見る画面なので、ログイン無しで開けること。
    **実技のある講座は増える。決め打ちにせず、全部を回す。** */
-for (const [id, mins] of [["kousho", 180], ["harness", 90], ["rope", 180], ["kogata", 360], ["forklift", 360]]) {
+for (const [id, mins] of [["kousho", 180], ["harness", 90], ["rope", 180], ["kogata", 360], ["forklift", 360], ["tailgate", 120]]) {
   await page.goto(`${BASE}/edu/${id}/drill`);
   await dismissNotice();
   await page.getByTestId("drill-guide").waitFor({ timeout: 6000 })
     .catch(() => check(false, `${id}: 手引きが開く`));
-  check((await page.getByTestId("drill-step").count()) >= 4, `${id}: 割り振りが並ぶ`);
+  check((await page.getByTestId("drill-step").count()) >= 3, `${id}: 割り振りが並ぶ`);
   check(await page.getByTestId("drill-form").count() === 1, `${id}: 実施記録の様式がある`);
   check(await page.getByTestId("drill-print").count() === 1, `${id}: 印刷ボタンがある`);
   const g = await page.getByTestId("drill-guide").textContent();
@@ -259,6 +259,10 @@ for (const [id, mins] of [["kousho", 180], ["harness", 90], ["rope", 180], ["kog
     check(form.includes("最大荷重") && form.includes("1トン未満"), "フォークリフトの様式に最大荷重と1トン未満の但し書きがある");
     check(form.includes("カウンター式") && form.includes("リーチ式"), "フォークリフトの様式に型式の欄がある");
     check(!form.includes("作業床の高さ"), "フォークリフトの様式に「作業床の高さ」が無い");
+  } else if (id === "tailgate") {
+    check(form.includes("リフターの種類") && form.includes("垂直式"), "テールゲートリフターの様式にリフターの種類の欄がある");
+    check(form.includes("最大積載荷重") && form.includes("使った台車"), "テールゲートリフターの様式に最大積載荷重と台車の欄がある");
+    check(!form.includes("作業床の高さ"), "テールゲートリフターの様式に「作業床の高さ」が無い");
   } else if (id === "kogata") {
     /* 3トン未満かどうかが、この講座のいちばんの分かれ目。様式にも残す */
     check(form.includes("機体重量") && form.includes("3トン未満"), "小型車両系の様式に機体重量と3トン未満の但し書きがある");

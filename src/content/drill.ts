@@ -20,6 +20,14 @@ import {
   FORKLIFT_JITSUGI,
 } from "./forklift";
 import {
+  TAILGATE_DRILL_FORM,
+  TAILGATE_DRILL_PREP,
+  TAILGATE_DRILL_STEPS,
+  TAILGATE_DRILL_TEACHER,
+  TAILGATE_DRILL_TOTAL_MIN,
+  TAILGATE_JITSUGI,
+} from "./tailgate";
+import {
   KOGATA_DRILL_FORM,
   KOGATA_DRILL_PREP,
   KOGATA_DRILL_STEPS,
@@ -124,6 +132,18 @@ const GUIDES: Record<string, DrillGuide> = {
     prep: KOGATA_DRILL_PREP,
     keepYears: 3,
     form: KOGATA_DRILL_FORM,
+  },
+  tailgate: {
+    courseId: "tailgate",
+    subject: TAILGATE_JITSUGI.name,
+    scope: TAILGATE_JITSUGI.scope,
+    legalMin: TAILGATE_JITSUGI.legalMin,
+    steps: TAILGATE_DRILL_STEPS,
+    totalMin: TAILGATE_DRILL_TOTAL_MIN,
+    teacher: TAILGATE_DRILL_TEACHER,
+    prep: TAILGATE_DRILL_PREP,
+    keepYears: 3,
+    form: TAILGATE_DRILL_FORM,
   },
   kousho: {
     courseId: "kousho",
