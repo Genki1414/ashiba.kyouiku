@@ -94,6 +94,8 @@ export const TOKUBETSU: Tokubetsu[] = [
     basis: "労働安全衛生規則第36条第1号／安全衛生特別教育規程 第1条",
     src: "kitei",
     checked: true,
+    courseId: "kikaitoishi",
+    doc: "docs/40-機械研削といしの根拠と裏取り.md",
   },
   {
     no: 2,

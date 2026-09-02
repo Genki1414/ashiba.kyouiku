@@ -230,7 +230,7 @@ await page.screenshot({ path: `${SC}/issue-08-drill.png` });
 
 /* 実技の手引き。会社の人が見る画面なので、ログイン無しで開けること。
    **実技のある講座は増える。決め打ちにせず、全部を回す。** */
-for (const [id, mins] of [["kousho", 180], ["harness", 90], ["rope", 180], ["kogata", 360], ["forklift", 360], ["tailgate", 120], ["toishi", 120], ["teiatsu", 420], ["winch", 240], ["roller", 240], ["chainsaw", 540], ["arc", 600]]) {
+for (const [id, mins] of [["kousho", 180], ["harness", 90], ["rope", 180], ["kogata", 360], ["forklift", 360], ["tailgate", 120], ["toishi", 120], ["teiatsu", 420], ["winch", 240], ["roller", 240], ["chainsaw", 540], ["arc", 600], ["kikaitoishi", 180]]) {
   await page.goto(`${BASE}/edu/${id}/drill`);
   await dismissNotice();
   await page.getByTestId("drill-guide").waitFor({ timeout: 6000 })
@@ -259,6 +259,10 @@ for (const [id, mins] of [["kousho", 180], ["harness", 90], ["rope", 180], ["kog
     check(form.includes("最大荷重") && form.includes("1トン未満"), "フォークリフトの様式に最大荷重と1トン未満の但し書きがある");
     check(form.includes("カウンター式") && form.includes("リーチ式"), "フォークリフトの様式に型式の欄がある");
     check(!form.includes("作業床の高さ"), "フォークリフトの様式に「作業床の高さ」が無い");
+  } else if (id === "kikaitoishi") {
+    check(form.includes("主軸回転数") && form.includes("最高使用周速度"), "機械研削の様式に主軸回転数と最高使用周速度の欄がある");
+    check(form.includes("バランス取り") && form.includes("試運転の時間"), "機械研削の様式にバランス取りと試運転の時間の欄がある");
+    check(!form.includes("作業床の高さ"), "機械研削の様式に「作業床の高さ」が無い");
   } else if (id === "arc") {
     check(form.includes("自動電撃防止装置"), "アーク溶接の様式に自動電撃防止装置の欄がある");
     check(form.includes("換気の方法") && form.includes("呼吸用保護具"), "アーク溶接の様式に換気と呼吸用保護具の欄がある");

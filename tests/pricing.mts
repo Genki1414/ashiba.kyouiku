@@ -137,6 +137,8 @@ console.log("── 講座ごとの単価 ──");
   check(unitPrice("chainsaw") === 8000, `チェーンソーは8,000円（税抜）（${unitPrice("chainsaw")}）`);
   /* アーク溶接は学科11時間＋実技10時間。うちでいちばん長いので 9,000円 */
   check(unitPrice("arc") === 9000, `アーク溶接は9,000円（税抜）（${unitPrice("arc")}）`);
+  /* 機械研削といしは学科7時間＋実技3時間。低圧電気・小型車両系と同じ 7,000円 */
+  check(unitPrice("kikaitoishi") === 7000, `機械研削といしは7,000円（税抜）（${unitPrice("kikaitoishi")}）`);
 
   /* 知らない講座を聞かれても、仮置きの値で答える（0円で配らない） */
   check(unitPrice("nonsense") > 0, "知らない講座でも0円にはしない");

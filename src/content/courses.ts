@@ -472,6 +472,31 @@ export const COURSES: CourseMeta[] = [
     menu: "other",
   },
   {
+    /* 機械研削用といしの取替え又は取替え時の試運転の業務の特別教育。
+
+       ・学科7時間のあと、**実技3時間**が残る（gate: "drill"）。実技は事業者が自社で行う
+       ・科目・範囲・時間は**安全衛生特別教育規程第1条の表のまま**（条文で確認済み。src/content/kikaitoishi.ts）
+       ・裏取りは docs/40-機械研削といしの根拠と裏取り.md
+       ・**自由研削（規程第2条・toishi）とは別の教育。**両方やるなら両方受ける
+       ・**研削液**の単元が科目1にある（自由研削には無い）
+
+       機械加工、金型、工具の製造と再研磨、自動車部品、軸受、精密部品、鉄道の車輪、
+       製鉄・製鋼のロール、刃物、学校の実習。**工場の中の仕事。** */
+    id: "kikaitoishi",
+    kind: "special",
+    type: "ondemand",
+    gate: "drill",
+    drillMin: 180,
+    name: "機械研削用といしの取替え又は取替え時の試運転の業務に係る特別教育",
+    short: "機械研削といし",
+    basis:
+      "労働安全衛生法第59条第3項／労働安全衛生規則第36条第1号／安全衛生特別教育規程第1条",
+    totalMin: 420,
+    file: "kikaitoishi.json",
+    ready: true,
+    menu: "other",
+  },
+  {
     id: "kogata",
     kind: "special",
     type: "ondemand",

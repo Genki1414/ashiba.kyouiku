@@ -140,6 +140,12 @@ export function parseUnitPrice(raw: string | undefined): number {
         実技10時間の手引きと実施記録の様式が付く（/edu/arc/drill）。
         科目3（作業の方法）だけで6時間あり、事例23件を入れている。
 
+      機械研削用といし（学科7時間＋実技3時間。ここで出すのは学科だけ）
+        **よその値段はまだ調べていない**（docs/40）。
+        → ここ 7,000円（税抜）＝ 7,700円（税込）
+        学科7時間は低圧電気・小型車両系と同じ長さ。実技の手引きと実施記録の様式が付く
+        （/edu/kikaitoishi/drill）。自由研削（4時間・5,000円）より3時間長いので上に置いた。
+
       職長・安全衛生責任者教育（14時間・討議つき）
         中小建設業特別教育協会 WEB講習  17,600円
           （動画12時間18分＋Zoom討議2時間30分。うちと同じ作り）
@@ -168,6 +174,7 @@ export const DEFAULT_COURSE_PRICE: Record<string, number> = {
   roller: 6000,
   chainsaw: 8000,
   arc: 9000,
+  kikaitoishi: 7000,
 };
 
 /** 講座の目印から環境変数の名前を作る。ashiba → SEAT_UNIT_PRICE_ASHIBA */
