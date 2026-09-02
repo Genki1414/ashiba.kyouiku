@@ -386,6 +386,8 @@ export const TOKUBETSU: Tokubetsu[] = [
     basis: "労働安全衛生規則第36条第11号／安全衛生特別教育規程 第14条",
     src: "kitei",
     checked: true,
+    courseId: "winch",
+    doc: "docs/36-巻上げ機の根拠と裏取り.md",
   },
   {
     no: 29,

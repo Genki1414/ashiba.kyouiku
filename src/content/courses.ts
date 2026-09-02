@@ -370,6 +370,31 @@ export const COURSES: CourseMeta[] = [
     menu: "other",
   },
   {
+    /* 巻上げ機（ウインチ）の運転の業務の特別教育。
+
+       ・学科6時間のあと、**実技4時間**（運転3時間＋荷掛け及び合図1時間）が残る（gate: "drill"）。
+         実技は事業者が自社で行う
+       ・科目・範囲・時間は**安全衛生特別教育規程第14条の表のまま**（条文で確認済み。src/content/winch.ts）
+       ・裏取りは docs/36-巻上げ機の根拠と裏取り.md
+       ・電気ホイスト・エアホイスト・ゴンドラの巻上げ機は除く。クレーンに当たる装置はクレーンの資格
+
+       建設（揚重・鉄骨・設備・延線）、造船、林業、舞台・イベント、港湾、漁業、工場、架線、解体、造園。
+       **ウインチのある所ぜんぶ。** */
+    id: "winch",
+    kind: "special",
+    type: "ondemand",
+    gate: "drill",
+    drillMin: 240,
+    name: "巻上げ機の運転の業務に係る特別教育",
+    short: "巻上げ機（ウインチ）",
+    basis:
+      "労働安全衛生法第59条第3項／労働安全衛生規則第36条第11号／安全衛生特別教育規程第14条",
+    totalMin: 360,
+    file: "winch.json",
+    ready: true,
+    menu: "other",
+  },
+  {
     id: "kogata",
     kind: "special",
     type: "ondemand",

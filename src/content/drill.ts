@@ -20,6 +20,14 @@ import {
   FORKLIFT_JITSUGI,
 } from "./forklift";
 import {
+  WINCH_DRILL_FORM,
+  WINCH_DRILL_PREP,
+  WINCH_DRILL_STEPS,
+  WINCH_DRILL_TEACHER,
+  WINCH_DRILL_TOTAL_MIN,
+  WINCH_JITSUGI,
+} from "./winch";
+import {
   TEIATSU_DRILL_FORM,
   TEIATSU_DRILL_PREP,
   TEIATSU_DRILL_STEPS,
@@ -148,6 +156,18 @@ const GUIDES: Record<string, DrillGuide> = {
     prep: KOGATA_DRILL_PREP,
     keepYears: 3,
     form: KOGATA_DRILL_FORM,
+  },
+  winch: {
+    courseId: "winch",
+    subject: WINCH_JITSUGI.name,
+    scope: WINCH_JITSUGI.scope,
+    legalMin: WINCH_JITSUGI.legalMin,
+    steps: WINCH_DRILL_STEPS,
+    totalMin: WINCH_DRILL_TOTAL_MIN,
+    teacher: WINCH_DRILL_TEACHER,
+    prep: WINCH_DRILL_PREP,
+    keepYears: 3,
+    form: WINCH_DRILL_FORM,
   },
   teiatsu: {
     courseId: "teiatsu",
