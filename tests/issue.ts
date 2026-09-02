@@ -16,7 +16,8 @@ import {
   type IssueStatus,
 } from "../src/lib/issue";
 import { eligible } from "../src/lib/cert";
-import { COURSES, gateOf, needsRequest, findCourse } from "../src/content/courses";
+import { COURSES, drillMinOf, gateOf, needsRequest, findCourse } from "../src/content/courses";
+import { readFileSync } from "node:fs";
 
 let ok = 0;
 let ng = 0;
@@ -184,6 +185,47 @@ console.log("\n── 本部の一覧の並び ──");
   check(s.at(-1)!.id === "c", "済んだものは最後");
   check(waitingCount(rows) === 2, "返事待ちの数を数える", `${waitingCount(rows)}`);
   check(sortQueue(rows) !== rows, "元の配列を書き換えない");
+}
+
+console.log("\n── 実技の残る講座（高所作業車）──");
+{
+  const read = (p: string) => readFileSync(new URL(`../${p}`, import.meta.url), "utf8");
+  const code = (p: string) =>
+    read(p).replace(/\/\*[\s\S]*?\*\//g, " ").replace(/^\s*\/\/.*$/gm, " ");
+
+  const k = findCourse("kousho");
+  check(!!k, "高所作業車が講座になっている");
+  check(gateOf(k!) === "drill", "関門は実技（drill）", `${gateOf(k!)}`);
+  check(needsRequest(k!), "押した瞬間には修了証を出さない");
+
+  /* 実技のある講座は、何時間残るかを必ず持つこと。
+     持っていないと、画面に「3時間」と書き込むことになる */
+  for (const c of COURSES.filter((x) => gateOf(x) === "drill")) {
+    check(drillMinOf(c) > 0, `${c.id}: 実技の時間が入っている`, `${drillMinOf(c)}`);
+  }
+  check(drillMinOf(k!) === 180, "高所作業車の実技は3時間（規程第13条）");
+  /* 実技の無い講座から実技の時間が出ない */
+  check(drillMinOf(findCourse("ashiba")!) === 0, "学科だけの講座は0分");
+  check(drillMinOf(findCourse("shokucho")!) === 0, "討議の講座は実技0分");
+
+  /* **学科を見終わってから「まだ修了ではない」と知るのでは遅い。**
+     単元一覧の前に出ていること */
+  const ui = code("src/app/edu/[courseId]/LessonList.tsx");
+  check(ui.includes('data-testid="drill-note"'), "単元一覧の画面に実技の案内がある");
+  check(ui.indexOf("drill-note") < ui.indexOf("subjects.map"), "単元の並びより前に出す");
+  check(ui.includes("学科だけでは修了になりません"), "学科だけでは修了しないと書く");
+  check(ui.includes("hoursText(drillMin)"), "時間は講座から出す（画面に書き込まない）");
+  check(!ui.includes("実技（3時間）"), "「3時間」を画面に書き込んでいない");
+  check(ui.includes('drillMin > 0 ? "修了証と発行申請"'), "実技の講座では修了証の入口が発行申請になる");
+
+  /* 申請の口に、実技の日と人の欄があること */
+  const panel = code("src/components/edu/IssuePanel.tsx");
+  check(panel.includes('data-testid="issue-drill-on"'), "実技を行った日の欄がある");
+  check(panel.includes('data-testid="issue-drill-by"'), "実技を行った人の欄がある");
+  check(panel.includes('gate === "drill" && ('), "実技の講座だけに出す");
+  /* 本部が確かめられること。見えなければ通してよいか分からない */
+  const owner = code("src/app/owner/IssueClient.tsx");
+  check(owner.includes("drillOn") && owner.includes("drillBy"), "本部の一覧に実技の日と人が出る");
 }
 
 console.log("\n── まとめ ──");

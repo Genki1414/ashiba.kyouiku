@@ -316,8 +316,9 @@ export const TOKUBETSU: Tokubetsu[] = [
      どの条かが分からなかった。特別教育を義務づけているのは
      安衛則第36条第10号の5、科目と時間は規程第13条（docs/26）。
 
-     合計（学科6時間＋実技3時間）は確かめた。
-     **科目ごとの割り振りはまだ**（docs/26）。 */
+     科目ごとの割り振りも規程第13条の表で確かめた（学科は
+     装置3時間・原動機1時間・一般的事項1時間・関係法令1時間）。
+     **学科だけをここで出す。実技3時間は事業者が自社で行う**（gate: "drill"）。 */
   {
     no: 27,
     slug: "aerial_work_platform_under_10m",
@@ -326,7 +327,8 @@ export const TOKUBETSU: Tokubetsu[] = [
     jitsugiMin: 180,
     basis: "労働安全衛生規則第36条第10号の5／安全衛生特別教育規程 第13条",
     src: "kitei",
-    building: true,
+    checked: true,
+    courseId: "kousho",
     doc: "docs/26-高所作業車の根拠と裏取り.md",
   },
   {

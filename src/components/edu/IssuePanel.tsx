@@ -234,7 +234,7 @@ export function IssuePanel({
                 <input
                   value={drillBy}
                   onChange={(e) => setDrillBy(e.target.value)}
-                  placeholder="足場　太郎"
+                  placeholder="山田　太郎"
                   data-testid="issue-drill-by"
                   className="w-full rounded-lg border border-line bg-panel2 px-3.5 py-3 text-[15px]"
                 />

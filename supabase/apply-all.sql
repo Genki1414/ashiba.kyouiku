@@ -3,7 +3,7 @@
 --
 -- 中身:
 --   1. マイグレーション 0001_init / 0002_rls / 0003_rules / 0004_auth / 0005_cert / 0006_version / 0007_admin / 0008_tenant / 0009_order / 0010_verify / 0011_course / 0012_member / 0013_keep / 0014_own / 0015_qual / 0016_keep3y / 0017_train / 0018_solo / 0019_view / 0020_sent / 0021_role / 0022_live / 0023_issue / 0024_notice
---   2. lessons（単元の規定時間）39件を投入
+--   2. lessons（単元の規定時間）47件を投入
 --
 -- 何度実行しても壊れないように書いてある（作成済みなら飛ばす）。
 -- 自動生成: npm run build:sql　— 直接編集しないこと
@@ -2868,7 +2868,8 @@ grant execute on function public.schema_version() to anon, authenticated, servic
 insert into public.courses (id, name, basis, total_min, sort_order) values
   ('ashiba', '足場の組立て等の業務に係る特別教育', '労働安全衛生法第59条第3項／労働安全衛生規則第36条第39号', 360, 1),
   ('shokucho', '職長・安全衛生責任者教育', '労働安全衛生法第60条／労働安全衛生規則第40条', 840, 2),
-  ('ishiwata', '石綿使用建築物等解体等業務に係る特別教育', '労働安全衛生法第59条第3項／労働安全衛生規則第36条第37号／石綿障害予防規則第27条第1項', 270, 3)
+  ('ishiwata', '石綿使用建築物等解体等業務に係る特別教育', '労働安全衛生法第59条第3項／労働安全衛生規則第36条第37号／石綿障害予防規則第27条第1項', 270, 3),
+  ('kousho', '高所作業車の運転の業務に係る特別教育', '労働安全衛生法第59条第3項／労働安全衛生規則第36条第10号の5／安全衛生特別教育規程第13条', 360, 4)
 on conflict (id) do update
   set name       = excluded.name,
       basis      = excluded.basis,
@@ -2917,7 +2918,15 @@ insert into public.lessons (lesson_id, course_id, subject_id, title, legal_min, 
   ('ishiwata:4-1', 'ishiwata', 4, '保護具の種類と性能', 30, 300),
   ('ishiwata:4-2', 'ishiwata', 4, '保護具の使用方法及び管理', 30, 301),
   ('ishiwata:5-1', 'ishiwata', 5, '法、令、安衛則及び石綿則中の関係条項', 35, 400),
-  ('ishiwata:5-2', 'ishiwata', 5, '石綿等による健康障害の防止', 25, 401)
+  ('ishiwata:5-2', 'ishiwata', 5, '石綿等による健康障害の防止', 25, 401),
+  ('kousho:1-1', 'kousho', 1, '高所作業車の種類及び用途', 60, 0),
+  ('kousho:1-2', 'kousho', 1, '作業装置の構造及び取扱いの方法', 60, 1),
+  ('kousho:1-3', 'kousho', 1, '附属装置の構造及び取扱いの方法', 60, 2),
+  ('kousho:2-1', 'kousho', 2, '内燃機関の構造及び取扱いの方法', 30, 100),
+  ('kousho:2-2', 'kousho', 2, '動力伝達装置及び走行装置の種類', 30, 101),
+  ('kousho:3-1', 'kousho', 3, '運転に必要な力学', 30, 200),
+  ('kousho:3-2', 'kousho', 3, '感電による危険性', 30, 201),
+  ('kousho:4-1', 'kousho', 4, '法、令及び安衛則中の関係条項', 60, 300)
 on conflict (lesson_id) do update
   set course_id  = excluded.course_id,
       subject_id = excluded.subject_id,

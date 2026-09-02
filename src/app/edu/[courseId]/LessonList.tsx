@@ -7,6 +7,7 @@ import { canStart, loadPrep, type PrepState } from "@/lib/prep";
 import { loadMe, readMe, type Me } from "@/lib/me";
 import { Bar } from "@/components/ui/Bar";
 import { hm } from "@/components/ui/format";
+import { hoursText } from "@/content/courses";
 import { TALK_MIN } from "@/content/shokucho";
 
 type LessonRow = { id: string; title: string; legal_min: number; figures: number; cases: number; quiz: number };
@@ -16,11 +17,16 @@ export function LessonList({
   course,
   subjects,
   live = false,
+  drillMin = 0,
 }: {
   course: { id: string; name: string; basis: string };
   subjects: SubjectRow[];
   /** 決まった日時に集まる回（討議）がある講座か。職長教育がこれ */
   live?: boolean;
+  /** 学科のあとに残る実技の法定時間（分）。無ければ 0。
+      高所作業車がこれ（3時間）。**ここを出さないと、
+      6時間見終わってから「まだ修了ではない」と知ることになる。** */
+  drillMin?: number;
 }) {
   const [prog, setProg] = useState<Record<string, ProgressState>>({});
   const [prep, setPrep] = useState<PrepState | null>(null);
@@ -130,6 +136,33 @@ export function LessonList({
         </div>
       )}
 
+      {/* 実技のある講座（高所作業車）だけ。**単元一覧の前に出す。**
+          学科を見終わってから「まだ修了ではない」と知るのでは遅い。
+          実技は実機が要るので、こちらではできない（事業者が自社で行う）。
+          時間は講座から出す。ここに「3時間」と書くと次の講座で嘘になる */}
+      {drillMin > 0 && (
+        <div className="mb-4 px-5">
+          <div
+            className="rounded-xl border border-cyan bg-panel p-3.5"
+            data-testid="drill-note"
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-[13px] font-extrabold text-txt">実技（{hoursText(drillMin)}）</span>
+              <span className="ml-auto rounded border border-cyan px-1.5 py-0.5 text-[11px] text-cyan">
+                事業者で行います
+              </span>
+            </div>
+            <div className="mt-1 text-[12px] leading-relaxed text-dim">
+              この講座は、学科のあとに実技があります。実機が要るので、この画面ではできません。
+              <br />
+              <strong className="text-txt">学科だけでは修了になりません。</strong>
+              実技を事業者で行ってから、修了証の画面で発行申請を出してください。
+              そのとき、実技を行った日と行った人を入れていただきます。
+            </div>
+          </div>
+        </div>
+      )}
+
       {subjects.map((s) => (
         <section key={s.id} className="mb-5 px-5">
           <div className="mb-2 flex items-baseline gap-2">
@@ -205,7 +238,7 @@ export function LessonList({
           data-testid="go-cert"
           className="mt-2 block rounded-lg border border-line p-3 text-center text-[12.5px] text-dim no-underline"
         >
-          {live ? "修了証と発行申請" : "修了証を見る"}
+          {live || drillMin > 0 ? "修了証と発行申請" : "修了証を見る"}
         </Link>
       </div>
     </main>

@@ -183,6 +183,103 @@ check(await page.getByTestId("issue-panel").count() === 0, "学科だけの講�
 check(await page.getByTestId("cert-reason").count() === 1, "いままでどおり、出せない理由は出る");
 await page.screenshot({ path: `${SC}/issue-07-nogate.png` });
 
+/* ── ⑧ 実技のある講座（高所作業車）── ─────────────────
+   **この関門を使う講座は高所作業車が初めて。**
+   学科だけで修了証を出せば、実技を受けていない人が
+   「資格がある」と思って高所作業車に乗る。
+   だから、実技の欄が出ること、日付と名前が無いと通らないことを見る。 */
+console.log("⑧ 実技のある講座（高所作業車）");
+const DRILL = {
+  ok: true,
+  gate: "drill",
+  gateText: { label: "実技", what: "学科のあとに、実技があります。実技は事業者で行い、済んでから発行申請を出してください。" },
+  study: { lessons: 8, lessonsPassed: 8, examPassed: true, can: true, why: "" },
+  status: "none",
+  slots: [],
+  note: "",
+  replyNote: "",
+  drillOn: null,
+  drillBy: "",
+  sessionId: null,
+  reason: "実技が残っています。事業者で実技を行ってから、発行申請を出してください。",
+  next: "request",
+};
+const showDrill = async (body) => {
+  await page.unroute("**/api/issue*");
+  await page.route("**/api/issue*", (r) => {
+    if (r.request().method() !== "GET") return r.fallback();
+    return r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(body) });
+  });
+  await page.goto(`${BASE}/edu/kousho/cert`);
+  await dismissNotice();
+  await page.waitForTimeout(400);
+};
+
+await showDrill(DRILL);
+await page.getByTestId("issue-drill-on").waitFor({ timeout: 6000 })
+  .catch(() => check(false, "実技を行った日の欄が出る"));
+check(await page.getByTestId("issue-drill-by").count() === 1, "実技を行った人の欄が出る");
+check(await page.getByTestId("issue-slots").count() === 0, "実技の講座に、候補日は出さない");
+check(await page.getByTestId("issue-go-talk").count() === 0, "実技の講座に、討議の入口は出さない");
+const t8 = await page.getByTestId("issue-panel").textContent();
+check(t8.includes("その場では発行されません"), "押しても発行されないと、先に書いてある");
+check(t8.includes("実技の記録を確かめてから"), "実技の講座の言い方になっている");
+check(await page.getByTestId("cert-issue").count() === 0, "実技が済むまで、発行ボタンを出さない");
+await page.screenshot({ path: `${SC}/issue-08-drill.png` });
+
+/* 日と名前を入れずに押したら、サーバが断ること。
+   ここは本物の /api/issue に当てる（POST だけ素通しにしてある）。
+   ログインしていないので 401 になるが、**画面が理由を出すこと**を見る */
+let sent = null;
+await page.unroute("**/api/issue*");
+await page.route("**/api/issue*", (r) => {
+  const req = r.request();
+  if (req.method() === "GET") {
+    return r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(DRILL) });
+  }
+  sent = JSON.parse(req.postData() ?? "{}");
+  return r.fulfill({ status: 400, contentType: "application/json",
+    body: JSON.stringify({ ok: false, reason: "実技を行った日を入れてください。" }) });
+});
+await page.goto(`${BASE}/edu/kousho/cert`);
+await dismissNotice();
+await page.getByTestId("issue-request").waitFor({ timeout: 6000 });
+await page.getByTestId("issue-request").click();
+await page.waitForTimeout(600);
+check(!!sent && sent.action === "request", "発行申請を送っている");
+check(!!sent && "drillOn" in sent && "drillBy" in sent, "実技の日と人を一緒に送っている");
+check(
+  (await page.getByTestId("issue-panel").textContent()).includes("実技を行った日を入れてください"),
+  "断られた理由が画面に出る",
+);
+await page.screenshot({ path: `${SC}/issue-09-drill-ng.png` });
+
+/* 入れて押したら、その値が乗ること */
+await page.getByTestId("issue-drill-on").fill("2026-08-20");
+await page.getByTestId("issue-drill-by").fill("中川　元基");
+sent = null;
+await page.getByTestId("issue-request").click();
+await page.waitForTimeout(600);
+check(!!sent && sent.drillOn === "2026-08-20", "入れた日が乗る", );
+check(!!sent && sent.drillBy === "中川　元基", "入れた名前が乗る");
+await page.screenshot({ path: `${SC}/issue-10-drill-sent.png` });
+
+/* 申請したあと。実技の講座では候補日を待たない（そのまま返事待ち） */
+await showDrill({
+  ...DRILL,
+  status: "open",
+  drillOn: "2026-08-20",
+  drillBy: "中川　元基",
+  reason: "発行申請をお預かりしています。実技の記録を確かめてからご連絡します。",
+  next: "wait",
+});
+await page.getByTestId("issue-reason").waitFor({ timeout: 6000 })
+  .catch(() => check(false, "いまの状態が出る"));
+check(await page.getByTestId("issue-request").count() === 0, "申請中に、もう一度出させない");
+check(await page.getByTestId("issue-slots").count() === 0, "実技の講座に候補日は出ない");
+check(await page.getByTestId("cert-issue").count() === 0, "申請しただけでは、発行ボタンを出さない");
+await page.screenshot({ path: `${SC}/issue-11-drill-open.png` });
+
 await browser.close();
 if (ng) { console.error(`\n${ng} 件の不一致`); process.exit(1); }
-console.log("\nOK: 発行申請の画面は、状態どおりに出る");
+console.log("\nOK: 発行申請の画面は、状態どおりに出る（討議・実技とも）");

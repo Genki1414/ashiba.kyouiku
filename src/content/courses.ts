@@ -69,6 +69,11 @@ export type CourseMeta = {
   type?: CourseType;
   /** 学科のあとに残る関門。書かなければ無し（学科だけで修了） */
   gate?: CourseGate;
+  /** 実技の法定時間（分）。gate: "drill" の講座だけ。
+
+      受ける人に「学科のあとに何時間残るか」を先に出すために要る。
+      画面に「3時間」と書き込むと、次の実技のある講座で嘘になる。 */
+  drillMin?: number;
   /** 正式名称。修了証に載る */
   name: string;
   /** 画面で使う短い呼び名 */
@@ -150,6 +155,31 @@ export const COURSES: CourseMeta[] = [
     ready: true,
     menu: "other",
   },
+  {
+    /* 高所作業車の運転の業務に係る特別教育（作業床の高さ10メートル未満）。
+
+       ・**学科6時間のあとに、実技3時間が残る。**実技は実機が要るので事業者が行う
+       ・だから gate: "drill"。学科が終わってもその場では修了証を出さない
+         （発行申請で、実技の実施日と実施者を書いてもらってから）
+       ・科目・範囲・時間は安全衛生特別教育規程 第13条のまま（src/content/kousho.ts）
+       ・裏取りは docs/26-高所作業車の根拠と裏取り.md
+
+       10メートル以上は技能講習（法61条／施行令20条15号）。ここは10メートル未満だけ。 */
+    id: "kousho",
+    kind: "special",
+    type: "ondemand",
+    gate: "drill",
+    name: "高所作業車の運転の業務に係る特別教育",
+    short: "高所作業車",
+    /* 実技3時間（規程第13条）。学科のあとに残るぶん */
+    drillMin: 180,
+    basis:
+      "労働安全衛生法第59条第3項／労働安全衛生規則第36条第10号の5／安全衛生特別教育規程第13条",
+    totalMin: 360,
+    file: "kousho.json",
+    ready: true,
+    menu: "other",
+  },
 ];
 
 /** その講座の種類。書いていなければ特別教育 */
@@ -166,6 +196,10 @@ export const gateOf = (c: CourseMeta): CourseGate | null => c.gate ?? null;
 
 /** 修了証を、押した瞬間に出さず、いったん申請にする講座か */
 export const needsRequest = (c: CourseMeta): boolean => gateOf(c) !== null;
+
+/** 実技の法定時間（分）。実技の無い講座は 0 */
+export const drillMinOf = (c: CourseMeta): number =>
+  gateOf(c) === "drill" ? (c.drillMin ?? 0) : 0;
 
 /** 修了証の合計時間に添える札。
     討議のある講座に「（学科）」と書くと嘘になる */

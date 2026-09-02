@@ -42,6 +42,11 @@ export function parseUnitPrice(raw: string | undefined): number {
         CIC日本建設情報センター WEB      10,450円
         → ここ 4,500円（税抜）＝ 4,950円（税込）
 
+      高所作業車の運転（学科6時間＋実技3時間。ここで出すのは学科だけ）
+        **よその値段はまだ調べていない。**まずは他の特別教育と同じにしてある。
+        実技3時間は事業者が自社で行うので、そのぶんの費用は含まない。
+        → ここ 4,500円（税抜）＝ 4,950円（税込）
+
       職長・安全衛生責任者教育（14時間・討議つき）
         中小建設業特別教育協会 WEB講習  17,600円
           （動画12時間18分＋Zoom討議2時間30分。うちと同じ作り）
@@ -56,6 +61,7 @@ export const DEFAULT_COURSE_PRICE: Record<string, number> = {
   ashiba: 4500,
   shokucho: 7000,
   ishiwata: 4500,
+  kousho: 4500,
 };
 
 /** 講座の目印から環境変数の名前を作る。ashiba → SEAT_UNIT_PRICE_ASHIBA */

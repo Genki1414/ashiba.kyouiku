@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { getCurriculum } from "@/lib/curriculum";
-import { findCourse, needsLive } from "@/content/courses";
+import { drillMinOf, findCourse, needsLive } from "@/content/courses";
 import { LessonList } from "./LessonList";
 
 /* 科目・単元の一覧。進捗はクライアント側で読み込んで重ねる。
@@ -32,6 +32,7 @@ export default async function CoursePage({
       course={{ id: course.id, name: course.name, basis: course.basis }}
       subjects={subjects}
       live={needsLive(course)}
+      drillMin={drillMinOf(course)}
     />
   );
 }
