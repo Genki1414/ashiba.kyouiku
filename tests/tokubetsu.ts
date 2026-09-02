@@ -169,7 +169,7 @@ console.log("\n── いま作っているもの ──");
   /* 作ったあとの記録。次に別の講座を作る人が、同じ道をたどれるように */
   check(doc.includes("単元の割り付け"), "単元の割り方が書いてある");
   check(doc.includes("解説文は書き下ろし"), "写していないことが書いてある");
-  check(doc.includes("3,500円"), "値段と、その決め方が書いてある");
+  check(doc.includes("4,500円"), "値段と、その決め方が書いてある");
 }
 
 console.log("\n── 石綿の科目（告示の表） ──");
@@ -372,6 +372,35 @@ console.log("\n── 持ち出す ──");
   /* 目録は何にも依存しない。コピーすればそのまま別の仕組みで動く */
   const cat = read("src/content/tokubetsu.ts");
   check(!/^import /m.test(cat), "目録は何も import していない（丸ごと持ち出せる）");
+}
+
+console.log("\n── 業種を、ひとつに寄せない ──");
+{
+  /* 一度、足場屋に寄せて書いてしまった（docs/19 ⑤）。
+     石綿を扱うのは足場屋だけではない。解体・内装・設備・電気・塗装・
+     防水・屋根・外装・ビル保全・工場の設備保全。どの職種も受ける。
+     足場の話ばかり出てくれば、ほかの職種の人は自分の話として聞けない。 */
+  const cur = read("content/courses/ishiwata.json");
+  const n = (cur.match(/足場/g) ?? []).length;
+  check(n === 0, `石綿の教材に「足場」が出てこない（いま ${n}回）`);
+
+  /* 事例の業種が散っていること。1つの業種に偏ると、同じことが起きる */
+  type C = { meta: Record<string, string> };
+  type L = { cases: C[] };
+  const j = JSON.parse(cur) as { subjects: { lessons: L[] }[] };
+  const jobs = j.subjects.flatMap((sub) => sub.lessons.flatMap((l) => l.cases))
+    .map((c) => c.meta["作業"] ?? "");
+  check(jobs.length >= 8, `事例が8件以上ある（${jobs.length}件）`);
+  /* 同じ言葉が事例の半分を超えたら、寄っている */
+  for (const w of ["内装", "屋根", "設備", "外壁", "床"]) {
+    const k = jobs.filter((x) => x.includes(w)).length;
+    check(k <= jobs.length / 2, `「${w}」に寄っていない（${k}/${jobs.length}）`);
+  }
+
+  /* 決まりを docs に残す。次に講座を足す人が、同じ道をたどらないように */
+  const d19 = read("docs/19-教材の章立ての決まり.md");
+  check(d19.includes("「ある業種向け」ではない"), "docs/19 に決まりが書いてある");
+  check(d19.includes("どの業種が含まれるかを先に数える"), "判断の目安が書いてある");
 }
 
 console.log("\n── 書き残し ──");
