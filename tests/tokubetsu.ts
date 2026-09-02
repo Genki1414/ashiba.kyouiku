@@ -78,16 +78,24 @@ console.log("\n── 時間 ──");
 
 console.log("\n── 確かめた行だけ信じる ──");
 {
-  /* 目録の元にした一覧は、65件中11件しか条番号が無く、実際に1件間違っていた。
-     確かめていない時間で修了証を出すと、法定時間に足りない紙になる */
+  /* 目録の元にした一覧は、65件中11件しか条番号が入っていない。
+     確かめていない時間で修了証を出すと、法定時間に足りない紙になる。
+
+     **ここは一度、こちらが間違えた場所。**
+     一覧の「第1種＝4時間」を、よその講習の頁（どこも第2種を売っている）を根拠に
+     5時間30分へ「直した」。あとで告示の条文が出てきて、**一覧のほうが正しかった。**
+     第1種は告示第1条で4時間、第2種は第2条で5時間30分。別の時間。
+     → **よその講習の頁で目録を直さない。条文が出るまで直さない。** */
   const t1 = findTokubetsu("oxygen_deficiency_type1");
-  check(!!t1 && t1.gakkaMin === 330,
-    "第1種酸素欠乏は5時間30分（渡された一覧の4時間は誤り）",
+  check(!!t1 && t1.gakkaMin === 240,
+    "第1種酸素欠乏は4時間（告示第1条。条文で確かめた）",
     t1 ? hoursText(t1.gakkaMin) : "無し");
-  check(!!t1 && trustedHours(t1), "直した行には、確かめた印が付いている");
-  /* 第2種と同じ時間。片方だけ短いのは、写し間違いの形 */
+  check(!!t1 && trustedHours(t1), "確かめた行には、確かめた印が付いている");
+  /* 第1種と第2種は違う時間。同じにするとどちらかが嘘になる */
   const t2 = findTokubetsu("oxygen_deficiency_type2");
-  check(!!t2 && !!t1 && t1.gakkaMin === t2.gakkaMin, "第1種と第2種は同じ学科時間");
+  check(!!t2 && t2.gakkaMin === 330, "第2種酸素欠乏は5時間30分（告示第2条）",
+    t2 ? hoursText(t2.gakkaMin) : "無し");
+  check(!!t2 && !!t1 && t2.gakkaMin > t1.gakkaMin, "第2種のほうが長い（硫化水素が乗るぶん）");
 
   const un = TOKUBETSU.filter((t) => !trustedHours(t));
   check(un.length > 0, "まだ確かめていない行がある（それを隠さない）", `${un.length}件`);
@@ -96,15 +104,25 @@ console.log("\n── 確かめた行だけ信じる ──");
 console.log("\n── 作ってある講座とのつながり ──");
 {
   /* いちばん大事な決まり。
-     講座になっている行は、時間が courses.ts と一致していること。
-     食い違えば、目録か教材のどちらかが嘘をついている */
+     **講座の学科は、つないだ行の法定時間を下回らないこと。**
+     下回れば、法定時間に足りない紙が出る。
+
+     ふつうは一致する。上の資格を1つの講座で兼ねるときだけ、講座のほうが長い。
+     いまは第1種酸素欠乏（4時間）を、第2種の講座（5時間30分）で兼ねている。
+     第2種は第1種を含むので、これで第1種の業務にも就ける。 */
+  const COVERS: Record<string, string> = {
+    oxygen_deficiency_type1: "第2種（5時間30分）は第1種（4時間）を含む",
+  };
   for (const t of TOKUBETSU.filter(isReady)) {
     const c = findCourse(t.courseId!);
     check(!!c, `${t.slug}: つないだ講座が実在する`, t.courseId);
     if (!c) continue;
-    check(c.totalMin === t.gakkaMin,
-      `${t.slug}: 学科の時間が講座と一致する`,
+    check(c.totalMin >= t.gakkaMin,
+      `${t.slug}: 講座の学科が法定時間を下回らない`,
       `目録 ${hoursText(t.gakkaMin)} ／ 講座 ${hoursText(c.totalMin)}`);
+    check(c.totalMin === t.gakkaMin || !!COVERS[t.slug],
+      `${t.slug}: 時間が違うなら、兼ねる理由が書いてある`,
+      COVERS[t.slug] ?? `目録 ${hoursText(t.gakkaMin)} ／ 講座 ${hoursText(c.totalMin)}`);
     /* 確かめていない行を、そのまま講座にしない */
     check(trustedHours(t), `${t.slug}: 講座にした行は確かめてある`);
   }
@@ -365,8 +383,10 @@ console.log("\n── 持ち出す ──");
     "確かめたかどうかも一緒に出す（出した先で誤解されないため）");
   check(rows.filter((r) => r.hours_verified).length === TOKUBETSU.filter(trustedHours).length,
     "確かめた件数が合う");
-  check(rows.find((r) => r.slug === "oxygen_deficiency_type1")?.theory_minutes === 330,
-    "直した時間で出る");
+  check(rows.find((r) => r.slug === "oxygen_deficiency_type1")?.theory_minutes === 240,
+    "第1種は4時間で出る（告示第1条）");
+  check(rows.find((r) => r.slug === "oxygen_deficiency_type2")?.theory_minutes === 330,
+    "第2種は5時間30分で出る（告示第2条）");
   check(rows.find((r) => r.slug === "scaffolding_assembly")?.course_slug === "ashiba",
     "作ってある講座がつながって出る");
   check(rows.every((r) => r.theory_minutes + r.practical_minutes === r.total_minutes),
@@ -431,9 +451,12 @@ console.log("\n── 書き残し ──");
   /* 見つけた間違いは、docs にも残す。コードのコメントだけだと、
      次に一覧をもらったときに同じものを写す */
   const doc = read("docs/24-特別教育の目録.md");
-  check(doc.includes("5時間30分"), "直した時間が書いてある");
-  check(doc.includes("第1種酸素欠乏"), "どの行を直したか書いてある");
+  check(doc.includes("5時間30分"), "確かめた時間が書いてある");
+  check(doc.includes("第1種酸素欠乏"), "どの行を確かめたか書いてある");
   check(doc.includes("規程の条文から"), "条文から取り直す決まりが書いてある");
+  /* こちらが一度、よその講習の頁を根拠に目録を「直して」間違えた。
+     同じことを繰り返さないために、失敗そのものを残す */
+  check(doc.includes("戻した"), "いったん直して戻したことが書いてある");
   /* 実技の要らないものから作る、という順番の理由 */
   check(doc.includes("実技の要らないものが13種類"), "どこから手を付けるかが書いてある");
   /* 探し方と持ち出し方も、コードの外に残す */

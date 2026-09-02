@@ -3,7 +3,7 @@
 --
 -- 中身:
 --   1. マイグレーション 0001_init / 0002_rls / 0003_rules / 0004_auth / 0005_cert / 0006_version / 0007_admin / 0008_tenant / 0009_order / 0010_verify / 0011_course / 0012_member / 0013_keep / 0014_own / 0015_qual / 0016_keep3y / 0017_train / 0018_solo / 0019_view / 0020_sent / 0021_role / 0022_live / 0023_issue / 0024_notice
---   2. lessons（単元の規定時間）96件を投入
+--   2. lessons（単元の規定時間）97件を投入
 --
 -- 何度実行しても壊れないように書いてある（作成済みなら飛ばす）。
 -- 自動生成: npm run build:sql　— 直接編集しないこと
@@ -2873,7 +2873,7 @@ insert into public.courses (id, name, basis, total_min, sort_order) values
   ('harness', '墜落制止用器具のうちフルハーネス型のものを用いて行う作業に係る特別教育', '労働安全衛生法第59条第3項／労働安全衛生規則第36条第41号／安全衛生特別教育規程第24条', 270, 5),
   ('rope', 'ロープ高所作業に係る業務に係る特別教育', '労働安全衛生法第59条第3項／労働安全衛生規則第36条第40号／安全衛生特別教育規程第23条', 240, 6),
   ('funjin', '特定粉じん作業に係る業務に係る特別教育', '労働安全衛生法第59条第3項／労働安全衛生規則第36条第29号／粉じん障害防止規則第22条／粉じん作業特別教育規程', 270, 7),
-  ('sanketsu', '酸素欠乏・硫化水素危険作業に係る業務に係る特別教育', '労働安全衛生法第59条第3項／酸素欠乏症等防止規則第12条／酸素欠乏危険作業特別教育規程', 330, 8)
+  ('sanketsu', '酸素欠乏・硫化水素危険作業に係る業務に係る特別教育', '労働安全衛生法第59条第3項／酸素欠乏症等防止規則第12条／酸素欠乏危険作業特別教育規程第2条', 330, 8)
 on conflict (id) do update
   set name       = excluded.name,
       basis      = excluded.basis,
@@ -2968,18 +2968,19 @@ insert into public.lessons (lesson_id, course_id, subject_id, title, legal_min, 
   ('funjin:4-2', 'funjin', 4, '粉じんによる疾病の病理及び症状', 25, 301),
   ('funjin:4-3', 'funjin', 4, '健康管理の方法', 20, 302),
   ('funjin:5-1', 'funjin', 5, '法、令、安衛則及び粉じん則中の関係条項', 60, 400),
-  ('sanketsu:1-1', 'sanketsu', 1, '酸素欠乏の発生原因', 25, 0),
-  ('sanketsu:1-2', 'sanketsu', 1, '硫化水素の発生原因', 20, 1),
-  ('sanketsu:1-3', 'sanketsu', 1, '酸素欠乏危険場所の種類', 15, 2),
-  ('sanketsu:2-1', 'sanketsu', 2, '酸素欠乏症の症状', 30, 100),
-  ('sanketsu:2-2', 'sanketsu', 2, '硫化水素中毒の症状', 30, 101),
-  ('sanketsu:3-1', 'sanketsu', 3, '空気呼吸器等の種類及び構造', 25, 200),
-  ('sanketsu:3-2', 'sanketsu', 3, '空気呼吸器等の使用の方法及び点検', 35, 201),
-  ('sanketsu:4-1', 'sanketsu', 4, '事故の場合の退避の方法', 25, 300),
-  ('sanketsu:4-2', 'sanketsu', 4, '救急そ生の方法', 35, 301),
+  ('sanketsu:1-1', 'sanketsu', 1, '酸素欠乏の発生の原因', 25, 0),
+  ('sanketsu:1-2', 'sanketsu', 1, '硫化水素の発生の原因', 20, 1),
+  ('sanketsu:1-3', 'sanketsu', 1, '酸素欠乏等の発生しやすい場所', 15, 2),
+  ('sanketsu:2-1', 'sanketsu', 2, '酸素欠乏等による危険性', 30, 100),
+  ('sanketsu:2-2', 'sanketsu', 2, '酸素欠乏症等の主な症状', 30, 101),
+  ('sanketsu:3-1', 'sanketsu', 3, '空気呼吸器、酸素呼吸器、送気マスク及び換気装置の種類', 25, 200),
+  ('sanketsu:3-2', 'sanketsu', 3, '使用方法及び保守点検の方法', 35, 201),
+  ('sanketsu:4-1', 'sanketsu', 4, '退避と、墜落制止用器具等・救出用の設備及び器具の使用方法及び保守点検の方法', 25, 300),
+  ('sanketsu:4-2', 'sanketsu', 4, '人工呼吸の方法', 25, 301),
+  ('sanketsu:4-3', 'sanketsu', 4, '人工そ生器の使用方法', 10, 302),
   ('sanketsu:5-1', 'sanketsu', 5, '酸素及び硫化水素の濃度の測定の方法', 30, 400),
-  ('sanketsu:5-2', 'sanketsu', 5, '換気の方法', 25, 401),
-  ('sanketsu:5-3', 'sanketsu', 5, '作業の方法及び関係法令', 35, 402)
+  ('sanketsu:5-2', 'sanketsu', 5, '換気の方法と作業の進め方', 25, 401),
+  ('sanketsu:5-3', 'sanketsu', 5, '法、令、安衛則及び酸欠則中の関係条項', 35, 402)
 on conflict (lesson_id) do update
   set course_id  = excluded.course_id,
       subject_id = excluded.subject_id,

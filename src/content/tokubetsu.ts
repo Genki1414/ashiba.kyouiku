@@ -492,11 +492,17 @@ export const TOKUBETSU: Tokubetsu[] = [
     no: 44,
     slug: "oxygen_deficiency_type1",
     name: "第1種酸素欠乏危険作業に係る業務",
-    gakkaMin: 330,
+    /* **第1種は4時間**（告示第1条。30分／30分／1時間／1時間／1時間）。
+       渡された一覧は330分（＝第2種の時間）になっていた。条文で確かめて直した。
+
+       一覧は根拠も「安全衛生特別教育規程」と書いていたが、酸欠の告示は別
+       （酸素欠乏危険作業特別教育規程）。
+
+       うちが出しているのは第2種（5時間30分・告示第2条）の講座。
+       **第2種は第1種を含む**ので、第1種の業務にもこの講座で足りる（docs/31）。 */
+    gakkaMin: 240,
     jitsugiMin: 0,
-    /* 一覧は「安全衛生特別教育規程」と書いていたが、酸欠の告示は別（酸素欠乏危険作業特別教育規程）。
-       第2種の講座（sanketsu）は第1種を含むので、同じ講座に当てる（docs/31） */
-    basis: "酸素欠乏症等防止規則第12条／酸素欠乏危険作業特別教育規程",
+    basis: "酸素欠乏症等防止規則第12条／酸素欠乏危険作業特別教育規程第1条",
     src: "sanketsu",
     checked: true,
     courseId: "sanketsu",
@@ -506,9 +512,10 @@ export const TOKUBETSU: Tokubetsu[] = [
     no: 45,
     slug: "oxygen_deficiency_type2",
     name: "第2種酸素欠乏危険作業に係る業務",
+    /* 第2種は5時間30分（告示第2条。1時間／1時間／1時間／1時間／1時間30分）。条文で確認済み */
     gakkaMin: 330,
     jitsugiMin: 0,
-    basis: "酸素欠乏症等防止規則第12条／酸素欠乏危険作業特別教育規程",
+    basis: "酸素欠乏症等防止規則第12条／酸素欠乏危険作業特別教育規程第2条",
     src: "sanketsu",
     checked: true,
     courseId: "sanketsu",
