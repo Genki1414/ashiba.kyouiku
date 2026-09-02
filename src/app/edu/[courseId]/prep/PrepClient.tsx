@@ -238,8 +238,12 @@ function EnrollView({
     }
   };
 
-  /* 修了証に載る氏名と生年月日。マイページで入れたものを見るだけ */
-  const whoOk = !!me?.name && !!me?.birth;
+  /* 修了証に載る氏名と生年月日。マイページで入れたものを見るだけ。
+
+     ログインしていないとき（Supabase 未設定の手元動作）は問わない。
+     users の行が無いので入れようがなく、修了証も出ないため */
+  const needWho = !!me?.userId;
+  const whoOk = !needWho || (!!me?.name && !!me?.birth);
   const allOk = prep.faceRegistered && prep.idDocument && whoOk;
 
   return (
@@ -330,6 +334,7 @@ function EnrollView({
           どの講座でも、どの端末でも同じものが使われる。
           ここに入力欄を置いていたときは、端末を替えるたびに入れ直しになり、
           マイページの値と食い違えば、どちらが修了証に載るのか分からなかった */}
+      {needWho && (
       <div
         className={`mb-2 rounded-xl border bg-panel px-3.5 py-3 ${whoOk ? "border-grn" : "border-org"}`}
         data-testid="prep-who"
@@ -371,6 +376,7 @@ function EnrollView({
           </>
         )}
       </div>
+      )}
 
       <Btn tone="y" dis={!allOk} onClick={onDone} className="mt-1.5" testid="prep-done">
         {allOk ? "受講を開始する" : "登録が完了していません"}

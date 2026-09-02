@@ -1,7 +1,12 @@
 /* フェーズ2のE2E：受講の準備（同意→本人確認）、受講中の照合、修了試験。
    実行手順:
      npm run dev -- -p 3100
-     node tests/e2e-prep-exam.mjs
+     node tests/e2e-prep-exam.mjs                # 足場
+     COURSE=ishiwata node tests/e2e-prep-exam.mjs # 石綿
+
+   **講座を決め打ちにしない。** 決め打ちにしていたので、
+   講座を足しても、その講座が通しで受けられるかは誰も確かめていなかった。
+   単元の番号も教材から読む（講座ごとに違う）。
    カメラは Chromium の偽デバイスに、本物の顔が写った映像を食わせる
    （tests/faces/face.y4m）。作り物の縞模様では顔検出が通らないので、
    ここを偽物のままにすると「本人確認が効いているか」を試験できない。 */
@@ -9,10 +14,15 @@ import { chromium } from "playwright-core";
 import { readFileSync } from "node:fs";
 
 /* 合格経路の検証用：正解表は教材ファイルから作る（サーバは正解を返さないため） */
+const COURSE = process.env.COURSE ?? "ashiba";
+const CUR = JSON.parse(readFileSync(`content/courses/${COURSE}.json`, "utf-8"));
+/* 単元の番号は教材から読む。講座ごとに違う */
+const LESSON_IDS = CUR.subjects.flatMap((s) => s.lessons.map((l) => l.id));
+const FIRST = LESSON_IDS[0];
+
 const answerKey = (() => {
   const map = new Map();
-  const cur = JSON.parse(readFileSync("content/courses/ashiba.json", "utf-8"));
-  for (const s of cur.subjects) for (const l of s.lessons) for (const q of l.quiz) map.set(q.q, q.ok);
+  for (const s of CUR.subjects) for (const l of s.lessons) for (const q of l.quiz) map.set(q.q, q.ok);
   const extra = JSON.parse(readFileSync("content/exam-extra.json", "utf-8"));
   for (const q of extra.questions) map.set(q.q, q.ok);
   return map;
@@ -44,9 +54,9 @@ const dismissNotice = async () => {
   if (await b.count()) { await b.click(); await page.waitForTimeout(200); }
 };
 
-await page.goto(`${BASE}/edu/ashiba/1-1`);
+await page.goto(`${BASE}/edu/${COURSE}/${FIRST}`);
 await dismissNotice();
-await page.waitForURL("**/edu/ashiba/prep?back=1-1");
+await page.waitForURL(`**/edu/${COURSE}/prep?back=${FIRST}`);
 await page.waitForSelector("text=カメラの使用について");
 console.log("OK: 準備前は受講画面に入れず、同意画面へ");
 await page.screenshot({ path: `${SC}/p2-01-consent.png` });
@@ -66,8 +76,11 @@ if (await page.getByTestId("prep-ng").count()) {
   die(`顔を読み取れなかった（${await page.getByTestId("prep-ng").innerText()}）`);
 }
 await page.getByTestId("capture-id").click();
-await page.getByTestId("who-name").fill("試験 太郎");
-await page.getByTestId("who-birth").fill("1990-04-01");
+/* 氏名・生年月日はここでは入れない（マイページの1か所だけ）。
+   ログインしていない手元動作では、そもそも枠が出ない */
+if (await page.getByTestId("who-name").count()) {
+  die("受講の準備の画面に氏名の入力欄が残っている（入り口はマイページだけ）");
+}
 await page.screenshot({ path: `${SC}/p2-02-enroll.png` });
 const feature = await page.evaluate(
   () => JSON.parse(localStorage.getItem("ashiba.prep:local") ?? "{}").faceDescriptor?.length ?? 0,
@@ -77,7 +90,7 @@ console.log("OK: 本物の顔から特徴量128を取り出して端末内に登
 
 // 3) 受講開始 → 受講画面（カメラ窓が出る）
 await page.getByTestId("prep-done").click();
-await page.waitForURL("**/edu/ashiba/1-1");
+await page.waitForURL(`**/edu/${COURSE}/${FIRST}`);
 await page.waitForSelector("text=再生すると、ナレーションが始まります。");
 await page.getByRole("button", { name: "再生する" }).click();
 // 偽カメラに流した本物の顔で照合が回り、「在席を確認」になる
@@ -89,18 +102,27 @@ await page.waitForFunction(() => window.__lessonStore.getState().watchedSec >= 2
 await page.getByRole("button", { name: "一時停止" }).click();
 
 // 4) 修了試験：全単元合格前はロック
-await page.goto(`${BASE}/edu/ashiba/exam`);
+await page.goto(`${BASE}/edu/${COURSE}/exam`);
 await page.waitForSelector("text=まだ受験できません");
 console.log("OK: 全単元合格前は修了試験がロック");
 await page.screenshot({ path: `${SC}/p2-04-exam-locked.png` });
 
 // 5) 全単元を合格済みにして受験 → サーバ採点
-await page.evaluate(() => {
-  const ids = ["1-1","1-2","1-3","1-4","2-1","2-2","2-3","3-1","3-2","3-3","3-4","4-1","4-2"];
-  for (const id of ids) {
-    localStorage.setItem(`ashiba.progress.${id}`, JSON.stringify({ watchedSec: 99999, quizPassedAt: new Date().toISOString() }));
-  }
-});
+await page.evaluate(
+  ({ ids, course }) => {
+    for (const id of ids) {
+      /* 鍵は ashiba.progress.{講座}.{単元}。
+         「ashiba.」はアプリの名前空間で、講座の目印ではない。
+         前はここに講座が入っておらず、書いても効いていなかった
+         （src/lib/progressClient.ts） */
+      localStorage.setItem(
+        `ashiba.progress.${course}.${id}`,
+        JSON.stringify({ watchedSec: 99999, quizPassedAt: new Date().toISOString() }),
+      );
+    }
+  },
+  { ids: LESSON_IDS, course: COURSE },
+);
 await page.reload();
 await page.waitForSelector('[data-testid="exam-start"]', { timeout: 10000 }).catch(() => {});
 if (!(await page.locator('[data-testid="exam-start"]').count())) {
@@ -134,7 +156,7 @@ if (!passed) {
   await page.getByRole("button", { name: "もう一度受験する" }).click();
 }
 else {
-  await page.goto(`${BASE}/edu/ashiba/exam`);
+  await page.goto(`${BASE}/edu/${COURSE}/exam`);
   await page.getByTestId("exam-start").click();
 }
 for (let q = 0; q < 20; q++) {
@@ -152,7 +174,9 @@ console.log("OK: 全問正解で合格（20/20）→ 修了証へ進める");
 await page.screenshot({ path: `${SC}/p2-06b-exam-passed.png` });
 
 // 6) 一覧に準備状態と修了試験カードが出る
-await page.goto(`${BASE}/edu`);
+/* 講座が増えたので /edu は「講座の一覧」になる。
+   受講の準備が出るのは、その講座の単元一覧のほう */
+await page.goto(`${BASE}/edu/${COURSE}`);
 await page.waitForSelector("text=受講の準備（同意・本人確認）");
 await page.waitForSelector("text=登録済み");
 await page.waitForSelector("text=全単元を修了しました。受験できます");

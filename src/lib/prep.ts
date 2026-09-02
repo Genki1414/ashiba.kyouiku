@@ -119,8 +119,13 @@ export function prepDone(p: PrepState): boolean {
 export const whoReady = (me: { name?: string; birth?: string } | null): boolean =>
   !!me?.name?.trim() && !!me?.birth?.trim();
 
-/** 受講に入れるか。端末の準備と、人の登録の両方がそろっていること */
+/** 受講に入れるか。端末の準備と、人の登録の両方がそろっていること。
+
+    ログインしていないとき（Supabase 未設定の手元動作）は、氏名を見ない。
+    サーバに users の行が無いので入れようがないし、
+    そのときは記録も端末の中だけで、修了証も出ない。
+    ここを見ていると、手元で動かした人が受講画面へ一歩も入れなくなる。 */
 export const canStart = (
   p: PrepState,
-  me: { name?: string; birth?: string } | null,
-): boolean => prepDone(p) && (p.skipped || whoReady(me));
+  me: { userId?: string | null; name?: string; birth?: string } | null,
+): boolean => prepDone(p) && (p.skipped || !me?.userId || whoReady(me));
