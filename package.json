@@ -21,6 +21,7 @@
     "build:forklift": "tsx scripts/build-course.ts forklift",
     "build:tailgate": "tsx scripts/build-course.ts tailgate",
     "build:toishi": "tsx scripts/build-course.ts toishi",
+    "build:teiatsu": "tsx scripts/build-course.ts teiatsu",
     "dump:why": "tsx scripts/dump-demo-why.ts",
     "test:score": "tsx tests/score.ts",
     "test:changelog": "tsx tests/changelog.ts",

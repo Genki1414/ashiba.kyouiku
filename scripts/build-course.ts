@@ -20,7 +20,8 @@
      npm run build:kogata     # 小型車両系建設機械（整地等）
      npm run build:forklift   # フォークリフト（1トン未満）
      npm run build:tailgate   # テールゲートリフター
-     npm run build:toishi     # 自由研削用といし */
+     npm run build:toishi     # 自由研削用といし
+     npm run build:teiatsu    # 低圧電気取扱 */
 
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import path from "node:path";
@@ -34,6 +35,9 @@ import {
 import {
   FUNJIN_BASIS, FUNJIN_LESSONS, FUNJIN_NAME, FUNJIN_SUBJECTS, FUNJIN_TOTAL_MIN,
 } from "../src/content/funjin";
+import {
+  TEIATSU_BASIS, TEIATSU_LESSONS, TEIATSU_NAME, TEIATSU_SUBJECTS, TEIATSU_TOTAL_MIN,
+} from "../src/content/teiatsu";
 import {
   TOISHI_BASIS, TOISHI_LESSONS, TOISHI_NAME, TOISHI_SUBJECTS, TOISHI_TOTAL_MIN,
 } from "../src/content/toishi";
@@ -82,6 +86,14 @@ const PLANS: Record<string, Plan> = {
     subjects: FUNJIN_SUBJECTS,
     lessons: FUNJIN_LESSONS,
     totalMin: FUNJIN_TOTAL_MIN,
+  },
+  teiatsu: {
+    id: "teiatsu",
+    name: `${TEIATSU_NAME}（学科）`,
+    basis: TEIATSU_BASIS,
+    subjects: TEIATSU_SUBJECTS,
+    lessons: TEIATSU_LESSONS,
+    totalMin: TEIATSU_TOTAL_MIN,
   },
   toishi: {
     id: "toishi",

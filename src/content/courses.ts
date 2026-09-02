@@ -345,6 +345,31 @@ export const COURSES: CourseMeta[] = [
     menu: "other",
   },
   {
+    /* 低圧電気取扱業務の特別教育。
+
+       ・学科7時間のあと、**実技7時間**が残る（gate: "drill"）。開閉器の操作の業務のみの人は実技1時間。
+         実技は事業者が自社で行う
+       ・科目・範囲・時間は**安全衛生特別教育規程第6条の表のまま**（条文で確認済み。src/content/teiatsu.ts）
+       ・裏取りは docs/35-低圧電気の根拠と裏取り.md
+       ・**電気工事士でも別に要る。**高圧（第5条）・電気自動車（第6条の2）は別
+
+       電気工事、設備の保守、ビル管理、工場の保全、太陽光、空調・給排水、看板・照明、通信、
+       自動車の整備場、農業の施設、食品工場、学校の実習、イベントの電源。**分電盤を開ける仕事ぜんぶ。** */
+    id: "teiatsu",
+    kind: "special",
+    type: "ondemand",
+    gate: "drill",
+    drillMin: 420,
+    name: "低圧電気取扱業務に係る特別教育",
+    short: "低圧電気",
+    basis:
+      "労働安全衛生法第59条第3項／労働安全衛生規則第36条第4号／安全衛生特別教育規程第6条",
+    totalMin: 420,
+    file: "teiatsu.json",
+    ready: true,
+    menu: "other",
+  },
+  {
     id: "kogata",
     kind: "special",
     type: "ondemand",

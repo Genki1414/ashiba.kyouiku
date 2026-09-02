@@ -20,6 +20,14 @@ import {
   FORKLIFT_JITSUGI,
 } from "./forklift";
 import {
+  TEIATSU_DRILL_FORM,
+  TEIATSU_DRILL_PREP,
+  TEIATSU_DRILL_STEPS,
+  TEIATSU_DRILL_TEACHER,
+  TEIATSU_DRILL_TOTAL_MIN,
+  TEIATSU_JITSUGI,
+} from "./teiatsu";
+import {
   TOISHI_DRILL_FORM,
   TOISHI_DRILL_PREP,
   TOISHI_DRILL_STEPS,
@@ -140,6 +148,18 @@ const GUIDES: Record<string, DrillGuide> = {
     prep: KOGATA_DRILL_PREP,
     keepYears: 3,
     form: KOGATA_DRILL_FORM,
+  },
+  teiatsu: {
+    courseId: "teiatsu",
+    subject: TEIATSU_JITSUGI.name,
+    scope: TEIATSU_JITSUGI.scope,
+    legalMin: TEIATSU_JITSUGI.legalMin,
+    steps: TEIATSU_DRILL_STEPS,
+    totalMin: TEIATSU_DRILL_TOTAL_MIN,
+    teacher: TEIATSU_DRILL_TEACHER,
+    prep: TEIATSU_DRILL_PREP,
+    keepYears: 3,
+    form: TEIATSU_DRILL_FORM,
   },
   toishi: {
     courseId: "toishi",
