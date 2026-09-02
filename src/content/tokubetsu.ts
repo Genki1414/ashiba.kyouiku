@@ -327,6 +327,8 @@ export const TOKUBETSU: Tokubetsu[] = [
     basis: "労働安全衛生規則第36条第10号／安全衛生特別教育規程 第12条",
     src: "kitei",
     checked: true,
+    courseId: "roller",
+    doc: "docs/37-ローラーの根拠と裏取り.md",
   },
   {
     no: 24,

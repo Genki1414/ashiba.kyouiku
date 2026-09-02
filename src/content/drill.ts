@@ -20,6 +20,14 @@ import {
   FORKLIFT_JITSUGI,
 } from "./forklift";
 import {
+  ROLLER_DRILL_FORM,
+  ROLLER_DRILL_PREP,
+  ROLLER_DRILL_STEPS,
+  ROLLER_DRILL_TEACHER,
+  ROLLER_DRILL_TOTAL_MIN,
+  ROLLER_JITSUGI,
+} from "./roller";
+import {
   WINCH_DRILL_FORM,
   WINCH_DRILL_PREP,
   WINCH_DRILL_STEPS,
@@ -156,6 +164,18 @@ const GUIDES: Record<string, DrillGuide> = {
     prep: KOGATA_DRILL_PREP,
     keepYears: 3,
     form: KOGATA_DRILL_FORM,
+  },
+  roller: {
+    courseId: "roller",
+    subject: ROLLER_JITSUGI.name,
+    scope: ROLLER_JITSUGI.scope,
+    legalMin: ROLLER_JITSUGI.legalMin,
+    steps: ROLLER_DRILL_STEPS,
+    totalMin: ROLLER_DRILL_TOTAL_MIN,
+    teacher: ROLLER_DRILL_TEACHER,
+    prep: ROLLER_DRILL_PREP,
+    keepYears: 3,
+    form: ROLLER_DRILL_FORM,
   },
   winch: {
     courseId: "winch",

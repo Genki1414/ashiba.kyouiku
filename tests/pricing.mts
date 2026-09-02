@@ -131,6 +131,8 @@ console.log("── 講座ごとの単価 ──");
   check(unitPrice("teiatsu") === 7000, `低圧電気は7,000円（税抜）（${unitPrice("teiatsu")}）`);
   /* 巻上げ機は学科6時間＋実技4時間。フォークリフトと同じ 6,000円 */
   check(unitPrice("winch") === 6000, `巻上げ機は6,000円（税抜）（${unitPrice("winch")}）`);
+  /* ローラーは学科6時間＋実技4時間。フォークリフト・巻上げ機と同じ 6,000円 */
+  check(unitPrice("roller") === 6000, `ローラーは6,000円（税抜）（${unitPrice("roller")}）`);
 
   /* 知らない講座を聞かれても、仮置きの値で答える（0円で配らない） */
   check(unitPrice("nonsense") > 0, "知らない講座でも0円にはしない");

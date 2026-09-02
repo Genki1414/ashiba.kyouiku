@@ -22,7 +22,8 @@
      npm run build:tailgate   # テールゲートリフター
      npm run build:toishi     # 自由研削用といし
      npm run build:teiatsu    # 低圧電気取扱
-     npm run build:winch      # 巻上げ機 */
+     npm run build:winch      # 巻上げ機
+     npm run build:roller     # ローラー */
 
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import path from "node:path";
@@ -36,6 +37,9 @@ import {
 import {
   FUNJIN_BASIS, FUNJIN_LESSONS, FUNJIN_NAME, FUNJIN_SUBJECTS, FUNJIN_TOTAL_MIN,
 } from "../src/content/funjin";
+import {
+  ROLLER_BASIS, ROLLER_LESSONS, ROLLER_NAME, ROLLER_SUBJECTS, ROLLER_TOTAL_MIN,
+} from "../src/content/roller";
 import {
   WINCH_BASIS, WINCH_LESSONS, WINCH_NAME, WINCH_SUBJECTS, WINCH_TOTAL_MIN,
 } from "../src/content/winch";
@@ -90,6 +94,14 @@ const PLANS: Record<string, Plan> = {
     subjects: FUNJIN_SUBJECTS,
     lessons: FUNJIN_LESSONS,
     totalMin: FUNJIN_TOTAL_MIN,
+  },
+  roller: {
+    id: "roller",
+    name: `${ROLLER_NAME}（学科）`,
+    basis: ROLLER_BASIS,
+    subjects: ROLLER_SUBJECTS,
+    lessons: ROLLER_LESSONS,
+    totalMin: ROLLER_TOTAL_MIN,
   },
   winch: {
     id: "winch",

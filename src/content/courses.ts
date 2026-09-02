@@ -395,6 +395,31 @@ export const COURSES: CourseMeta[] = [
     menu: "other",
   },
   {
+    /* ローラーの運転の業務の特別教育。
+
+       ・学科6時間のあと、**実技4時間**が残る（gate: "drill"）。実技は事業者が自社で行う
+       ・科目・範囲・時間は**安全衛生特別教育規程第12条の表のまま**（条文で確認済み。src/content/roller.ts）
+       ・裏取りは docs/37-ローラーの根拠と裏取り.md
+       ・**質量にかかわらず特別教育。**締固め用機械なので技能講習の区分は無い
+       ・**公道の走行は道路交通法（免許）。**安衛則の号が「道路上を走行させる運転を除く」
+
+       道路工事、造成、駐車場、グラウンド、堤防、埋立、農地、林道、産廃処分場、空港、公園。
+       **自治体・農業・林業でも使う。** */
+    id: "roller",
+    kind: "special",
+    type: "ondemand",
+    gate: "drill",
+    drillMin: 240,
+    name: "ローラーの運転の業務に係る特別教育",
+    short: "ローラー",
+    basis:
+      "労働安全衛生法第59条第3項／労働安全衛生規則第36条第10号／安全衛生特別教育規程第12条",
+    totalMin: 360,
+    file: "roller.json",
+    ready: true,
+    menu: "other",
+  },
+  {
     id: "kogata",
     kind: "special",
     type: "ondemand",
