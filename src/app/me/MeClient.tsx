@@ -194,9 +194,14 @@ export function MeClient() {
           </>
         ) : (
           <>
-            <div className="text-[17px] font-black" data-testid="me-shown-name">{st.name || "（氏名未登録）"}</div>
+            <div
+              className={`text-[17px] font-black ${st.name ? "" : "text-org"}`}
+              data-testid="me-shown-name"
+            >
+              {st.name || "（氏名未登録）"}
+            </div>
             <div className="mt-0.5 truncate text-[12px] text-dim2">{st.email}</div>
-            <div className="mt-0.5 text-[12px] text-dim2">
+            <div className={`mt-0.5 text-[12px] ${st.birth ? "text-dim2" : "text-org"}`}>
               生年月日　{st.birth ? day(st.birth) : "未登録"}
             </div>
             <button
@@ -206,8 +211,23 @@ export function MeClient() {
             >
               氏名・生年月日を直す
             </button>
+            {/* ここが唯一の入り口。受講の準備の画面では入力させない
+                （src/lib/prep.ts に理由）。だから「ここだけ」と書いておく */}
             <div className="mt-1 text-[11px] leading-relaxed text-dim2">
-              修了証に載る名前です。間違っていると出し直しになります。
+              {st.name && st.birth ? (
+                <>
+                  修了証に載る名前です。間違っていると出し直しになります。
+                  <br />
+                  <strong className="text-dim">
+                    入れるのはここだけです。
+                  </strong>
+                  どの講座でも、別の端末でも、これが使われます。
+                </>
+              ) : (
+                <strong className="text-org">
+                  これを入れないと受講を始められません。どの講座でも、ここの1回だけです。
+                </strong>
+              )}
             </div>
           </>
         )}

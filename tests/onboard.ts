@@ -169,6 +169,44 @@ console.log("\n── リリース前の確認（/setup）が嘘をつかない�
   }
 }
 
+console.log("\n── 受講者情報の入り口は、マイページだけ ──");
+{
+  /* 前は、受講の準備の画面でも同じものを入力させていた。
+     端末の中に別に持っていたので、
+       ・端末を替えると、また入れ直しになる
+       ・マイページの値と食い違えば、どちらが修了証に載るのか分からない
+       ・実際には、講座の画面から入れた値がマイページを上書きしていた */
+  const prep = code("src/lib/prep.ts");
+  check(!/who\s*[:?]/.test(prep), "端末の記録に氏名・生年月日を持たない");
+  check(prep.includes("whoReady"), "登録済みかを見る手がある");
+  check(prep.includes("canStart"), "端末の準備と、人の登録の両方を見る");
+
+  const ui = code("src/app/edu/[courseId]/prep/PrepClient.tsx");
+  check(!/data-testid={`who-/.test(ui) && !ui.includes('data-testid="who-name"'),
+    "受講の準備の画面に、氏名の入力欄が無い");
+  check(ui.includes('data-testid="prep-who"'), "登録してあるものを見せる枠はある");
+  check(ui.includes('href="/me"'), "未登録ならマイページへ案内する");
+  /* 講座の画面から、マイページの値を書き換えられないこと */
+  check(!/name:\s*p\.who|birth:\s*p\.who/.test(ui), "受講の準備から氏名を送らない");
+
+  const api = code("src/app/api/enrollment/route.ts");
+  check(!api.includes('.from("users")'), "受講の記録の口から users 表を書かない");
+  check(!/\bname\b.*\bbirth\b/.test(api), "受講の記録の口が氏名・生年月日を受け取らない");
+
+  /* 入り口はマイページの1か所 */
+  const mypage = code("src/app/api/mypage/route.ts");
+  check(mypage.includes('.from("users")'), "マイページからは書ける（ここが唯一の入り口）");
+  const me = code("src/app/me/MeClient.tsx");
+  check(me.includes("入れるのはここだけです"), "マイページに「ここだけ」と書いてある");
+
+  /* 受講の側は、サーバから読む */
+  const meApi = code("src/app/api/me/route.ts");
+  check(meApi.includes("whoOf"), "/api/me が氏名と生年月日を返す");
+  check(meApi.includes("birth_date"), "生年月日は users 表から読む");
+  const meLib = code("src/lib/me.ts");
+  check(/birth:\s*string/.test(meLib), "Me に生年月日がある");
+}
+
 console.log("\n── まとめ ──");
 console.log(`${ok} 件通過 / ${ng} 件失敗`);
 if (ng) process.exit(1);

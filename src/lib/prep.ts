@@ -7,15 +7,25 @@ import { getBrowserClient } from "./supabase/browser";
 
    ログインしている人ごとに分けて持つ。
    分けないと、現場のタブレットを次の人に渡したとき、
-   前の人の氏名・生年月日・顔の特徴量がそのまま残り、
-   別人の名前で受講したことになってしまう。 */
+   前の人の顔の特徴量がそのまま残り、
+   別人として受講したことになってしまう。
+
+   ── 氏名と生年月日は、ここに持たない ──
+   前はここに who として持ち、受講の準備の画面で入力させていた。
+   マイページにも同じものがあり、**同じ事実が2か所にあった。**
+
+     ・端末を替えると、また入れ直しになる（localStorage なので）
+     ・マイページの値と食い違ったとき、どちらが修了証に載るのか分からない
+     ・実際には、講座の画面から入れた値がマイページを上書きしていた
+
+   いまは users 表の1か所だけ。入り口はマイページ。
+   受講の準備の画面は、それを**見るだけ**（/api/me が返す name と birth）。 */
 
 export type PrepState = {
   consentedAt: string | null;
   skipped: boolean; // カメラを使わず内容だけ確認（記録は無効）
   faceRegistered: boolean;
   idDocument: boolean;
-  who: { name: string; birth: string; company: string };
   /* 登録した顔の特徴量（128の数）。受講中の照合はこれと比べる。
      端末の中だけに置き、サーバへは送らない */
   faceDescriptor: number[] | null;
@@ -30,7 +40,6 @@ export const emptyPrep: PrepState = {
   skipped: false,
   faceRegistered: false,
   idDocument: false,
-  who: { name: "", birth: "", company: "" },
   faceDescriptor: null,
 };
 
@@ -56,11 +65,9 @@ export function readPrep(uid: string): PrepState {
     const raw = localStorage.getItem(KEY(uid));
     if (!raw) return { ...emptyPrep };
     const v = JSON.parse(raw) as Partial<PrepState>;
-    return {
-      ...emptyPrep,
-      ...v,
-      who: { ...emptyPrep.who, ...(v.who ?? {}) },
-    };
+    /* 古い記録に who が残っていても、そのまま捨てる。
+       氏名と生年月日は users 表の1か所だけを見る */
+    return { ...emptyPrep, ...v };
   } catch {
     return { ...emptyPrep };
   }
@@ -90,7 +97,11 @@ export async function loadPrep(): Promise<PrepState> {
   return readPrep(await prepUid());
 }
 
-/** 受講に入れる状態か（本登録済み or スキップ済み） */
+/** 端末の側の準備が済んでいるか（同意・顔・書類）。
+
+    **氏名と生年月日はここで見ない。** あれは端末ではなく人に付くもので、
+    users 表に入っている（マイページで入れる）。
+    受講に入れるかどうかは、これと合わせて whoReady() も見ること。 */
 export function prepDone(p: PrepState): boolean {
   return (
     p.skipped ||
@@ -99,8 +110,17 @@ export function prepDone(p: PrepState): boolean {
       /* 顔の特徴量が無いと、受講中に本人かどうか比べられない。
          登録し直してもらう（前の作りで登録した人もここに入る） */
       !!p.faceDescriptor?.length &&
-      p.idDocument &&
-      !!p.who.name &&
-      !!p.who.birth)
+      p.idDocument)
   );
 }
+
+/** 修了証に載る氏名と生年月日が、登録してあるか。
+    入り口はマイページだけ（/api/me が返す name と birth） */
+export const whoReady = (me: { name?: string; birth?: string } | null): boolean =>
+  !!me?.name?.trim() && !!me?.birth?.trim();
+
+/** 受講に入れるか。端末の準備と、人の登録の両方がそろっていること */
+export const canStart = (
+  p: PrepState,
+  me: { name?: string; birth?: string } | null,
+): boolean => prepDone(p) && (p.skipped || whoReady(me));

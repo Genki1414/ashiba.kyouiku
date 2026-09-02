@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { loadProgress, type ProgressState } from "@/lib/progressClient";
-import { loadPrep, prepDone, type PrepState } from "@/lib/prep";
+import { canStart, loadPrep, type PrepState } from "@/lib/prep";
+import { loadMe, readMe, type Me } from "@/lib/me";
 import { Bar } from "@/components/ui/Bar";
 import { hm } from "@/components/ui/format";
 import { TALK_MIN } from "@/content/shokucho";
@@ -23,11 +24,18 @@ export function LessonList({
 }) {
   const [prog, setProg] = useState<Record<string, ProgressState>>({});
   const [prep, setPrep] = useState<PrepState | null>(null);
+  /* 修了証に載る氏名と生年月日は、マイページで入れた1か所を見る。
+     受講の準備が済んでいるかは、端末の側（同意・顔・書類）と
+     人の側（氏名・生年月日）の両方がそろって はじめて「済み」 */
+  const [me, setMe] = useState<Me | null>(null);
 
   useEffect(() => {
     /* 準備は人ごとに分けて持っている。誰として使っているかを見てから読む */
     let alive = true;
     void loadPrep().then((p) => { if (alive) setPrep(p); });
+    const kept = readMe();
+    if (kept) setMe(kept);
+    void loadMe().then((fresh) => { if (alive && fresh) setMe(fresh); });
     return () => { alive = false; };
   }, []);
 
@@ -69,29 +77,31 @@ export function LessonList({
           <Link
             href={`/edu/${course.id}/prep`}
             className={`block rounded-xl border bg-panel p-3.5 no-underline ${
-              prepDone(prep) ? (prep.skipped ? "border-org" : "border-grn") : "border-yel"
+              canStart(prep, me) ? (prep.skipped ? "border-org" : "border-grn") : "border-yel"
             }`}
           >
             <div className="flex items-center gap-2">
               <span className="text-[13px] font-extrabold text-txt">受講の準備（同意・本人確認）</span>
               <span
                 className={`ml-auto rounded border px-1.5 py-0.5 text-[11px] ${
-                  prepDone(prep)
+                  canStart(prep, me)
                     ? prep.skipped
                       ? "border-org text-org"
                       : "border-grn text-grn"
                     : "border-yel text-yel"
                 }`}
               >
-                {prepDone(prep) ? (prep.skipped ? "記録は無効（見るだけ）" : "登録済み") : "未登録"}
+                {canStart(prep, me) ? (prep.skipped ? "記録は無効（見るだけ）" : "登録済み") : "未登録"}
               </span>
             </div>
             <div className="mt-1 text-[12px] leading-relaxed text-dim">
-              {prepDone(prep)
+              {canStart(prep, me)
                 ? prep.skipped
                   ? "カメラを使わない閲覧モードです。正式な受講にするにはタップして登録してください。"
-                  : `受講者：${prep.who.name}。受講中はカメラで本人確認を行います。`
-                : "受講を始める前に、カメラの使用への同意と本人確認の登録が必要です。"}
+                  : `受講者：${me?.name ?? ""}。受講中はカメラで本人確認を行います。`
+                : !me?.name || !me?.birth
+                  ? "修了証に載る氏名と生年月日が未登録です。マイページで一度入れれば、ほかの講座でもそのまま使われます。"
+                  : "受講を始める前に、カメラの使用への同意と本人確認の登録が必要です。"}
             </div>
           </Link>
         </div>

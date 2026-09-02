@@ -2,22 +2,29 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase/server";
 import { currentEnrollment } from "@/lib/enrollment";
 
-/* 受講の準備（同意・顔登録・書類・受講者情報）の記録。
-   顔写真そのものは受け取らない。日時と氏名だけ。 */
+/* 受講の準備（同意・顔登録・書類）の記録。日時だけ。
+
+   ── 氏名と生年月日は、ここでは受け取らない ──
+   前は受け取って users 表を書き換えていた。
+   つまり**講座の画面から、マイページの氏名を上書きできた。**
+   受講のたびに入力させる作りだったので、端末を替えるたびに
+   入れ直しになり、入れ直した値がマイページを上書きしていた。
+
+   氏名と生年月日の入り口はマイページの1か所だけ（/api/mypage）。
+   ここは、その事実に触らない。 */
 
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
   if (!body || typeof body !== "object") {
     return NextResponse.json({ error: "不正なリクエストです" }, { status: 400 });
   }
-  const { courseId, consented, faceRegistered, idDocument, name, birth } = body as {
+  const { courseId, consented, faceRegistered, idDocument } = body as {
     courseId?: string;
     consented?: boolean;
     faceRegistered?: boolean;
     idDocument?: boolean;
-    name?: string;
-    birth?: string;
   };
+
 
   const supabase = getServiceClient();
   const who = await currentEnrollment(typeof courseId === "string" ? courseId : "");
@@ -36,18 +43,5 @@ export async function POST(req: NextRequest) {
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  if (typeof name === "string" && name.trim()) {
-    const { data: enr } = await supabase
-      .from("enrollments")
-      .select("user_id")
-      .eq("id", enrollmentId)
-      .single();
-    if (enr) {
-      const userPatch: Record<string, string> = { name: name.trim() };
-      const d = birth ? Date.parse(birth) : NaN;
-      if (!Number.isNaN(d)) userPatch.birth_date = new Date(d).toISOString().slice(0, 10);
-      await supabase.from("users").update(userPatch).eq("id", enr.user_id);
-    }
-  }
   return NextResponse.json({ mode: "supabase" });
 }

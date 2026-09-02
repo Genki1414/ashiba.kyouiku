@@ -21,7 +21,10 @@ const KEY = "ashiba.me";
 
 export type Me = {
   userId: string | null;
+  /** 修了証に載る氏名。入り口はマイページだけ（src/app/api/me/route.ts の whoOf） */
   name: string;
+  /** 生年月日（YYYY-MM-DD）。同じくマイページで入れる */
+  birth: string;
   email: string;
   admin: boolean;
   owner: boolean;
@@ -37,6 +40,7 @@ export type Me = {
 const shape = (j: Record<string, unknown>): Me => ({
   userId: (j.userId as string) ?? null,
   name: (j.name as string) ?? "",
+  birth: (j.birth as string) ?? "",
   email: (j.email as string) ?? "",
   admin: !!j.admin,
   owner: !!j.owner,

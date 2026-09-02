@@ -7,6 +7,7 @@ import { Btn } from "@/components/ui/Btn";
 import { useCamera } from "@/lib/camera";
 import { countFaces, faceDistance, loadFace, readFace, SAME_FACE } from "@/lib/faceModel";
 import { loadPrep, prepUid, readPrep, writePrep, type PrepState } from "@/lib/prep";
+import { loadMe, readMe, type Me } from "@/lib/me";
 
 export function PrepClient({ courseId }: { courseId: string }) {
   const router = useRouter();
@@ -25,6 +26,10 @@ export function PrepClient({ courseId }: { courseId: string }) {
   const [step, setStep] = useState<"consent" | "enroll">("consent");
   /* 準備は人ごとに分けて持つ。誰として使っているかが分かるまで書けない */
   const [uid, setUid] = useState<string | null>(null);
+  /* 氏名と生年月日は**マイページで入れた1か所だけ**を見る。
+     ここでは入力させない。端末を替えるたびに入れ直しになるし、
+     マイページの値と食い違えば、どちらが修了証に載るのか分からなくなる */
+  const [me, setMe] = useState<Me | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -39,6 +44,12 @@ export function PrepClient({ courseId }: { courseId: string }) {
     return () => { alive = false; };
   }, []);
 
+  useEffect(() => {
+    const kept = readMe();
+    if (kept) setMe(kept);
+    void loadMe().then((fresh) => { if (fresh) setMe(fresh); });
+  }, []);
+
   if (!prep || !uid) return null;
 
   const save = (patch: Partial<PrepState>) => {
@@ -49,7 +60,9 @@ export function PrepClient({ courseId }: { courseId: string }) {
   };
 
   const sendEnrollment = (p: PrepState) => {
-    // サーバへは事実（日時・氏名）だけ。顔の特徴量・画像は送らない
+    /* サーバへは**事実（日時）だけ**。顔の特徴量・画像は送らない。
+       氏名と生年月日も送らない。ここから送ると、
+       講座の画面からマイページの値を上書きできてしまう */
     fetch("/api/enrollment", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -58,8 +71,6 @@ export function PrepClient({ courseId }: { courseId: string }) {
         consented: !!p.consentedAt,
         faceRegistered: p.faceRegistered,
         idDocument: p.idDocument,
-        name: p.who.name,
-        birth: p.who.birth,
       }),
     }).catch(() => {});
   };
@@ -87,6 +98,7 @@ export function PrepClient({ courseId }: { courseId: string }) {
       ) : (
         <EnrollView
           prep={prep}
+          me={me}
           save={save}
           onDone={() => {
             sendEnrollment(readPrep(uid));
@@ -156,10 +168,14 @@ function ConsentView({ onNext, onSkip }: { onNext: () => void; onSkip: () => voi
 /* ── 本人確認（顔写真・公的書類・受講者情報） ── */
 function EnrollView({
   prep,
+  me,
   save,
   onDone,
 }: {
   prep: PrepState;
+  /* 修了証に載る氏名と生年月日。マイページで入れたものを渡す。
+     ここで入力させない（src/lib/prep.ts） */
+  me: Me | null;
   save: (p: Partial<PrepState>) => PrepState;
   onDone: () => void;
 }) {
@@ -222,8 +238,8 @@ function EnrollView({
     }
   };
 
-  const who = prep.who;
-  const whoOk = !!who.name && !!who.birth;
+  /* 修了証に載る氏名と生年月日。マイページで入れたものを見るだけ */
+  const whoOk = !!me?.name && !!me?.birth;
   const allOk = prep.faceRegistered && prep.idDocument && whoOk;
 
   return (
@@ -310,32 +326,50 @@ function EnrollView({
         </div>
       ))}
 
-      <div className={`mb-2 rounded-xl border bg-panel px-3.5 py-3 ${whoOk ? "border-grn" : "border-line"}`}>
+      {/* 受講者情報は**ここでは入力させない。** マイページで一度入れれば、
+          どの講座でも、どの端末でも同じものが使われる。
+          ここに入力欄を置いていたときは、端末を替えるたびに入れ直しになり、
+          マイページの値と食い違えば、どちらが修了証に載るのか分からなかった */}
+      <div
+        className={`mb-2 rounded-xl border bg-panel px-3.5 py-3 ${whoOk ? "border-grn" : "border-org"}`}
+        data-testid="prep-who"
+      >
         <div className="mb-1 flex items-center gap-2">
-          <span className={`text-[14px] ${whoOk ? "text-grn" : "text-dim2"}`}>{whoOk ? "✓" : "□"}</span>
+          <span className={`text-[14px] ${whoOk ? "text-grn" : "text-org"}`}>{whoOk ? "✓" : "！"}</span>
           <span className="text-[14px] font-extrabold">受講者情報</span>
         </div>
-        <div className="mb-2 text-[12px] leading-relaxed text-dim">
-          修了証に記載されます。書類のとおりに入力してください。
-        </div>
-        {(
-          [
-            ["name", "氏名", "例：山田 太郎"],
-            ["birth", "生年月日", "例：1990-04-01"],
-            ["company", "事業者名（任意）", "例：〇〇建設工業"],
-          ] as const
-        ).map(([k, lb, ph]) => (
-          <div key={k} className="mb-2">
-            <div className="mb-1 text-[11px] text-dim">{lb}</div>
-            <input
-              value={who[k]}
-              onChange={(e) => save({ who: { ...who, [k]: e.target.value } })}
-              placeholder={ph}
-              data-testid={`who-${k}`}
-              className="w-full rounded-lg border border-line bg-panel2 px-3 py-2.5 text-[14px] text-txt placeholder:text-dim2"
-            />
-          </div>
-        ))}
+        {whoOk ? (
+          <>
+            <div className="text-[16px] font-black text-txt" data-testid="prep-who-name">
+              {me!.name}
+            </div>
+            <div className="mt-0.5 text-[12.5px] text-dim">生年月日　{me!.birth}</div>
+            <div className="mt-1.5 text-[11.5px] leading-relaxed text-dim2">
+              この名前で修了証を出します。違っていれば
+              <Link href="/me" className="text-yel underline">マイページ</Link>
+              で直してください。
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="text-[12.5px] leading-relaxed text-dim">
+              修了証に載る
+              <strong className="text-txt">氏名と生年月日</strong>
+              が、まだ登録されていません。
+              <br />
+              マイページで一度入れれば、
+              <strong className="text-txt">ほかの講座でも、別の端末でも</strong>
+              そのまま使われます。
+            </div>
+            <Link
+              href="/me"
+              className="mt-2 block rounded-lg border border-yel bg-[#1A1F14] px-3 py-2.5 text-center text-[13px] font-bold text-yel no-underline"
+              data-testid="prep-who-go"
+            >
+              マイページで登録する
+            </Link>
+          </>
+        )}
       </div>
 
       <Btn tone="y" dis={!allOk} onClick={onDone} className="mt-1.5" testid="prep-done">

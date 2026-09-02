@@ -30,7 +30,7 @@ export async function GET() {
       ok: true,
       userId: me?.id ?? null,
       email: me?.email ?? null,
-      name: await nameOf(me?.id),
+      ...(await whoOf(me?.id)),
       admin: true,
       owner: !!owner,
       member: "active" as const,
@@ -46,7 +46,7 @@ export async function GET() {
     ok: true,
     userId: me?.id ?? null,
     email: me?.email ?? null,
-    name: await nameOf(me?.id),
+    ...(await whoOf(me?.id)),
     admin: false,
     /* 申し込んだが、まだ許可が下りていない。
        ここを none と一緒にすると、申し込んだ人にも
@@ -62,13 +62,27 @@ export async function GET() {
 }
 
 /** 画面の上に出す氏名。登録のときの仮の名前のままなら、それが出る */
-async function nameOf(userId?: string | null): Promise<string> {
-  if (!userId) return "";
+/* 修了証に載る氏名と生年月日。**マイページで入れた1か所だけを見る。**
+
+   前は、受講の準備の画面でも同じものを入力させていた。
+   端末の中に別に持っていたので、
+     ・端末を替えると、また入れ直しになる
+     ・マイページの値と食い違う。どちらが修了証に載るのか分からない
+   という2つが起きていた。入り口はマイページだけにする。 */
+async function whoOf(userId?: string | null): Promise<{ name: string; birth: string }> {
   const supabase = getServiceClient();
-  if (!supabase) return "";
-  const { data } = await supabase.from("users").select("name").eq("id", userId).maybeSingle();
-  return (data?.name as string) ?? "";
+  if (!supabase || !userId) return { name: "", birth: "" };
+  const { data } = await supabase
+    .from("users")
+    .select("name, birth_date")
+    .eq("id", userId)
+    .maybeSingle();
+  return {
+    name: (data?.name as string) ?? "",
+    birth: (data?.birth_date as string) ?? "",
+  };
 }
+
 
 /** 届いている請求書。Supabase が未設定・ログインが無ければ空 */
 async function billsFor(userId: string | null, companyId: string | null) {
