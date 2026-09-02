@@ -93,8 +93,12 @@ console.log("── 講座ごとの単価 ──");
 
      よその最安（オンライン受講・税込）
        足場 … 8,000円（茨城教育センター）
-       職長 … 17,600円（中小建設業特別教育協会 WEB講習） */
-  const OTHERS: Record<string, number> = { ashiba: 8000, shokucho: 17600 };
+       職長 … 17,600円（中小建設業特別教育協会 WEB講習）
+       石綿 … 7,700円（株式会社斉藤商会 WEB）
+       高所作業車 … 10,500円（オンライン講習の最安。CIC は 11,000円） */
+  const OTHERS: Record<string, number> = {
+    ashiba: 8000, shokucho: 17600, ishiwata: 7700, kousho: 10500,
+  };
   const withTax = (p: number) => p + Math.floor(p * TAX_RATE);
   for (const [id, other] of Object.entries(OTHERS)) {
     const mine = withTax(unitPrice(id));
@@ -106,6 +110,10 @@ console.log("── 講座ごとの単価 ──");
   check(unitPrice("shokucho") === 7000, `職長は7,000円（税抜）（${unitPrice("shokucho")}）`);
   check(withTax(4500) === 4950, "足場の税込は4,950円");
   check(withTax(7000) === 7700, "職長の税込は7,700円");
+  check(unitPrice("ishiwata") === 4500, `石綿は4,500円（税抜）（${unitPrice("ishiwata")}）`);
+  /* 高所作業車は 7,000円。はじめ 4,500円に置いたのを「安すぎる」と決め直した。
+     実技の手引きと実施記録の様式が付く（/edu/kousho/drill） */
+  check(unitPrice("kousho") === 7000, `高所作業車は7,000円（税抜）（${unitPrice("kousho")}）`);
 
   /* 知らない講座を聞かれても、仮置きの値で答える（0円で配らない） */
   check(unitPrice("nonsense") > 0, "知らない講座でも0円にはしない");

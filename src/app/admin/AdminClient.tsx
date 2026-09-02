@@ -8,6 +8,7 @@ import { Btn } from "@/components/ui/Btn";
 import type { PersonRow } from "@/training/roster";
 import { LearnerCard } from "./LearnerCard";
 import { PastRecords } from "./PastRecords";
+import { drillMinOf, findCourse, hoursText } from "@/content/courses";
 
 /* 教育担当者の画面。
 
@@ -224,6 +225,10 @@ export function AdminClient() {
      上に来るのは、担当者がやること（修了証を出す）が残っている人 */
   const rows = st.rows;
 
+  /* 実技のある講座（高所作業車）か。実技はこの会社が行う */
+  const drillCourse = st?.course ? findCourse(st.course.id) : null;
+  const drillMin = drillCourse ? drillMinOf(drillCourse) : 0;
+
   return (
     <main className="pb-10">
       <div className="tape" />
@@ -258,6 +263,23 @@ export function AdminClient() {
           受講コードの残りは「{st.course.short}」のぶんです。
           名簿は、その人が受けている特別教育をまとめて出します。
         </p>
+      )}
+      {/* 実技のある講座（高所作業車）。実技は**この会社が**行う。
+          担当者がここを見ないと、学科を終えた人が止まったままになる */}
+      {st.course && drillMin > 0 && (
+        <Link
+          href={`/edu/${st.course.id}/drill`}
+          data-testid="admin-go-drill"
+          className="mx-5 mb-3 block rounded-xl border border-cyan bg-panel p-3.5 no-underline"
+        >
+          <div className="text-[13px] font-extrabold text-txt">
+            実技{hoursText(drillMin)}は、御社で行います
+          </div>
+          <div className="mt-1 text-[12px] leading-relaxed text-dim">
+            「{st.course.short}」は学科のあとに実技があります。何を何分やるか、誰が行うか、
+            実施記録の様式（印刷できる）はこちら。実技が済むまで、修了証は出ません。
+          </div>
+        </Link>
       )}
 
       <div className="mx-5 grid grid-cols-4 gap-2" data-testid="admin-totals">

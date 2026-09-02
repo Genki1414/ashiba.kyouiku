@@ -159,6 +159,15 @@ export function LessonList({
               実技を事業者で行ってから、修了証の画面で発行申請を出してください。
               そのとき、実技を行った日と行った人を入れていただきます。
             </div>
+            {/* 何を何分やればいいかは、ここに書いてある。
+                会社の人が見る画面なので、受講者から渡せるようにしておく */}
+            <Link
+              href={`/edu/${course.id}/drill`}
+              data-testid="go-drill"
+              className="mt-2 block rounded-lg border border-cyan px-3 py-2 text-center text-[12.5px] font-bold text-cyan no-underline"
+            >
+              実技の手引き（会社の人に渡すもの）
+            </Link>
           </div>
         </div>
       )}

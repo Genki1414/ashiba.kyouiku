@@ -225,7 +225,23 @@ const t8 = await page.getByTestId("issue-panel").textContent();
 check(t8.includes("その場では発行されません"), "押しても発行されないと、先に書いてある");
 check(t8.includes("実技の記録を確かめてから"), "実技の講座の言い方になっている");
 check(await page.getByTestId("cert-issue").count() === 0, "実技が済むまで、発行ボタンを出さない");
+check(await page.getByTestId("issue-go-drill").count() === 1, "実技の手引きへの入口がある");
 await page.screenshot({ path: `${SC}/issue-08-drill.png` });
+
+/* 実技の手引き。会社の人が見る画面なので、ログイン無しで開けること */
+await page.goto(`${BASE}/edu/kousho/drill`);
+await dismissNotice();
+await page.getByTestId("drill-guide").waitFor({ timeout: 6000 }).catch(() => check(false, "手引きが開く"));
+check((await page.getByTestId("drill-step").count()) >= 6, "3時間の割り振りが並ぶ");
+check(await page.getByTestId("drill-form").count() === 1, "実施記録の様式がある");
+check(await page.getByTestId("drill-print").count() === 1, "印刷ボタンがある");
+const t8b = await page.getByTestId("drill-guide").textContent();
+check(t8b.includes("計 180分"), "合計が3時間になっている");
+check(t8b.includes("うちの案"), "案であって告示ではないと書いてある");
+await page.screenshot({ path: `${SC}/issue-08b-drill-guide.png`, fullPage: true });
+/* 実技の無い講座では出ない */
+const r404 = await page.goto(`${BASE}/edu/ashiba/drill`);
+check(r404 && r404.status() === 404, "学科だけの講座には手引きが無い（404）");
 
 /* 日と名前を入れずに押したら、サーバが断ること。
    ここは本物の /api/issue に当てる（POST だけ素通しにしてある）。

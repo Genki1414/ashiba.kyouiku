@@ -53,7 +53,7 @@ export function UpdateNotice() {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex flex-col bg-[#0C1015ee] p-4"
+      className="fixed inset-0 z-50 flex flex-col bg-[#0C1015ee] p-4 print:hidden"
       data-testid="update-notice"
     >
       <div className="mx-auto flex max-h-full w-full max-w-md flex-col overflow-hidden rounded-xl border border-yel bg-panel">

@@ -219,6 +219,15 @@ export function IssuePanel({
         <div className="mt-3 grid gap-3">
           {gate === "drill" && (
             <>
+              <a
+                href={`/edu/${courseId}/drill`}
+                data-testid="issue-go-drill"
+                className="block rounded-lg border border-line bg-panel2 px-3.5 py-2.5 text-[12.5px] leading-relaxed no-underline"
+              >
+                実技をまだ行っていなければ、先に
+                <span className="font-bold text-cyan">実技の手引き</span>
+                を会社の人に渡してください。何を何分やるか、記録の様式が入っています。
+              </a>
               <label className="block">
                 <span className="mb-1 block text-[11.5px] text-dim">実技を行った日</span>
                 <input

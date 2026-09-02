@@ -18,6 +18,8 @@ import {
 import { eligible } from "../src/lib/cert";
 import { COURSES, drillMinOf, gateOf, needsRequest, findCourse } from "../src/content/courses";
 import { readFileSync } from "node:fs";
+import { DRILL_GUIDE_IDS, drillGuideOf } from "../src/content/drill";
+import { KOUSHO_JITSUGI } from "../src/content/kousho";
 
 let ok = 0;
 let ng = 0;
@@ -226,6 +228,60 @@ console.log("\n── 実技の残る講座（高所作業車）──");
   /* 本部が確かめられること。見えなければ通してよいか分からない */
   const owner = code("src/app/owner/IssueClient.tsx");
   check(owner.includes("drillOn") && owner.includes("drillBy"), "本部の一覧に実技の日と人が出る");
+}
+
+console.log("\n── 実技の手引き ──");
+{
+  /* 「実技をやってください」だけでは、何を何分やればいいか分からない。
+     実技のある講座には、手引きが必ず付いていること */
+  for (const c of COURSES.filter((x) => gateOf(x) === "drill")) {
+    check(!!drillGuideOf(c.id), `${c.id}: 実技の手引きがある`);
+  }
+  for (const id of DRILL_GUIDE_IDS) {
+    const c = findCourse(id);
+    check(!!c && gateOf(c) === "drill", `${id}: 手引きは実技のある講座にだけ付く`);
+  }
+  check(drillGuideOf("ashiba") === null, "学科だけの講座に手引きは無い");
+
+  const g = drillGuideOf("kousho")!;
+  /* **法定は「あわせて3時間」。割り振りの合計がそれを下回ってはいけない** */
+  check(g.legalMin === 180, "高所作業車の実技は180分", `${g.legalMin}`);
+  check(g.totalMin === g.legalMin, "割り振りの合計が法定と同じ", `${g.totalMin}`);
+  check(g.legalMin === drillMinOf(findCourse("kousho")!), "courses.ts の drillMin と同じ");
+  /* 告示の範囲（中欄）に、段取りが1つも当たっていない、が無いこと */
+  for (const sc of KOUSHO_JITSUGI.scope) {
+    check(g.steps.some((s) => s.scope === sc), `範囲「${sc}」に段取りがある`);
+  }
+  check(g.steps.every((s) => KOUSHO_JITSUGI.scope.includes(s.scope)), "告示に無い範囲を指していない");
+  check(g.steps.every((s) => s.min > 0 && s.items.length >= 3), "段取りごとに中身がある");
+  check(new Set(g.steps.map((s) => s.no)).size === g.steps.length, "番号が重なっていない");
+  /* 学科と結びつける先が、実在する単元であること */
+  const cur = JSON.parse(readFileSync(new URL("../content/courses/kousho.json", import.meta.url), "utf8"));
+  const ids = new Set<string>(cur.subjects.flatMap((s: { lessons: { id: string }[] }) => s.lessons.map((l) => l.id)));
+  for (const s of g.steps) for (const l of s.gakka) check(ids.has(l), `${s.no}: 学科 ${l} は実在する`);
+  /* 非常停止と緊急降下を、全員が自分の手で操作する段があること。
+     ここを見学で済ませると、慌てた場面で探すことになる */
+  check(g.steps.some((s) => s.items.join("").includes("緊急降下")), "緊急降下装置を実際に操作する");
+  check(g.teacher.rule.includes("資格の定めはありません"), "講師の資格が法令に無いことを正直に書く");
+  check(g.teacher.who.length >= 2 && g.teacher.not.length >= 1, "誰がやるか・やらないかの両方がある");
+  check(g.keepYears === 3, "記録は3年保存（安衛則38条）");
+
+  /* 画面。受講者・本部・会社の担当者、三方から辿れること。
+     辿れない画面は、作っていないのと同じ */
+  const read = (p: string) => readFileSync(new URL(`../${p}`, import.meta.url), "utf8");
+  const code = (p: string) =>
+    read(p).replace(/\/\*[\s\S]*?\*\//g, " ").replace(/^\s*\/\/.*$/gm, " ");
+  const page = code("src/app/edu/[courseId]/drill/page.tsx");
+  check(page.includes("notFound()") && page.includes("drillGuideOf"), "実技の無い講座では出さない（404）");
+  const view = code("src/app/edu/[courseId]/drill/DrillGuideView.tsx");
+  check(view.includes('data-testid="drill-form"'), "実施記録の様式がある");
+  check(view.includes("window.print()"), "印刷できる");
+  check(view.includes("うちの案") && view.includes("告示ではありません"), "割り振りは案であって告示ではないと書く");
+  check(view.includes("下回らないこと"), "合計を下回らないことだけ守れと書く");
+  check(view.includes("第38条"), "記録の根拠を書く");
+  check(code("src/app/edu/[courseId]/LessonList.tsx").includes('data-testid="go-drill"'), "受講者の一覧から辿れる");
+  check(code("src/components/edu/IssuePanel.tsx").includes('data-testid="issue-go-drill"'), "発行申請の口から辿れる");
+  check(code("src/app/admin/AdminClient.tsx").includes('data-testid="admin-go-drill"'), "教育担当者の画面から辿れる");
 }
 
 console.log("\n── まとめ ──");
