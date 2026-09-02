@@ -230,7 +230,7 @@ await page.screenshot({ path: `${SC}/issue-08-drill.png` });
 
 /* 実技の手引き。会社の人が見る画面なので、ログイン無しで開けること。
    **実技のある講座は増える。決め打ちにせず、全部を回す。** */
-for (const [id, mins] of [["kousho", 180], ["harness", 90], ["rope", 180]]) {
+for (const [id, mins] of [["kousho", 180], ["harness", 90], ["rope", 180], ["kogata", 360]]) {
   await page.goto(`${BASE}/edu/${id}/drill`);
   await dismissNotice();
   await page.getByTestId("drill-guide").waitFor({ timeout: 6000 })
@@ -255,6 +255,11 @@ for (const [id, mins] of [["kousho", 180], ["harness", 90], ["rope", 180]]) {
   } else if (id === "rope") {
     check(form.includes("ライフライン") && form.includes("支持物"), "ロープの様式にライフラインと支持物の欄がある");
     check(!form.includes("作業床の高さ"), "ロープの様式に「作業床の高さ」が無い");
+  } else if (id === "kogata") {
+    /* 3トン未満かどうかが、この講座のいちばんの分かれ目。様式にも残す */
+    check(form.includes("機体重量") && form.includes("3トン未満"), "小型車両系の様式に機体重量と3トン未満の但し書きがある");
+    check(form.includes("走行のコース"), "小型車両系の様式に走行のコースの欄がある");
+    check(!form.includes("作業床の高さ"), "小型車両系の様式に「作業床の高さ」が無い");
   } else {
     check(form.includes("作業床の高さ"), "高所作業車の様式に作業床の高さがある");
   }

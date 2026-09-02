@@ -12,6 +12,14 @@
    ここは、講座の id から手引きを引くだけ。 */
 
 import {
+  KOGATA_DRILL_FORM,
+  KOGATA_DRILL_PREP,
+  KOGATA_DRILL_STEPS,
+  KOGATA_DRILL_TEACHER,
+  KOGATA_DRILL_TOTAL_MIN,
+  KOGATA_JITSUGI,
+} from "./kogata";
+import {
   ROPE_DRILL_FORM,
   ROPE_DRILL_PREP,
   ROPE_DRILL_STEPS,
@@ -84,6 +92,18 @@ const GUIDES: Record<string, DrillGuide> = {
     prep: HARNESS_DRILL_PREP,
     keepYears: 3,
     form: HARNESS_DRILL_FORM,
+  },
+  kogata: {
+    courseId: "kogata",
+    subject: KOGATA_JITSUGI.name,
+    scope: KOGATA_JITSUGI.scope,
+    legalMin: KOGATA_JITSUGI.legalMin,
+    steps: KOGATA_DRILL_STEPS,
+    totalMin: KOGATA_DRILL_TOTAL_MIN,
+    teacher: KOGATA_DRILL_TEACHER,
+    prep: KOGATA_DRILL_PREP,
+    keepYears: 3,
+    form: KOGATA_DRILL_FORM,
   },
   kousho: {
     courseId: "kousho",

@@ -138,8 +138,10 @@ export function DrillGuideView({
                 別の講座で関係のない欄（機械の型式など）が空のまま紙に残る */}
             {guide.form.map((row) => (
               <tr key={row.k}>
-                <th className="w-[110px] border border-black bg-neutral-100 px-2 py-1.5 text-left font-bold">{row.k}</th>
-                <td className="border border-black px-2 py-1.5">{row.v}</td>
+                <th className="w-[110px] border border-black bg-neutral-100 px-2 py-1.5 text-left font-bold">{bold(row.k)}</th>
+                {/* 記入欄の但し書きにも太字の印が入る（「**3トン未満であること**」など）。
+                    素通しにすると、印がそのまま紙に刷られる */}
+                <td className="border border-black px-2 py-1.5">{bold(row.v)}</td>
               </tr>
             ))}
           </tbody>

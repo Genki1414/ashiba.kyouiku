@@ -119,6 +119,8 @@ console.log("── 講座ごとの単価 ──");
   check(unitPrice("funjin") === 4500, `粉じんは4,500円（税抜）（${unitPrice("funjin")}）`);
   /* 酸欠は学科5時間30分。石綿・粉じんより1時間長いぶん上げて 5,500円。よそは 9,515円 */
   check(unitPrice("sanketsu") === 5500, `酸欠は5,500円（税抜）（${unitPrice("sanketsu")}）`);
+  /* 小型車両系は学科7時間＋実技6時間。実技の手引きが付くので高所作業車と同じ 7,000円 */
+  check(unitPrice("kogata") === 7000, `小型車両系は7,000円（税抜）（${unitPrice("kogata")}）`);
 
   /* 知らない講座を聞かれても、仮置きの値で答える（0円で配らない） */
   check(unitPrice("nonsense") > 0, "知らない講座でも0円にはしない");
