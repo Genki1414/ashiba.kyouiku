@@ -11,7 +11,7 @@ import {
   type CourseMeta,
 } from "@/content/courses";
 import { loadedCourses } from "@/lib/curriculum";
-import { OtherCourses } from "./OtherCourses";
+import { OtherCourses } from "@/components/OtherCourses";
 import { TOKUBETSU, isReady } from "@/content/tokubetsu";
 
 export const dynamic = "force-dynamic";

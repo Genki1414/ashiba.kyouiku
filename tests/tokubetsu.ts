@@ -23,6 +23,12 @@ import {
   trustedHours,
 } from "../src/content/tokubetsu";
 import { COURSES, findCourse, hoursText } from "../src/content/courses";
+import {
+  ISHIWATA_BASIS,
+  ISHIWATA_NAME,
+  ISHIWATA_SUBJECTS,
+  ISHIWATA_TOTAL_MIN,
+} from "../src/content/ishiwata";
 
 let ok = 0;
 let ng = 0;
@@ -148,16 +154,43 @@ console.log("\n── いま作っているもの ──");
     "学科4時間30分、実技なし");
   check(!!ishi && trustedHours(ishi), "合計は確かめてある");
 
-  const ui = code("src/app/edu/OtherCourses.tsx");
+  const ui = code("src/components/OtherCourses.tsx");
   check(ui.includes("いま作っています"), "受ける人にも、作っていることを出す");
   check(ui.includes("isBuilding"), "作っているものを先頭に出す");
 
-  /* まだ決まっていないことを、決まったふりで書かない */
   const doc = read("docs/25-石綿の根拠と裏取り.md");
-  check(doc.includes("まだ確かめていないこと"), "残っていることが書いてある");
-  check(doc.includes("科目ごとの時間の割り振り"), "何が残っているかまで書いてある");
   check(doc.includes("第27条第1項"), "直した根拠が書いてある");
   check(doc.includes("成形板"), "例をどう選ぶかが書いてある");
+  check(doc.includes("時間以上"), "告示が「時間以上」であることが書いてある");
+  check(doc.includes("保護具は1時間"), "食い違っていた所と、決まった値が書いてある");
+}
+
+console.log("\n── 石綿の科目（告示の表） ──");
+{
+  /* 告示の下欄。**単元ごとの視聴時間の関門**になる数字。
+     web の資料は保護具が 0.5時間 と 1時間 で食い違っていた。
+     合計だけ合わせて進めると、その科目だけ法定の半分で先へ進める */
+  check(ISHIWATA_SUBJECTS.length === 5, `5科目（${ISHIWATA_SUBJECTS.length}）`);
+  check(ISHIWATA_TOTAL_MIN === 270, `合計4時間30分（${ISHIWATA_TOTAL_MIN}分）`);
+  const min = ISHIWATA_SUBJECTS.map((x) => x.legalMin).join("／");
+  check(min === "30／60／60／60／60", "告示の割り振りどおり", min);
+  const hogo = ISHIWATA_SUBJECTS.find((x) => x.name === "保護具の使用方法");
+  check(!!hogo && hogo.legalMin === 60, "保護具は1時間（0.5時間ではない）", `${hogo?.legalMin}分`);
+
+  /* 科目名は告示のまま。言い換えると突き合わせられなくなる */
+  const names = ISHIWATA_SUBJECTS.map((x) => x.name);
+  check(names[0] === "石綿の有害性" && names[4] === "その他石綿等のばく露の防止に関し必要な事項",
+    "科目名は告示のまま", names.join("／"));
+  check(ISHIWATA_SUBJECTS.every((x) => x.scope.length >= 1), "範囲（中欄）も入っている");
+  check(ISHIWATA_SUBJECTS.every((x) => x.legalMin > 0 && x.legalMin % 30 === 0), "時間は30分刻み");
+  check(ISHIWATA_SUBJECTS.map((x) => x.id).join() === "1,2,3,4,5", "番号が通っている");
+
+  /* 目録・出どころと食い違わないこと。食い違えば、どれかが嘘 */
+  const ishi2 = findTokubetsu("asbestos_demolition")!;
+  check(ishi2.gakkaMin === ISHIWATA_TOTAL_MIN, "目録の時間と一致する");
+  check(ishi2.name === ISHIWATA_NAME, "目録の名前と一致する");
+  check(ishi2.basis.includes("第36条第37号") && ISHIWATA_BASIS.includes("第36条第37号"),
+    "根拠が一致する");
 }
 
 console.log("\n── 出典 ──");
@@ -250,21 +283,37 @@ console.log("\n── 探す ──");
     "別名の宛先が全部ある",
     Object.keys(ALIAS).filter((k) => !TOKUBETSU.some((t) => t.slug === k)).join("／"));
   check(Object.keys(ALIAS).length >= 60, `ほとんどの行に別名がある（${Object.keys(ALIAS).length}件）`);
-  const ui = code("src/app/edu/OtherCourses.tsx");
+  const ui = code("src/components/OtherCourses.tsx");
   check(!ui.includes("ALIAS"), "別名を画面に出していない（探すためだけ）");
 }
 
 console.log("\n── その他特別教育に出す ──");
 {
+  /* **ホームに出ていること。** はじめ講座の一覧（/edu）だけに置いたが、
+     ホームの札は各講座へ直接飛ぶので、一覧に辿り着く道がどこにも無かった。
+     置いたのに、誰にも見えていなかった */
+  const home = code("src/app/page.tsx");
+  check(home.includes("<OtherTokubetsu"), "ホームに出している");
+  const links = read("src/app/page.tsx");
+  check(!/href="\/edu"/.test(links), "ホームから講座の一覧へは飛ばない（札が直接飛ぶ）");
+  /* 教育の札のすぐ下。実務トレーニングより上に置く（種類が違う） */
+  check(home.indexOf("<OtherTokubetsu") < home.indexOf('href="/training"'),
+    "実務トレーニングより上に出す");
+
+  const sec = code("src/components/OtherTokubetsu.tsx");
+  check(sec.includes("<details"), "開け閉めは details（JS が動かなくても開く）");
+  check(sec.includes("その他特別教育"), "見出しが「その他特別教育」");
+  check(sec.includes("<OtherCourses"), "中身は目録");
+
   const page = code("src/app/edu/page.tsx");
-  check(page.includes("<OtherCourses"), "その他特別教育の中に出している");
+  check(page.includes("<OtherCourses"), "講座の一覧にも出している");
   /* 開く前は出さない。64件がいきなり並ぶと、足場を受けに来た人が迷う */
   check(page.indexOf("<OtherCourses") > page.indexOf("course-other-open"),
     "開いてから出す");
   check(page.includes("TOKUBETSU.filter((t) => !isReady(t)).length"),
     "件数に、まだ作っていないものを数える");
 
-  const ui = code("src/app/edu/OtherCourses.tsx");
+  const ui = code("src/components/OtherCourses.tsx");
   check(ui.includes("!isReady(t)"), "もう受けられるものは、ここに二重に出さない");
   /* 受けられるように見せない。押せる札にすると、押した先が無い */
   check(!ui.includes("<Link") && !ui.includes("href={`/edu/"), "作っていないものを押せる札にしない");

@@ -5,6 +5,7 @@ import { AccountBar } from "@/components/AccountBar";
 import { HomeCards } from "@/components/HomeCards";
 import { FirstSteps } from "@/components/FirstSteps";
 import { Notices } from "@/components/Notices";
+import { OtherTokubetsu } from "@/components/OtherTokubetsu";
 
 /* ここはサーバ側で誰かを見ていない（立場ごとの出し分けは HomeCards が
    あとから聞きに行く）。作り置きにしておけば、開いた瞬間に出る */
@@ -63,6 +64,13 @@ export default async function Home() {
             </div>
           </Link>
         ))}
+
+        {/* 法令で決まっている特別教育の目録。教育の札のすぐ下に置く。
+
+            前は講座の一覧（/edu）にだけ置いていたが、**ホームの札は
+            各講座へ直接飛ぶ**ので、一覧に辿り着く道がどこにも無かった。
+            置いたのに誰にも見えていなかった。人が見ているのはホーム。 */}
+        <OtherTokubetsu />
 
         <Link
           href="/training"
