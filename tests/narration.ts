@@ -4,7 +4,7 @@
    50分のあいだ字幕を1行ずつ見ているだけ、というのが直したかったこと。
    どの図解を出すかを間違えると、話と絵が食い違って、かえって邪魔になる。 */
 
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { figureAt, hitRow, hitTerm } from "@/components/edu/NarrationFigure";
 import { CurriculumSchema } from "@/types/curriculum";
 import type { Figure } from "@/types/curriculum";
@@ -72,10 +72,16 @@ console.log("── 言い換えでも当てる ──");
 }
 
 console.log("── 本物の教材で通す ──");
-{
+/* 足場だけ見ていたが、講座は増える。**全部の講座**で、
+   どの単元にも光る行があることを見張る。新しい講座を足したとき、
+   図解の項目名を台本で一度も言っていない単元があれば、ここで気づく */
+for (const file of readdirSync(new URL("../content/courses/", import.meta.url)).filter((f) => f.endsWith(".json")).sort()) {
   const cur = CurriculumSchema.parse(
-    JSON.parse(readFileSync(new URL("../content/courses/ashiba.json", import.meta.url), "utf8")),
+    JSON.parse(readFileSync(new URL(`../content/courses/${file}`, import.meta.url), "utf8")),
   );
+  const id = file.replace(".json", "");
+  let litAll = 0;
+  let linesAll = 0;
   for (const s of cur.subjects) {
     for (const l of s.lessons) {
       if (!l.figures.length) continue;
@@ -87,8 +93,8 @@ console.log("── 本物の教材で通す ──");
         if (n === null || n < 0 || n >= l.figures.length) okAll = false;
         if (n === l.figures.length - 1) sawLast = true;
       }
-      check(okAll, `${l.id}：どの行でも、ある図解に決まる`);
-      check(sawLast, `${l.id}：最後の図解まで出番がある`);
+      check(okAll, `${id} ${l.id}：どの行でも、ある図解に決まる`);
+      check(sawLast, `${id} ${l.id}：最後の図解まで出番がある`);
 
       /* どの単元でも、光る行がある。
          「この単元だけ一度も光らない」を作らないための見張り */
@@ -104,9 +110,14 @@ console.log("── 本物の教材で通す ──");
             : []);
         if (hitRow(rs, l.script[i]) !== null) lit++;
       }
-      check(lit > 0, `${l.id}：光る行がある（${lit}/${l.script.length}）`);
+      check(lit > 0, `${id} ${l.id}：光る行がある（${lit}/${l.script.length}）`);
+      litAll += lit;
+      linesAll += l.script.length;
     }
   }
+  /* 講座ぜんたいで1割は光ること。足場（元祖）が12%。それより下なら
+     図解の項目名と台本の言い方が離れている */
+  check(litAll * 10 >= linesAll, `${id}：講座ぜんたいで1割以上光る（${Math.round((100 * litAll) / linesAll)}%）`);
 }
 
 console.log("── 読んでいるところを光らせる ──");
