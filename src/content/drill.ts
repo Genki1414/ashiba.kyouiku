@@ -20,6 +20,14 @@ import {
   FORKLIFT_JITSUGI,
 } from "./forklift";
 import {
+  CHAINSAW_DRILL_FORM,
+  CHAINSAW_DRILL_PREP,
+  CHAINSAW_DRILL_STEPS,
+  CHAINSAW_DRILL_TEACHER,
+  CHAINSAW_DRILL_TOTAL_MIN,
+  CHAINSAW_JITSUGI,
+} from "./chainsaw";
+import {
   ROLLER_DRILL_FORM,
   ROLLER_DRILL_PREP,
   ROLLER_DRILL_STEPS,
@@ -164,6 +172,18 @@ const GUIDES: Record<string, DrillGuide> = {
     prep: KOGATA_DRILL_PREP,
     keepYears: 3,
     form: KOGATA_DRILL_FORM,
+  },
+  chainsaw: {
+    courseId: "chainsaw",
+    subject: CHAINSAW_JITSUGI.name,
+    scope: CHAINSAW_JITSUGI.scope,
+    legalMin: CHAINSAW_JITSUGI.legalMin,
+    steps: CHAINSAW_DRILL_STEPS,
+    totalMin: CHAINSAW_DRILL_TOTAL_MIN,
+    teacher: CHAINSAW_DRILL_TEACHER,
+    prep: CHAINSAW_DRILL_PREP,
+    keepYears: 3,
+    form: CHAINSAW_DRILL_FORM,
   },
   roller: {
     courseId: "roller",

@@ -263,6 +263,8 @@ export const TOKUBETSU: Tokubetsu[] = [
     basis: "労働安全衛生規則第36条第8号／安全衛生特別教育規程 第10条",
     src: "kitei",
     checked: true,
+    courseId: "chainsaw",
+    doc: "docs/38-チェーンソーの根拠と裏取り.md",
   },
   /* 合計（学科7時間＋実技6時間）は確かめた。**科目ごとの時間はまだ**（docs/29）。
      確かめるまで単元を書かない。高所作業車で逆に思い込んでいたのと同じ危険 */

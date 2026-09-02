@@ -126,6 +126,13 @@ export function parseUnitPrice(raw: string | undefined): number {
         学科6時間はフォークリフト・巻上げ機と同じ長さ。実技の手引きと実施記録の様式が付く
         （/edu/roller/drill）。フォークリフト・巻上げ機と同じ 6,000円に置いた。
 
+      チェーンソー（学科9時間＋実技9時間。ここで出すのは学科だけ）
+        **よその値段はまだ調べていない**（docs/38）。
+        → ここ 8,000円（税抜）＝ 8,800円（税込）
+        **学科9時間はうちでいちばん長い**（低圧電気の7時間より2時間長い）。
+        実技9時間の手引きと実施記録の様式が付く（/edu/chainsaw/drill）。
+        職長（14時間・討議つき）の 7,000円より高いのは、学科の長さと事例27件の量による。
+
       職長・安全衛生責任者教育（14時間・討議つき）
         中小建設業特別教育協会 WEB講習  17,600円
           （動画12時間18分＋Zoom討議2時間30分。うちと同じ作り）
@@ -152,6 +159,7 @@ export const DEFAULT_COURSE_PRICE: Record<string, number> = {
   teiatsu: 7000,
   winch: 6000,
   roller: 6000,
+  chainsaw: 8000,
 };
 
 /** 講座の目印から環境変数の名前を作る。ashiba → SEAT_UNIT_PRICE_ASHIBA */
