@@ -20,6 +20,14 @@ import {
   FORKLIFT_JITSUGI,
 } from "./forklift";
 import {
+  KOUATSU_DRILL_FORM,
+  KOUATSU_DRILL_PREP,
+  KOUATSU_DRILL_STEPS,
+  KOUATSU_DRILL_TEACHER,
+  KOUATSU_DRILL_TOTAL_MIN,
+  KOUATSU_JITSUGI,
+} from "./kouatsu";
+import {
   FUSEICHI_DRILL_FORM,
   FUSEICHI_DRILL_PREP,
   FUSEICHI_DRILL_STEPS,
@@ -204,6 +212,18 @@ const GUIDES: Record<string, DrillGuide> = {
     prep: KOGATA_DRILL_PREP,
     keepYears: 3,
     form: KOGATA_DRILL_FORM,
+  },
+  kouatsu: {
+    courseId: "kouatsu",
+    subject: KOUATSU_JITSUGI.name,
+    scope: KOUATSU_JITSUGI.scope,
+    legalMin: KOUATSU_JITSUGI.legalMin,
+    steps: KOUATSU_DRILL_STEPS,
+    totalMin: KOUATSU_DRILL_TOTAL_MIN,
+    teacher: KOUATSU_DRILL_TEACHER,
+    prep: KOUATSU_DRILL_PREP,
+    keepYears: 3,
+    form: KOUATSU_DRILL_FORM,
   },
   fuseichi: {
     courseId: "fuseichi",

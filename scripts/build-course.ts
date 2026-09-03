@@ -28,7 +28,8 @@
      npm run build:arc        # アーク溶接
      npm run build:kikaitoishi # 機械研削用といし
      npm run build:shovel     # ショベルローダー等（1トン未満）
-     npm run build:fuseichi   # 不整地運搬車（1トン未満） */
+     npm run build:fuseichi   # 不整地運搬車（1トン未満）
+     npm run build:kouatsu    # 高圧・特別高圧電気取扱 */
 
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import path from "node:path";
@@ -42,6 +43,9 @@ import {
 import {
   FUNJIN_BASIS, FUNJIN_LESSONS, FUNJIN_NAME, FUNJIN_SUBJECTS, FUNJIN_TOTAL_MIN,
 } from "../src/content/funjin";
+import {
+  KOUATSU_BASIS, KOUATSU_LESSONS, KOUATSU_NAME, KOUATSU_SUBJECTS, KOUATSU_TOTAL_MIN,
+} from "../src/content/kouatsu";
 import {
   FUSEICHI_BASIS, FUSEICHI_LESSONS, FUSEICHI_NAME, FUSEICHI_SUBJECTS, FUSEICHI_TOTAL_MIN,
 } from "../src/content/fuseichi";
@@ -114,6 +118,14 @@ const PLANS: Record<string, Plan> = {
     subjects: FUNJIN_SUBJECTS,
     lessons: FUNJIN_LESSONS,
     totalMin: FUNJIN_TOTAL_MIN,
+  },
+  kouatsu: {
+    id: "kouatsu",
+    name: `${KOUATSU_NAME}（学科）`,
+    basis: KOUATSU_BASIS,
+    subjects: KOUATSU_SUBJECTS,
+    lessons: KOUATSU_LESSONS,
+    totalMin: KOUATSU_TOTAL_MIN,
   },
   fuseichi: {
     id: "fuseichi",

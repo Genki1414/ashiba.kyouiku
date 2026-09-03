@@ -140,6 +140,8 @@ export const TOKUBETSU: Tokubetsu[] = [
     basis: "労働安全衛生規則第36条第4号／安全衛生特別教育規程 第5条",
     src: "kitei",
     checked: true,
+    courseId: "kouatsu",
+    doc: "docs/43-高圧特別高圧電気の根拠と裏取り.md",
   },
   {
     no: 6,
