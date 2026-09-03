@@ -36,6 +36,14 @@ import {
   KOUATSU_JITSUGI,
 } from "./kouatsu";
 import {
+  YOUKA_DRILL_FORM,
+  YOUKA_DRILL_PREP,
+  YOUKA_DRILL_STEPS,
+  YOUKA_DRILL_TEACHER,
+  YOUKA_DRILL_TOTAL_MIN,
+  YOUKA_JITSUGI,
+} from "./youka";
+import {
   PRESS_DRILL_FORM,
   PRESS_DRILL_PREP,
   PRESS_DRILL_STEPS,
@@ -252,6 +260,18 @@ const GUIDES: Record<string, DrillGuide> = {
     prep: KOUATSU_DRILL_PREP,
     keepYears: 3,
     form: KOUATSU_DRILL_FORM,
+  },
+  youka: {
+    courseId: "youka",
+    subject: YOUKA_JITSUGI.name,
+    scope: YOUKA_JITSUGI.scope,
+    legalMin: YOUKA_JITSUGI.legalMin,
+    steps: YOUKA_DRILL_STEPS,
+    totalMin: YOUKA_DRILL_TOTAL_MIN,
+    teacher: YOUKA_DRILL_TEACHER,
+    prep: YOUKA_DRILL_PREP,
+    keepYears: 3,
+    form: YOUKA_DRILL_FORM,
   },
   press: {
     courseId: "press",

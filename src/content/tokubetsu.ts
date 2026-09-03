@@ -225,8 +225,11 @@ export const TOKUBETSU: Tokubetsu[] = [
     gakkaMin: 660,
     jitsugiMin: 240,
     basis: "労働安全衛生規則第36条第6号／安全衛生特別教育規程 第8条",
-    src: "roudoukyoku",
+    /* 規程第8条の全文で確認できたので src を kitei にした（docs/48） */
+    src: "kitei",
     checked: true,
+    courseId: "youka",
+    doc: "docs/48-揚貨装置の根拠と裏取り.md",
   },
   {
     no: 13,
