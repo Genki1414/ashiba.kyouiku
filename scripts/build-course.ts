@@ -29,7 +29,8 @@
      npm run build:kikaitoishi # 機械研削用といし
      npm run build:shovel     # ショベルローダー等（1トン未満）
      npm run build:fuseichi   # 不整地運搬車（1トン未満）
-     npm run build:kouatsu    # 高圧・特別高圧電気取扱 */
+     npm run build:kouatsu    # 高圧・特別高圧電気取扱
+     npm run build:ev         # 電気自動車等の整備 */
 
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import path from "node:path";
@@ -43,6 +44,9 @@ import {
 import {
   FUNJIN_BASIS, FUNJIN_LESSONS, FUNJIN_NAME, FUNJIN_SUBJECTS, FUNJIN_TOTAL_MIN,
 } from "../src/content/funjin";
+import {
+  EV_BASIS, EV_LESSONS, EV_NAME, EV_SUBJECTS, EV_TOTAL_MIN,
+} from "../src/content/ev";
 import {
   KOUATSU_BASIS, KOUATSU_LESSONS, KOUATSU_NAME, KOUATSU_SUBJECTS, KOUATSU_TOTAL_MIN,
 } from "../src/content/kouatsu";
@@ -118,6 +122,14 @@ const PLANS: Record<string, Plan> = {
     subjects: FUNJIN_SUBJECTS,
     lessons: FUNJIN_LESSONS,
     totalMin: FUNJIN_TOTAL_MIN,
+  },
+  ev: {
+    id: "ev",
+    name: `${EV_NAME}（学科）`,
+    basis: EV_BASIS,
+    subjects: EV_SUBJECTS,
+    lessons: EV_LESSONS,
+    totalMin: EV_TOTAL_MIN,
   },
   kouatsu: {
     id: "kouatsu",

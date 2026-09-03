@@ -165,6 +165,8 @@ export const TOKUBETSU: Tokubetsu[] = [
     src: "kitei",
     checked: true,
     from: "2024-10-01",
+    courseId: "ev",
+    doc: "docs/44-電気自動車等の整備の根拠と裏取り.md",
   },
   {
     no: 8,
