@@ -252,6 +252,8 @@ export const TOKUBETSU: Tokubetsu[] = [
     basis: "労働安全衛生規則第36条第6号の3／安全衛生特別教育規程 第8条の3",
     src: "kitei",
     checked: true,
+    courseId: "soukou",
+    doc: "docs/50-走行集材機械の根拠と裏取り.md",
   },
   {
     no: 15,

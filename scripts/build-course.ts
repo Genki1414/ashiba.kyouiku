@@ -35,7 +35,8 @@
      npm run build:dioxin     # ダイオキシン類（学科のみ）
      npm run build:press      # 動力プレスの金型等
      npm run build:youka      # 揚貨装置（5トン未満）
-     npm run build:batsuboku  # 伐木等機械 */
+     npm run build:batsuboku  # 伐木等機械
+     npm run build:soukou     # 走行集材機械 */
 
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import path from "node:path";
@@ -49,6 +50,9 @@ import {
 import {
   FUNJIN_BASIS, FUNJIN_LESSONS, FUNJIN_NAME, FUNJIN_SUBJECTS, FUNJIN_TOTAL_MIN,
 } from "../src/content/funjin";
+import {
+  SOUKOU_BASIS, SOUKOU_LESSONS, SOUKOU_NAME, SOUKOU_SUBJECTS, SOUKOU_TOTAL_MIN,
+} from "../src/content/soukou";
 import {
   BATSUBOKU_BASIS, BATSUBOKU_LESSONS, BATSUBOKU_NAME, BATSUBOKU_SUBJECTS, BATSUBOKU_TOTAL_MIN,
 } from "../src/content/batsuboku";
@@ -142,6 +146,14 @@ const PLANS: Record<string, Plan> = {
     subjects: FUNJIN_SUBJECTS,
     lessons: FUNJIN_LESSONS,
     totalMin: FUNJIN_TOTAL_MIN,
+  },
+  soukou: {
+    id: "soukou",
+    name: `${SOUKOU_NAME}（学科）`,
+    basis: SOUKOU_BASIS,
+    subjects: SOUKOU_SUBJECTS,
+    lessons: SOUKOU_LESSONS,
+    totalMin: SOUKOU_TOTAL_MIN,
   },
   batsuboku: {
     id: "batsuboku",
