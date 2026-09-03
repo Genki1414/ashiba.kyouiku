@@ -195,8 +195,10 @@ export const TOKUBETSU: Tokubetsu[] = [
     gakkaMin: 360,
     jitsugiMin: 360,
     basis: "労働安全衛生規則第36条第5号の3／安全衛生特別教育規程 第7条の3",
-    src: "roudoukyoku",
+    src: "kitei",
     checked: true,
+    courseId: "fuseichi",
+    doc: "docs/42-不整地運搬車の根拠と裏取り.md",
   },
   {
     no: 11,

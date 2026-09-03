@@ -27,7 +27,8 @@
      npm run build:chainsaw   # チェーンソー
      npm run build:arc        # アーク溶接
      npm run build:kikaitoishi # 機械研削用といし
-     npm run build:shovel     # ショベルローダー等（1トン未満） */
+     npm run build:shovel     # ショベルローダー等（1トン未満）
+     npm run build:fuseichi   # 不整地運搬車（1トン未満） */
 
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import path from "node:path";
@@ -41,6 +42,9 @@ import {
 import {
   FUNJIN_BASIS, FUNJIN_LESSONS, FUNJIN_NAME, FUNJIN_SUBJECTS, FUNJIN_TOTAL_MIN,
 } from "../src/content/funjin";
+import {
+  FUSEICHI_BASIS, FUSEICHI_LESSONS, FUSEICHI_NAME, FUSEICHI_SUBJECTS, FUSEICHI_TOTAL_MIN,
+} from "../src/content/fuseichi";
 import {
   SHOVEL_BASIS, SHOVEL_LESSONS, SHOVEL_NAME, SHOVEL_SUBJECTS, SHOVEL_TOTAL_MIN,
 } from "../src/content/shovel";
@@ -110,6 +114,14 @@ const PLANS: Record<string, Plan> = {
     subjects: FUNJIN_SUBJECTS,
     lessons: FUNJIN_LESSONS,
     totalMin: FUNJIN_TOTAL_MIN,
+  },
+  fuseichi: {
+    id: "fuseichi",
+    name: `${FUSEICHI_NAME}（学科）`,
+    basis: FUSEICHI_BASIS,
+    subjects: FUSEICHI_SUBJECTS,
+    lessons: FUSEICHI_LESSONS,
+    totalMin: FUSEICHI_TOTAL_MIN,
   },
   shovel: {
     id: "shovel",

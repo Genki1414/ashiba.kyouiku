@@ -153,6 +153,13 @@ export function parseUnitPrice(raw: string | undefined): number {
         **フォークリフトと同じ 6,000円**に置いた。値段で迷わせないためでもある。
         実技の手引きと実施記録の様式が付く（/edu/shovel/drill）。
 
+      不整地運搬車（最大積載量1トン未満）（学科6時間＋実技6時間。ここで出すのは学科だけ）
+        **よその値段はまだ調べていない**（docs/42）。
+        → ここ 6,000円（税抜）＝ 6,600円（税込）
+        学科6時間・実技6時間で、フォークリフト・ショベルローダー等と同じ形。
+        受ける人（林業・農業・災害復旧）も広いので、**同じ 6,000円**に置いた。
+        実技の手引きと実施記録の様式が付く（/edu/fuseichi/drill）。
+
       職長・安全衛生責任者教育（14時間・討議つき）
         中小建設業特別教育協会 WEB講習  17,600円
           （動画12時間18分＋Zoom討議2時間30分。うちと同じ作り）
@@ -183,6 +190,7 @@ export const DEFAULT_COURSE_PRICE: Record<string, number> = {
   arc: 9000,
   kikaitoishi: 7000,
   shovel: 6000,
+  fuseichi: 6000,
 };
 
 /** 講座の目印から環境変数の名前を作る。ashiba → SEAT_UNIT_PRICE_ASHIBA */

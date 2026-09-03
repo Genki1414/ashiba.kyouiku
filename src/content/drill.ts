@@ -20,6 +20,14 @@ import {
   FORKLIFT_JITSUGI,
 } from "./forklift";
 import {
+  FUSEICHI_DRILL_FORM,
+  FUSEICHI_DRILL_PREP,
+  FUSEICHI_DRILL_STEPS,
+  FUSEICHI_DRILL_TEACHER,
+  FUSEICHI_DRILL_TOTAL_MIN,
+  FUSEICHI_JITSUGI,
+} from "./fuseichi";
+import {
   SHOVEL_DRILL_FORM,
   SHOVEL_DRILL_PREP,
   SHOVEL_DRILL_STEPS,
@@ -196,6 +204,18 @@ const GUIDES: Record<string, DrillGuide> = {
     prep: KOGATA_DRILL_PREP,
     keepYears: 3,
     form: KOGATA_DRILL_FORM,
+  },
+  fuseichi: {
+    courseId: "fuseichi",
+    subject: FUSEICHI_JITSUGI.name,
+    scope: FUSEICHI_JITSUGI.scope,
+    legalMin: FUSEICHI_JITSUGI.legalMin,
+    steps: FUSEICHI_DRILL_STEPS,
+    totalMin: FUSEICHI_DRILL_TOTAL_MIN,
+    teacher: FUSEICHI_DRILL_TEACHER,
+    prep: FUSEICHI_DRILL_PREP,
+    keepYears: 3,
+    form: FUSEICHI_DRILL_FORM,
   },
   shovel: {
     courseId: "shovel",
