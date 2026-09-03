@@ -36,6 +36,7 @@ type Learn = {
   examPassed: boolean;
   cert: { no: string; at: string } | null;
   hasSeat: boolean;
+  requested: boolean;
 };
 
 type Loaded = {
@@ -61,6 +62,7 @@ export function MeClient() {
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState("");
   const [asking, setAsking] = useState(false);
+  const [busyReq, setBusyReq] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -122,6 +124,29 @@ export function MeClient() {
       await load();
     } finally {
       setBusy(false);
+    }
+  };
+
+  /* 講座ごとに、教育担当者へ「受けたい」を送る・取り消す。
+     席そのものはここでは作らない。担当者が見て、いつもどおり
+     受講コードを渡す。ここは声を画面に残すだけ */
+  const requestCourse = async (courseId: string, cancel: boolean) => {
+    setBusyReq(courseId);
+    setNote("");
+    try {
+      const res = await fetch("/api/course-request", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ courseId, action: cancel ? "cancel" : "request" }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok || !j.ok) {
+        setNote(j.reason ?? "送れませんでした。");
+        return;
+      }
+      await load();
+    } finally {
+      setBusyReq(null);
     }
   };
 
@@ -350,6 +375,32 @@ export function MeClient() {
               ) : (
                 <div className="mt-2 text-[11.5px] text-dim2">
                   修了試験　{c.examPassed ? "合格" : "まだ"}
+                </div>
+              )}
+
+              {/* 受講リクエスト。まだこの講座の席が無い人だけ出す。
+                  会社に居ないと誰宛か決まらないので、在籍しているときだけ */}
+              {!c.cert && !c.hasSeat && st.member.state === "active" && (
+                <div className="mt-2.5">
+                  {c.requested ? (
+                    <button
+                      className="w-full rounded-lg border border-line p-2.5 text-[12px] text-dim2 disabled:opacity-50"
+                      data-testid="me-course-request-cancel"
+                      disabled={busyReq === c.courseId}
+                      onClick={() => void requestCourse(c.courseId, true)}
+                    >
+                      教育担当者にリクエスト送信済み（取り消す）
+                    </button>
+                  ) : (
+                    <button
+                      className="w-full rounded-lg border border-cyan p-2.5 text-[12.5px] font-bold text-cyan disabled:opacity-50"
+                      data-testid="me-course-request"
+                      disabled={busyReq === c.courseId}
+                      onClick={() => void requestCourse(c.courseId, false)}
+                    >
+                      教育担当者に受講リクエストを送る
+                    </button>
+                  )}
                 </div>
               )}
 

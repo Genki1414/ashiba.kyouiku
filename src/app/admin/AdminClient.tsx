@@ -36,6 +36,17 @@ type QualItem = {
 };
 type QualReq = { userId: string; name: string; email: string | null; items: QualItem[] };
 
+/** 受講リクエスト。本人が「この講座を受けたい」と送ったもの */
+type CourseReq = {
+  id: string;
+  userId: string;
+  name: string;
+  email: string | null;
+  courseId: string;
+  courseName: string;
+  at: string | null;
+};
+
 type Loaded =
   | {
       kind: "ok";
@@ -51,6 +62,8 @@ type Loaded =
       requests: Request[];
       /* 断った申し込み（直近30日）。押し間違いを戻せるように */
       rejected: Request[];
+      /* 受講リクエスト。まだ対応していないもの */
+      courseRequests: CourseReq[];
       /* 在籍の内訳。申し込んだはずの人が居ないときに、どこへ行ったか分かる */
       member: { active: number; waiting: number; gone: number };
       /* 資格の申請。まだ現物を確かめていないもの */
@@ -94,6 +107,7 @@ export function AdminClient() {
           courses: j.courses ?? [],
           requests: j.requests ?? [],
           rejected: j.rejected ?? [],
+          courseRequests: j.courseRequests ?? [],
           member: j.member ?? { active: 0, waiting: 0, gone: 0 },
           quals: j.quals ?? [],
         };
@@ -340,6 +354,49 @@ export function AdminClient() {
                     断る
                   </button>
                 </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 受講リクエスト。本人がマイページから「受けたい」と送ったもの。
+          席（受講コード）はここでは作らない。担当者がいつもどおり用意する */}
+      {!!st.courseRequests.length && (
+        <div className="mx-5 mt-3 rounded-xl border border-cyan bg-panel p-4" data-testid="admin-course-reqs">
+          <div className="text-[11px] font-extrabold tracking-[2px] text-cyan">
+            受講リクエスト {st.courseRequests.length} 件
+          </div>
+          <p className="mt-1 text-[11.5px] leading-relaxed text-dim">
+            受講者が「この講座を受けたい」と送ってきました。席（受講コード）を用意したら、対応済みにしてください。
+          </p>
+          <div className="mt-2.5 grid gap-2">
+            {st.courseRequests.map((q) => (
+              <div
+                key={q.id}
+                className="flex items-center gap-2 rounded-lg border border-line bg-bg p-3"
+                data-testid="admin-course-req"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-[13.5px] font-black">{q.courseName}</div>
+                  <div className="mt-0.5 truncate text-[11.5px] text-dim">
+                    {q.name}
+                    {q.email ? `　${q.email}` : ""}
+                  </div>
+                  {q.at && <div className="mt-0.5 text-[10.5px] text-dim2">{day(q.at)} リクエスト</div>}
+                </div>
+                <button
+                  className="shrink-0 rounded-lg border border-yel bg-yel px-3 py-2 text-[12px] font-extrabold text-bg disabled:opacity-50"
+                  data-testid="admin-course-req-done"
+                  disabled={busy === q.id}
+                  onClick={async () => {
+                    setBusy(q.id);
+                    if (await post("/api/admin/course-request", { id: q.id, on: true })) await load(courseId);
+                    setBusy(null);
+                  }}
+                >
+                  対応済みにする
+                </button>
               </div>
             ))}
           </div>

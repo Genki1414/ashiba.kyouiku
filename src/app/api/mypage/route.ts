@@ -23,7 +23,7 @@ export async function GET() {
 
   /* 聞ける順にまとめて聞く。上から順に await すると、
      マイページを開くだけで Supabase まで5〜6往復する */
-  const [{ data: me }, { data: mem }, { data: ens }] = await Promise.all([
+  const [{ data: me }, { data: mem }, { data: ens }, { data: creqs }] = await Promise.all([
     supabase
       .from("users")
       .select("name, email, birth_date, role, company_id")
@@ -41,11 +41,18 @@ export async function GET() {
       .select("id, course_id, seat_id")
       .eq("user_id", user.id)
       .is("closed_at", null),
+    /* 教育担当者に送った受講リクエスト。まだ対応されていないもの */
+    supabase
+      .from("course_requests")
+      .select("course_id")
+      .eq("user_id", user.id)
+      .is("handled_at", null),
   ]);
 
   const rows = mem ?? [];
   const ids = rows.map((m) => m.company_id as string);
   const eids = (ens ?? []).map((e) => e.id as string);
+  const requested = new Set((creqs ?? []).map((r) => r.course_id as string));
 
   const [{ data: cos }, { data: prog }, { data: certs }, { data: exams }] = await Promise.all([
     ids.length
@@ -94,6 +101,7 @@ export async function GET() {
         courseId: c.id, name: c.name, short: c.short,
         started: false, lessonsPassed: 0, lessonsTotal: lessons.length,
         watchedSec: 0, requiredSec, examPassed: false, cert: null, hasSeat: false,
+        requested: requested.has(c.id),
       });
       continue;
     }
@@ -114,6 +122,7 @@ export async function GET() {
       examPassed: (exams ?? []).some((x) => x.enrollment_id === en.id && x.passed),
       cert: cert ? { no: cert.cert_no as string, at: cert.issued_at as string } : null,
       hasSeat: !!en.seat_id,
+      requested: requested.has(c.id),
     });
   }
 

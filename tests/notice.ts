@@ -211,9 +211,9 @@ console.log("\n── 版 ──");
 {
   const dir = readdirSync(new URL("../supabase/migrations", import.meta.url));
   const last = dir.filter((f) => /^\d{4}_.*\.sql$/.test(f)).sort().at(-1) ?? "";
-  check(last.startsWith("0024"), `いちばん新しいのが 0024（${last}）`);
+  check(last.startsWith("0025"), `いちばん新しいのが 0025（${last}）`);
   const gen = read("src/content/schema.ts");
-  check(gen.includes('"0024"'), "必要な版が書き出されている");
+  check(gen.includes('"0025"'), "必要な版が書き出されている");
   const all = read("supabase/apply-all.sql");
   check(all.includes("add_notice"), "apply-all.sql にも入っている");
 }

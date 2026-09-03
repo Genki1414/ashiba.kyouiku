@@ -63,7 +63,7 @@ export async function GET(req: NextRequest) {
      ・席は、注文ぜんぶで1回引いて、入金済みかどうかで分ける */
   const since30 = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
 
-  const [{ data: myOrders }, { data: mems }, { data: past }, { data: openEnroll }] =
+  const [{ data: myOrders }, { data: mems }, { data: past }, { data: openEnroll }, { data: creqs }] =
     await Promise.all([
       supabase
         .from("orders")
@@ -80,6 +80,12 @@ export async function GET(req: NextRequest) {
         .select("id, user_id, course_id")
         .eq("company_id", admin.companyId)
         .is("closed_at", null),
+      /* 受講リクエスト。まだ対応していないもの。担当者がやることなので先に引く */
+      supabase
+        .from("course_requests")
+        .select("id, user_id, course_id, requested_at")
+        .eq("company_id", admin.companyId)
+        .is("handled_at", null),
     ]);
 
   const memberships = mems ?? [];
@@ -124,9 +130,13 @@ export async function GET(req: NextRequest) {
      名簿には出す。ただし進み具合は、開いている受講だけで見る */
   const allIds = [...new Set([...activeIds, ...(past ?? []).map((e) => e.user_id as string)])];
 
+  const creqRows = creqs ?? [];
+  const creqIds = creqRows.map((r) => r.user_id as string);
+
   /* 名前が要る人を、1回でまとめて引く。
-     申し込み・断った申し込み・名簿で、3回に分けて引いていた */
-  const needNames = [...new Set([...allIds, ...wantIds, ...refIds])];
+     申し込み・断った申し込み・名簿・受講リクエストで、
+     分けて引いていたのをまとめた */
+  const needNames = [...new Set([...allIds, ...wantIds, ...refIds, ...creqIds])];
   const allEnroll = openEnroll ?? [];
   const eids = allEnroll.map((e) => e.id as string);
 
@@ -181,6 +191,18 @@ export async function GET(req: NextRequest) {
     .filter((id) => byId.has(id))
     .map((id) => ({ ...nameRow(id), at: refAt.get(id) ?? null }));
 
+  /* 受講リクエスト。「この講座を受けたい」と本人が送ったもの。
+     出さないと、送ったことに気づかれないまま埋もれる */
+  const courseRequests = creqRows
+    .filter((r) => byId.has(r.user_id as string))
+    .map((r) => ({
+      id: r.id as string,
+      ...nameRow(r.user_id as string),
+      courseId: r.course_id as string,
+      courseName: findCourse(r.course_id as string)?.name ?? (r.course_id as string),
+      at: r.requested_at as string,
+    }));
+
   /* 申し込み中の人は「在籍」でも「退職」でもない。
      受けた記録があれば名簿には並ぶが、退職と出してはいけない */
   const pendingIds = new Set(wantIds);
@@ -204,6 +226,7 @@ export async function GET(req: NextRequest) {
     courses,
     requests,
     rejected,
+    courseRequests,
     member,
     /* 資格の申請。名簿が空なら当然0件だが、形は揃えておく */
     quals: [] as { userId: string; name: string; email: string | null; items: unknown[] }[],
