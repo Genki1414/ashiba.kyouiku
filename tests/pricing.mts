@@ -149,6 +149,7 @@ console.log("── 講座ごとの単価 ──");
   check(unitPrice("youka") === 9000, `揚貨装置は9,000円（税抜）（${unitPrice("youka")}）`);
   check(unitPrice("batsuboku") === 6000, `伐木等機械は6,000円（税抜）（${unitPrice("batsuboku")}）`);
   check(unitPrice("soukou") === 6000, `走行集材機械は6,000円（税抜）（${unitPrice("soukou")}）`);
+  check(unitPrice("kikaishuzai") === 6000, `機械集材装置は6,000円（税抜）（${unitPrice("kikaishuzai")}）`);
 
   /* 知らない講座を聞かれても、仮置きの値で答える（0円で配らない） */
   check(unitPrice("nonsense") > 0, "知らない講座でも0円にはしない");
