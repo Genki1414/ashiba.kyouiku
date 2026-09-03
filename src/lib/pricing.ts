@@ -146,6 +146,13 @@ export function parseUnitPrice(raw: string | undefined): number {
         学科7時間は低圧電気・小型車両系と同じ長さ。実技の手引きと実施記録の様式が付く
         （/edu/kikaitoishi/drill）。自由研削（4時間・5,000円）より3時間長いので上に置いた。
 
+      ショベルローダー等（最大荷重1トン未満）（学科6時間＋実技6時間。ここで出すのは学科だけ）
+        **よその値段はまだ調べていない**（docs/41）。
+        → ここ 6,000円（税抜）＝ 6,600円（税込）
+        学科6時間・実技6時間で、フォークリフトと同じ形。中身は違うが受ける人の広さも近いので、
+        **フォークリフトと同じ 6,000円**に置いた。値段で迷わせないためでもある。
+        実技の手引きと実施記録の様式が付く（/edu/shovel/drill）。
+
       職長・安全衛生責任者教育（14時間・討議つき）
         中小建設業特別教育協会 WEB講習  17,600円
           （動画12時間18分＋Zoom討議2時間30分。うちと同じ作り）
@@ -175,6 +182,7 @@ export const DEFAULT_COURSE_PRICE: Record<string, number> = {
   chainsaw: 8000,
   arc: 9000,
   kikaitoishi: 7000,
+  shovel: 6000,
 };
 
 /** 講座の目印から環境変数の名前を作る。ashiba → SEAT_UNIT_PRICE_ASHIBA */

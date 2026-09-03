@@ -26,7 +26,8 @@
      npm run build:roller     # ローラー
      npm run build:chainsaw   # チェーンソー
      npm run build:arc        # アーク溶接
-     npm run build:kikaitoishi # 機械研削用といし */
+     npm run build:kikaitoishi # 機械研削用といし
+     npm run build:shovel     # ショベルローダー等（1トン未満） */
 
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import path from "node:path";
@@ -40,6 +41,9 @@ import {
 import {
   FUNJIN_BASIS, FUNJIN_LESSONS, FUNJIN_NAME, FUNJIN_SUBJECTS, FUNJIN_TOTAL_MIN,
 } from "../src/content/funjin";
+import {
+  SHOVEL_BASIS, SHOVEL_LESSONS, SHOVEL_NAME, SHOVEL_SUBJECTS, SHOVEL_TOTAL_MIN,
+} from "../src/content/shovel";
 import {
   KIKAITOISHI_BASIS, KIKAITOISHI_LESSONS, KIKAITOISHI_NAME, KIKAITOISHI_SUBJECTS, KIKAITOISHI_TOTAL_MIN,
 } from "../src/content/kikaitoishi";
@@ -106,6 +110,14 @@ const PLANS: Record<string, Plan> = {
     subjects: FUNJIN_SUBJECTS,
     lessons: FUNJIN_LESSONS,
     totalMin: FUNJIN_TOTAL_MIN,
+  },
+  shovel: {
+    id: "shovel",
+    name: `${SHOVEL_NAME}（学科）`,
+    basis: SHOVEL_BASIS,
+    subjects: SHOVEL_SUBJECTS,
+    lessons: SHOVEL_LESSONS,
+    totalMin: SHOVEL_TOTAL_MIN,
   },
   kikaitoishi: {
     id: "kikaitoishi",

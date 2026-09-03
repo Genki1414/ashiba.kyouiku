@@ -183,8 +183,10 @@ export const TOKUBETSU: Tokubetsu[] = [
     gakkaMin: 360,
     jitsugiMin: 360,
     basis: "労働安全衛生規則第36条第5号の2／安全衛生特別教育規程 第7条の2",
-    src: "roudoukyoku",
+    src: "kitei",
     checked: true,
+    courseId: "shovel",
+    doc: "docs/41-ショベルローダー等の根拠と裏取り.md",
   },
   {
     no: 10,
