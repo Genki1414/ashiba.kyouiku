@@ -655,6 +655,8 @@ export const TOKUBETSU: Tokubetsu[] = [
     basis: "労働安全衛生規則第36条第30号／安全衛生特別教育規程 第17条",
     src: "kitei",
     checked: true,
+    courseId: "zuidou",
+    doc: "docs/45-ずい道等の掘削等の根拠と裏取り.md",
   },
   {
     no: 54,

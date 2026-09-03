@@ -178,6 +178,12 @@ export function parseUnitPrice(raw: string | undefined): number {
         実技は1時間と短いが、**実車でやらなければ修了にならない。**
         手引きと実施記録の様式が付く（/edu/ev/drill）。
 
+      ずい道等の掘削等（学科7時間・実技なし）
+        **よその値段はまだ調べていない**（docs/45）。
+        → ここ 7,000円（税抜）＝ 7,700円（税込）
+        学科7時間は低圧電気・小型車両系・機械研削と同じ長さ。実技が無いので、
+        この学科の修了証がそのまま教育の記録になる。**7時間の講座はみな 7,000円**にそろえた。
+
       職長・安全衛生責任者教育（14時間・討議つき）
         中小建設業特別教育協会 WEB講習  17,600円
           （動画12時間18分＋Zoom討議2時間30分。うちと同じ作り）
@@ -211,6 +217,7 @@ export const DEFAULT_COURSE_PRICE: Record<string, number> = {
   fuseichi: 6000,
   kouatsu: 12000,
   ev: 7000,
+  zuidou: 7000,
 };
 
 /** 講座の目印から環境変数の名前を作る。ashiba → SEAT_UNIT_PRICE_ASHIBA */
