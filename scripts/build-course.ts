@@ -37,7 +37,8 @@
      npm run build:youka      # 揚貨装置（5トン未満）
      npm run build:batsuboku  # 伐木等機械
      npm run build:soukou     # 走行集材機械
-     npm run build:kikaishuzai # 機械集材装置 */
+     npm run build:kikaishuzai # 機械集材装置
+     npm run build:kanikasen  # 簡易架線集材装置等 */
 
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import path from "node:path";
@@ -51,6 +52,9 @@ import {
 import {
   FUNJIN_BASIS, FUNJIN_LESSONS, FUNJIN_NAME, FUNJIN_SUBJECTS, FUNJIN_TOTAL_MIN,
 } from "../src/content/funjin";
+import {
+  KANIKASEN_BASIS, KANIKASEN_LESSONS, KANIKASEN_NAME, KANIKASEN_SUBJECTS, KANIKASEN_TOTAL_MIN,
+} from "../src/content/kanikasen";
 import {
   KIKAISHUZAI_BASIS, KIKAISHUZAI_LESSONS, KIKAISHUZAI_NAME, KIKAISHUZAI_SUBJECTS, KIKAISHUZAI_TOTAL_MIN,
 } from "../src/content/kikaishuzai";
@@ -150,6 +154,14 @@ const PLANS: Record<string, Plan> = {
     subjects: FUNJIN_SUBJECTS,
     lessons: FUNJIN_LESSONS,
     totalMin: FUNJIN_TOTAL_MIN,
+  },
+  kanikasen: {
+    id: "kanikasen",
+    name: `${KANIKASEN_NAME}（学科）`,
+    basis: KANIKASEN_BASIS,
+    subjects: KANIKASEN_SUBJECTS,
+    lessons: KANIKASEN_LESSONS,
+    totalMin: KANIKASEN_TOTAL_MIN,
   },
   kikaishuzai: {
     id: "kikaishuzai",

@@ -225,6 +225,13 @@ export function parseUnitPrice(raw: string | undefined): number {
         林業の三つの機械の教育を**同じ 6,000円**にそろえた。
         実技の手引きと実施記録の様式が付く（/edu/kikaishuzai/drill）。
 
+      簡易架線集材装置等（学科6時間＋実技8時間。ここで出すのは学科だけ）
+        **よその値段はまだ調べていない**（docs/52）。
+        → ここ 6,000円（税抜）＝ 6,600円（税込）
+        学科6時間は伐木等機械・走行集材機械・機械集材装置と同じ長さ。
+        林業の機械の教育を**同じ 6,000円**にそろえた。
+        実技の手引きと実施記録の様式が付く（/edu/kanikasen/drill）。
+
       職長・安全衛生責任者教育（14時間・討議つき）
         中小建設業特別教育協会 WEB講習  17,600円
           （動画12時間18分＋Zoom討議2時間30分。うちと同じ作り）
@@ -265,6 +272,7 @@ export const DEFAULT_COURSE_PRICE: Record<string, number> = {
   batsuboku: 6000,
   soukou: 6000,
   kikaishuzai: 6000,
+  kanikasen: 6000,
 };
 
 /** 講座の目印から環境変数の名前を作る。ashiba → SEAT_UNIT_PRICE_ASHIBA */

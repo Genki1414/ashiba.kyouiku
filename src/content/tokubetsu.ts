@@ -276,6 +276,8 @@ export const TOKUBETSU: Tokubetsu[] = [
     basis: "労働安全衛生規則第36条第7号の2／安全衛生特別教育規程 第9条の2",
     src: "kitei",
     checked: true,
+    courseId: "kanikasen",
+    doc: "docs/52-簡易架線集材装置等の根拠と裏取り.md",
   },
   {
     no: 17,
