@@ -144,6 +144,7 @@ console.log("── 講座ごとの単価 ──");
   check(unitPrice("kouatsu") === 12000, `高圧・特別高圧電気は12,000円（税抜）（${unitPrice("kouatsu")}）`);
   check(unitPrice("ev") === 7000, `電気自動車の整備は7,000円（税抜）（${unitPrice("ev")}）`);
   check(unitPrice("zuidou") === 7000, `ずい道等の掘削等は7,000円（税抜）（${unitPrice("zuidou")}）`);
+  check(unitPrice("dioxin") === 5000, `ダイオキシン類は5,000円（税抜）（${unitPrice("dioxin")}）`);
 
   /* 知らない講座を聞かれても、仮置きの値で答える（0円で配らない） */
   check(unitPrice("nonsense") > 0, "知らない講座でも0円にはしない");

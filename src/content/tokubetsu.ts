@@ -697,6 +697,8 @@ export const TOKUBETSU: Tokubetsu[] = [
     basis: "労働安全衛生規則第36条第34号〜第36号／安全衛生特別教育規程 第21条",
     src: "kitei",
     checked: true,
+    courseId: "dioxin",
+    doc: "docs/46-ダイオキシン類の根拠と裏取り.md",
   },
   {
     no: 58,
@@ -704,8 +706,11 @@ export const TOKUBETSU: Tokubetsu[] = [
     name: "ダイオキシン類：廃棄物焼却炉・集じん機等の保守点検等の業務",
     gakkaMin: 240,
     jitsugiMin: 0,
-    basis: "安全衛生特別教育規程",
-    src: "roudoukyoku",
+    basis: "労働安全衛生規則第36条第34号〜第36号／安全衛生特別教育規程 第21条",
+    src: "kitei",
+    checked: true,
+    courseId: "dioxin",
+    doc: "docs/46-ダイオキシン類の根拠と裏取り.md",
   },
   {
     no: 59,
@@ -713,8 +718,11 @@ export const TOKUBETSU: Tokubetsu[] = [
     name: "ダイオキシン類：廃棄物焼却炉等の解体等及び燃え殻取扱い業務",
     gakkaMin: 240,
     jitsugiMin: 0,
-    basis: "安全衛生特別教育規程",
-    src: "roudoukyoku",
+    basis: "労働安全衛生規則第36条第34号〜第36号／安全衛生特別教育規程 第21条",
+    src: "kitei",
+    checked: true,
+    courseId: "dioxin",
+    doc: "docs/46-ダイオキシン類の根拠と裏取り.md",
   },
   /* 名前と根拠を条文に合わせた。渡された一覧は
      「石綿障害予防規則第3条第1項の…」となっていたが、第3条は事前調査の条。

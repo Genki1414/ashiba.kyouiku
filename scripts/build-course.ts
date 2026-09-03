@@ -31,7 +31,8 @@
      npm run build:fuseichi   # 不整地運搬車（1トン未満）
      npm run build:kouatsu    # 高圧・特別高圧電気取扱
      npm run build:ev         # 電気自動車等の整備
-     npm run build:zuidou     # ずい道等の掘削等（学科のみ） */
+     npm run build:zuidou     # ずい道等の掘削等（学科のみ）
+     npm run build:dioxin     # ダイオキシン類（学科のみ） */
 
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import path from "node:path";
@@ -45,6 +46,9 @@ import {
 import {
   FUNJIN_BASIS, FUNJIN_LESSONS, FUNJIN_NAME, FUNJIN_SUBJECTS, FUNJIN_TOTAL_MIN,
 } from "../src/content/funjin";
+import {
+  DIOXIN_BASIS, DIOXIN_LESSONS, DIOXIN_NAME, DIOXIN_SUBJECTS, DIOXIN_TOTAL_MIN,
+} from "../src/content/dioxin";
 import {
   ZUIDOU_BASIS, ZUIDOU_LESSONS, ZUIDOU_NAME, ZUIDOU_SUBJECTS, ZUIDOU_TOTAL_MIN,
 } from "../src/content/zuidou";
@@ -126,6 +130,14 @@ const PLANS: Record<string, Plan> = {
     subjects: FUNJIN_SUBJECTS,
     lessons: FUNJIN_LESSONS,
     totalMin: FUNJIN_TOTAL_MIN,
+  },
+  dioxin: {
+    id: "dioxin",
+    name: `${DIOXIN_NAME}（学科）`,
+    basis: DIOXIN_BASIS,
+    subjects: DIOXIN_SUBJECTS,
+    lessons: DIOXIN_LESSONS,
+    totalMin: DIOXIN_TOTAL_MIN,
   },
   zuidou: {
     id: "zuidou",
