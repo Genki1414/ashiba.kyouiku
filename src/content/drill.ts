@@ -36,6 +36,14 @@ import {
   KOUATSU_JITSUGI,
 } from "./kouatsu";
 import {
+  PRESS_DRILL_FORM,
+  PRESS_DRILL_PREP,
+  PRESS_DRILL_STEPS,
+  PRESS_DRILL_TEACHER,
+  PRESS_DRILL_TOTAL_MIN,
+  PRESS_JITSUGI,
+} from "./press";
+import {
   FUSEICHI_DRILL_FORM,
   FUSEICHI_DRILL_PREP,
   FUSEICHI_DRILL_STEPS,
@@ -244,6 +252,18 @@ const GUIDES: Record<string, DrillGuide> = {
     prep: KOUATSU_DRILL_PREP,
     keepYears: 3,
     form: KOUATSU_DRILL_FORM,
+  },
+  press: {
+    courseId: "press",
+    subject: PRESS_JITSUGI.name,
+    scope: PRESS_JITSUGI.scope,
+    legalMin: PRESS_JITSUGI.legalMin,
+    steps: PRESS_DRILL_STEPS,
+    totalMin: PRESS_DRILL_TOTAL_MIN,
+    teacher: PRESS_DRILL_TEACHER,
+    prep: PRESS_DRILL_PREP,
+    keepYears: 3,
+    form: PRESS_DRILL_FORM,
   },
   fuseichi: {
     courseId: "fuseichi",

@@ -118,6 +118,8 @@ export const TOKUBETSU: Tokubetsu[] = [
     basis: "労働安全衛生規則第36条第2号／安全衛生特別教育規程 第3条",
     src: "kitei",
     checked: true,
+    courseId: "press",
+    doc: "docs/47-動力プレスの根拠と裏取り.md",
   },
   {
     no: 4,

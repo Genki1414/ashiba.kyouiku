@@ -33,6 +33,7 @@
     "build:ev": "tsx scripts/build-course.ts ev",
     "build:zuidou": "tsx scripts/build-course.ts zuidou",
     "build:dioxin": "tsx scripts/build-course.ts dioxin",
+    "build:press": "tsx scripts/build-course.ts press",
     "dump:why": "tsx scripts/dump-demo-why.ts",
     "test:score": "tsx tests/score.ts",
     "test:changelog": "tsx tests/changelog.ts",
