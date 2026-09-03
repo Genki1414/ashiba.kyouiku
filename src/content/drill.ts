@@ -36,6 +36,14 @@ import {
   KOUATSU_JITSUGI,
 } from "./kouatsu";
 import {
+  BATSUBOKU_DRILL_FORM,
+  BATSUBOKU_DRILL_PREP,
+  BATSUBOKU_DRILL_STEPS,
+  BATSUBOKU_DRILL_TEACHER,
+  BATSUBOKU_DRILL_TOTAL_MIN,
+  BATSUBOKU_JITSUGI,
+} from "./batsuboku";
+import {
   YOUKA_DRILL_FORM,
   YOUKA_DRILL_PREP,
   YOUKA_DRILL_STEPS,
@@ -260,6 +268,18 @@ const GUIDES: Record<string, DrillGuide> = {
     prep: KOUATSU_DRILL_PREP,
     keepYears: 3,
     form: KOUATSU_DRILL_FORM,
+  },
+  batsuboku: {
+    courseId: "batsuboku",
+    subject: BATSUBOKU_JITSUGI.name,
+    scope: BATSUBOKU_JITSUGI.scope,
+    legalMin: BATSUBOKU_JITSUGI.legalMin,
+    steps: BATSUBOKU_DRILL_STEPS,
+    totalMin: BATSUBOKU_DRILL_TOTAL_MIN,
+    teacher: BATSUBOKU_DRILL_TEACHER,
+    prep: BATSUBOKU_DRILL_PREP,
+    keepYears: 3,
+    form: BATSUBOKU_DRILL_FORM,
   },
   youka: {
     courseId: "youka",

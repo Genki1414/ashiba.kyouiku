@@ -147,6 +147,7 @@ console.log("── 講座ごとの単価 ──");
   check(unitPrice("dioxin") === 5000, `ダイオキシン類は5,000円（税抜）（${unitPrice("dioxin")}）`);
   check(unitPrice("press") === 8000, `動力プレスの金型等は8,000円（税抜）（${unitPrice("press")}）`);
   check(unitPrice("youka") === 9000, `揚貨装置は9,000円（税抜）（${unitPrice("youka")}）`);
+  check(unitPrice("batsuboku") === 6000, `伐木等機械は6,000円（税抜）（${unitPrice("batsuboku")}）`);
 
   /* 知らない講座を聞かれても、仮置きの値で答える（0円で配らない） */
   check(unitPrice("nonsense") > 0, "知らない講座でも0円にはしない");
