@@ -450,7 +450,7 @@ export const TOKUBETSU: Tokubetsu[] = [
     name: "小型ボイラー取扱業務",
     gakkaMin: 420,
     jitsugiMin: 240,
-    basis: "安全衛生特別教育規程",
+    basis: "小型ボイラー取扱業務特別教育規程（昭和47年労働省告示第115号）",
     src: "roudoukyoku",
   },
   {
@@ -459,7 +459,7 @@ export const TOKUBETSU: Tokubetsu[] = [
     name: "つり上げ荷重5トン未満のクレーンの運転の業務",
     gakkaMin: 540,
     jitsugiMin: 240,
-    basis: "安全衛生特別教育規程",
+    basis: "クレーン取扱い業務等特別教育規程（昭和47年労働省告示第118号）",
     src: "roudoukyoku",
   },
   {
@@ -468,7 +468,7 @@ export const TOKUBETSU: Tokubetsu[] = [
     name: "跨線テルハでつり上げ荷重5トン以上のものの運転の業務",
     gakkaMin: 540,
     jitsugiMin: 240,
-    basis: "安全衛生特別教育規程",
+    basis: "クレーン取扱い業務等特別教育規程（昭和47年労働省告示第118号）",
     src: "roudoukyoku",
   },
   {
@@ -477,7 +477,7 @@ export const TOKUBETSU: Tokubetsu[] = [
     name: "つり上げ荷重1トン未満の移動式クレーンの運転の業務",
     gakkaMin: 540,
     jitsugiMin: 240,
-    basis: "安全衛生特別教育規程",
+    basis: "クレーン取扱い業務等特別教育規程（昭和47年労働省告示第118号）",
     src: "roudoukyoku",
   },
   {
@@ -486,7 +486,7 @@ export const TOKUBETSU: Tokubetsu[] = [
     name: "つり上げ荷重5トン未満のデリックの運転の業務",
     gakkaMin: 540,
     jitsugiMin: 240,
-    basis: "安全衛生特別教育規程",
+    basis: "クレーン取扱い業務等特別教育規程（昭和47年労働省告示第118号）",
     src: "roudoukyoku",
   },
   {
@@ -495,7 +495,7 @@ export const TOKUBETSU: Tokubetsu[] = [
     name: "建設用リフトの運転の業務",
     gakkaMin: 300,
     jitsugiMin: 240,
-    basis: "安全衛生特別教育規程",
+    basis: "クレーン取扱い業務等特別教育規程（昭和47年労働省告示第118号）",
     src: "roudoukyoku",
   },
   {
@@ -504,7 +504,7 @@ export const TOKUBETSU: Tokubetsu[] = [
     name: "つり上げ荷重1トン未満のクレーン等の玉掛けの業務",
     gakkaMin: 300,
     jitsugiMin: 240,
-    basis: "安全衛生特別教育規程",
+    basis: "クレーン取扱い業務等特別教育規程（昭和47年労働省告示第118号）",
     src: "roudoukyoku",
   },
   {
@@ -513,7 +513,7 @@ export const TOKUBETSU: Tokubetsu[] = [
     name: "ゴンドラの操作の業務",
     gakkaMin: 300,
     jitsugiMin: 240,
-    basis: "安全衛生特別教育規程",
+    basis: "ゴンドラ取扱い業務特別教育規程（昭和47年労働省告示第121号）",
     src: "roudoukyoku",
   },
   {
@@ -522,7 +522,7 @@ export const TOKUBETSU: Tokubetsu[] = [
     name: "作業室及び気こう室へ送気するための空気圧縮機を運転する業務",
     gakkaMin: 600,
     jitsugiMin: 120,
-    basis: "安全衛生特別教育規程",
+    basis: "高気圧業務特別教育規程（昭和47年労働省告示第129号）",
     src: "roudoukyoku",
   },
   {
@@ -531,7 +531,7 @@ export const TOKUBETSU: Tokubetsu[] = [
     name: "作業室への送気調節用バルブ又はコックを操作する業務",
     gakkaMin: 600,
     jitsugiMin: 120,
-    basis: "安全衛生特別教育規程",
+    basis: "高気圧業務特別教育規程（昭和47年労働省告示第129号）",
     src: "roudoukyoku",
   },
   {
@@ -540,7 +540,7 @@ export const TOKUBETSU: Tokubetsu[] = [
     name: "気こう室への送気又は排気調節用バルブ又はコックを操作する業務",
     gakkaMin: 540,
     jitsugiMin: 180,
-    basis: "安全衛生特別教育規程",
+    basis: "高気圧業務特別教育規程（昭和47年労働省告示第129号）",
     src: "roudoukyoku",
   },
   {
@@ -549,7 +549,7 @@ export const TOKUBETSU: Tokubetsu[] = [
     name: "潜水作業者への送気調節用バルブ又はコックを操作する業務",
     gakkaMin: 540,
     jitsugiMin: 120,
-    basis: "安全衛生特別教育規程",
+    basis: "高気圧業務特別教育規程（昭和47年労働省告示第129号）",
     src: "roudoukyoku",
   },
   {
@@ -558,7 +558,7 @@ export const TOKUBETSU: Tokubetsu[] = [
     name: "高圧室内作業に係る業務",
     gakkaMin: 420,
     jitsugiMin: 0,
-    basis: "安全衛生特別教育規程",
+    basis: "高気圧業務特別教育規程（昭和47年労働省告示第129号）",
     src: "roudoukyoku",
   },
   {
@@ -567,7 +567,7 @@ export const TOKUBETSU: Tokubetsu[] = [
     name: "四アルキル鉛等に係る業務",
     gakkaMin: 360,
     jitsugiMin: 0,
-    basis: "安全衛生特別教育規程",
+    basis: "四アルキル鉛等業務特別教育規程（昭和47年労働省告示第125号）",
     src: "roudoukyoku",
   },
   /* 学科は5時間30分（5科目、うち「その他」が1時間30分）。CSV は240分だった */
@@ -632,7 +632,7 @@ export const TOKUBETSU: Tokubetsu[] = [
     name: "加工施設等において核燃料物質等を取り扱う業務",
     gakkaMin: 690,
     jitsugiMin: 360,
-    basis: "関係特別教育規程",
+    basis: "電離放射線障害防止規則第52条の6",
     src: "roudoukyoku",
   },
   {
@@ -641,7 +641,7 @@ export const TOKUBETSU: Tokubetsu[] = [
     name: "原子炉施設等において核燃料物質等を取り扱う業務",
     gakkaMin: 300,
     jitsugiMin: 120,
-    basis: "関係特別教育規程",
+    basis: "電離放射線障害防止規則第52条の7",
     src: "roudoukyoku",
   },
   {
@@ -650,7 +650,7 @@ export const TOKUBETSU: Tokubetsu[] = [
     name: "事故由来放射性物質により汚染されたものの処分の業務",
     gakkaMin: 600,
     jitsugiMin: 360,
-    basis: "関係特別教育規程",
+    basis: "電離放射線障害防止規則第52条の8",
     src: "roudoukyoku",
   },
   {
@@ -659,7 +659,7 @@ export const TOKUBETSU: Tokubetsu[] = [
     name: "電離則に定める特例緊急作業に係る業務",
     gakkaMin: 390,
     jitsugiMin: 360,
-    basis: "関係特別教育規程",
+    basis: "電離放射線障害防止規則第52条の9",
     src: "roudoukyoku",
   },
   /* 根拠を直した。粉じんは「安全衛生特別教育規程」ではなく、
@@ -785,7 +785,7 @@ export const TOKUBETSU: Tokubetsu[] = [
     name: "除染等業務",
     gakkaMin: 690,
     jitsugiMin: 390,
-    basis: "除染電離則に基づく特別教育",
+    basis: "除染等業務特別教育及び特定線量下業務特別教育規程（平成23年厚生労働省告示第469号）",
     src: "roudoukyoku",
   },
   {
@@ -794,7 +794,7 @@ export const TOKUBETSU: Tokubetsu[] = [
     name: "特定線量下業務",
     gakkaMin: 150,
     jitsugiMin: 0,
-    basis: "除染電離則に基づく特別教育",
+    basis: "除染等業務特別教育及び特定線量下業務特別教育規程（平成23年厚生労働省告示第469号）",
     src: "roudoukyoku",
   },
   {
