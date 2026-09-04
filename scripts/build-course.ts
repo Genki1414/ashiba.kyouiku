@@ -46,7 +46,8 @@
      npm run build:concrete   # コンクリート打設用
      npm run build:boring     # ボーリングマシン
      npm run build:jack       # ジャッキ式つり上げ機械
-     npm run build:kidou      # 軌道装置の動力車 */
+     npm run build:kidou      # 軌道装置の動力車
+     npm run build:robotkyoji # 産業用ロボット（教示等） */
 
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import path from "node:path";
@@ -66,6 +67,9 @@ import {
 import {
   KIDOU_BASIS, KIDOU_LESSONS, KIDOU_NAME, KIDOU_SUBJECTS, KIDOU_TOTAL_MIN,
 } from "../src/content/kidou";
+import {
+  ROBOTKYOJI_BASIS, ROBOTKYOJI_LESSONS, ROBOTKYOJI_NAME, ROBOTKYOJI_SUBJECTS, ROBOTKYOJI_TOTAL_MIN,
+} from "../src/content/robotkyoji";
 import {
   BORING_BASIS, BORING_LESSONS, BORING_NAME, BORING_SUBJECTS, BORING_TOTAL_MIN,
 } from "../src/content/boring";
@@ -186,6 +190,14 @@ const PLANS: Record<string, Plan> = {
     subjects: FUNJIN_SUBJECTS,
     lessons: FUNJIN_LESSONS,
     totalMin: FUNJIN_TOTAL_MIN,
+  },
+  robotkyoji: {
+    id: "robotkyoji",
+    name: `${ROBOTKYOJI_NAME}（学科）`,
+    basis: ROBOTKYOJI_BASIS,
+    subjects: ROBOTKYOJI_SUBJECTS,
+    lessons: ROBOTKYOJI_LESSONS,
+    totalMin: ROBOTKYOJI_TOTAL_MIN,
   },
   kidou: {
     id: "kidou",

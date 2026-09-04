@@ -696,6 +696,8 @@ export const TOKUBETSU: Tokubetsu[] = [
     basis: "労働安全衛生規則第36条第31号／安全衛生特別教育規程 第18条",
     src: "kitei",
     checked: true,
+    courseId: "robotkyoji",
+    doc: "docs/61-産業用ロボット（教示等）の根拠と裏取り.md",
   },
   {
     no: 55,

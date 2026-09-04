@@ -116,6 +116,14 @@ import {
   KIDOU_JITSUGI,
 } from "./kidou";
 import {
+  ROBOTKYOJI_DRILL_FORM,
+  ROBOTKYOJI_DRILL_PREP,
+  ROBOTKYOJI_DRILL_STEPS,
+  ROBOTKYOJI_DRILL_TEACHER,
+  ROBOTKYOJI_DRILL_TOTAL_MIN,
+  ROBOTKYOJI_JITSUGI,
+} from "./robotkyoji";
+import {
   SOUKOU_DRILL_FORM,
   SOUKOU_DRILL_PREP,
   SOUKOU_DRILL_STEPS,
@@ -356,6 +364,18 @@ const GUIDES: Record<string, DrillGuide> = {
     prep: KOUATSU_DRILL_PREP,
     keepYears: 3,
     form: KOUATSU_DRILL_FORM,
+  },
+  robotkyoji: {
+    courseId: "robotkyoji",
+    subject: ROBOTKYOJI_JITSUGI.name,
+    scope: ROBOTKYOJI_JITSUGI.scope,
+    legalMin: ROBOTKYOJI_JITSUGI.legalMin,
+    steps: ROBOTKYOJI_DRILL_STEPS,
+    totalMin: ROBOTKYOJI_DRILL_TOTAL_MIN,
+    teacher: ROBOTKYOJI_DRILL_TEACHER,
+    prep: ROBOTKYOJI_DRILL_PREP,
+    keepYears: 3,
+    form: ROBOTKYOJI_DRILL_FORM,
   },
   kidou: {
     courseId: "kidou",
