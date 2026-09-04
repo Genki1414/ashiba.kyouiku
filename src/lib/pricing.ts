@@ -278,6 +278,12 @@ export function parseUnitPrice(raw: string | undefined): number {
         学科6時間。フォークリフト・ローラー・機械集材装置と同じ長さなので、同じ 6,000円に置いた。
         実技の手引きと実施記録の様式が付く（/edu/jack/drill）。
 
+      軌道装置の動力車（学科6時間＋実技4時間。ここで出すのは学科だけ）
+        **よその値段はまだ調べていない**（docs/60）。
+        → ここ 6,000円（税抜）＝ 6,600円（税込）
+        学科6時間。ジャッキ式つり上げ機械・簡易架線集材装置等と同じ長さなので、同じ 6,000円に置いた。
+        実技の手引きと実施記録の様式が付く（/edu/kidou/drill）。
+
       職長・安全衛生責任者教育（14時間・討議つき）
         中小建設業特別教育協会 WEB講習  17,600円
           （動画12時間18分＋Zoom討議2時間30分。うちと同じ作り）
@@ -326,6 +332,7 @@ export const DEFAULT_COURSE_PRICE: Record<string, number> = {
   concrete: 7000,
   boring: 7000,
   jack: 6000,
+  kidou: 6000,
 };
 
 /** 講座の目印から環境変数の名前を作る。ashiba → SEAT_UNIT_PRICE_ASHIBA */

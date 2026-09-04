@@ -46,6 +46,7 @@
     "build:concrete": "tsx scripts/build-course.ts concrete",
     "build:boring": "tsx scripts/build-course.ts boring",
     "build:jack": "tsx scripts/build-course.ts jack",
+    "build:kidou": "tsx scripts/build-course.ts kidou",
     "dump:why": "tsx scripts/dump-demo-why.ts",
     "test:score": "tsx tests/score.ts",
     "test:changelog": "tsx tests/changelog.ts",

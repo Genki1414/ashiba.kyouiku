@@ -441,6 +441,8 @@ export const TOKUBETSU: Tokubetsu[] = [
     basis: "労働安全衛生規則第36条第13号／安全衛生特別教育規程 第15条",
     src: "kitei",
     checked: true,
+    courseId: "kidou",
+    doc: "docs/60-軌道装置の動力車の根拠と裏取り.md",
   },
   {
     no: 30,
