@@ -84,6 +84,14 @@ import {
   KISOSOUSA_JITSUGI,
 } from "./kisosousa";
 import {
+  CONCRETE_DRILL_FORM,
+  CONCRETE_DRILL_PREP,
+  CONCRETE_DRILL_STEPS,
+  CONCRETE_DRILL_TEACHER,
+  CONCRETE_DRILL_TOTAL_MIN,
+  CONCRETE_JITSUGI,
+} from "./concrete";
+import {
   SOUKOU_DRILL_FORM,
   SOUKOU_DRILL_PREP,
   SOUKOU_DRILL_STEPS,
@@ -324,6 +332,18 @@ const GUIDES: Record<string, DrillGuide> = {
     prep: KOUATSU_DRILL_PREP,
     keepYears: 3,
     form: KOUATSU_DRILL_FORM,
+  },
+  concrete: {
+    courseId: "concrete",
+    subject: CONCRETE_JITSUGI.name,
+    scope: CONCRETE_JITSUGI.scope,
+    legalMin: CONCRETE_JITSUGI.legalMin,
+    steps: CONCRETE_DRILL_STEPS,
+    totalMin: CONCRETE_DRILL_TOTAL_MIN,
+    teacher: CONCRETE_DRILL_TEACHER,
+    prep: CONCRETE_DRILL_PREP,
+    keepYears: 3,
+    form: CONCRETE_DRILL_FORM,
   },
   kisosousa: {
     courseId: "kisosousa",

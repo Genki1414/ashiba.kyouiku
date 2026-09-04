@@ -374,6 +374,8 @@ export const TOKUBETSU: Tokubetsu[] = [
     basis: "労働安全衛生規則第36条第10号の2／安全衛生特別教育規程 第12条の2",
     src: "kitei",
     checked: true,
+    courseId: "concrete",
+    doc: "docs/57-コンクリート打設用機械の根拠と裏取り.md",
   },
   {
     no: 25,
