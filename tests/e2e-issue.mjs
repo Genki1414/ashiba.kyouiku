@@ -230,7 +230,7 @@ await page.screenshot({ path: `${SC}/issue-08-drill.png` });
 
 /* 実技の手引き。会社の人が見る画面なので、ログイン無しで開けること。
    **実技のある講座は増える。決め打ちにせず、全部を回す。** */
-for (const [id, mins] of [["kousho", 180], ["harness", 90], ["rope", 180], ["kogata", 360], ["forklift", 360], ["tailgate", 120], ["toishi", 120], ["teiatsu", 420], ["winch", 240], ["roller", 240], ["chainsaw", 540], ["arc", 600], ["kikaitoishi", 180], ["shovel", 360], ["fuseichi", 360], ["kouatsu", 900], ["ev", 60], ["press", 120], ["youka", 240], ["batsuboku", 360], ["soukou", 360], ["kikaishuzai", 480], ["kanikasen", 480]]) {
+for (const [id, mins] of [["kousho", 180], ["harness", 90], ["rope", 180], ["kogata", 360], ["forklift", 360], ["tailgate", 120], ["toishi", 120], ["teiatsu", 420], ["winch", 240], ["roller", 240], ["chainsaw", 540], ["arc", 600], ["kikaitoishi", 180], ["shovel", 360], ["fuseichi", 360], ["kouatsu", 900], ["ev", 60], ["press", 120], ["youka", 240], ["batsuboku", 360], ["soukou", 360], ["kikaishuzai", 480], ["kanikasen", 480], ["kisokouji", 360]]) {
   await page.goto(`${BASE}/edu/${id}/drill`);
   await dismissNotice();
   await page.getByTestId("drill-guide").waitFor({ timeout: 6000 })
@@ -269,6 +269,12 @@ for (const [id, mins] of [["kousho", 180], ["harness", 90], ["rope", 180], ["kog
     check(form.includes("検電器の自己点検") && form.includes("短絡接地器具"), "高圧の様式に検電器の自己点検と短絡接地器具の欄がある");
     check(form.includes("充電電路の操作のみ"), "高圧の様式に実技1時間（操作のみ）の区分がある");
     check(!form.includes("作業床の高さ"), "高圧の様式に「作業床の高さ」が無い");
+  } else if (id === "kisokouji") {
+    check(form.includes("アースオーガー") && form.includes("3トン未満"), "小型車両系（基礎工事用）の様式に機械の種類と3トン未満の但し書きがある");
+    check(form.includes("アウトリガ") && form.includes("水準器"), "小型車両系（基礎工事用）の様式に据付け（アウトリガ・水平）の欄がある");
+    check(form.includes("架空電線") && form.includes("埋設物"), "小型車両系（基礎工事用）の様式に上と下の確認の欄がある");
+    check(form.includes("小旗") && form.includes("合図者は一人"), "小型車両系（基礎工事用）の様式に合図の欄がある");
+    check(!form.includes("作業床の高さ"), "小型車両系（基礎工事用）の様式に「作業床の高さ」が無い");
   } else if (id === "kanikasen") {
     check(form.includes("スイングヤーダ") && form.includes("走行コース"), "簡易架線集材装置等の様式に機械の種類と走行コースの欄がある");
     check(form.includes("控索") && form.includes("アンカー"), "簡易架線集材装置等の様式に据付け（控索・アンカー）の欄がある");
