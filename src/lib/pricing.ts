@@ -310,6 +310,12 @@ export function parseUnitPrice(raw: string | undefined): number {
         あいだを取って 10,000円に置いた。
         実技の手引きと実施記録の様式が付く（/edu/tokushu/drill）。
 
+      玉掛け（1トン未満）（学科5時間＋実技4時間。ここで出すのは学科だけ）
+        **よその値段はまだ調べていない**（docs/66）。
+        → ここ 5,500円（税抜）＝ 6,050円（税込）
+        学科5時間。自動車用タイヤの空気充てんと同じ長さなので、同じ 5,500円に置いた。
+        実技の手引きと実施記録の様式が付く（/edu/tamakake/drill）。
+
       職長・安全衛生責任者教育（14時間・討議つき）
         中小建設業特別教育協会 WEB講習  17,600円
           （動画12時間18分＋Zoom討議2時間30分。うちと同じ作り）
@@ -363,6 +369,7 @@ export const DEFAULT_COURSE_PRICE: Record<string, number> = {
   robotkensa: 8000,
   tire: 5500,
   tokushu: 10000,
+  tamakake: 5500,
 };
 
 /** 講座の目印から環境変数の名前を作る。ashiba → SEAT_UNIT_PRICE_ASHIBA */

@@ -50,7 +50,8 @@
      npm run build:robotkyoji # 産業用ロボット（教示等）
      npm run build:robotkensa # 産業用ロボット（検査等）
      npm run build:tire       # 自動車用タイヤの空気充てん
-     npm run build:tokushu    # 特殊化学設備 */
+     npm run build:tokushu    # 特殊化学設備
+     npm run build:tamakake   # 玉掛け（1トン未満） */
 
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import path from "node:path";
@@ -82,6 +83,9 @@ import {
 import {
   TOKUSHU_BASIS, TOKUSHU_LESSONS, TOKUSHU_NAME, TOKUSHU_SUBJECTS, TOKUSHU_TOTAL_MIN,
 } from "../src/content/tokushu";
+import {
+  TAMAKAKE_BASIS, TAMAKAKE_LESSONS, TAMAKAKE_NAME, TAMAKAKE_SUBJECTS, TAMAKAKE_TOTAL_MIN,
+} from "../src/content/tamakake";
 import {
   BORING_BASIS, BORING_LESSONS, BORING_NAME, BORING_SUBJECTS, BORING_TOTAL_MIN,
 } from "../src/content/boring";
@@ -202,6 +206,14 @@ const PLANS: Record<string, Plan> = {
     subjects: FUNJIN_SUBJECTS,
     lessons: FUNJIN_LESSONS,
     totalMin: FUNJIN_TOTAL_MIN,
+  },
+  tamakake: {
+    id: "tamakake",
+    name: `${TAMAKAKE_NAME}（学科）`,
+    basis: TAMAKAKE_BASIS,
+    subjects: TAMAKAKE_SUBJECTS,
+    lessons: TAMAKAKE_LESSONS,
+    totalMin: TAMAKAKE_TOTAL_MIN,
   },
   tokushu: {
     id: "tokushu",

@@ -45,6 +45,10 @@ export const SOURCES: Record<string, { name: string; url: string }> = {
     name: "酸素欠乏危険作業特別教育規程",
     url: "https://www.mhlw.go.jp/web/t_doc?dataId=74106000&dataType=0&pageNo=1",
   },
+  kurenkitei: {
+    name: "クレーン取扱い業務等特別教育規程",
+    url: "https://www.mhlw.go.jp/web/t_doc?dataId=74027000&dataType=0&pageNo=1",
+  },
   xray: {
     name: "エックス線装置及びガンマ線照射装置取扱業務特別教育規程",
     url: "https://www.mhlw.go.jp/web/t_doc?dataId=74104000&dataType=0&pageNo=1",
@@ -504,8 +508,14 @@ export const TOKUBETSU: Tokubetsu[] = [
     name: "つり上げ荷重1トン未満のクレーン等の玉掛けの業務",
     gakkaMin: 300,
     jitsugiMin: 240,
-    basis: "クレーン取扱い業務等特別教育規程（昭和47年労働省告示第118号）",
-    src: "roudoukyoku",
+    basis: "労働安全衛生規則第36条第19号／クレーン等安全規則第222条／クレーン取扱い業務等特別教育規程 第5条",
+    /* 時間の出どころは、げんきさんが送ってくれた講座マスター（2026年9月5日）。
+       元からあった労働局のまとめの時間（学科5時間・実技4時間）と一致した。
+       **告示の全文そのものは、うちはまだ見ていない**（docs/65・docs/66） */
+    src: "kurenkitei",
+    checked: true,
+    courseId: "tamakake",
+    doc: "docs/66-玉掛け（1トン未満）の根拠と裏取り.md",
   },
   {
     no: 37,
