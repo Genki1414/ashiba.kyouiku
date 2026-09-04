@@ -50,6 +50,7 @@
     "build:robotkyoji": "tsx scripts/build-course.ts robotkyoji",
     "build:robotkensa": "tsx scripts/build-course.ts robotkensa",
     "build:tire": "tsx scripts/build-course.ts tire",
+    "build:tokushu": "tsx scripts/build-course.ts tokushu",
     "dump:why": "tsx scripts/dump-demo-why.ts",
     "test:score": "tsx tests/score.ts",
     "test:changelog": "tsx tests/changelog.ts",

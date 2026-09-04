@@ -302,6 +302,14 @@ export function parseUnitPrice(raw: string | undefined): number {
         学科5時間。基礎工事用の作業装置の操作と同じ長さなので、同じ 5,500円に置いた。
         実技の手引きと実施記録の様式が付く（/edu/tire/drill）。
 
+      特殊化学設備（学科13時間＋実技15時間。ここで出すのは学科だけ）
+        **よその値段はまだ調べていない**（docs/64）。
+        → ここ 10,000円（税抜）＝ 11,000円（税込）
+        学科13時間。**うちでいちばん長い特別教育。**
+        アーク溶接・揚貨装置（11時間）より長く、高圧特別高圧電気（11時間・12,000円）より短い。
+        あいだを取って 10,000円に置いた。
+        実技の手引きと実施記録の様式が付く（/edu/tokushu/drill）。
+
       職長・安全衛生責任者教育（14時間・討議つき）
         中小建設業特別教育協会 WEB講習  17,600円
           （動画12時間18分＋Zoom討議2時間30分。うちと同じ作り）
@@ -354,6 +362,7 @@ export const DEFAULT_COURSE_PRICE: Record<string, number> = {
   robotkyoji: 7000,
   robotkensa: 8000,
   tire: 5500,
+  tokushu: 10000,
 };
 
 /** 講座の目印から環境変数の名前を作る。ashiba → SEAT_UNIT_PRICE_ASHIBA */

@@ -140,6 +140,14 @@ import {
   TIRE_JITSUGI,
 } from "./tire";
 import {
+  TOKUSHU_DRILL_FORM,
+  TOKUSHU_DRILL_PREP,
+  TOKUSHU_DRILL_STEPS,
+  TOKUSHU_DRILL_TEACHER,
+  TOKUSHU_DRILL_TOTAL_MIN,
+  TOKUSHU_JITSUGI,
+} from "./tokushu";
+import {
   SOUKOU_DRILL_FORM,
   SOUKOU_DRILL_PREP,
   SOUKOU_DRILL_STEPS,
@@ -380,6 +388,18 @@ const GUIDES: Record<string, DrillGuide> = {
     prep: KOUATSU_DRILL_PREP,
     keepYears: 3,
     form: KOUATSU_DRILL_FORM,
+  },
+  tokushu: {
+    courseId: "tokushu",
+    subject: TOKUSHU_JITSUGI.name,
+    scope: TOKUSHU_JITSUGI.scope,
+    legalMin: TOKUSHU_JITSUGI.legalMin,
+    steps: TOKUSHU_DRILL_STEPS,
+    totalMin: TOKUSHU_DRILL_TOTAL_MIN,
+    teacher: TOKUSHU_DRILL_TEACHER,
+    prep: TOKUSHU_DRILL_PREP,
+    keepYears: 3,
+    form: TOKUSHU_DRILL_FORM,
   },
   tire: {
     courseId: "tire",

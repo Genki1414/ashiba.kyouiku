@@ -230,7 +230,7 @@ await page.screenshot({ path: `${SC}/issue-08-drill.png` });
 
 /* 実技の手引き。会社の人が見る画面なので、ログイン無しで開けること。
    **実技のある講座は増える。決め打ちにせず、全部を回す。** */
-for (const [id, mins] of [["kousho", 180], ["harness", 90], ["rope", 180], ["kogata", 360], ["forklift", 360], ["tailgate", 120], ["toishi", 120], ["teiatsu", 420], ["winch", 240], ["roller", 240], ["chainsaw", 540], ["arc", 600], ["kikaitoishi", 180], ["shovel", 360], ["fuseichi", 360], ["kouatsu", 900], ["ev", 60], ["press", 120], ["youka", 240], ["batsuboku", 360], ["soukou", 360], ["kikaishuzai", 480], ["kanikasen", 480], ["kisokouji", 360], ["kaitai", 420], ["kisokenki", 300], ["kisosousa", 240], ["concrete", 300], ["boring", 300], ["jack", 240], ["kidou", 240], ["robotkyoji", 180], ["robotkensa", 240], ["tire", 240]]) {
+for (const [id, mins] of [["kousho", 180], ["harness", 90], ["rope", 180], ["kogata", 360], ["forklift", 360], ["tailgate", 120], ["toishi", 120], ["teiatsu", 420], ["winch", 240], ["roller", 240], ["chainsaw", 540], ["arc", 600], ["kikaitoishi", 180], ["shovel", 360], ["fuseichi", 360], ["kouatsu", 900], ["ev", 60], ["press", 120], ["youka", 240], ["batsuboku", 360], ["soukou", 360], ["kikaishuzai", 480], ["kanikasen", 480], ["kisokouji", 360], ["kaitai", 420], ["kisokenki", 300], ["kisosousa", 240], ["concrete", 300], ["boring", 300], ["jack", 240], ["kidou", 240], ["robotkyoji", 180], ["robotkensa", 240], ["tire", 240], ["tokushu", 900]]) {
   await page.goto(`${BASE}/edu/${id}/drill`);
   await dismissNotice();
   await page.getByTestId("drill-guide").waitFor({ timeout: 6000 })
@@ -275,6 +275,12 @@ for (const [id, mins] of [["kousho", 180], ["harness", 90], ["rope", 180], ["kog
     check(form.includes("台数") && form.includes("第10号の4"), "ジャッキ式つり上げ機械の様式に台数と対象の確認の欄がある");
     check(form.includes("仮受け") && form.includes("保持を解く"), "ジャッキ式つり上げ機械の様式に途中で置くときと保持を解く順の欄がある");
     check(!form.includes("作業床の高さ"), "ジャッキ式つり上げ機械の様式に「作業床の高さ」が無い");
+  } else if (id === "tokushu") {
+    check(form.includes("第27号") && form.includes("整備又は修理のみ"), "特殊化学設備の様式に対象の確認とただし書きの区分の欄がある");
+    check(form.includes("盲板") && form.includes("入れた数"), "特殊化学設備の様式に盲板の数の欄がある");
+    check(form.includes("ガス検知") && form.includes("入っている間も継続"), "特殊化学設備の様式にガス検知の欄がある");
+    check(form.includes("通風及び換気") && form.includes("送気マスク"), "特殊化学設備の様式に換気と呼吸用保護具の欄がある");
+    check(!form.includes("作業床の高さ"), "特殊化学設備の様式に「作業床の高さ」が無い");
   } else if (id === "tire") {
     check(form.includes("分割リム") && form.includes("第33号"), "自動車用タイヤの様式にリムの形と対象の確認の欄がある");
     check(form.includes("安全囲い") && form.includes("正面に立たなかった"), "自動車用タイヤの様式に安全囲いと立ち位置の欄がある");
