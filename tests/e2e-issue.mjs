@@ -230,7 +230,7 @@ await page.screenshot({ path: `${SC}/issue-08-drill.png` });
 
 /* 実技の手引き。会社の人が見る画面なので、ログイン無しで開けること。
    **実技のある講座は増える。決め打ちにせず、全部を回す。** */
-for (const [id, mins] of [["kousho", 180], ["harness", 90], ["rope", 180], ["kogata", 360], ["forklift", 360], ["tailgate", 120], ["toishi", 120], ["teiatsu", 420], ["winch", 240], ["roller", 240], ["chainsaw", 540], ["arc", 600], ["kikaitoishi", 180], ["shovel", 360], ["fuseichi", 360], ["kouatsu", 900], ["ev", 60], ["press", 120], ["youka", 240], ["batsuboku", 360], ["soukou", 360], ["kikaishuzai", 480], ["kanikasen", 480], ["kisokouji", 360], ["kaitai", 420], ["kisokenki", 300], ["kisosousa", 240], ["concrete", 300], ["boring", 300]]) {
+for (const [id, mins] of [["kousho", 180], ["harness", 90], ["rope", 180], ["kogata", 360], ["forklift", 360], ["tailgate", 120], ["toishi", 120], ["teiatsu", 420], ["winch", 240], ["roller", 240], ["chainsaw", 540], ["arc", 600], ["kikaitoishi", 180], ["shovel", 360], ["fuseichi", 360], ["kouatsu", 900], ["ev", 60], ["press", 120], ["youka", 240], ["batsuboku", 360], ["soukou", 360], ["kikaishuzai", 480], ["kanikasen", 480], ["kisokouji", 360], ["kaitai", 420], ["kisokenki", 300], ["kisosousa", 240], ["concrete", 300], ["boring", 300], ["jack", 240]]) {
   await page.goto(`${BASE}/edu/${id}/drill`);
   await dismissNotice();
   await page.getByTestId("drill-guide").waitFor({ timeout: 6000 })
@@ -269,6 +269,12 @@ for (const [id, mins] of [["kousho", 180], ["harness", 90], ["rope", 180], ["kog
     check(form.includes("検電器の自己点検") && form.includes("短絡接地器具"), "高圧の様式に検電器の自己点検と短絡接地器具の欄がある");
     check(form.includes("充電電路の操作のみ"), "高圧の様式に実技1時間（操作のみ）の区分がある");
     check(!form.includes("作業床の高さ"), "高圧の様式に「作業床の高さ」が無い");
+  } else if (id === "jack") {
+    check(form.includes("保持機構") && form.includes("同時開放防止機構"), "ジャッキ式つり上げ機械の様式に保持機構と同時開放防止機構の欄がある");
+    check(form.includes("同調") && form.includes("地切り"), "ジャッキ式つり上げ機械の様式に調整（同調）の欄がある");
+    check(form.includes("台数") && form.includes("第10号の4"), "ジャッキ式つり上げ機械の様式に台数と対象の確認の欄がある");
+    check(form.includes("仮受け") && form.includes("保持を解く"), "ジャッキ式つり上げ機械の様式に途中で置くときと保持を解く順の欄がある");
+    check(!form.includes("作業床の高さ"), "ジャッキ式つり上げ機械の様式に「作業床の高さ」が無い");
   } else if (id === "boring") {
     check(form.includes("ロータリー式") && form.includes("第10号の3"), "ボーリングマシンの様式に機械の種類と対象の確認の欄がある");
     check(form.includes("回転部の覆い") && form.includes("袖を締めた"), "ボーリングマシンの様式に覆いと服装の欄がある");

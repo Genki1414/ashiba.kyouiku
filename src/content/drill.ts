@@ -100,6 +100,14 @@ import {
   BORING_JITSUGI,
 } from "./boring";
 import {
+  JACK_DRILL_FORM,
+  JACK_DRILL_PREP,
+  JACK_DRILL_STEPS,
+  JACK_DRILL_TEACHER,
+  JACK_DRILL_TOTAL_MIN,
+  JACK_JITSUGI,
+} from "./jack";
+import {
   SOUKOU_DRILL_FORM,
   SOUKOU_DRILL_PREP,
   SOUKOU_DRILL_STEPS,
@@ -340,6 +348,18 @@ const GUIDES: Record<string, DrillGuide> = {
     prep: KOUATSU_DRILL_PREP,
     keepYears: 3,
     form: KOUATSU_DRILL_FORM,
+  },
+  jack: {
+    courseId: "jack",
+    subject: JACK_JITSUGI.name,
+    scope: JACK_JITSUGI.scope,
+    legalMin: JACK_JITSUGI.legalMin,
+    steps: JACK_DRILL_STEPS,
+    totalMin: JACK_DRILL_TOTAL_MIN,
+    teacher: JACK_DRILL_TEACHER,
+    prep: JACK_DRILL_PREP,
+    keepYears: 3,
+    form: JACK_DRILL_FORM,
   },
   boring: {
     courseId: "boring",

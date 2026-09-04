@@ -157,6 +157,7 @@ console.log("── 講座ごとの単価 ──");
   check(unitPrice("kisosousa") === 5500, `基礎工事用の作業装置の操作は5,500円（税抜）（${unitPrice("kisosousa")}）`);
   check(unitPrice("concrete") === 7000, `コンクリート打設用機械は7,000円（税抜）（${unitPrice("concrete")}）`);
   check(unitPrice("boring") === 7000, `ボーリングマシンは7,000円（税抜）（${unitPrice("boring")}）`);
+  check(unitPrice("jack") === 6000, `ジャッキ式つり上げ機械は6,000円（税抜）（${unitPrice("jack")}）`);
 
   /* 知らない講座を聞かれても、仮置きの値で答える（0円で配らない） */
   check(unitPrice("nonsense") > 0, "知らない講座でも0円にはしない");

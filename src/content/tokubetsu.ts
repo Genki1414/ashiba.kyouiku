@@ -398,6 +398,8 @@ export const TOKUBETSU: Tokubetsu[] = [
     basis: "労働安全衛生規則第36条第10号の4／安全衛生特別教育規程 第12条の4",
     src: "kitei",
     checked: true,
+    courseId: "jack",
+    doc: "docs/59-ジャッキ式つり上げ機械の根拠と裏取り.md",
   },
   /* 根拠に条番号を足した。渡された一覧は「安全衛生特別教育規程」までで、
      どの条かが分からなかった。特別教育を義務づけているのは
