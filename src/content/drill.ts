@@ -68,6 +68,14 @@ import {
   KAITAI_JITSUGI,
 } from "./kaitai";
 import {
+  KISOKENKI_DRILL_FORM,
+  KISOKENKI_DRILL_PREP,
+  KISOKENKI_DRILL_STEPS,
+  KISOKENKI_DRILL_TEACHER,
+  KISOKENKI_DRILL_TOTAL_MIN,
+  KISOKENKI_JITSUGI,
+} from "./kisokenki";
+import {
   SOUKOU_DRILL_FORM,
   SOUKOU_DRILL_PREP,
   SOUKOU_DRILL_STEPS,
@@ -308,6 +316,18 @@ const GUIDES: Record<string, DrillGuide> = {
     prep: KOUATSU_DRILL_PREP,
     keepYears: 3,
     form: KOUATSU_DRILL_FORM,
+  },
+  kisokenki: {
+    courseId: "kisokenki",
+    subject: KISOKENKI_JITSUGI.name,
+    scope: KISOKENKI_JITSUGI.scope,
+    legalMin: KISOKENKI_JITSUGI.legalMin,
+    steps: KISOKENKI_DRILL_STEPS,
+    totalMin: KISOKENKI_DRILL_TOTAL_MIN,
+    teacher: KISOKENKI_DRILL_TEACHER,
+    prep: KISOKENKI_DRILL_PREP,
+    keepYears: 3,
+    form: KISOKENKI_DRILL_FORM,
   },
   kaitai: {
     courseId: "kaitai",
