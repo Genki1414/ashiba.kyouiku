@@ -386,6 +386,8 @@ export const TOKUBETSU: Tokubetsu[] = [
     basis: "労働安全衛生規則第36条第10号の3／安全衛生特別教育規程 第12条の3",
     src: "kitei",
     checked: true,
+    courseId: "boring",
+    doc: "docs/58-ボーリングマシンの根拠と裏取り.md",
   },
   {
     no: 26,

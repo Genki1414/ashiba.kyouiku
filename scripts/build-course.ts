@@ -43,7 +43,8 @@
      npm run build:kaitai     # 小型車両系（解体用）
      npm run build:kisokenki  # 基礎工事用建設機械
      npm run build:kisosousa  # 基礎工事用の作業装置の操作
-     npm run build:concrete   # コンクリート打設用 */
+     npm run build:concrete   # コンクリート打設用
+     npm run build:boring     # ボーリングマシン */
 
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import path from "node:path";
@@ -57,6 +58,9 @@ import {
 import {
   FUNJIN_BASIS, FUNJIN_LESSONS, FUNJIN_NAME, FUNJIN_SUBJECTS, FUNJIN_TOTAL_MIN,
 } from "../src/content/funjin";
+import {
+  BORING_BASIS, BORING_LESSONS, BORING_NAME, BORING_SUBJECTS, BORING_TOTAL_MIN,
+} from "../src/content/boring";
 import {
   CONCRETE_BASIS, CONCRETE_LESSONS, CONCRETE_NAME, CONCRETE_SUBJECTS, CONCRETE_TOTAL_MIN,
 } from "../src/content/concrete";
@@ -174,6 +178,14 @@ const PLANS: Record<string, Plan> = {
     subjects: FUNJIN_SUBJECTS,
     lessons: FUNJIN_LESSONS,
     totalMin: FUNJIN_TOTAL_MIN,
+  },
+  boring: {
+    id: "boring",
+    name: `${BORING_NAME}（学科）`,
+    basis: BORING_BASIS,
+    subjects: BORING_SUBJECTS,
+    lessons: BORING_LESSONS,
+    totalMin: BORING_TOTAL_MIN,
   },
   concrete: {
     id: "concrete",

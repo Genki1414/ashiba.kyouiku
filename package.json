@@ -44,6 +44,7 @@
     "build:kisokenki": "tsx scripts/build-course.ts kisokenki",
     "build:kisosousa": "tsx scripts/build-course.ts kisosousa",
     "build:concrete": "tsx scripts/build-course.ts concrete",
+    "build:boring": "tsx scripts/build-course.ts boring",
     "dump:why": "tsx scripts/dump-demo-why.ts",
     "test:score": "tsx tests/score.ts",
     "test:changelog": "tsx tests/changelog.ts",
