@@ -48,7 +48,8 @@
      npm run build:jack       # ジャッキ式つり上げ機械
      npm run build:kidou      # 軌道装置の動力車
      npm run build:robotkyoji # 産業用ロボット（教示等）
-     npm run build:robotkensa # 産業用ロボット（検査等） */
+     npm run build:robotkensa # 産業用ロボット（検査等）
+     npm run build:tire       # 自動車用タイヤの空気充てん */
 
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import path from "node:path";
@@ -74,6 +75,9 @@ import {
 import {
   ROBOTKENSA_BASIS, ROBOTKENSA_LESSONS, ROBOTKENSA_NAME, ROBOTKENSA_SUBJECTS, ROBOTKENSA_TOTAL_MIN,
 } from "../src/content/robotkensa";
+import {
+  TIRE_BASIS, TIRE_LESSONS, TIRE_NAME, TIRE_SUBJECTS, TIRE_TOTAL_MIN,
+} from "../src/content/tire";
 import {
   BORING_BASIS, BORING_LESSONS, BORING_NAME, BORING_SUBJECTS, BORING_TOTAL_MIN,
 } from "../src/content/boring";
@@ -194,6 +198,14 @@ const PLANS: Record<string, Plan> = {
     subjects: FUNJIN_SUBJECTS,
     lessons: FUNJIN_LESSONS,
     totalMin: FUNJIN_TOTAL_MIN,
+  },
+  tire: {
+    id: "tire",
+    name: `${TIRE_NAME}（学科）`,
+    basis: TIRE_BASIS,
+    subjects: TIRE_SUBJECTS,
+    lessons: TIRE_LESSONS,
+    totalMin: TIRE_TOTAL_MIN,
   },
   robotkensa: {
     id: "robotkensa",

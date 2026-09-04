@@ -720,6 +720,8 @@ export const TOKUBETSU: Tokubetsu[] = [
     basis: "労働安全衛生規則第36条第33号／安全衛生特別教育規程 第20条",
     src: "kitei",
     checked: true,
+    courseId: "tire",
+    doc: "docs/63-自動車用タイヤの空気充てんの根拠と裏取り.md",
   },
   {
     no: 57,

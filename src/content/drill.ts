@@ -132,6 +132,14 @@ import {
   ROBOTKENSA_JITSUGI,
 } from "./robotkensa";
 import {
+  TIRE_DRILL_FORM,
+  TIRE_DRILL_PREP,
+  TIRE_DRILL_STEPS,
+  TIRE_DRILL_TEACHER,
+  TIRE_DRILL_TOTAL_MIN,
+  TIRE_JITSUGI,
+} from "./tire";
+import {
   SOUKOU_DRILL_FORM,
   SOUKOU_DRILL_PREP,
   SOUKOU_DRILL_STEPS,
@@ -372,6 +380,18 @@ const GUIDES: Record<string, DrillGuide> = {
     prep: KOUATSU_DRILL_PREP,
     keepYears: 3,
     form: KOUATSU_DRILL_FORM,
+  },
+  tire: {
+    courseId: "tire",
+    subject: TIRE_JITSUGI.name,
+    scope: TIRE_JITSUGI.scope,
+    legalMin: TIRE_JITSUGI.legalMin,
+    steps: TIRE_DRILL_STEPS,
+    totalMin: TIRE_DRILL_TOTAL_MIN,
+    teacher: TIRE_DRILL_TEACHER,
+    prep: TIRE_DRILL_PREP,
+    keepYears: 3,
+    form: TIRE_DRILL_FORM,
   },
   robotkensa: {
     courseId: "robotkensa",

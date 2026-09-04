@@ -49,6 +49,7 @@
     "build:kidou": "tsx scripts/build-course.ts kidou",
     "build:robotkyoji": "tsx scripts/build-course.ts robotkyoji",
     "build:robotkensa": "tsx scripts/build-course.ts robotkensa",
+    "build:tire": "tsx scripts/build-course.ts tire",
     "dump:why": "tsx scripts/dump-demo-why.ts",
     "test:score": "tsx tests/score.ts",
     "test:changelog": "tsx tests/changelog.ts",
