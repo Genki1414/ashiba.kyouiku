@@ -42,6 +42,7 @@
     "build:kisokouji": "tsx scripts/build-course.ts kisokouji",
     "build:kaitai": "tsx scripts/build-course.ts kaitai",
     "build:kisokenki": "tsx scripts/build-course.ts kisokenki",
+    "build:kisosousa": "tsx scripts/build-course.ts kisosousa",
     "dump:why": "tsx scripts/dump-demo-why.ts",
     "test:score": "tsx tests/score.ts",
     "test:changelog": "tsx tests/changelog.ts",

@@ -252,6 +252,13 @@ export function parseUnitPrice(raw: string | undefined): number {
         学科7時間で、**小型車両系の三つと同じ長さ**。同じ 7,000円に置いた。
         実技の手引きと実施記録の様式が付く（/edu/kisokenki/drill）。
 
+      車両系建設機械（基礎工事用）の作業装置の操作（学科5時間＋実技4時間。ここで出すのは学科だけ）
+        **よその値段はまだ調べていない**（docs/56）。
+        → ここ 5,500円（税抜）＝ 6,050円（税込）
+        学科5時間。酸素欠乏（5時間30分）と同じ 5,500円に置いた。
+        基礎工事用の運転（7時間・7,000円）より短いぶん、下げてある。
+        実技の手引きと実施記録の様式が付く（/edu/kisosousa/drill）。
+
       職長・安全衛生責任者教育（14時間・討議つき）
         中小建設業特別教育協会 WEB講習  17,600円
           （動画12時間18分＋Zoom討議2時間30分。うちと同じ作り）
@@ -296,6 +303,7 @@ export const DEFAULT_COURSE_PRICE: Record<string, number> = {
   kisokouji: 7000,
   kaitai: 7000,
   kisokenki: 7000,
+  kisosousa: 5500,
 };
 
 /** 講座の目印から環境変数の名前を作る。ashiba → SEAT_UNIT_PRICE_ASHIBA */

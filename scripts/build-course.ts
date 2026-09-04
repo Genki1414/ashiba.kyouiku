@@ -41,7 +41,8 @@
      npm run build:kanikasen  # 簡易架線集材装置等
      npm run build:kisokouji  # 小型車両系（基礎工事用）
      npm run build:kaitai     # 小型車両系（解体用）
-     npm run build:kisokenki  # 基礎工事用建設機械 */
+     npm run build:kisokenki  # 基礎工事用建設機械
+     npm run build:kisosousa  # 基礎工事用の作業装置の操作 */
 
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import path from "node:path";
@@ -55,6 +56,9 @@ import {
 import {
   FUNJIN_BASIS, FUNJIN_LESSONS, FUNJIN_NAME, FUNJIN_SUBJECTS, FUNJIN_TOTAL_MIN,
 } from "../src/content/funjin";
+import {
+  KISOSOUSA_BASIS, KISOSOUSA_LESSONS, KISOSOUSA_NAME, KISOSOUSA_SUBJECTS, KISOSOUSA_TOTAL_MIN,
+} from "../src/content/kisosousa";
 import {
   KISOKENKI_BASIS, KISOKENKI_LESSONS, KISOKENKI_NAME, KISOKENKI_SUBJECTS, KISOKENKI_TOTAL_MIN,
 } from "../src/content/kisokenki";
@@ -166,6 +170,14 @@ const PLANS: Record<string, Plan> = {
     subjects: FUNJIN_SUBJECTS,
     lessons: FUNJIN_LESSONS,
     totalMin: FUNJIN_TOTAL_MIN,
+  },
+  kisosousa: {
+    id: "kisosousa",
+    name: `${KISOSOUSA_NAME}（学科）`,
+    basis: KISOSOUSA_BASIS,
+    subjects: KISOSOUSA_SUBJECTS,
+    lessons: KISOSOUSA_LESSONS,
+    totalMin: KISOSOUSA_TOTAL_MIN,
   },
   kisokenki: {
     id: "kisokenki",
