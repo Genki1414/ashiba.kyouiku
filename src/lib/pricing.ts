@@ -290,6 +290,12 @@ export function parseUnitPrice(raw: string | undefined): number {
         学科7時間。ボーリングマシン・小型車両系の三つと同じ長さなので、同じ 7,000円に置いた。
         実技の手引きと実施記録の様式が付く（/edu/robotkyoji/drill）。
 
+      産業用ロボット（検査等）（学科9時間＋実技4時間。ここで出すのは学科だけ）
+        **よその値段はまだ調べていない**（docs/62）。
+        → ここ 8,000円（税抜）＝ 8,800円（税込）
+        学科9時間。チェーンソー・動力プレスと同じ長さなので、同じ 8,000円に置いた。
+        実技の手引きと実施記録の様式が付く（/edu/robotkensa/drill）。
+
       職長・安全衛生責任者教育（14時間・討議つき）
         中小建設業特別教育協会 WEB講習  17,600円
           （動画12時間18分＋Zoom討議2時間30分。うちと同じ作り）
@@ -340,6 +346,7 @@ export const DEFAULT_COURSE_PRICE: Record<string, number> = {
   jack: 6000,
   kidou: 6000,
   robotkyoji: 7000,
+  robotkensa: 8000,
 };
 
 /** 講座の目印から環境変数の名前を作る。ashiba → SEAT_UNIT_PRICE_ASHIBA */

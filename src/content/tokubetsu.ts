@@ -708,6 +708,8 @@ export const TOKUBETSU: Tokubetsu[] = [
     basis: "労働安全衛生規則第36条第32号／安全衛生特別教育規程 第19条",
     src: "kitei",
     checked: true,
+    courseId: "robotkensa",
+    doc: "docs/62-産業用ロボット（検査等）の根拠と裏取り.md",
   },
   {
     no: 56,

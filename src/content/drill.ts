@@ -124,6 +124,14 @@ import {
   ROBOTKYOJI_JITSUGI,
 } from "./robotkyoji";
 import {
+  ROBOTKENSA_DRILL_FORM,
+  ROBOTKENSA_DRILL_PREP,
+  ROBOTKENSA_DRILL_STEPS,
+  ROBOTKENSA_DRILL_TEACHER,
+  ROBOTKENSA_DRILL_TOTAL_MIN,
+  ROBOTKENSA_JITSUGI,
+} from "./robotkensa";
+import {
   SOUKOU_DRILL_FORM,
   SOUKOU_DRILL_PREP,
   SOUKOU_DRILL_STEPS,
@@ -364,6 +372,18 @@ const GUIDES: Record<string, DrillGuide> = {
     prep: KOUATSU_DRILL_PREP,
     keepYears: 3,
     form: KOUATSU_DRILL_FORM,
+  },
+  robotkensa: {
+    courseId: "robotkensa",
+    subject: ROBOTKENSA_JITSUGI.name,
+    scope: ROBOTKENSA_JITSUGI.scope,
+    legalMin: ROBOTKENSA_JITSUGI.legalMin,
+    steps: ROBOTKENSA_DRILL_STEPS,
+    totalMin: ROBOTKENSA_DRILL_TOTAL_MIN,
+    teacher: ROBOTKENSA_DRILL_TEACHER,
+    prep: ROBOTKENSA_DRILL_PREP,
+    keepYears: 3,
+    form: ROBOTKENSA_DRILL_FORM,
   },
   robotkyoji: {
     courseId: "robotkyoji",

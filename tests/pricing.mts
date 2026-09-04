@@ -160,6 +160,7 @@ console.log("── 講座ごとの単価 ──");
   check(unitPrice("jack") === 6000, `ジャッキ式つり上げ機械は6,000円（税抜）（${unitPrice("jack")}）`);
   check(unitPrice("kidou") === 6000, `軌道装置の動力車は6,000円（税抜）（${unitPrice("kidou")}）`);
   check(unitPrice("robotkyoji") === 7000, `産業用ロボット（教示等）は7,000円（税抜）（${unitPrice("robotkyoji")}）`);
+  check(unitPrice("robotkensa") === 8000, `産業用ロボット（検査等）は8,000円（税抜）（${unitPrice("robotkensa")}）`);
 
   /* 知らない講座を聞かれても、仮置きの値で答える（0円で配らない） */
   check(unitPrice("nonsense") > 0, "知らない講座でも0円にはしない");
