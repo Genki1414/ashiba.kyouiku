@@ -326,6 +326,8 @@ export const TOKUBETSU: Tokubetsu[] = [
     basis: "労働安全衛生規則第36条第9号（令別表第7第6号）／安全衛生特別教育規程 第11条の3",
     src: "kitei",
     checked: true,
+    courseId: "kaitai",
+    doc: "docs/54-小型車両系建設機械（解体用）の根拠と裏取り.md",
   },
   {
     no: 21,
