@@ -292,6 +292,44 @@ console.log("\n── 科目ごとの時間（げんきさんの講座マスタ�
   check(!!jo && hasVariants(jo), "除染等業務は業務区分を持っている");
 }
 
+console.log("\n── 告示の全文を見た行と、作ってある講座を突き合わせる ──");
+{
+  /* **ここがこの目録でいちばん強い見張り。**
+     告示の全文が手元にある行は、科目名・中欄・時間を、
+     作ってある講座と一字ずつ突き合わせる。
+
+     講座の側の中欄は、単元の legal_scope を並べたもの。
+     ずれたら、法定の範囲を外した講座を売っていることになる。 */
+  const full = TOKUBETSU.filter((t) => t.fullText);
+  check(full.length >= 6, `告示の全文で裏を取った行（いま ${full.length}件）`);
+  for (const t of full) {
+    check(!!t.gakka, `${t.slug}: 告示を見た行には、科目と中欄が入っている`);
+    check((t.gakka ?? []).every((g) => !!g.scope),
+      `${t.slug}: 学科の科目に、中欄が入っている`);
+    check((t.jitsugi ?? []).every((g) => !!g.scope),
+      `${t.slug}: 実技の科目に、中欄が入っている`);
+    check(!!t.checkedOn, `${t.slug}: 告示を読んだ日が入っている`);
+    if (!t.courseId) continue;
+
+    const c = JSON.parse(read(`content/courses/${t.courseId}.json`)) as { subjects: { name: string; legal_min: number; lessons: { legal_scope: string }[] }[] };
+    check(c.subjects.length === (t.gakka ?? []).length,
+      `${t.slug}: 講座の科目の数が、告示と同じ`,
+      `講座 ${c.subjects.length} ／ 告示 ${(t.gakka ?? []).length}`);
+    (t.gakka ?? []).forEach((g, i) => {
+      const sub = c.subjects[i];
+      if (!sub) return;
+      check(sub.name === g.name, `${t.slug} 科目${i + 1}: 科目名が告示のまま`,
+        `講座「${sub.name}」／ 告示「${g.name}」`);
+      check(sub.legal_min === g.min, `${t.slug} 科目${i + 1}: 時間が告示のまま`,
+        `講座 ${sub.legal_min}分 ／ 告示 ${g.min}分`);
+      /* 単元に割り付けた中欄を、告示の中欄に戻して比べる */
+      const joined = [...new Set(sub.lessons.map((l) => l.legal_scope))].join("　");
+      check(joined === g.scope, `${t.slug} 科目${i + 1}: 中欄が告示のまま`,
+        `講座「${joined}」\n    告示「${g.scope}」`);
+    });
+  }
+}
+
 console.log("\n── 出典 ──");
 {
   check(TOKUBETSU.every((t) => !!SOURCES[t.src]), "出典の記号が全部そろっている",

@@ -35,7 +35,7 @@ export type TamakakeSubject = {
 export const TAMAKAKE_SUBJECTS: TamakakeSubject[] = [
   {
     id: 1,
-    name: "クレーン、移動式クレーン及びデリックに関する知識",
+    name: "クレーン、移動式クレーン及びデリツクに関する知識",
     scope: ["種類及び型式", "構造及び機能", "安全装置及びブレーキ"],
     legalMin: 60,
   },
@@ -50,13 +50,13 @@ export const TAMAKAKE_SUBJECTS: TamakakeSubject[] = [
   {
     id: 3,
     name: "クレーン等の玉掛けの方法",
-    scope: ["玉掛用具の選定及び使用の方法", "基本動作(安全作業方法を含む)", "合図の方法"],
+    scope: ["玉掛用具の選定及び使用の方法", "基本動作(安全作業方法を含む。)", "合図の方法"],
     legalMin: 120,
   },
   {
     id: 4,
     name: "関係法令",
-    scope: ["労働安全衛生法、労働安全衛生法施行令、労働安全衛生規則及びクレーン等安全規則中の関係条項"],
+    scope: ["労働安全衛生法、労働安全衛生法施行令、労働安全衛生規則及びクレーン則中の関係条項"],
     legalMin: 60,
   },
 ];
@@ -76,7 +76,7 @@ export const TAMAKAKE_JITSUGI = {
 /** 実技の中欄。手引きの画面に出す */
 export const TAMAKAKE_JITSUGI_SCOPE_TEXT = [
   { name: J1, scope: "材質又は形状の異なる二以上の物の重量目測　玉掛用具の選定及び玉掛けの方法" },
-  { name: J2, scope: "手、小旗等を用いて行う合図の方法" },
+  { name: J2, scope: "手、小旗等を用いて行なう合図の方法" },
 ];
 
 /** 学科の合計（分）。5時間 */
@@ -115,7 +115,7 @@ export const TAMAKAKE_LESSONS: Record<number, TamakakeLesson[]> = {
     {
       id: "4-1",
       title: "関係法令",
-      scope: "労働安全衛生法、労働安全衛生法施行令、労働安全衛生規則及びクレーン等安全規則中の関係条項",
+      scope: "労働安全衛生法、労働安全衛生法施行令、労働安全衛生規則及びクレーン則中の関係条項",
       min: 60,
     },
   ],
@@ -166,7 +166,7 @@ export const TAMAKAKE_DRILL_STEPS: TamakakeDrillStep[] = [
   {
     no: 2, scope: J2, title: "合図を決めて、覚える", min: 60,
     items: [
-      "**法定の科目。**「手、小旗等を用いて行う合図の方法」の1時間",
+      "**法定の科目。**「手、小旗等を用いて行なう合図の方法」の1時間",
       "**合図者を一人決める。**複数から合図が来たら、運転する人は止まる",
       "**手の合図。**現場で使っている形に合わせる",
       "　**「巻上げ」「巻下げ」「ゆっくり巻上げ」「ゆっくり巻下げ」**",
