@@ -733,6 +733,8 @@ export const TOKUBETSU: Tokubetsu[] = [
     fromMaster: true,
     fullText: true,
     checkedOn: KOKUJI_118_ON,
+    courseId: "kensetsulift",
+    doc: "docs/76-建設用リフトの根拠と裏取り.md",
   },
   {
     no: 36,

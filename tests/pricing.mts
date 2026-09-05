@@ -166,6 +166,7 @@ console.log("── 講座ごとの単価 ──");
   check(unitPrice("tamakake") === 5500, `玉掛け（1トン未満）は5,500円（税抜）（${unitPrice("tamakake")}）`);
   check(unitPrice("crane") === 8000, `クレーン（5トン未満）・跨線テルハは8,000円（税抜）（${unitPrice("crane")}）`);
   check(unitPrice("mobilecrane") === 8000, `移動式クレーン（1トン未満）は8,000円（税抜）（${unitPrice("mobilecrane")}）`);
+  check(unitPrice("kensetsulift") === 5500, `建設用リフトは5,500円（税抜）（${unitPrice("kensetsulift")}）`);
 
   /* 知らない講座を聞かれても、仮置きの値で答える（0円で配らない） */
   check(unitPrice("nonsense") > 0, "知らない講座でも0円にはしない");

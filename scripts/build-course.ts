@@ -53,7 +53,8 @@
      npm run build:tokushu    # 特殊化学設備
      npm run build:tamakake   # 玉掛け（1トン未満）
      npm run build:crane      # クレーン（5トン未満）・跨線テルハ
-     npm run build:mobilecrane # 移動式クレーン（1トン未満） */
+     npm run build:mobilecrane # 移動式クレーン（1トン未満）
+     npm run build:kensetsulift # 建設用リフト */
 
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import path from "node:path";
@@ -94,6 +95,9 @@ import {
 import {
   MOBILECRANE_BASIS, MOBILECRANE_LESSONS, MOBILECRANE_NAME, MOBILECRANE_SUBJECTS, MOBILECRANE_TOTAL_MIN,
 } from "../src/content/mobilecrane";
+import {
+  LIFT_BASIS, LIFT_LESSONS, LIFT_NAME, LIFT_SUBJECTS, LIFT_TOTAL_MIN,
+} from "../src/content/kensetsulift";
 import {
   BORING_BASIS, BORING_LESSONS, BORING_NAME, BORING_SUBJECTS, BORING_TOTAL_MIN,
 } from "../src/content/boring";
@@ -214,6 +218,14 @@ const PLANS: Record<string, Plan> = {
     subjects: FUNJIN_SUBJECTS,
     lessons: FUNJIN_LESSONS,
     totalMin: FUNJIN_TOTAL_MIN,
+  },
+  kensetsulift: {
+    id: "kensetsulift",
+    name: `${LIFT_NAME}（学科）`,
+    basis: LIFT_BASIS,
+    subjects: LIFT_SUBJECTS,
+    lessons: LIFT_LESSONS,
+    totalMin: LIFT_TOTAL_MIN,
   },
   mobilecrane: {
     id: "mobilecrane",
