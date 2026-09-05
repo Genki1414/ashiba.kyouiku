@@ -21,7 +21,15 @@
    だから講座にするときは、docs/19 のとおり
    **規程の条文から科目と細目を取り直す**こと。
    確かめた行にだけ checked を付けてある。付いていない行の時間は、
-   「だいたいこれくらい」以上の意味を持たせない。 */
+   「だいたいこれくらい」以上の意味を持たせない。
+
+   ── 法定時間を決めるときの順番（2026年9月5日に決めた・docs/68）──
+     1. **現行の労働安全衛生関係省令**（安衛則、クレーン則、電離則…）
+     2. **省令から委任された現行の告示**（○○特別教育規程）
+     3. 厚生労働省・労働局などの公式のまとめ
+   **民間サイトの一覧表は、法定時間の根拠にしない。**
+   1と2が3と食い違ったときは、1と2を採る。ただし
+   **うちがまだ告示の全文を見ていないなら、checked は付けない。** */
 
 /** 出典。65回 URL を書かないための記号 */
 export const SOURCES: Record<string, { name: string; url: string }> = {
@@ -83,10 +91,30 @@ export type Tokubetsu = {
   /** 裏取りの記録（docs/…）。作り始めた行に付ける。
       ここが無いと、次に開いたときに条文を調べ直すことになる */
   doc?: string;
+  /** 学科の科目と、科目ごとの法定最低時間（分）。
+      **合計は gakkaMin と一致すること。**tests/tokubetsu.ts で見ている */
+  gakka?: { name: string; min: number }[];
+  /** 実技の科目と、科目ごとの法定最低時間（分）。
+      **合計は jitsugiMin と一致すること** */
+  jitsugi?: { name: string; min: number }[];
+  /** 業務区分。**ここが入っている行を、一つの固定時間で実装しないこと。**
+      gakkaMin・jitsugiMin は「通常区分」の数字であって、区分で変わる */
+  variants?: string[];
+  /** 時間の出どころが、げんきさんの講座マスター（MASTER_ON）である行。
+      src は規程そのものを指しているが、**うちが見たのは告示の全文ではない** */
+  fromMaster?: true;
+  /** 法令を確かめた日 */
+  checkedOn?: string;
 };
 
 /** 一覧を写した日 */
 export const LISTED_ON = "2026-09-01";
+
+/** げんきさんの講座マスター（訂正版）を受け取った日。
+    **法定時間は、現行の省令と、省令から委任された告示（○○特別教育規程）を正とする。**
+    労働局などの公式まとめは、その次。民間サイトの一覧は根拠にしない。
+    この決まりで、no.42・no.48・no.50・no.61 の時間を直した（docs/68） */
+export const MASTER_ON = "2026-09-05";
 
 export const TOKUBETSU: Tokubetsu[] = [
   {
@@ -463,14 +491,26 @@ export const TOKUBETSU: Tokubetsu[] = [
     name: "つり上げ荷重5トン未満のクレーンの運転の業務",
     gakkaMin: 540,
     jitsugiMin: 240,
-    basis: "労働安全衛生規則第36条第15号／クレーン等安全規則第21条／クレーン取扱い業務等特別教育規程 第1条",
+    basis: "クレーン等安全規則第21条／クレーン取扱い業務等特別教育規程 第1条（昭和47年労働省告示第118号）",
     /* 時間の出どころは、げんきさんが送ってくれた講座マスター（2026年9月5日）。
        元からあった労働局のまとめの時間（学科9時間・実技4時間）と一致した。
        **告示の全文そのものは、うちはまだ見ていない**（docs/65・docs/67）。
        **跨線テルハ（5トン以上）も、クレーン（5トン未満）と同じ規程第1条。**
        だから講座は1本で、目録の2行がそれを指している */
+    gakka: [
+      { name: "クレーンに関する知識", min: 180 },
+      { name: "原動機及び電気に関する知識", min: 180 },
+      { name: "クレーンの運転のために必要な力学に関する知識", min: 120 },
+      { name: "関係法令", min: 60 },
+    ],
+    jitsugi: [
+      { name: "クレーンの運転", min: 180 },
+      { name: "クレーンの運転のための合図", min: 60 },
+    ],
     src: "kurenkitei",
     checked: true,
+    fromMaster: true,
+    checkedOn: MASTER_ON,
     courseId: "crane",
     doc: "docs/67-クレーン（5トン未満）・跨線テルハの根拠と裏取り.md",
   },
@@ -480,14 +520,26 @@ export const TOKUBETSU: Tokubetsu[] = [
     name: "跨線テルハでつり上げ荷重5トン以上のものの運転の業務",
     gakkaMin: 540,
     jitsugiMin: 240,
-    basis: "労働安全衛生規則第36条第15号／クレーン等安全規則第21条／クレーン取扱い業務等特別教育規程 第1条",
+    basis: "クレーン等安全規則第21条／クレーン取扱い業務等特別教育規程 第1条（昭和47年労働省告示第118号）",
     /* 時間の出どころは、げんきさんが送ってくれた講座マスター（2026年9月5日）。
        元からあった労働局のまとめの時間（学科9時間・実技4時間）と一致した。
        **告示の全文そのものは、うちはまだ見ていない**（docs/65・docs/67）。
        **跨線テルハ（5トン以上）も、クレーン（5トン未満）と同じ規程第1条。**
        だから講座は1本で、目録の2行がそれを指している */
+    gakka: [
+      { name: "クレーンに関する知識", min: 180 },
+      { name: "原動機及び電気に関する知識", min: 180 },
+      { name: "クレーンの運転のために必要な力学に関する知識", min: 120 },
+      { name: "関係法令", min: 60 },
+    ],
+    jitsugi: [
+      { name: "クレーンの運転", min: 180 },
+      { name: "クレーンの運転のための合図", min: 60 },
+    ],
     src: "kurenkitei",
     checked: true,
+    fromMaster: true,
+    checkedOn: MASTER_ON,
     courseId: "crane",
     doc: "docs/67-クレーン（5トン未満）・跨線テルハの根拠と裏取り.md",
   },
@@ -497,8 +549,23 @@ export const TOKUBETSU: Tokubetsu[] = [
     name: "つり上げ荷重1トン未満の移動式クレーンの運転の業務",
     gakkaMin: 540,
     jitsugiMin: 240,
-    basis: "クレーン取扱い業務等特別教育規程（昭和47年労働省告示第118号）",
-    src: "roudoukyoku",
+    basis: "クレーン等安全規則第67条／クレーン取扱い業務等特別教育規程 第2条（昭和47年労働省告示第118号）",
+    gakka: [
+      { name: "移動式クレーンに関する知識", min: 180 },
+      { name: "原動機及び電気に関する知識", min: 180 },
+      { name: "移動式クレーンの運転のために必要な力学に関する知識", min: 120 },
+      { name: "関係法令", min: 60 },
+    ],
+    jitsugi: [
+      { name: "移動式クレーンの運転", min: 180 },
+      { name: "移動式クレーンの運転のための合図", min: 60 },
+    ],
+    /* 講座マスター（訂正版）と、元からあった労働局のまとめの時間が一致した。
+       **告示の全文そのものは、うちはまだ見ていない**（docs/68） */
+    src: "kurenkitei",
+    checked: true,
+    fromMaster: true,
+    checkedOn: MASTER_ON,
   },
   {
     no: 34,
@@ -506,8 +573,21 @@ export const TOKUBETSU: Tokubetsu[] = [
     name: "つり上げ荷重5トン未満のデリックの運転の業務",
     gakkaMin: 540,
     jitsugiMin: 240,
-    basis: "クレーン取扱い業務等特別教育規程（昭和47年労働省告示第118号）",
-    src: "roudoukyoku",
+    basis: "クレーン等安全規則第107条／クレーン取扱い業務等特別教育規程 第3条（昭和47年労働省告示第118号）",
+    gakka: [
+      { name: "デリックに関する知識", min: 180 },
+      { name: "原動機及び電気に関する知識", min: 180 },
+      { name: "デリックの運転のために必要な力学に関する知識", min: 120 },
+      { name: "関係法令", min: 60 },
+    ],
+    jitsugi: [
+      { name: "デリックの運転", min: 180 },
+      { name: "デリックの運転のための合図", min: 60 },
+    ],
+    src: "kurenkitei",
+    checked: true,
+    fromMaster: true,
+    checkedOn: MASTER_ON,
   },
   {
     no: 35,
@@ -515,8 +595,20 @@ export const TOKUBETSU: Tokubetsu[] = [
     name: "建設用リフトの運転の業務",
     gakkaMin: 300,
     jitsugiMin: 240,
-    basis: "クレーン取扱い業務等特別教育規程（昭和47年労働省告示第118号）",
-    src: "roudoukyoku",
+    basis: "クレーン等安全規則第183条／クレーン取扱い業務等特別教育規程 第4条（昭和47年労働省告示第118号）",
+    gakka: [
+      { name: "建設用リフトに関する知識", min: 120 },
+      { name: "建設用リフトの運転のために必要な電気に関する知識", min: 120 },
+      { name: "関係法令", min: 60 },
+    ],
+    jitsugi: [
+      { name: "建設用リフトの運転及び点検", min: 180 },
+      { name: "建設用リフトの運転のための合図", min: 60 },
+    ],
+    src: "kurenkitei",
+    checked: true,
+    fromMaster: true,
+    checkedOn: MASTER_ON,
   },
   {
     no: 36,
@@ -524,12 +616,24 @@ export const TOKUBETSU: Tokubetsu[] = [
     name: "つり上げ荷重1トン未満のクレーン等の玉掛けの業務",
     gakkaMin: 300,
     jitsugiMin: 240,
-    basis: "労働安全衛生規則第36条第19号／クレーン等安全規則第222条／クレーン取扱い業務等特別教育規程 第5条",
+    basis: "クレーン等安全規則第222条／クレーン取扱い業務等特別教育規程 第5条（昭和47年労働省告示第118号）",
     /* 時間の出どころは、げんきさんが送ってくれた講座マスター（2026年9月5日）。
        元からあった労働局のまとめの時間（学科5時間・実技4時間）と一致した。
        **告示の全文そのものは、うちはまだ見ていない**（docs/65・docs/66） */
+    gakka: [
+      { name: "クレーン、移動式クレーン及びデリックに関する知識", min: 60 },
+      { name: "クレーン等の玉掛けに必要な力学に関する知識", min: 60 },
+      { name: "クレーン等の玉掛けの方法", min: 120 },
+      { name: "関係法令", min: 60 },
+    ],
+    jitsugi: [
+      { name: "クレーン等の玉掛け", min: 180 },
+      { name: "クレーン等の運転のための合図", min: 60 },
+    ],
     src: "kurenkitei",
     checked: true,
+    fromMaster: true,
+    checkedOn: MASTER_ON,
     courseId: "tamakake",
     doc: "docs/66-玉掛け（1トン未満）の根拠と裏取り.md",
   },
@@ -584,8 +688,22 @@ export const TOKUBETSU: Tokubetsu[] = [
     name: "高圧室内作業に係る業務",
     gakkaMin: 420,
     jitsugiMin: 0,
-    basis: "高気圧業務特別教育規程（昭和47年労働省告示第129号）",
+    basis: "高気圧作業安全衛生規則／高気圧業務特別教育規程 第6条（昭和47年労働省告示第129号）",
+    gakka: [
+      { name: "圧気工法の知識", min: 60 },
+      { name: "圧気工法に係る設備に関する知識", min: 60 },
+      { name: "急激な圧力の低下、火災等を防止するための措置に関する知識", min: 180 },
+      { name: "高気圧障害の知識", min: 60 },
+      { name: "関係法令", min: 60 },
+    ],
+    /* **学科420分・実技なし。**講座マスターの前の版にあった「学科9時間＋実技3時間」は取り消し。
+       元からあった目録の420分と、訂正版の講座マスターが一致した（docs/68）。
+       規則の名前は、講座マスターでは「高気圧業務安全衛生規則」だったが、
+       うちは**高気圧作業安全衛生規則**と書いた。**げんきさんに確かめること** */
     src: "roudoukyoku",
+    checked: true,
+    fromMaster: true,
+    checkedOn: MASTER_ON,
   },
   {
     no: 43,
@@ -656,10 +774,25 @@ export const TOKUBETSU: Tokubetsu[] = [
     no: 48,
     slug: "nuclear_fuel_processing_facility",
     name: "加工施設等において核燃料物質等を取り扱う業務",
-    gakkaMin: 690,
-    jitsugiMin: 360,
-    basis: "電離放射線障害防止規則第52条の6",
+    gakkaMin: 330,
+    jitsugiMin: 120,
+    basis: "電離放射線障害防止規則第52条の6／核燃料物質等取扱業務特別教育規程 第1条（平成12年労働省告示第1号）",
+    gakka: [
+      { name: "核燃料物質若しくは使用済燃料又はこれらによって汚染された物に関する知識", min: 60 },
+      { name: "加工施設、再処理施設又は使用施設等における作業の方法に関する知識", min: 90 },
+      { name: "加工施設、再処理施設又は使用施設等に係る設備の構造及び取扱いの方法に関する知識", min: 90 },
+      { name: "電離放射線の生体に与える影響", min: 30 },
+      { name: "関係法令", min: 60 },
+    ],
+    jitsugi: [
+      { name: "加工施設、再処理施設又は使用施設等における作業の方法及び同施設に係る設備の取扱い", min: 120 },
+    ],
+    /* **時間を直した。**元は学科690分・実技360分（労働局のまとめ）。
+       訂正版の講座マスターは**学科330分・実技120分**。
+       電離則の本文には科目しかなく、時間は**核燃料物質等取扱業務特別教育規程**の側にある。
+       **二つの出どころが食い違っているので、checked は付けない**（docs/68） */
     src: "roudoukyoku",
+    fromMaster: true,
   },
   {
     no: 49,
@@ -667,17 +800,45 @@ export const TOKUBETSU: Tokubetsu[] = [
     name: "原子炉施設等において核燃料物質等を取り扱う業務",
     gakkaMin: 300,
     jitsugiMin: 120,
-    basis: "電離放射線障害防止規則第52条の7",
+    basis: "電離放射線障害防止規則第52条の7／核燃料物質等取扱業務特別教育規程 第2条（平成12年労働省告示第1号）",
+    gakka: [
+      { name: "核燃料物質若しくは使用済燃料又はこれらによって汚染された物に関する知識", min: 30 },
+      { name: "原子炉施設における作業の方法に関する知識", min: 90 },
+      { name: "原子炉施設に係る設備の構造及び取扱いの方法に関する知識", min: 90 },
+      { name: "電離放射線の生体に与える影響", min: 30 },
+      { name: "関係法令", min: 60 },
+    ],
+    jitsugi: [
+      { name: "原子炉施設における作業の方法及び同施設に係る設備の取扱い", min: 120 },
+    ],
     src: "roudoukyoku",
+    checked: true,
+    fromMaster: true,
+    checkedOn: MASTER_ON,
   },
   {
     no: 50,
     slug: "accident_radioactive_waste_disposal",
     name: "事故由来放射性物質により汚染されたものの処分の業務",
-    gakkaMin: 600,
-    jitsugiMin: 360,
-    basis: "電離放射線障害防止規則第52条の8",
+    gakkaMin: 300,
+    jitsugiMin: 120,
+    basis: "電離放射線障害防止規則第52条の8／事故由来廃棄物等処分業務特別教育規程（平成25年厚生労働省告示第140号）",
+    gakka: [
+      { name: "事故由来廃棄物等に関する知識", min: 30 },
+      { name: "事故由来廃棄物等の処分の業務に係る作業の方法に関する知識", min: 90 },
+      { name: "事故由来廃棄物等の処分の業務に使用する設備の構造及び取扱いの方法に関する知識", min: 60 },
+      { name: "電離放射線の生体に与える影響及び被ばく線量の管理の方法に関する知識", min: 60 },
+      { name: "関係法令", min: 60 },
+    ],
+    jitsugi: [
+      { name: "事故由来廃棄物等の処分の業務に係る作業の方法及び使用する設備の取扱い", min: 120 },
+    ],
+    variants: ["破砕等", "焼却", "埋立て"],
+    /* **時間を直した。**元は学科600分・実技360分（労働局のまとめ）。
+       訂正版の講座マスターは**学科300分・実技120分**。
+       **二つの出どころが食い違っているので、checked は付けない**（docs/68） */
     src: "roudoukyoku",
+    fromMaster: true,
   },
   {
     no: 51,
@@ -685,8 +846,22 @@ export const TOKUBETSU: Tokubetsu[] = [
     name: "電離則に定める特例緊急作業に係る業務",
     gakkaMin: 390,
     jitsugiMin: 360,
-    basis: "電離放射線障害防止規則第52条の9",
+    basis:
+      "電離放射線障害防止規則第52条の9／特例緊急作業特別教育規程（平成27年厚生労働省告示第361号。令和8年厚生労働省告示第44号による改正後）",
+    gakka: [
+      { name: "特例緊急作業の方法に関する知識", min: 180 },
+      { name: "特例緊急作業で使用する施設及び設備の構造及び取扱いの方法に関する知識", min: 120 },
+      { name: "電離放射線の生体に与える影響、健康管理の方法及び被ばく線量の管理の方法に関する知識", min: 60 },
+      { name: "関係法令", min: 30 },
+    ],
+    jitsugi: [
+      { name: "特例緊急作業の方法", min: 180 },
+      { name: "特例緊急作業で使用する施設及び設備の取扱い", min: 180 },
+    ],
     src: "roudoukyoku",
+    checked: true,
+    fromMaster: true,
+    checkedOn: MASTER_ON,
   },
   /* 根拠を直した。粉じんは「安全衛生特別教育規程」ではなく、
      **粉じん作業特別教育規程（昭和54年労働省告示第68号）**。
@@ -809,10 +984,25 @@ export const TOKUBETSU: Tokubetsu[] = [
     no: 61,
     slug: "decontamination_work",
     name: "除染等業務",
-    gakkaMin: 690,
-    jitsugiMin: 390,
+    gakkaMin: 240,
+    jitsugiMin: 90,
     basis: "除染等業務特別教育及び特定線量下業務特別教育規程（平成23年厚生労働省告示第469号）",
+    gakka: [
+      { name: "電離放射線の生体に与える影響及び被ばく線量の管理の方法に関する知識", min: 60 },
+      { name: "除染等作業の方法に関する知識", min: 60 },
+      { name: "除染等作業に使用する機械等の構造及び取扱いの方法に関する知識", min: 60 },
+      { name: "関係法令", min: 60 },
+    ],
+    jitsugi: [
+      { name: "除染等作業の方法及び使用する機械等の取扱い", min: 90 },
+    ],
+    variants: ["土壌等の除染等", "除去土壌の収集等", "汚染廃棄物の収集等", "特定汚染土壌等取扱業務"],
+    /* **ここの時間は「通常区分」のもの。**業務区分で中身と時間が変わるので、
+       **全員一律330分という作り方をしないこと。**
+       元は学科690分・実技390分（労働局のまとめ）だったが、それは一律の法定最低時間ではない。
+       **二つの出どころが食い違っているので、checked は付けない**（docs/68） */
     src: "roudoukyoku",
+    fromMaster: true,
   },
   {
     no: 62,
@@ -820,8 +1010,17 @@ export const TOKUBETSU: Tokubetsu[] = [
     name: "特定線量下業務",
     gakkaMin: 150,
     jitsugiMin: 0,
-    basis: "除染等業務特別教育及び特定線量下業務特別教育規程（平成23年厚生労働省告示第469号）",
+    basis:
+      "除染等業務特別教育及び特定線量下業務特別教育規程 第4条・第5条（平成23年厚生労働省告示第469号）",
+    gakka: [
+      { name: "電離放射線の生体に与える影響及び被ばく線量の管理の方法に関する知識", min: 60 },
+      { name: "放射線測定の方法等に関する知識", min: 30 },
+      { name: "関係法令", min: 60 },
+    ],
     src: "roudoukyoku",
+    checked: true,
+    fromMaster: true,
+    checkedOn: MASTER_ON,
   },
   {
     no: 63,
@@ -1049,7 +1248,25 @@ export type TokubetsuOut = {
   /** 探すための別名（空白区切り） */
   alias: string;
   listed_on: string;
+  /** 学科の科目と時間。「科目 60分／科目 90分」。分かっていなければ空 */
+  theory_subjects: string;
+  /** 実技の科目と時間。分かっていなければ空 */
+  practical_subjects: string;
+  /** 業務区分（読点区切り）。ここが空でない行を、一つの固定時間にしない */
+  variants: string;
+  /** 法令を確かめた日。空なら確かめていない */
+  checked_on: string;
 };
+
+/** 科目と時間を、1行の文字にする。「科目 60分／科目 90分」 */
+export const subjectsText = (rows?: { name: string; min: number }[]): string =>
+  (rows ?? []).map((r) => `${r.name} ${r.min}分`).join("／");
+
+/** 業務区分で時間が変わる行か。**ここが true の行を、一つの固定時間で実装しない** */
+export const hasVariants = (t: Tokubetsu): boolean => (t.variants ?? []).length > 0;
+
+/** 科目の内訳が入っている行 */
+export const withSubjects = (): Tokubetsu[] => TOKUBETSU.filter((t) => !!t.gakka);
 
 /** 全部を、持ち出す形にする */
 export const toRows = (): TokubetsuOut[] =>
@@ -1069,6 +1286,10 @@ export const toRows = (): TokubetsuOut[] =>
     course_slug: t.courseId ?? "",
     alias: ALIAS[t.slug] ?? "",
     listed_on: LISTED_ON,
+    theory_subjects: subjectsText(t.gakka),
+    practical_subjects: subjectsText(t.jitsugi),
+    variants: (t.variants ?? []).join("、"),
+    checked_on: t.checkedOn ?? "",
   }));
 
 /** 表計算に貼れる形。Excel が文字化けしないよう、呼ぶ側で BOM を足す */

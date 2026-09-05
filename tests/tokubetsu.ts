@@ -21,6 +21,8 @@ import {
   tokubetsuOfCourse,
   totalMinOf,
   trustedHours,
+  withSubjects,
+  hasVariants,
 } from "../src/content/tokubetsu";
 import { COURSES, findCourse, hoursText } from "../src/content/courses";
 import {
@@ -239,6 +241,55 @@ console.log("\n── 石綿の科目（告示の表） ──");
   check(ishi2.name === ISHIWATA_NAME, "目録の名前と一致する");
   check(ishi2.basis.includes("第36条第37号") && ISHIWATA_BASIS.includes("第36条第37号"),
     "根拠が一致する");
+}
+
+console.log("\n── 科目ごとの時間（げんきさんの講座マスターから入れた行）──");
+{
+  /* 科目の内訳を持つ行は、**足したら合計と一致すること。**
+     ここがずれていると、単元を割り付けるときに気付かないまま短い講座になる */
+  for (const t of withSubjects()) {
+    const g = (t.gakka ?? []).reduce((n, r) => n + r.min, 0);
+    check(g === t.gakkaMin, `${t.slug}: 学科の科目の合計が学科の法定時間と合う`,
+      `科目 ${hoursText(g)} ／ 合計 ${hoursText(t.gakkaMin)}`);
+    const j = (t.jitsugi ?? []).reduce((n, r) => n + r.min, 0);
+    check(j === t.jitsugiMin, `${t.slug}: 実技の科目の合計が実技の法定時間と合う`,
+      `科目 ${hoursText(j)} ／ 合計 ${hoursText(t.jitsugiMin)}`);
+    check((t.gakka ?? []).every((r) => r.min > 0 && r.name.length > 1),
+      `${t.slug}: 学科の科目に名前と時間がある`);
+    /* 実技がある行は、実技の科目も書いてあること */
+    check(t.jitsugiMin === 0 || (t.jitsugi ?? []).length > 0,
+      `${t.slug}: 実技があるなら実技の科目も書いてある`);
+  }
+  check(withSubjects().length >= 12,
+    `科目まで分かっている行（いま ${withSubjects().length}件）`);
+
+  /* **業務区分で変わる行を、一つの固定時間の講座にしない。**
+     除染等業務がこれ。全員一律で修了証を出すと、区分によっては足りない紙になる */
+  for (const t of TOKUBETSU.filter(hasVariants)) {
+    check(!t.courseId, `${t.slug}: 業務区分で変わる行は、まだ講座にしていない`,
+      t.variants!.join("、"));
+    check(!trustedHours(t), `${t.slug}: 区分で変わるので、一つの時間を確かめた扱いにしない`);
+  }
+
+  /* 講座マスターの数字で直した行は、確かめた印か、食い違いの断り書きのどちらかがある */
+  const master = TOKUBETSU.filter((t) => t.fromMaster);
+  check(master.length >= 12, `講座マスターから入れた行（いま ${master.length}件）`);
+  check(master.every((t) => !trustedHours(t) || !!t.checkedOn),
+    "確かめた印を付けた行には、確かめた日が入っている");
+  check(TOKUBETSU.every((t) => !t.checkedOn || t.fromMaster || trustedHours(t)),
+    "確かめた日だけが独り歩きしていない");
+
+  /* 42番。前の版の「学科540分＋実技180分」を使っていないこと */
+  const kou = findTokubetsu("hyperbaric_work");
+  check(!!kou && kou.gakkaMin === 420 && kou.jitsugiMin === 0,
+    "高圧室内は学科420分・実技なし（前の版の540分＋180分は使わない）",
+    kou ? `${hoursText(kou.gakkaMin)} ／ 実技 ${kou.jitsugiMin}分` : "無し");
+  /* 61番。690分＋390分を一律の法定最低時間にしない */
+  const jo = findTokubetsu("decontamination_work");
+  check(!!jo && jo.gakkaMin === 240 && jo.jitsugiMin === 90,
+    "除染等業務は通常区分で学科240分・実技90分",
+    jo ? `${hoursText(jo.gakkaMin)} ／ 実技 ${jo.jitsugiMin}分` : "無し");
+  check(!!jo && hasVariants(jo), "除染等業務は業務区分を持っている");
 }
 
 console.log("\n── 出典 ──");
