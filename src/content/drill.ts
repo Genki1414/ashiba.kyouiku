@@ -180,6 +180,14 @@ import {
   GONDOLA_JITSUGI,
 } from "./gondola";
 import {
+  BOILER_DRILL_FORM,
+  BOILER_DRILL_PREP,
+  BOILER_DRILL_STEPS,
+  BOILER_DRILL_TEACHER,
+  BOILER_DRILL_TOTAL_MIN,
+  BOILER_JITSUGI,
+} from "./boiler";
+import {
   MOBILECRANE_DRILL_FORM,
   MOBILECRANE_DRILL_PREP,
   MOBILECRANE_DRILL_STEPS,
@@ -452,6 +460,18 @@ const GUIDES: Record<string, DrillGuide> = {
     prep: DERRICK_DRILL_PREP,
     keepYears: 3,
     form: DERRICK_DRILL_FORM,
+  },
+  boiler: {
+    courseId: "boiler",
+    subject: BOILER_JITSUGI.name,
+    scope: BOILER_JITSUGI.scope,
+    legalMin: BOILER_JITSUGI.legalMin,
+    steps: BOILER_DRILL_STEPS,
+    totalMin: BOILER_DRILL_TOTAL_MIN,
+    teacher: BOILER_DRILL_TEACHER,
+    prep: BOILER_DRILL_PREP,
+    keepYears: 3,
+    form: BOILER_DRILL_FORM,
   },
   gondola: {
     courseId: "gondola",

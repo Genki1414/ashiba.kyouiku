@@ -56,7 +56,8 @@
      npm run build:mobilecrane # 移動式クレーン（1トン未満）
      npm run build:kensetsulift # 建設用リフト
      npm run build:derrick    # デリック（5トン未満）
-     npm run build:gondola    # ゴンドラ */
+     npm run build:gondola    # ゴンドラ
+     npm run build:boiler     # 小型ボイラー */
 
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import path from "node:path";
@@ -103,6 +104,9 @@ import {
 import {
   GONDOLA_BASIS, GONDOLA_LESSONS, GONDOLA_NAME, GONDOLA_SUBJECTS, GONDOLA_TOTAL_MIN,
 } from "../src/content/gondola";
+import {
+  BOILER_BASIS, BOILER_LESSONS, BOILER_NAME, BOILER_SUBJECTS, BOILER_TOTAL_MIN,
+} from "../src/content/boiler";
 import {
   DERRICK_BASIS, DERRICK_LESSONS, DERRICK_NAME, DERRICK_SUBJECTS, DERRICK_TOTAL_MIN,
 } from "../src/content/derrick";
@@ -234,6 +238,14 @@ const PLANS: Record<string, Plan> = {
     subjects: DERRICK_SUBJECTS,
     lessons: DERRICK_LESSONS,
     totalMin: DERRICK_TOTAL_MIN,
+  },
+  boiler: {
+    id: "boiler",
+    name: `${BOILER_NAME}（学科）`,
+    basis: BOILER_BASIS,
+    subjects: BOILER_SUBJECTS,
+    lessons: BOILER_LESSONS,
+    totalMin: BOILER_TOTAL_MIN,
   },
   gondola: {
     id: "gondola",

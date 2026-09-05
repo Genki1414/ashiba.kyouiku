@@ -570,6 +570,8 @@ export const TOKUBETSU: Tokubetsu[] = [
     checked: true,
     fullText: true,
     checkedOn: KOKUJI_121_115_ON,
+    courseId: "boiler",
+    doc: "docs/79-小型ボイラーの根拠と裏取り.md",
   },
   {
     no: 31,
