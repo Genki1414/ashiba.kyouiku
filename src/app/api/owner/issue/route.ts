@@ -50,6 +50,31 @@ export async function GET() {
       .in("id", [...new Set(picked.map((r) => r.sessionId as string))]);
     for (const x of rs ?? []) if (`${x.room_url ?? ""}`.trim()) hasRoom.add(x.id as string);
   }
+  /* 実技の実施記録。**中身（data）はここでは読まない。**
+     写真を200件ぶん一覧に載せると、開くだけで何十MBにもなる。
+     ここでは「何が付いているか」だけを出し、
+     中身は開いたときに1件ずつ取りに行く（/api/owner/issue/file） */
+  const filesBy = new Map<string, { id: string; name: string; mime: string; bytes: number }[]>();
+  const drillIds = rows.filter((r) => r.kind === "drill").map((r) => r.id);
+  if (drillIds.length) {
+    const { data: fs } = await supabase
+      .from("cert_request_files")
+      .select("id, request_id, filename, mime, size_bytes")
+      .in("request_id", drillIds)
+      .order("uploaded_at", { ascending: true });
+    for (const f of fs ?? []) {
+      const k = f.request_id as string;
+      const list = filesBy.get(k) ?? [];
+      list.push({
+        id: f.id as string,
+        name: (f.filename as string) ?? "",
+        mime: (f.mime as string) ?? "",
+        bytes: (f.size_bytes as number) ?? 0,
+      });
+      filesBy.set(k, list);
+    }
+  }
+
   const doneBy = new Map<string, { min: number; ok: boolean; why: string | null }>();
   if (picked.length) {
     const sessions = await mySessions(supabase, [
@@ -89,6 +114,8 @@ export async function GET() {
       decidedAt: r.decidedAt,
       slots: r.slots,
       talk: doneBy.get(r.id) ?? null,
+      /* 実技の実施記録。無ければ通せない（0027 が止める） */
+      files: filesBy.get(r.id) ?? [],
       hasRoom: r.sessionId ? hasRoom.has(r.sessionId) : false,
     })),
   });

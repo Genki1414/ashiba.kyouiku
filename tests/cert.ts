@@ -3,7 +3,18 @@
 
 import { readFileSync } from "node:fs";
 import { CERT_NO_RE, eligible, isCertNo, totalLabel } from "../src/lib/cert";
-import { COURSES, LAW_VERSION, lawVersionOf, needsLive, totalNoteOf } from "../src/content/courses";
+import {
+  COURSES,
+  LAW_VERSION,
+  drillMinOf,
+  gateOf,
+  lawVersionOf,
+  needsLive,
+  totalNoteOf,
+} from "../src/content/courses";
+import { drillGuideOf } from "../src/content/drill";
+import { RECORD_ROWS, recordItemsOf, recordSheetHtml } from "../src/lib/drillRecord";
+import { MAX_FILE, MAX_FILES, MAX_TOTAL } from "../src/lib/shrink";
 import { CARD_MM, CERT_H, CERT_MIN_H, CERT_W, DPI, certHeight } from "../src/components/edu/drawCert";
 import { ISSUER_NAME, ISSUER_RESPONSIBLE, issuerName, issuerResponsible } from "../src/lib/issuer";
 
@@ -181,6 +192,83 @@ console.log("\n── 出した紙に、出したときの中身を焼き付け�
   for (const c of COURSES.filter((x) => x.ready)) {
     check(/^\d{4}-\d{2}-\d{2}$/.test(lawVersionOf(c)), `${c.id}: 法令バージョンが引ける`);
   }
+}
+
+console.log("\n── 実技の実施記録（0027）──");
+{
+  /* なぜ要るか。
+     実技のある講座は、学科をうちで受けたあと、実技を事業者が自社で行う。
+     うちが見ていたのは「実技を行った日」と「行った人の名前」だけだった。
+     **打ち込めば通ってしまう。**実技をやったことの証明になっていない。 */
+  const drills = COURSES.filter((c) => c.ready && gateOf(c) === "drill");
+  check(drills.length >= 30, `実技のある講座（いま ${drills.length}件）`);
+
+  /* 様式は、講座ごとに違う。中身は drill.ts から出す */
+  for (const c of drills) {
+    const g = drillGuideOf(c.id);
+    check(!!g, `${c.id}: 実技の手引きがある`);
+    if (!g) continue;
+    check(drillMinOf(c) === g.legalMin, `${c.id}: 手引きの法定時間が講座と合う`,
+      `講座 ${drillMinOf(c)}分 ／ 手引き ${g.legalMin}分`);
+    const html = recordSheetHtml({ id: c.id, name: c.name, basis: c.basis }, g);
+    /* げんきさんが決めた、様式に要るもの */
+    for (const k of ["実施内容", "参加者", "実施事業者名", "実施事業者印"]) {
+      check(html.includes(k), `${c.id}: 様式に「${k}」がある`);
+    }
+    check(html.includes(c.name), `${c.id}: 様式に講座名が入っている`);
+    /* **講座ごとの実施内容がチェックできること。**
+       段の見出しだけでは、何をやったかの記録にならない */
+    const items = recordItemsOf(g).reduce((n, s) => n + s.items.length, 0);
+    check(items >= 10, `${c.id}: 実施内容が${items}件ある（チェックできる）`);
+    const boxes = (html.match(/☐/g) ?? []).length;
+    check(boxes === items, `${c.id}: 実施内容の数だけチェック欄がある`,
+      `欄 ${boxes} ／ 内容 ${items}`);
+    /* **強調の印が、そのまま紙に刷られないこと** */
+    check(!html.includes("**"), `${c.id}: 様式に強調の印が残っていない`);
+    /* 参加者を書く行 */
+    check(html.includes("生年月日"), `${c.id}: 参加者に生年月日の欄がある`);
+  }
+  check(RECORD_ROWS >= 8, `参加者を書く行が${RECORD_ROWS}行ある`);
+
+  /* 学科だけの講座に様式を出さない。
+     出すと「実技をやらなくてよい講座」に実技の記録が残る */
+  for (const c of COURSES.filter((x) => x.ready && gateOf(x) !== "drill")) {
+    check(!drillGuideOf(c.id), `${c.id}: 実技が無いので手引きも無い`);
+  }
+
+  /* 様式は1か所で組み立てる。画面とダウンロードで別々に書くと、必ずずれる */
+  const view = readFileSync("src/app/edu/[courseId]/drill/DrillGuideView.tsx", "utf8");
+  check(view.includes("recordSheetHtml"), "画面は、組み立てた様式をそのまま出す");
+  const dl = readFileSync("src/app/api/drill-record/route.ts", "utf8");
+  check(dl.includes("recordDocHtml"), "ダウンロードも、同じ様式から出す");
+  check(dl.includes("content-disposition"), "ダウンロードは添付として返す");
+  check(view.includes("drill-download"), "画面にダウンロードの口がある");
+
+  /* 申請のとき、実施記録が要る */
+  const api = readFileSync("src/app/api/issue/route.ts", "utf8");
+  check(api.includes("checkFiles"), "申請で、送られてきた記録を確かめている");
+  check(api.includes("p_files"), "記録を申請と一緒に入れている");
+  check(/data:\(image/.test(api) || api.includes("data:(image"), "写真かPDFだけを受ける");
+  check(MAX_FILES === 3 && MAX_FILE === 5 * 1024 * 1024 && MAX_TOTAL === 10 * 1024 * 1024,
+    "大きさの上限が決まっている（3件・1件5MB・合計10MB）");
+
+  /* データベースの側で止める。画面の作りだけで縛ると、画面を変えた日に抜ける */
+  const mig = readFileSync("supabase/migrations/0027_drill_record.sql", "utf8");
+  check(mig.includes("実技の実施記録を添えてください"), "0027 が、記録なしの申請を断る");
+  check(mig.includes("実技の実施記録が付いていません"), "0027 が、記録なしでは通させない");
+  check(/drop function if exists public\.request_cert\(uuid, uuid, text, text, int, text, date, text\)/.test(mig),
+    "0027 が、記録を見ない古い request_cert を落としている");
+  check(mig.includes("delete from public.cert_request_files f"), "3年で消すとき、記録も消える");
+  check(mig.includes("enable row level security"), "記録の表に RLS が入っている");
+
+  /* 本部は、記録を見てから通す */
+  const own = readFileSync("src/app/owner/IssueClient.tsx", "utf8");
+  check(own.includes("issue-drill-file"), "本部の画面で、記録を開ける");
+  check(own.includes('r.kind === "drill" && r.files.length === 0'),
+    "記録が無ければ、修了にするボタンを押させない");
+  const file = readFileSync("src/app/api/owner/issue/file/route.ts", "utf8");
+  check(file.includes("currentOwner"), "記録を開けるのは本部だけ");
+  check(file.includes("no-store"), "記録はキャッシュしない");
 }
 
 console.log("── まとめ ──");

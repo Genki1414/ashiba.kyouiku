@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Btn } from "@/components/ui/Btn";
 import type { IssueStatus, NextAction, Slot } from "@/lib/issue";
 import type { CourseGate } from "@/content/courses";
+import { ACCEPT, MAX_FILES, prepareFiles, sizeText, type Shrunk } from "@/lib/shrink";
 
 /* 修了証の発行申請（受講する人の側）。
 
@@ -67,6 +68,10 @@ export function IssuePanel({
   const [note, setNote] = useState("");
   const [drillOn, setDrillOn] = useState("");
   const [drillBy, setDrillBy] = useState("");
+  /* 実技の実施記録。**端末の中で縮めてから持つ。**
+     大きいまま抱えると、送る前に画面が固まる */
+  const [files, setFiles] = useState<Shrunk[]>([]);
+  const [prep, setPrep] = useState(false);
   const [busy, setBusy] = useState(false);
   const [ng, setNg] = useState("");
 
@@ -94,6 +99,25 @@ export function IssuePanel({
   useEffect(() => {
     void load();
   }, [load]);
+
+  /* 選ばれた写真を、その場で縮める。
+     送るときにまとめて縮めると、押してから何秒も待たされる */
+  const pick = async (list: FileList | null) => {
+    setNg("");
+    const arr = Array.from(list ?? []);
+    if (arr.length === 0) return;
+    setPrep(true);
+    try {
+      const r = await prepareFiles(arr);
+      if (!r.ok) {
+        setNg(r.reason);
+        return;
+      }
+      setFiles(r.files);
+    } finally {
+      setPrep(false);
+    }
+  };
 
   const post = async (body: Record<string, unknown>) => {
     setBusy(true);
@@ -248,6 +272,45 @@ export function IssuePanel({
                   className="w-full rounded-lg border border-line bg-panel2 px-3.5 py-3 text-[15px]"
                 />
               </label>
+
+              {/* 実施記録。**これが無いと申請できない。**
+                  日付と名前だけなら、打ち込めば通ってしまう */}
+              <div className="rounded-lg border border-yel bg-panel2 p-3.5">
+                <div className="text-[12.5px] font-extrabold text-yel">実技の実施記録（要ります）</div>
+                <p className="mt-1 text-[11.5px] leading-relaxed text-dim">
+                  書き終えた<strong className="text-txt">実施記録の様式</strong>を撮って（かPDFにして）添えてください。
+                  <strong className="text-txt">実施内容・参加者名・実施事業者名・実施事業者印</strong>が写っていることを確かめてください。
+                  写真は端末の中で縮めてから送ります。{MAX_FILES}件まで。
+                </p>
+                <input
+                  type="file"
+                  accept={ACCEPT}
+                  multiple
+                  disabled={prep || busy}
+                  data-testid="issue-drill-files"
+                  onChange={(e) => void pick(e.target.files)}
+                  className="mt-2 w-full text-[12px] text-dim file:mr-3 file:rounded-md file:border-0 file:bg-yel file:px-3 file:py-2 file:text-[12px] file:font-bold file:text-black"
+                />
+                {prep && <div className="mt-2 text-[11.5px] text-dim">写真を縮めています…</div>}
+                {files.length > 0 && (
+                  <ul className="mt-2 grid gap-1" data-testid="issue-drill-files-list">
+                    {files.map((f, i) => (
+                      <li key={`${f.name}-${i}`} className="flex items-center gap-2 text-[11.5px]">
+                        <span className="text-grn">✓</span>
+                        <span className="min-w-0 flex-1 truncate">{f.name || "（名前なし）"}</span>
+                        <span className="shrink-0 text-dim2">{sizeText(f.bytes)}</span>
+                        <button
+                          type="button"
+                          onClick={() => setFiles((v) => v.filter((_, k) => k !== i))}
+                          className="shrink-0 text-dim underline"
+                        >
+                          外す
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
             </>
           )}
           <label className="block">
@@ -268,7 +331,7 @@ export function IssuePanel({
           <Btn
             tone="y"
             dis={busy}
-            onClick={() => void post({ action: "request", note, drillOn, drillBy })}
+            onClick={() => void post({ action: "request", note, drillOn, drillBy, files })}
             testid="issue-request"
           >
             {busy ? "…" : "発行申請を出す"}

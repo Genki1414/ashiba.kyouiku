@@ -7,6 +7,7 @@ import { requestOf, slotsOf, toState } from "@/lib/issueQuery";
 import { findCourse, gateOf, GATE_TEXT } from "@/content/courses";
 import { TALK_SUBJECT } from "@/content/shokucho";
 import { notify } from "@/lib/notify.server";
+import { MAX_FILE, MAX_FILES, MAX_TOTAL } from "@/lib/shrink";
 
 /* 修了証の発行申請（受講する人の側）。
 
@@ -85,9 +86,54 @@ export async function GET(req: NextRequest) {
   });
 }
 
+/** 添える実施記録。端末で縮めてから送ってくる（src/lib/shrink.ts） */
+type InFile = { name?: string; mime?: string; data?: string };
+
 type Body =
-  | { action: "request"; courseId: string; note?: string; drillOn?: string; drillBy?: string }
+  | {
+      action: "request";
+      courseId: string;
+      note?: string;
+      drillOn?: string;
+      drillBy?: string;
+      files?: InFile[];
+    }
   | { action: "pick"; courseId: string; slotId: string };
+
+/* 送られてきた実施記録を確かめる。
+
+   **端末で縮めてから送る作りだが、端末の言い分は信じない。**
+   ここを通さないと、いくらでも大きいものが入ってしまう。 */
+function checkFiles(
+  raw: unknown,
+): { ok: true; files: { name: string; mime: string; data: string }[] } | { ok: false; reason: string } {
+  const list = Array.isArray(raw) ? (raw as InFile[]) : [];
+  if (list.length === 0) {
+    return { ok: false, reason: "実技の実施記録（写真かPDF）を添えてください。" };
+  }
+  if (list.length > MAX_FILES) {
+    return { ok: false, reason: `実施記録は${MAX_FILES}件までです。` };
+  }
+  const out: { name: string; mime: string; data: string }[] = [];
+  let total = 0;
+  for (const f of list) {
+    const data = typeof f?.data === "string" ? f.data : "";
+    const m = /^data:(image\/jpeg|image\/png|image\/webp|application\/pdf);base64,/.exec(data);
+    if (!m) {
+      return { ok: false, reason: "写真（JPEG・PNG）かPDFを添えてください。" };
+    }
+    /* data URL は元より3割ほど大きくなる。その分を見た上限で見る */
+    if (data.length > Math.round(MAX_FILE * 1.4)) {
+      return { ok: false, reason: "1件が大きすぎます。撮り直すか、PDFを分けてください。" };
+    }
+    total += data.length;
+    out.push({ name: (f.name ?? "").slice(0, 200), mime: m[1], data });
+  }
+  if (total > Math.round(MAX_TOTAL * 1.4)) {
+    return { ok: false, reason: "実施記録が大きすぎます。枚数を減らしてください。" };
+  }
+  return { ok: true, files: out };
+}
 
 export async function POST(req: NextRequest) {
   const supabase = getServiceClient();
@@ -117,6 +163,7 @@ export async function POST(req: NextRequest) {
     /* 実技のある講座は、事業者で実技を済ませてから申請してもらう。
        実施日と実施者を控える（あとから「やったのか」を示せるように） */
     let drillOn: string | null = null;
+    let files: { name: string; mime: string; data: string }[] | null = null;
     if (gate === "drill") {
       const t = Date.parse(b.drillOn ?? "");
       if (!Number.isFinite(t)) {
@@ -138,9 +185,15 @@ export async function POST(req: NextRequest) {
           { status: 400 },
         );
       }
+      /* **実施記録が要る。**日付と名前だけなら、打ち込めば通ってしまう。
+         書いた記録を見て、本部が確かめてから修了証を出す（0027） */
+      const v = checkFiles(b.files);
+      if (!v.ok) return NextResponse.json({ ok: false, reason: v.reason }, { status: 400 });
+      files = v.files;
     }
 
     const { error } = await supabase.rpc("request_cert", {
+      p_files: files,
       p_enrollment: who.enrollmentId,
       p_user: who.userId,
       p_course: course.id,

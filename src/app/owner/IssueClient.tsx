@@ -34,7 +34,12 @@ type Req = {
   talk: { min: number; ok: boolean; why: string | null } | null;
   /** つなぎ先（Zoom）が入っているか。URL そのものは返さない */
   hasRoom: boolean;
+  /** 実技の実施記録。**中身はここに来ない。**押したときに1件ずつ開く */
+  files: { id: string; name: string; mime: string; bytes: number }[];
 };
+
+const kb = (n: number) =>
+  n >= 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(1)}MB` : `${Math.max(1, Math.round(n / 1024))}KB`;
 
 const STATUS: Record<IssueStatus, { label: string; tone: string }> = {
   none: { label: "未申請", tone: "text-dim" },
@@ -208,6 +213,41 @@ export function IssueClient() {
               </div>
             )}
 
+            {/* 実技の実施記録。**これを見てから通す。**
+                日付と実施者だけなら、打ち込めば書ける */}
+            {r.kind === "drill" && (
+              <div className="mt-2" data-testid="issue-drill-files">
+                {r.files.length === 0 ? (
+                  <div className="rounded-lg border border-red px-3 py-2 text-[12px] leading-relaxed text-red">
+                    <b>実施記録が付いていません。</b>このまま修了にはできません（0027 が止めます）。
+                    本人に、書いた様式を撮って出し直してもらってください。
+                  </div>
+                ) : (
+                  <div className="rounded-lg border border-line bg-panel2 px-3 py-2">
+                    <div className="text-[11.5px] text-dim2">
+                      実施記録（<b className="text-txt">実施内容・参加者名・実施事業者名・実施事業者印</b>を確かめる）
+                    </div>
+                    <div className="mt-1.5 flex flex-wrap gap-2">
+                      {r.files.map((f, i) => (
+                        <a
+                          key={f.id}
+                          href={`/api/owner/issue/file?id=${encodeURIComponent(f.id)}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          data-testid="issue-drill-file"
+                          className="rounded-md border border-cyan px-2.5 py-1.5 text-[12px] font-bold text-cyan no-underline"
+                        >
+                          {f.mime === "application/pdf" ? "PDF" : "写真"}
+                          {r.files.length > 1 ? ` ${i + 1}` : ""}
+                          <span className="ml-1.5 font-normal text-dim2">{kb(f.bytes)}</span>
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             {r.slots.length > 0 && (
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {r.slots.map((s) => (
@@ -327,15 +367,18 @@ export function IssueClient() {
                     {r.status === "offered" ? "候補日を出し直す" : "候補日を出す"}
                   </button>
                 )}
+                {/* 実技は、記録が付いていなければ押させない。
+                    押しても 0027 が止めるが、押せる形にしておくと
+                    「押したのに通らない」だけが残る */}
                 {r.status !== "cleared" && (
                   <button
                     type="button"
-                    disabled={busy}
+                    disabled={busy || (r.kind === "drill" && r.files.length === 0)}
                     onClick={() => void post({ action: "clear", requestId: r.id })}
                     data-testid="issue-clear"
-                    className="rounded-lg border border-line px-3 py-2 text-[12.5px] text-dim"
+                    className="rounded-lg border border-line px-3 py-2 text-[12.5px] text-dim disabled:opacity-40"
                   >
-                    修了にする
+                    {r.kind === "drill" ? "記録を確かめた。修了にする" : "修了にする"}
                   </button>
                 )}
                 {r.status !== "cleared" && r.status !== "declined" && (

@@ -3,12 +3,18 @@
 import { hoursText } from "@/content/courses";
 import type { DrillGuide } from "@/content/drill";
 import { Btn } from "@/components/ui/Btn";
+import { RECORD_CSS, recordSheetHtml } from "@/lib/drillRecord";
 
 /* 実技の手引きの中身。
 
    ── 印刷 ──
    現場に持って行くのは紙。実施記録の様式は、
-   この画面ごと印刷して使う（print: で画面の飾りを消す）。 */
+   この画面ごと印刷して使う（print: で画面の飾りを消す）。
+
+   ── 様式そのものは、ここには書かない ──
+   同じ紙が、この画面と、ダウンロード（/api/drill-record）の2か所に出る。
+   **2か所に書くと、必ず片方だけ直す日が来る。**
+   紙は src/lib/drillRecord.ts で1回だけ組み立てて、両方がそれを使う。 */
 
 function bold(t: string) {
   return t.split(/\*\*(.+?)\*\*/g).map((s, i) =>
@@ -119,71 +125,37 @@ export function DrillGuideView({
           下の様式を印刷して、実技の当日に記入し、会社で保管してください。
         </p>
         <p className="mt-2 text-[13px] leading-relaxed text-dim">
-          実技が済んだら、受講者本人が修了証の画面から発行申請を出します。
-          そのとき<strong className="text-txt">実技を行った日と、行った人の氏名</strong>を入れてもらいます。
-          この様式と同じ内容です。
+          実技が済んだら、<strong className="text-txt">書き終えたこの様式を撮影（またはPDFに）して、
+          受講者本人が修了証の画面から発行申請に添えて</strong>送ります。
+          <strong className="text-txt">本部が中身を確かめてから、修了証が出せるようになります。</strong>
+          記録が添えられていない申請は、通せません。
         </p>
-        <div className="mt-3 print:hidden">
-          <Btn tone="y" onClick={() => window.print()} testid="drill-print">実施記録の様式を印刷する</Btn>
+        <div className="mt-3 flex flex-wrap gap-2 print:hidden">
+          {/* 実技をやるのは会社の人で、その人はうちの画面を開いたままにしておかない。
+              手元に落として、人数分を何度でも印刷できるようにする */}
+          <a
+            href={`/api/drill-record?courseId=${course.id}`}
+            download
+            data-testid="drill-download"
+            className="rounded-lg border border-yel px-4 py-2.5 text-[13px] font-extrabold text-yel no-underline"
+          >
+            様式をダウンロードする
+          </a>
+          <Btn tone="y" onClick={() => window.print()} testid="drill-print">この画面ごと印刷する</Btn>
         </div>
       </section>
 
-      {/* 実施記録の様式。印刷して使う */}
-      <section className="mt-5 rounded-xl border border-line bg-white p-4 text-black print:border-black" data-testid="drill-form">
-        <div className="text-center text-[15px] font-black">特別教育（実技）実施記録</div>
-        <div className="mt-0.5 text-center text-[11px]">{course.name}／科目「{guide.subject}」</div>
-        <table className="mt-3 w-full border-collapse text-[12px]">
-          <tbody>
-            {/* 記入欄は講座から出す。ここに書き込むと、
-                別の講座で関係のない欄（機械の型式など）が空のまま紙に残る */}
-            {guide.form.map((row) => (
-              <tr key={row.k}>
-                <th className="w-[110px] border border-black bg-neutral-100 px-2 py-1.5 text-left font-bold">{bold(row.k)}</th>
-                {/* 記入欄の但し書きにも太字の印が入る（「**3トン未満であること**」など）。
-                    素通しにすると、印がそのまま紙に刷られる */}
-                <td className="border border-black px-2 py-1.5">{bold(row.v)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        <table className="mt-3 w-full border-collapse text-[11.5px]">
-          <thead>
-            <tr>
-              <th className="border border-black bg-neutral-100 px-1 py-1">#</th>
-              <th className="border border-black bg-neutral-100 px-1 py-1 text-left">範囲／内容</th>
-              <th className="border border-black bg-neutral-100 px-1 py-1">予定</th>
-              <th className="border border-black bg-neutral-100 px-1 py-1">実施</th>
-              <th className="border border-black bg-neutral-100 px-1 py-1">確認</th>
-            </tr>
-          </thead>
-          <tbody>
-            {guide.steps.map((s) => (
-              <tr key={s.no}>
-                <td className="border border-black px-1 py-1 text-center font-mono">{s.no}</td>
-                <td className="border border-black px-1 py-1">
-                  <span className="text-[10px] text-neutral-600">{s.scope}</span><br />{s.title}
-                </td>
-                <td className="border border-black px-1 py-1 text-center">{s.min}分</td>
-                <td className="border border-black px-1 py-1 text-center">　　分</td>
-                <td className="border border-black px-1 py-1 text-center">□</td>
-              </tr>
-            ))}
-            <tr>
-              <td className="border border-black px-1 py-1" colSpan={2}>合計（法定 {guide.legalMin}分以上）</td>
-              <td className="border border-black px-1 py-1 text-center">{guide.totalMin}分</td>
-              <td className="border border-black px-1 py-1 text-center">　　分</td>
-              <td className="border border-black px-1 py-1"></td>
-            </tr>
-          </tbody>
-        </table>
-        <div className="mt-3 grid grid-cols-2 gap-3 text-[11.5px]">
-          <div className="border border-black p-2">実施者 署名：<br /><br /></div>
-          <div className="border border-black p-2">事業者 確認（社名・氏名・印）：<br /><br /></div>
-        </div>
-        <div className="mt-2 text-[10px] text-neutral-600">
-          この記録は{guide.keepYears}年間保存（労働安全衛生規則第38条）。合計が法定の{guide.legalMin}分を下回った場合は修了になりません。
-        </div>
-      </section>
+      {/* 実施記録の様式。src/lib/drillRecord.ts が組み立てたものを、そのまま出す。
+          ダウンロードで渡すのと**同じ紙**。中身はうちの定数だけで、
+          受け取った文字は入らない（組み立てるときに escape してある） */}
+      <style>{RECORD_CSS}</style>
+      <section
+        className="mt-5 overflow-hidden rounded-xl border border-line print:rounded-none print:border-0"
+        data-testid="drill-form"
+        dangerouslySetInnerHTML={{
+          __html: recordSheetHtml({ id: course.id, name: course.name, basis: course.basis }, guide),
+        }}
+      />
     </div>
   );
 }

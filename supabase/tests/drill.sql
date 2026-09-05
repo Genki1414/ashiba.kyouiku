@@ -19,6 +19,9 @@
 --   ・断ってから出し直せるか。そのとき前の返事が消えるか
 --   ・通ったあとに出し直せないか（修了の取り消しになる）
 --   ・ログインした人から、自分の申請を直に通せないか
+--   ・**実施記録を添えないと申請できないか**（0027）
+--   ・**実施記録が無いと通せないか**（0027）
+--   ・**出し直したら、前に添えた記録が入れ替わるか**
 
 \set ON_ERROR_STOP on
 \pset pager off
@@ -67,7 +70,7 @@ select public.request_cert(
   '44444444-4444-4444-4444-444444444444',
   '33333333-3333-3333-3333-333333333333',
   :'course', 'drill', 1, '天井の高い倉庫でやりました',
-  date '2026-08-20', '中川　元基');
+  date '2026-08-20', '中川　元基', '[{"name":"kiroku.jpg","mime":"image/jpeg","data":"data:image/jpeg;base64,AAAA"}]'::jsonb);
 select t('②1件ある', count(*)::text, '1')
   from public.cert_requests where enrollment_id='44444444-4444-4444-4444-444444444444';
 select t('②実技の日が残る', drill_on::text, '2026-08-20')
@@ -96,13 +99,24 @@ select t('④理由が残る', (reply_note <> '')::text, 'true')
 select public.request_cert(
   '44444444-4444-4444-4444-444444444444',
   '33333333-3333-3333-3333-333333333333',
-  :'course', 'drill', 1, '', date '2026-08-21', '佐藤　健一');
+  :'course', 'drill', 1, '', date '2026-08-21', '佐藤　健一',
+  '[{"name":"kiroku2.jpg","mime":"image/jpeg","data":"data:image/jpeg;base64,BBBB"}]'::jsonb);
 select t('⑤また open', status, 'open')
   from public.cert_requests where enrollment_id='44444444-4444-4444-4444-444444444444';
 select t('⑤日が入れ替わる', drill_on::text, '2026-08-21')
   from public.cert_requests where enrollment_id='44444444-4444-4444-4444-444444444444';
 select t('⑤人が入れ替わる', drill_by, '佐藤　健一')
   from public.cert_requests where enrollment_id='44444444-4444-4444-4444-444444444444';
+-- **出し直したら、前に添えた記録は残さない。**
+-- 残すと、直す前の紙と直したあとの紙が並んで、どちらを見たのか分からなくなる
+select t('⑤実施記録は1件に入れ替わる', count(*)::text, '1')
+  from public.cert_request_files f
+  join public.cert_requests q on q.id = f.request_id
+ where q.enrollment_id='44444444-4444-4444-4444-444444444444';
+select t('⑤入れ替わった記録は新しいほう', f.filename, 'kiroku2.jpg')
+  from public.cert_request_files f
+  join public.cert_requests q on q.id = f.request_id
+ where q.enrollment_id='44444444-4444-4444-4444-444444444444';
 select t('⑤前の理由は消える', reply_note, '')
   from public.cert_requests where enrollment_id='44444444-4444-4444-4444-444444444444';
 select t('⑤1件のまま', count(*)::text, '1')
@@ -131,7 +145,7 @@ begin
   perform public.request_cert(
     '44444444-4444-4444-4444-444444444444',
     '33333333-3333-3333-3333-333333333333',
-    current_setting('drilltest.course'), 'drill', 1, '', date '2026-08-22', '別の人');
+    current_setting('drilltest.course'), 'drill', 1, '', date '2026-08-22', '別の人', '[{"name":"kiroku.jpg","mime":"image/jpeg","data":"data:image/jpeg;base64,AAAA"}]'::jsonb);
   insert into r values ('⑧通ったあとは出し直せない', 'とおった', 'はじかれる');
 exception when others then
   insert into r values ('⑧通ったあとは出し直せない', 'はじかれる', 'はじかれる');
@@ -149,11 +163,84 @@ exception when others then
   insert into r values ('⑨知らない関門ははじく', 'はじかれる', 'はじかれる');
 end $$;
 
+-- ⑫〜⑮ は別の人で見る。
+-- 同じ人が同じ講座を二重に受けることはできない（enrollments_open_one_idx）
+insert into auth.users (id, email)
+values ('77777777-7777-7777-7777-777777777777','r@x.jp')
+on conflict (id) do nothing;
+insert into public.users (id, email, name)
+values ('77777777-7777-7777-7777-777777777777','r@x.jp','記録 太郎')
+on conflict (id) do nothing;
+delete from public.enrollments where user_id='77777777-7777-7777-7777-777777777777';
+insert into public.enrollments (id, user_id, course_id)
+values ('66666666-6666-6666-6666-666666666666','77777777-7777-7777-7777-777777777777', :'course');
+
+-- ⑫ 実施記録を添えないと、実技の申請はできない（0027）
+--    日付と名前だけなら、打ち込めば通ってしまう
+do $$
+begin
+  perform public.request_cert(
+    '66666666-6666-6666-6666-666666666666',
+    '77777777-7777-7777-7777-777777777777',
+    current_setting('drilltest.course'), 'drill', 1, '', date '2026-08-22', '記録なし', null);
+  insert into r values ('⑫記録なしでは申請できない', 'とおった', 'はじかれる');
+exception when others then
+  insert into r values ('⑫記録なしでは申請できない', 'はじかれる', 'はじかれる');
+end $$;
+
+-- ⑬ 4件は多すぎる（置き場所が持たない）
+do $$
+begin
+  perform public.request_cert(
+    '66666666-6666-6666-6666-666666666666',
+    '77777777-7777-7777-7777-777777777777',
+    current_setting('drilltest.course'), 'drill', 1, '', date '2026-08-22', '多すぎ',
+    '[{"data":"a"},{"data":"b"},{"data":"c"},{"data":"d"}]'::jsonb);
+  insert into r values ('⑬4件は多すぎる', 'とおった', 'はじかれる');
+exception when others then
+  insert into r values ('⑬4件は多すぎる', 'はじかれる', 'はじかれる');
+end $$;
+
+-- ⑭ 実施記録が無ければ通せない（0027）
+--    画面の作りだけで縛ると、画面を変えた日に抜ける
+select public.request_cert(
+  '66666666-6666-6666-6666-666666666666',
+  '77777777-7777-7777-7777-777777777777',
+  :'course', 'drill', 1, '', date '2026-08-23', '確認用', '[{"name":"kiroku.jpg","mime":"image/jpeg","data":"data:image/jpeg;base64,AAAA"}]'::jsonb);
+delete from public.cert_request_files f using public.cert_requests q
+ where q.id = f.request_id and q.enrollment_id='66666666-6666-6666-6666-666666666666';
+do $$
+begin
+  perform public.clear_request(
+    (select id from public.cert_requests where enrollment_id='66666666-6666-6666-6666-666666666666'),
+    '', 'unei@x.jp');
+  insert into r values ('⑭記録が無ければ通せない', 'とおった', 'はじかれる');
+exception when others then
+  insert into r values ('⑭記録が無ければ通せない', 'はじかれる', 'はじかれる');
+end $$;
+select t('⑭止まったので、まだ open', status, 'open')
+  from public.cert_requests where enrollment_id='66666666-6666-6666-6666-666666666666';
+
+-- ⑮ 申請が消えれば、記録も消える（3年で消すときに残らない）
+select public.request_cert(
+  '66666666-6666-6666-6666-666666666666',
+  '77777777-7777-7777-7777-777777777777',
+  :'course', 'drill', 1, '', date '2026-08-23', '確認用', '[{"name":"kiroku.jpg","mime":"image/jpeg","data":"data:image/jpeg;base64,AAAA"}]'::jsonb);
+delete from public.enrollments where id='66666666-6666-6666-6666-666666666666';
+-- この人の記録（kiroku.jpg）だけが消えること。
+-- 表ぜんぶを数えると、もう一人の記録（kiroku2.jpg）まで数えてしまう
+select t('⑮受講を消すと記録も消える', count(*)::text, '0')
+  from public.cert_request_files where filename = 'kiroku.jpg';
+select t('⑮ほかの人の記録は残っている', count(*)::text, '1')
+  from public.cert_request_files where filename = 'kiroku2.jpg';
+select t('⑮記録の表にも RLS が入っている', relrowsecurity::text, 'true')
+  from pg_class where oid = 'public.cert_request_files'::regclass;
+
 -- ⑩ ログインした人から、直に通せない
 select t('⑩anon は申請できない',
-  has_function_privilege('anon','public.request_cert(uuid,uuid,text,text,int,text,date,text)','execute')::text, 'false');
+  has_function_privilege('anon','public.request_cert(uuid,uuid,text,text,int,text,date,text,jsonb)','execute')::text, 'false');
 select t('⑩authenticated は申請できない',
-  has_function_privilege('authenticated','public.request_cert(uuid,uuid,text,text,int,text,date,text)','execute')::text, 'false');
+  has_function_privilege('authenticated','public.request_cert(uuid,uuid,text,text,int,text,date,text,jsonb)','execute')::text, 'false');
 select t('⑩authenticated は通せない',
   has_function_privilege('authenticated','public.clear_request(uuid,text,text)','execute')::text, 'false');
 select t('⑩service_role は通せる',

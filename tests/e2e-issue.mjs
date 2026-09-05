@@ -446,6 +446,27 @@ for (const [id, mins] of [["kousho", 180], ["harness", 90], ["rope", 180], ["kog
 const r404 = await page.goto(`${BASE}/edu/ashiba/drill`);
 check(r404 && r404.status() === 404, "学科だけの講座には手引きが無い（404）");
 
+/* 様式のダウンロード。実技をやるのは会社の人で、
+   その人はうちの画面を開いたままにしておかない */
+{
+  const res = await page.request.get(`${BASE}/api/drill-record?courseId=mobilecrane`);
+  check(res.status() === 200, "様式をダウンロードできる");
+  const cd = res.headers()["content-disposition"] ?? "";
+  check(cd.includes("attachment"), "添付として返る", cd);
+  check(cd.includes("mobilecrane"), "講座ごとのファイル名", cd);
+  const body = await res.text();
+  for (const k of ["実施内容", "参加者", "実施事業者名", "実施事業者印", "☐"]) {
+    check(body.includes(k), `様式に「${k}」がある`);
+  }
+  check(
+    body.includes("つり上げ荷重1トン未満の移動式クレーン"),
+    "様式に、その講座の名前が入っている",
+  );
+  check(!body.includes("**"), "強調の印が、そのまま紙に刷られない");
+  const none = await page.request.get(`${BASE}/api/drill-record?courseId=ashiba`);
+  check(none.status() === 404, "学科だけの講座に様式は無い（404）");
+}
+
 /* 日と名前を入れずに押したら、サーバが断ること。
    ここは本物の /api/issue に当てる（POST だけ素通しにしてある）。
    ログインしていないので 401 になるが、**画面が理由を出すこと**を見る */
@@ -476,11 +497,36 @@ await page.screenshot({ path: `${SC}/issue-09-drill-ng.png` });
 /* 入れて押したら、その値が乗ること */
 await page.getByTestId("issue-drill-on").fill("2026-08-20");
 await page.getByTestId("issue-drill-by").fill("中川　元基");
+
+/* 実技の実施記録。**これが無いと申請できない**（0027）。
+   1×1 の PNG を選ばせて、端末の中で縮めてから乗るところまで見る */
+check(await page.getByTestId("issue-drill-files").count() === 1, "実施記録を選ぶ口がある");
+const PNG = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+  "base64",
+);
+await page.getByTestId("issue-drill-files").setInputFiles({
+  name: "kiroku.png",
+  mimeType: "image/png",
+  buffer: PNG,
+});
+await page.getByTestId("issue-drill-files-list").waitFor({ timeout: 6000 })
+  .catch(() => check(false, "選んだ記録が画面に並ぶ"));
+check(
+  (await page.getByTestId("issue-drill-files-list").textContent()).includes("kiroku.png"),
+  "選んだ記録の名前が出る",
+);
+
 sent = null;
 await page.getByTestId("issue-request").click();
 await page.waitForTimeout(600);
 check(!!sent && sent.drillOn === "2026-08-20", "入れた日が乗る", );
 check(!!sent && sent.drillBy === "中川　元基", "入れた名前が乗る");
+check(Array.isArray(sent?.files) && sent.files.length === 1, "実施記録が一緒に乗る");
+check(
+  typeof sent?.files?.[0]?.data === "string" && sent.files[0].data.startsWith("data:image/"),
+  "記録は端末で縮めてから送っている",
+);
 await page.screenshot({ path: `${SC}/issue-10-drill-sent.png` });
 
 /* 申請したあと。実技の講座では候補日を待たない（そのまま返事待ち） */
