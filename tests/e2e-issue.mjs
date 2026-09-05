@@ -230,7 +230,7 @@ await page.screenshot({ path: `${SC}/issue-08-drill.png` });
 
 /* 実技の手引き。会社の人が見る画面なので、ログイン無しで開けること。
    **実技のある講座は増える。決め打ちにせず、全部を回す。** */
-for (const [id, mins] of [["kousho", 180], ["harness", 90], ["rope", 180], ["kogata", 360], ["forklift", 360], ["tailgate", 120], ["toishi", 120], ["teiatsu", 420], ["winch", 240], ["roller", 240], ["chainsaw", 540], ["arc", 600], ["kikaitoishi", 180], ["shovel", 360], ["fuseichi", 360], ["kouatsu", 900], ["ev", 60], ["press", 120], ["youka", 240], ["batsuboku", 360], ["soukou", 360], ["kikaishuzai", 480], ["kanikasen", 480], ["kisokouji", 360], ["kaitai", 420], ["kisokenki", 300], ["kisosousa", 240], ["concrete", 300], ["boring", 300], ["jack", 240], ["kidou", 240], ["robotkyoji", 180], ["robotkensa", 240], ["tire", 240], ["tokushu", 900], ["tamakake", 240], ["crane", 240]]) {
+for (const [id, mins] of [["kousho", 180], ["harness", 90], ["rope", 180], ["kogata", 360], ["forklift", 360], ["tailgate", 120], ["toishi", 120], ["teiatsu", 420], ["winch", 240], ["roller", 240], ["chainsaw", 540], ["arc", 600], ["kikaitoishi", 180], ["shovel", 360], ["fuseichi", 360], ["kouatsu", 900], ["ev", 60], ["press", 120], ["youka", 240], ["batsuboku", 360], ["soukou", 360], ["kikaishuzai", 480], ["kanikasen", 480], ["kisokouji", 360], ["kaitai", 420], ["kisokenki", 300], ["kisosousa", 240], ["concrete", 300], ["boring", 300], ["jack", 240], ["kidou", 240], ["robotkyoji", 180], ["robotkensa", 240], ["tire", 240], ["tokushu", 900], ["tamakake", 240], ["crane", 240], ["mobilecrane", 240]]) {
   await page.goto(`${BASE}/edu/${id}/drill`);
   await dismissNotice();
   await page.getByTestId("drill-guide").waitFor({ timeout: 6000 })
@@ -275,6 +275,13 @@ for (const [id, mins] of [["kousho", 180], ["harness", 90], ["rope", 180], ["kog
     check(form.includes("台数") && form.includes("第10号の4"), "ジャッキ式つり上げ機械の様式に台数と対象の確認の欄がある");
     check(form.includes("仮受け") && form.includes("保持を解く"), "ジャッキ式つり上げ機械の様式に途中で置くときと保持を解く順の欄がある");
     check(!form.includes("作業床の高さ"), "ジャッキ式つり上げ機械の様式に「作業床の高さ」が無い");
+  } else if (id === "mobilecrane") {
+    check(form.includes("1トン未満") && form.includes("小型移動式クレーン運転技能講習"), "移動式クレーンの様式に1トン未満と技能講習の欄がある");
+    check(form.includes("アウトリガ") && form.includes("敷板"), "移動式クレーンの様式に据え付け（アウトリガ・敷板）の欄がある");
+    check(form.includes("送電線") && form.includes("離隔"), "移動式クレーンの様式に上方の確認（送電線・離隔）の欄がある");
+    check(form.includes("作業半径") && form.includes("定格総荷重表"), "移動式クレーンの様式に作業半径と定格総荷重表の欄がある");
+    check(form.includes("定められた経路") && form.includes("人の頭の上を通さない"), "移動式クレーンの様式に運搬の経路の欄がある");
+    check(!form.includes("作業床の高さ"), "移動式クレーンの様式に「作業床の高さ」が無い");
   } else if (id === "crane") {
     check(form.includes("跨線テルハ") && form.includes("5トン未満"), "クレーンの様式に跨線テルハと5トン未満の欄がある");
     check(form.includes("巻過防止装置") && form.includes("トロリー線"), "クレーンの様式に巻過防止装置と電路の欄がある");

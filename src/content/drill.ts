@@ -156,6 +156,14 @@ import {
   TAMAKAKE_JITSUGI,
 } from "./tamakake";
 import {
+  MOBILECRANE_DRILL_FORM,
+  MOBILECRANE_DRILL_PREP,
+  MOBILECRANE_DRILL_STEPS,
+  MOBILECRANE_DRILL_TEACHER,
+  MOBILECRANE_DRILL_TOTAL_MIN,
+  MOBILECRANE_JITSUGI,
+} from "./mobilecrane";
+import {
   CRANE_DRILL_FORM,
   CRANE_DRILL_PREP,
   CRANE_DRILL_STEPS,
@@ -404,6 +412,18 @@ const GUIDES: Record<string, DrillGuide> = {
     prep: KOUATSU_DRILL_PREP,
     keepYears: 3,
     form: KOUATSU_DRILL_FORM,
+  },
+  mobilecrane: {
+    courseId: "mobilecrane",
+    subject: MOBILECRANE_JITSUGI.name,
+    scope: MOBILECRANE_JITSUGI.scope,
+    legalMin: MOBILECRANE_JITSUGI.legalMin,
+    steps: MOBILECRANE_DRILL_STEPS,
+    totalMin: MOBILECRANE_DRILL_TOTAL_MIN,
+    teacher: MOBILECRANE_DRILL_TEACHER,
+    prep: MOBILECRANE_DRILL_PREP,
+    keepYears: 3,
+    form: MOBILECRANE_DRILL_FORM,
   },
   crane: {
     courseId: "crane",

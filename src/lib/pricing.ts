@@ -316,6 +316,12 @@ export function parseUnitPrice(raw: string | undefined): number {
         学科5時間。自動車用タイヤの空気充てんと同じ長さなので、同じ 5,500円に置いた。
         実技の手引きと実施記録の様式が付く（/edu/tamakake/drill）。
 
+      移動式クレーン（1トン未満）（学科9時間＋実技4時間。ここで出すのは学科だけ）
+        **よその値段はまだ調べていない**（docs/74）。
+        → ここ 8,000円（税抜）＝ 8,800円（税込）
+        学科9時間。クレーン（5トン未満）と同じ長さなので、同じ 8,000円に置いた。
+        実技の手引きと実施記録の様式が付く（/edu/mobilecrane/drill）。
+
       クレーン（5トン未満）・跨線テルハ（学科9時間＋実技4時間。ここで出すのは学科だけ）
         **よその値段はまだ調べていない**（docs/67）。
         → ここ 8,000円（税抜）＝ 8,800円（税込）
@@ -377,6 +383,7 @@ export const DEFAULT_COURSE_PRICE: Record<string, number> = {
   tire: 5500,
   tokushu: 10000,
   tamakake: 5500,
+  mobilecrane: 8000,
   crane: 8000,
 };
 

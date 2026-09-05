@@ -52,6 +52,7 @@
     "build:tire": "tsx scripts/build-course.ts tire",
     "build:tokushu": "tsx scripts/build-course.ts tokushu",
     "build:tamakake": "tsx scripts/build-course.ts tamakake",
+    "build:mobilecrane": "tsx scripts/build-course.ts mobilecrane",
     "build:crane": "tsx scripts/build-course.ts crane",
     "dump:why": "tsx scripts/dump-demo-why.ts",
     "test:score": "tsx tests/score.ts",

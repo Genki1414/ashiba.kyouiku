@@ -52,7 +52,8 @@
      npm run build:tire       # 自動車用タイヤの空気充てん
      npm run build:tokushu    # 特殊化学設備
      npm run build:tamakake   # 玉掛け（1トン未満）
-     npm run build:crane      # クレーン（5トン未満）・跨線テルハ */
+     npm run build:crane      # クレーン（5トン未満）・跨線テルハ
+     npm run build:mobilecrane # 移動式クレーン（1トン未満） */
 
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import path from "node:path";
@@ -90,6 +91,9 @@ import {
 import {
   CRANE_BASIS, CRANE_LESSONS, CRANE_NAME, CRANE_SUBJECTS, CRANE_TOTAL_MIN,
 } from "../src/content/crane";
+import {
+  MOBILECRANE_BASIS, MOBILECRANE_LESSONS, MOBILECRANE_NAME, MOBILECRANE_SUBJECTS, MOBILECRANE_TOTAL_MIN,
+} from "../src/content/mobilecrane";
 import {
   BORING_BASIS, BORING_LESSONS, BORING_NAME, BORING_SUBJECTS, BORING_TOTAL_MIN,
 } from "../src/content/boring";
@@ -210,6 +214,14 @@ const PLANS: Record<string, Plan> = {
     subjects: FUNJIN_SUBJECTS,
     lessons: FUNJIN_LESSONS,
     totalMin: FUNJIN_TOTAL_MIN,
+  },
+  mobilecrane: {
+    id: "mobilecrane",
+    name: `${MOBILECRANE_NAME}（学科）`,
+    basis: MOBILECRANE_BASIS,
+    subjects: MOBILECRANE_SUBJECTS,
+    lessons: MOBILECRANE_LESSONS,
+    totalMin: MOBILECRANE_TOTAL_MIN,
   },
   crane: {
     id: "crane",

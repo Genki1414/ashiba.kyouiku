@@ -666,6 +666,8 @@ export const TOKUBETSU: Tokubetsu[] = [
     fromMaster: true,
     fullText: true,
     checkedOn: KOKUJI_118_ON,
+    courseId: "mobilecrane",
+    doc: "docs/74-移動式クレーン（1トン未満）の根拠と裏取り.md",
   },
   {
     no: 34,
