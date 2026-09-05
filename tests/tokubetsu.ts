@@ -22,7 +22,9 @@ import {
   totalMinOf,
   trustedHours,
   withSubjects,
+  withJikou,
   hasVariants,
+  unknownHours,
 } from "../src/content/tokubetsu";
 import { COURSES, findCourse, hoursText } from "../src/content/courses";
 import {
@@ -44,12 +46,14 @@ const code = (p: string) =>
 
 console.log("── 目録そのもの ──");
 {
-  check(TOKUBETSU.length === 65, `65種類ある（いま ${TOKUBETSU.length}）`);
+  /* 65件で始めて、条文を読んで1件見つけた（no.66 再圧室を操作する業務）。
+     まとめの一覧は抜けることがある、という記録でもある */
+  check(TOKUBETSU.length === 66, `66種類ある（いま ${TOKUBETSU.length}）`);
   const slugs = TOKUBETSU.map((t) => t.slug);
   check(new Set(slugs).size === slugs.length, "目印が重なっていない");
   const nos = TOKUBETSU.map((t) => t.no);
   check(new Set(nos).size === nos.length, "番号が重なっていない");
-  check(Math.min(...nos) === 1 && Math.max(...nos) === 65, "番号は1から65まで");
+  check(Math.min(...nos) === 1 && Math.max(...nos) === 66, "番号は1から66まで");
   /* 名前が空だと、一覧で何の教育か分からない行になる */
   check(TOKUBETSU.every((t) => t.name.trim().length > 0), "全部に名前がある");
   check(TOKUBETSU.every((t) => /^[a-z0-9_]+$/.test(t.slug)), "目印は英小文字と数字だけ",
@@ -60,9 +64,12 @@ console.log("── 目録そのもの ──");
 
 console.log("\n── 時間 ──");
 {
-  /* 0分の教育は無い。0のまま講座にすると、見た瞬間に修了証が出る */
-  check(TOKUBETSU.every((t) => t.gakkaMin > 0), "学科の時間が0の行は無い",
-    TOKUBETSU.filter((t) => !t.gakkaMin).map((t) => t.slug).join("／"));
+  /* 0分の教育は無い。0のまま講座にすると、見た瞬間に修了証が出る。
+     **時間がまだ分からない行（hoursUnknown）だけが 0。**
+     その行は講座にできないようにしてある（下の「教育すべき事項」の節） */
+  check(TOKUBETSU.every((t) => t.gakkaMin > 0 || unknownHours(t)),
+    "学科の時間が0の行は、時間がまだ分からない行だけ",
+    TOKUBETSU.filter((t) => !t.gakkaMin && !unknownHours(t)).map((t) => t.slug).join("／"));
   check(TOKUBETSU.every((t) => t.jitsugiMin >= 0), "実技の時間が負でない");
   /* 15分刻み。半端な分は写し間違いの印 */
   check(TOKUBETSU.every((t) => t.gakkaMin % 30 === 0 && t.jitsugiMin % 30 === 0),
@@ -75,7 +82,11 @@ console.log("\n── 時間 ──");
 
   check(TOKUBETSU.filter(hasJitsugi).length === 52, "実技のあるものが52件",
     `${TOKUBETSU.filter(hasJitsugi).length}`);
-  check(TOKUBETSU.filter((t) => !hasJitsugi(t)).length === 13, "学科だけのものが13件");
+  /* 再圧室（no.66）は、実技があるはずだが時間が分からないので 0。
+     「学科だけ」に数えないよう、時間の分からない行を除いて数える */
+  const known = TOKUBETSU.filter((t) => !unknownHours(t));
+  check(known.filter((t) => !hasJitsugi(t)).length === 13, "学科だけのものが13件",
+    `${known.filter((t) => !hasJitsugi(t)).length}`);
 }
 
 console.log("\n── 確かめた行だけ信じる ──");
@@ -330,6 +341,39 @@ console.log("\n── 告示の全文を見た行と、作ってある講座を�
   }
 }
 
+console.log("\n── 省令が定めている「教育すべき事項」──");
+{
+  /* 告示（時間）を見る前でも、省令の側に「何を教えるか」が書いてある。
+     ここが入っていれば、告示が手に入ったときに突き合わせられる */
+  const jk = withJikou();
+  check(jk.length >= 6, `教育すべき事項まで分かっている行（いま ${jk.length}件）`);
+  check(jk.every((t) => t.jikou!.every((x) => x.trim().length > 2)),
+    "事項が空でない");
+  check(jk.every((t) => /第\d+条/.test(t.basis)), "事項が分かっている行は、根拠に条番号がある");
+
+  /* 高気圧の六つ。**規則第11条第1項が挙げているのは六つ。**
+     元の目録には五つしか無く、再圧室が抜けていた */
+  const kouki = TOKUBETSU.filter((t) => t.basis.includes("高気圧作業安全衛生規則"));
+  check(kouki.length === 6, `高気圧作業安全衛生規則第11条の業務が六つある（いま ${kouki.length}）`,
+    kouki.map((t) => t.slug).join("／"));
+  const saiatsu = findTokubetsu("recompression_chamber");
+  check(!!saiatsu, "再圧室を操作する業務が目録にある");
+  check(!!saiatsu && unknownHours(saiatsu), "再圧室は、時間がまだ分からない行");
+
+  /* **時間の分からない行を、そのまま講座にしない。**
+     0分を法定時間として使うと、法定時間に足りない紙が出る */
+  for (const t of TOKUBETSU.filter(unknownHours)) {
+    check(t.gakkaMin === 0 && t.jitsugiMin === 0,
+      `${t.slug}: 時間が分からない行は 0 にしてある`);
+    check(!t.courseId, `${t.slug}: 時間が分からない行は、まだ講座にしていない`);
+    check(!trustedHours(t), `${t.slug}: 時間が分からない行に、確かめた印を付けない`);
+  }
+  /* 逆に、時間が入っている行が 0 のままになっていないこと */
+  check(TOKUBETSU.every((t) => unknownHours(t) || t.gakkaMin > 0),
+    "時間の入っている行は、学科が0分でない",
+    TOKUBETSU.filter((t) => !unknownHours(t) && t.gakkaMin === 0).map((t) => t.slug).join("／"));
+}
+
 console.log("\n── 出典 ──");
 {
   check(TOKUBETSU.every((t) => !!SOURCES[t.src]), "出典の記号が全部そろっている",
@@ -367,7 +411,7 @@ console.log("\n── 目録の時間を、修了証に混ぜない ──");
 console.log("\n── 数え方 ──");
 {
   const { ready, todo } = splitReady();
-  check(ready.length + todo.length === 65, "作ってあるもの＋これから＝65");
+  check(ready.length + todo.length === 66, "作ってあるもの＋これから＝66");
   check(ready.length >= 1, `もう受けられるもの（いま ${ready.length}件）`);
   check(todo.every((t) => !t.courseId), "これからの行は講座を指していない");
 }
@@ -404,8 +448,8 @@ console.log("\n── 探す ──");
     "語を足すと絞れる", `${two.length}件`);
   check(one("ロボット").length === 2, "語がひとつなら広い");
 
-  check(one("").length === 65, "空なら全部");
-  check(one("   ").length === 65, "空白だけでも全部");
+  check(one("").length === 66, "空なら全部");
+  check(one("   ").length === 66, "空白だけでも全部");
   check(one("そんな教育").length === 0, "無いものは0件");
 
   /* 目印（slug）は探す対象に入れない。人が打つものではないうえ、
@@ -467,7 +511,7 @@ console.log("\n── 持ち出す ──");
 {
   /* 単体で事業にするときに、丸ごと移せること */
   const rows = toRows();
-  check(rows.length === 65, "全部が出る");
+  check(rows.length === 66, "全部が出る");
   check(rows.every((r) => typeof r.hours_verified === "boolean"),
     "確かめたかどうかも一緒に出す（出した先で誤解されないため）");
   check(rows.filter((r) => r.hours_verified).length === TOKUBETSU.filter(trustedHours).length,
@@ -485,7 +529,7 @@ console.log("\n── 持ち出す ──");
   /* 渡された一覧と同じ列から始まる。行って戻れる */
   const csv = toCsv();
   const lines = csv.split("\n");
-  check(lines.length === 66, `CSV は65行＋見出し（${lines.length}）`);
+  check(lines.length === 67, `CSV は66行＋見出し（${lines.length}）`);
   check(lines[0].startsWith("course_id,slug,title_ja,theory_minutes,practical_minutes,total_minutes"),
     "渡された一覧と同じ列の並び", lines[0].slice(0, 60));
   /* 名前に「,」や「"」が入る日が来ても崩れないこと */
