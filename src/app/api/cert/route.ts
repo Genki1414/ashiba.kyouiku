@@ -7,7 +7,14 @@ import { issuerName, issuerResponsible } from "@/lib/issuer";
 import { gateReason } from "@/lib/issue";
 import { requestOf, slotsOf, toState } from "@/lib/issueQuery";
 import { myLive, doneOf, mySessions } from "@/lib/liveQuery";
-import { findCourse, gateOf, kindOf, totalNoteOf, type CourseKind } from "@/content/courses";
+import {
+  findCourse,
+  gateOf,
+  kindOf,
+  lawVersionOf,
+  totalNoteOf,
+  type CourseKind,
+} from "@/content/courses";
 
 /* 修了証。
    GET  … 出せるかどうかと、載せる中身を返す
@@ -28,11 +35,31 @@ type Gathered =
       birth: string;
       exam: { score: number; total: number };
       subjects: { id: number; name: string; min: number }[];
-      course: { id: string; name: string; basis: string; kind: CourseKind; totalNote: string };
+      course: {
+        id: string;
+        name: string;
+        basis: string;
+        kind: CourseKind;
+        totalNote: string;
+        totalMin: number;
+        lawVersion: string;
+      };
       issuedAt: Date;
       no: string;
       already: string | null;
+      /** もう出してある紙に焼き付いている中身。空なら 0026 より前に出した紙 */
+      snap: Snapshot | null;
     };
+
+/** 出した時点の中身。**あとから教材を直しても、ここは書き換えない**
+    （migrations/0026）。修了証の再表示も照会も、これを使う */
+type Snapshot = {
+  courseName: string;
+  basis: string;
+  totalMin: number;
+  lawVersion: string;
+  subjects: { id: number; name: string; min: number }[];
+};
 
 async function gather(courseId: string): Promise<Gathered> {
   const course = findCourse(courseId);
@@ -115,12 +142,27 @@ async function gather(courseId: string): Promise<Gathered> {
 
   const { data: cert } = await supabase
     .from("certificates")
-    .select("cert_no, issued_at")
+    .select("cert_no, issued_at, course_name, basis, total_min, subjects, law_version")
     .eq("enrollment_id", who.enrollmentId)
     .is("revoked_at", null)
     .maybeSingle();
 
   const issuedAt = cert?.issued_at ? new Date(cert.issued_at as string) : new Date();
+
+  /* 出した紙に中身が焼き付いていれば、それを使う。
+     **法令が変わって講座を直しても、前に出した紙は変わらない。**
+     0026 より前に出した紙は空なので、そのときだけ今の教材で補う */
+  const snap: Snapshot | null = cert?.course_name
+    ? {
+        courseName: cert.course_name as string,
+        basis: (cert.basis as string) ?? course.basis,
+        totalMin: (cert.total_min as number) ?? course.totalMin,
+        lawVersion: (cert.law_version as string) ?? "",
+        subjects: Array.isArray(cert.subjects)
+          ? (cert.subjects as { id: number; name: string; min: number }[])
+          : subjects,
+      }
+    : null;
   /* 番号は発行するまで決まらない（データベースで採る）。
      先に見せてしまうと、出したものと違う番号を見せることになる */
   return {
@@ -130,18 +172,21 @@ async function gather(courseId: string): Promise<Gathered> {
     name: (user?.name as string) ?? "",
     birth: (user?.birth_date as string) ?? "",
     exam: { score: (exam?.score as number) ?? 0, total: (exam?.total as number) ?? 0 },
-    subjects,
+    subjects: snap ? snap.subjects : subjects,
     course: {
       id: course.id,
-      name: course.name,
-      basis: course.basis,
+      name: snap ? snap.courseName : course.name,
+      basis: snap ? snap.basis : course.basis,
       kind: kindOf(course),
       /* 討議のある講座に「（学科）」と書くと嘘になる */
       totalNote: totalNoteOf(course),
+      totalMin: snap ? snap.totalMin : course.totalMin,
+      lawVersion: snap ? snap.lawVersion : lawVersionOf(course),
     },
     issuedAt,
     no: (cert?.cert_no as string) ?? "",
     already: (cert?.cert_no as string) ?? null,
+    snap,
   };
 }
 
@@ -157,8 +202,12 @@ export async function GET(req: NextRequest) {
     date: r.issuedAt.toISOString(),
     exam: r.exam,
     subjects: r.subjects,
-    /* 修了証には、どの特別教育かを載せる。講座は増えていく */
+    /* 修了証には、どの特別教育かを載せる。講座は増えていく。
+       もう出してある紙は、出したときの中身をそのまま返す */
     course: r.course,
+    /* 出した紙に中身が焼き付いているか。
+       false で issued なら、0026 より前に出した紙（画面に断りを出す） */
+    snapshot: !!r.snap,
     /* 名義は決まっている。教育を実施したのは東北三上機材。
        受講者がどの会社の人かは、名簿の分け方であって名義ではない */
     company: issuerName(),
@@ -196,9 +245,19 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { error } = await supabase
-    .from("certificates")
-    .insert({ enrollment_id: r.enrollmentId, cert_no: no });
+  /* **出した瞬間の中身を焼き付ける**（migrations/0026）。
+     ここを入れないと、法令が変わって講座を直した日に、
+     前に出した修了証の中身まで変わってしまう */
+  const { error } = await supabase.from("certificates").insert({
+    enrollment_id: r.enrollmentId,
+    cert_no: no,
+    course_id: r.course.id,
+    course_name: r.course.name,
+    basis: r.course.basis,
+    total_min: r.course.totalMin,
+    subjects: r.subjects,
+    law_version: r.course.lawVersion,
+  });
   if (error) {
     /* 入金前などで断られた場合。理由をそのまま伝える */
     return NextResponse.json({ ok: false, reason: error.message }, { status: 409 });

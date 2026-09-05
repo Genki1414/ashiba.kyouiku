@@ -211,9 +211,13 @@ console.log("\n── 版 ──");
 {
   const dir = readdirSync(new URL("../supabase/migrations", import.meta.url));
   const last = dir.filter((f) => /^\d{4}_.*\.sql$/.test(f)).sort().at(-1) ?? "";
-  check(last.startsWith("0025"), `いちばん新しいのが 0025（${last}）`);
+  /* 番号を書き込むと、次にマイグレーションを足した日に落ちるだけで
+     何も守らない。**最後の番号と、書き出した版が同じか**を見る */
   const gen = read("src/content/schema.ts");
-  check(gen.includes('"0025"'), "必要な版が書き出されている");
+  check(gen.includes(`"${last.slice(0, 4)}"`),
+    `必要な版が、いちばん新しいマイグレーションと合っている（${last}）`,
+    gen.match(/NEED_SCHEMA = "(\d+)"/)?.[1] ?? "無し");
+  check(Number(last.slice(0, 4)) >= 25, `0025 以降まで来ている（${last}）`);
   const all = read("supabase/apply-all.sql");
   check(all.includes("add_notice"), "apply-all.sql にも入っている");
 }

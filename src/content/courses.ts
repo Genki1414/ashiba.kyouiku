@@ -97,7 +97,19 @@ export type CourseMeta = {
       見出しが「その他特別教育」なので、ここへ入れてよいのは
       特別教育（kind: "special"）だけ。 */
   menu?: CourseMenu;
+  /** 法令バージョン。書かなければ LAW_VERSION。
+
+      **法令が変わって、この講座の科目・時間・根拠を直したら、ここを上げる。**
+      修了証には、出した時点の版が焼き付く（migrations/0026）。
+      だから版を上げても、前に出した紙は変わらない。 */
+  lawVersion?: string;
 };
+
+/** 講座ぜんたいの法令バージョン。**法令を確かめ直した日を書く。**
+
+    講座ごとに違う版にしたいときだけ、その講座に lawVersion を書く。
+    ここは「うちが法令を見た日」であって、法令の施行日ではない。 */
+export const LAW_VERSION = "2026-09-05";
 
 export const COURSES: CourseMeta[] = [
   {
@@ -1244,6 +1256,9 @@ export const COURSES: CourseMeta[] = [
     menu: "other",
   },
 ];
+
+/** その講座の法令バージョン。書いていなければ全体の版 */
+export const lawVersionOf = (c: CourseMeta): string => c.lawVersion ?? LAW_VERSION;
 
 /** その講座の種類。書いていなければ特別教育 */
 export const kindOf = (c: CourseMeta): CourseKind => c.kind ?? "special";

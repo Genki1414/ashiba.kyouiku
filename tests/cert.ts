@@ -3,7 +3,7 @@
 
 import { readFileSync } from "node:fs";
 import { CERT_NO_RE, eligible, isCertNo, totalLabel } from "../src/lib/cert";
-import { COURSES, needsLive, totalNoteOf } from "../src/content/courses";
+import { COURSES, LAW_VERSION, lawVersionOf, needsLive, totalNoteOf } from "../src/content/courses";
 import { CARD_MM, CERT_H, CERT_MIN_H, CERT_W, DPI, certHeight } from "../src/components/edu/drawCert";
 import { ISSUER_NAME, ISSUER_RESPONSIBLE, issuerName, issuerResponsible } from "../src/lib/issuer";
 
@@ -133,6 +133,54 @@ console.log("\n── 修了証に載る時間は、法定時間 ──");
   }
   /* 端数のある時間も出せること */
   check(totalLabel([{ min: 795 }], "") === "13時間15分", "端数は「◯時間◯分」", totalLabel([{ min: 795 }], ""));
+}
+
+console.log("\n── 出した紙に、出したときの中身を焼き付ける（0026）──");
+{
+  /* なぜ要るか。
+     修了証の中身を、見るたびに courses.ts の**そのときの値**から作っていると、
+     法令が変わって講座を直した日に、**前に出した紙の中身まで変わる。**
+     3年保存している記録が、あとから書き換わるということ。 */
+  const mig = readFileSync("supabase/migrations/0026_cert_snapshot.sql", "utf8");
+  for (const col of ["course_id", "course_name", "basis", "total_min", "subjects", "law_version"]) {
+    check(mig.includes(`add column if not exists ${col}`), `0026 が ${col} を足している`);
+  }
+  const apply = readFileSync("supabase/apply-all.sql", "utf8");
+  check(apply.includes("law_version"), "apply-all.sql にも入っている");
+
+  const route = readFileSync("src/app/api/cert/route.ts", "utf8");
+  /* 発行のときに書き込んでいること */
+  check(/law_version:\s*r\.course\.lawVersion/.test(route), "発行のときに法令バージョンを書き込む");
+  check(/course_name:\s*r\.course\.name/.test(route), "発行のときに講座名を書き込む");
+  check(/subjects:\s*r\.subjects/.test(route), "発行のときに科目を書き込む");
+  /* 読むときは、焼き付いた値を先に使うこと */
+  check(route.includes("snap ? snap.courseName : course.name"),
+    "もう出してある紙は、出したときの講座名を返す");
+  check(route.includes("snap ? snap.subjects : subjects"),
+    "もう出してある紙は、出したときの科目を返す");
+
+  /* 照会。ここは固定の文字で「足場」と答えていた。
+     玉掛けの修了証を照会した人に、足場の名前を見せていたということ */
+  const ver = readFileSync("src/app/api/verify-cert/route.ts", "utf8");
+  check(!ver.includes("足場の組立て等の業務に係る特別教育（学科）"),
+    "照会が、どの番号にも「足場」と答えない");
+  check(ver.includes("data.course_name"), "照会は、出した紙に焼き付いた講座名を返す");
+  const vc = readFileSync("src/app/verify/VerifyClient.tsx", "utf8");
+  check(vc.includes("講習名は記録に残っていません"),
+    "古い紙（講座名の無い紙）は、当てずっぽうの名前を出さずに断る");
+
+  /* 担当者が出したときも、同じものを焼き付けること。
+     片方だけ書き込んでいると、担当者が出した紙にだけ中身が残らない */
+  const ad = readFileSync("src/app/api/admin/cert/route.ts", "utf8");
+  for (const col of ["course_name", "basis", "total_min", "subjects", "law_version"]) {
+    check(new RegExp(`${col}[:,]`).test(ad), `担当者の発行も ${col} を書き込む`);
+  }
+
+  /* 法令バージョン */
+  check(/^\d{4}-\d{2}-\d{2}$/.test(LAW_VERSION), "法令バージョンは日付の形", LAW_VERSION);
+  for (const c of COURSES.filter((x) => x.ready)) {
+    check(/^\d{4}-\d{2}-\d{2}$/.test(lawVersionOf(c)), `${c.id}: 法令バージョンが引ける`);
+  }
 }
 
 console.log("── まとめ ──");

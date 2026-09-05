@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
 
   const { data } = await supabase
     .from("certificates")
-    .select("cert_no, issued_at, revoked_at, enrollment_id")
+    .select("cert_no, issued_at, revoked_at, enrollment_id, course_name, law_version")
     .eq("cert_no", no)
     .maybeSingle();
 
@@ -57,12 +57,24 @@ export async function GET(req: NextRequest) {
     name = mask((u?.name as string) ?? "");
   }
 
+  /* **出した紙に焼き付いている講座名を返す**（migrations/0026）。
+     ここを固定の文字にしていたときは、どの講座の番号を照会しても
+     「足場」と答えていた。玉掛けの修了証を照会した人に、
+     足場の名前を見せていたということ。
+
+     0026 より前に出した紙は空。そのときは講座名を出さない。
+     嘘の名前を出すより、「番号は本物だが講座名は紙で確かめてほしい」がよい */
+  const courseName = (data.course_name as string) ?? "";
   return NextResponse.json({
     found: true,
     valid: true,
     certNo: data.cert_no,
     issuedAt: data.issued_at,
     name,
-    course: "足場の組立て等の業務に係る特別教育（学科）",
+    course: courseName,
+    /* 出した時点の法令バージョン。空なら 0026 より前の紙 */
+    lawVersion: (data.law_version as string) ?? "",
+    /* 講座名が空のとき、画面で「紙で確かめてください」と出すため */
+    snapshot: !!courseName,
   });
 }

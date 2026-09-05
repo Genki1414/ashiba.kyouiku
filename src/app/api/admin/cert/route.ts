@@ -4,6 +4,7 @@ import { currentAdmin } from "@/lib/admin";
 import { getCurriculum } from "@/lib/curriculum";
 import { eligible } from "@/lib/cert";
 import { addNotice } from "@/lib/notice.server";
+import { findCourse, lawVersionOf } from "@/content/courses";
 
 /* 教育担当者が修了証を出す／取り消す。
 
@@ -116,11 +117,29 @@ export async function POST(req: NextRequest) {
       { status: 500 },
     );
   }
+  /* **出した瞬間の中身を焼き付ける**（migrations/0026）。
+     受講者が自分で出したときと、同じものを書き込むこと。
+     片方だけ書き込んでいると、担当者が出した紙にだけ中身が残らない。
+
+     修了証に載せるのは法定時間。討議のある講座は、討議のぶんも足す
+     （落とすと、法定時間に足りない紙になる） */
+  const course = findCourse((en.course_id as string) ?? "");
+  const subjects = cur.subjects.map((sb) => ({
+    id: sb.id,
+    name: sb.name,
+    min: sb.legal_min + (sb.talk_min ?? 0),
+  }));
   const { error } = await supabase.from("certificates").insert({
     enrollment_id: id,
     cert_no: no,
     issued_at: new Date().toISOString(),
     issued_by: admin.userId,
+    course_id: course?.id ?? (en.course_id as string) ?? null,
+    course_name: course?.name ?? null,
+    basis: course?.basis ?? null,
+    total_min: subjects.reduce((n, sb) => n + sb.min, 0),
+    subjects,
+    law_version: course ? lawVersionOf(course) : null,
   });
   if (error) return NextResponse.json({ ok: false, reason: error.message }, { status: 409 });
   /* 出したことを本人に返す。担当者が出しても、本人は開くまで気づかない。

@@ -11,7 +11,17 @@ import { Btn } from "@/components/ui/Btn";
 type Result =
   | { found: false; reason?: string }
   | { found: true; valid: false; reason: string }
-  | { found: true; valid: true; certNo: string; issuedAt: string; name: string; course: string };
+  | {
+      found: true;
+      valid: true;
+      certNo: string;
+      issuedAt: string;
+      name: string;
+      /** 出した紙に焼き付いている講座名。古い紙は空 */
+      course: string;
+      lawVersion?: string;
+      snapshot?: boolean;
+    };
 
 const jpDate = (iso: string) => {
   const d = new Date(iso);
@@ -78,7 +88,18 @@ export function VerifyClient() {
                 <Row k="証明番号" v={r.certNo} mono />
                 <Row k="氏名" v={r.name || "（記録なし）"} />
                 <Row k="修了日" v={jpDate(r.issuedAt)} />
-                <Row k="講習" v={r.course} />
+                {/* 講座名は、出した紙に焼き付いているものを出す。
+                    0026 より前に出した紙には入っていない。
+                    そのときは、当てずっぽうの名前を出さない */}
+                {r.course ? (
+                  <Row k="講習" v={r.course} />
+                ) : (
+                  <div className="text-[12px] leading-relaxed text-dim">
+                    この番号は記録にありますが、
+                    <b className="text-txt">講習名は記録に残っていません</b>（古い修了証）。
+                    お手元の紙で確かめてください。
+                  </div>
+                )}
               </div>
             </div>
           ) : (
