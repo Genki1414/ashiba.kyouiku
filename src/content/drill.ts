@@ -156,6 +156,14 @@ import {
   TAMAKAKE_JITSUGI,
 } from "./tamakake";
 import {
+  DERRICK_DRILL_FORM,
+  DERRICK_DRILL_PREP,
+  DERRICK_DRILL_STEPS,
+  DERRICK_DRILL_TEACHER,
+  DERRICK_DRILL_TOTAL_MIN,
+  DERRICK_JITSUGI,
+} from "./derrick";
+import {
   LIFT_DRILL_FORM,
   LIFT_DRILL_PREP,
   LIFT_DRILL_STEPS,
@@ -424,6 +432,18 @@ const GUIDES: Record<string, DrillGuide> = {
     prep: KOUATSU_DRILL_PREP,
     keepYears: 3,
     form: KOUATSU_DRILL_FORM,
+  },
+  derrick: {
+    courseId: "derrick",
+    subject: DERRICK_JITSUGI.name,
+    scope: DERRICK_JITSUGI.scope,
+    legalMin: DERRICK_JITSUGI.legalMin,
+    steps: DERRICK_DRILL_STEPS,
+    totalMin: DERRICK_DRILL_TOTAL_MIN,
+    teacher: DERRICK_DRILL_TEACHER,
+    prep: DERRICK_DRILL_PREP,
+    keepYears: 3,
+    form: DERRICK_DRILL_FORM,
   },
   kensetsulift: {
     courseId: "kensetsulift",

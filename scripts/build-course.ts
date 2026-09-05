@@ -54,7 +54,8 @@
      npm run build:tamakake   # 玉掛け（1トン未満）
      npm run build:crane      # クレーン（5トン未満）・跨線テルハ
      npm run build:mobilecrane # 移動式クレーン（1トン未満）
-     npm run build:kensetsulift # 建設用リフト */
+     npm run build:kensetsulift # 建設用リフト
+     npm run build:derrick    # デリック（5トン未満） */
 
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import path from "node:path";
@@ -98,6 +99,9 @@ import {
 import {
   LIFT_BASIS, LIFT_LESSONS, LIFT_NAME, LIFT_SUBJECTS, LIFT_TOTAL_MIN,
 } from "../src/content/kensetsulift";
+import {
+  DERRICK_BASIS, DERRICK_LESSONS, DERRICK_NAME, DERRICK_SUBJECTS, DERRICK_TOTAL_MIN,
+} from "../src/content/derrick";
 import {
   BORING_BASIS, BORING_LESSONS, BORING_NAME, BORING_SUBJECTS, BORING_TOTAL_MIN,
 } from "../src/content/boring";
@@ -218,6 +222,14 @@ const PLANS: Record<string, Plan> = {
     subjects: FUNJIN_SUBJECTS,
     lessons: FUNJIN_LESSONS,
     totalMin: FUNJIN_TOTAL_MIN,
+  },
+  derrick: {
+    id: "derrick",
+    name: `${DERRICK_NAME}（学科）`,
+    basis: DERRICK_BASIS,
+    subjects: DERRICK_SUBJECTS,
+    lessons: DERRICK_LESSONS,
+    totalMin: DERRICK_TOTAL_MIN,
   },
   kensetsulift: {
     id: "kensetsulift",

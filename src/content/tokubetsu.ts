@@ -698,6 +698,8 @@ export const TOKUBETSU: Tokubetsu[] = [
     fromMaster: true,
     fullText: true,
     checkedOn: KOKUJI_118_ON,
+    courseId: "derrick",
+    doc: "docs/77-デリック（5トン未満）の根拠と裏取り.md",
   },
   {
     no: 35,
