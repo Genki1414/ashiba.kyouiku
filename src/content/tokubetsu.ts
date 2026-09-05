@@ -833,6 +833,8 @@ export const TOKUBETSU: Tokubetsu[] = [
     src: "roudoukyoku",
     checked: true,
     checkedOn: KOKUJI_121_115_ON,
+    courseId: "gondola",
+    doc: "docs/78-ゴンドラの根拠と裏取り.md",
   },
   {
     no: 38,

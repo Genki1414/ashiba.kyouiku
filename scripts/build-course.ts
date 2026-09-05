@@ -55,7 +55,8 @@
      npm run build:crane      # クレーン（5トン未満）・跨線テルハ
      npm run build:mobilecrane # 移動式クレーン（1トン未満）
      npm run build:kensetsulift # 建設用リフト
-     npm run build:derrick    # デリック（5トン未満） */
+     npm run build:derrick    # デリック（5トン未満）
+     npm run build:gondola    # ゴンドラ */
 
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import path from "node:path";
@@ -99,6 +100,9 @@ import {
 import {
   LIFT_BASIS, LIFT_LESSONS, LIFT_NAME, LIFT_SUBJECTS, LIFT_TOTAL_MIN,
 } from "../src/content/kensetsulift";
+import {
+  GONDOLA_BASIS, GONDOLA_LESSONS, GONDOLA_NAME, GONDOLA_SUBJECTS, GONDOLA_TOTAL_MIN,
+} from "../src/content/gondola";
 import {
   DERRICK_BASIS, DERRICK_LESSONS, DERRICK_NAME, DERRICK_SUBJECTS, DERRICK_TOTAL_MIN,
 } from "../src/content/derrick";
@@ -230,6 +234,14 @@ const PLANS: Record<string, Plan> = {
     subjects: DERRICK_SUBJECTS,
     lessons: DERRICK_LESSONS,
     totalMin: DERRICK_TOTAL_MIN,
+  },
+  gondola: {
+    id: "gondola",
+    name: `${GONDOLA_NAME}（学科）`,
+    basis: GONDOLA_BASIS,
+    subjects: GONDOLA_SUBJECTS,
+    lessons: GONDOLA_LESSONS,
+    totalMin: GONDOLA_TOTAL_MIN,
   },
   kensetsulift: {
     id: "kensetsulift",

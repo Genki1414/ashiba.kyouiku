@@ -322,6 +322,12 @@ export function parseUnitPrice(raw: string | undefined): number {
         学科9時間。クレーン・移動式クレーンと同じ長さなので、同じ 8,000円。
         実技の手引きと実施記録の様式が付く（/edu/derrick/drill）。
 
+      ゴンドラ（学科5時間＋実技4時間。ここで出すのは学科だけ）
+        **よその値段はまだ調べていない**（docs/78）。
+        → ここ 5,500円（税抜）＝ 6,050円（税込）
+        学科5時間。建設用リフトと同じ長さで、科目の形もそっくりなので、同じ 5,500円。
+        実技の手引きと実施記録の様式が付く（/edu/gondola/drill）。
+
       建設用リフト（学科5時間＋実技4時間。ここで出すのは学科だけ）
         **よその値段はまだ調べていない**（docs/76）。
         → ここ 5,500円（税抜）＝ 6,050円（税込）
@@ -396,6 +402,7 @@ export const DEFAULT_COURSE_PRICE: Record<string, number> = {
   tokushu: 10000,
   tamakake: 5500,
   derrick: 8000,
+  gondola: 5500,
   kensetsulift: 5500,
   mobilecrane: 8000,
   crane: 8000,

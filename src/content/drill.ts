@@ -172,6 +172,14 @@ import {
   LIFT_JITSUGI,
 } from "./kensetsulift";
 import {
+  GONDOLA_DRILL_FORM,
+  GONDOLA_DRILL_PREP,
+  GONDOLA_DRILL_STEPS,
+  GONDOLA_DRILL_TEACHER,
+  GONDOLA_DRILL_TOTAL_MIN,
+  GONDOLA_JITSUGI,
+} from "./gondola";
+import {
   MOBILECRANE_DRILL_FORM,
   MOBILECRANE_DRILL_PREP,
   MOBILECRANE_DRILL_STEPS,
@@ -444,6 +452,18 @@ const GUIDES: Record<string, DrillGuide> = {
     prep: DERRICK_DRILL_PREP,
     keepYears: 3,
     form: DERRICK_DRILL_FORM,
+  },
+  gondola: {
+    courseId: "gondola",
+    subject: GONDOLA_JITSUGI.name,
+    scope: GONDOLA_JITSUGI.scope,
+    legalMin: GONDOLA_JITSUGI.legalMin,
+    steps: GONDOLA_DRILL_STEPS,
+    totalMin: GONDOLA_DRILL_TOTAL_MIN,
+    teacher: GONDOLA_DRILL_TEACHER,
+    prep: GONDOLA_DRILL_PREP,
+    keepYears: 3,
+    form: GONDOLA_DRILL_FORM,
   },
   kensetsulift: {
     courseId: "kensetsulift",

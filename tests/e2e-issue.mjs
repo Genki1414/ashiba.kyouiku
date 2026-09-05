@@ -230,7 +230,7 @@ await page.screenshot({ path: `${SC}/issue-08-drill.png` });
 
 /* 実技の手引き。会社の人が見る画面なので、ログイン無しで開けること。
    **実技のある講座は増える。決め打ちにせず、全部を回す。** */
-for (const [id, mins] of [["kousho", 180], ["harness", 90], ["rope", 180], ["kogata", 360], ["forklift", 360], ["tailgate", 120], ["toishi", 120], ["teiatsu", 420], ["winch", 240], ["roller", 240], ["chainsaw", 540], ["arc", 600], ["kikaitoishi", 180], ["shovel", 360], ["fuseichi", 360], ["kouatsu", 900], ["ev", 60], ["press", 120], ["youka", 240], ["batsuboku", 360], ["soukou", 360], ["kikaishuzai", 480], ["kanikasen", 480], ["kisokouji", 360], ["kaitai", 420], ["kisokenki", 300], ["kisosousa", 240], ["concrete", 300], ["boring", 300], ["jack", 240], ["kidou", 240], ["robotkyoji", 180], ["robotkensa", 240], ["tire", 240], ["tokushu", 900], ["tamakake", 240], ["crane", 240], ["mobilecrane", 240], ["kensetsulift", 240], ["derrick", 240]]) {
+for (const [id, mins] of [["kousho", 180], ["harness", 90], ["rope", 180], ["kogata", 360], ["forklift", 360], ["tailgate", 120], ["toishi", 120], ["teiatsu", 420], ["winch", 240], ["roller", 240], ["chainsaw", 540], ["arc", 600], ["kikaitoishi", 180], ["shovel", 360], ["fuseichi", 360], ["kouatsu", 900], ["ev", 60], ["press", 120], ["youka", 240], ["batsuboku", 360], ["soukou", 360], ["kikaishuzai", 480], ["kanikasen", 480], ["kisokouji", 360], ["kaitai", 420], ["kisokenki", 300], ["kisosousa", 240], ["concrete", 300], ["boring", 300], ["jack", 240], ["kidou", 240], ["robotkyoji", 180], ["robotkensa", 240], ["tire", 240], ["tokushu", 900], ["tamakake", 240], ["crane", 240], ["mobilecrane", 240], ["kensetsulift", 240], ["derrick", 240], ["gondola", 240]]) {
   await page.goto(`${BASE}/edu/${id}/drill`);
   await dismissNotice();
   await page.getByTestId("drill-guide").waitFor({ timeout: 6000 })
@@ -282,6 +282,14 @@ for (const [id, mins] of [["kousho", 180], ["harness", 90], ["rope", 180], ["kog
     check(form.includes("ブーム角度") && form.includes("定格荷重表"), "デリックの様式にブーム角度と定格荷重表の欄がある");
     check(form.includes("5トン未満"), "デリックの様式に5トン未満の欄がある");
     check(!form.includes("作業床の高さ"), "デリックの様式に「作業床の高さ」が無い");
+  } else if (id === "gondola") {
+    check(form.includes("ゴンドラ検査証"), "ゴンドラの様式に検査証の欄がある");
+    check(form.includes("突りょう") && form.includes("おもり"), "ゴンドラの様式に屋上（突りょう・おもり）の欄がある");
+    check(form.includes("親綱") && form.includes("ゴンドラとは別の所"), "ゴンドラの様式に、親綱を別の所に取る欄がある");
+    check(form.includes("フルハーネス型") && form.includes("作業床の手すりではない"), "ゴンドラの様式に墜落制止用器具の欄がある");
+    check(form.includes("電鈴") && form.includes("非常"), "ゴンドラの様式に電鈴の合図の欄がある");
+    check(form.includes("漏電遮断器") && form.includes("キャブタイヤケーブル"), "ゴンドラの様式に電路の欄がある");
+    check(!form.includes("作業床の高さ"), "ゴンドラの様式に「作業床の高さ」が無い");
   } else if (id === "kensetsulift") {
     check(form.includes("人は乗せない") && form.includes("工事用エレベーターではない"), "建設用リフトの様式に、人を乗せないことの欄がある");
     check(form.includes("囲い") && form.includes("扉が開かない"), "建設用リフトの様式に囲いと扉の欄がある");

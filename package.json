@@ -53,6 +53,7 @@
     "build:tokushu": "tsx scripts/build-course.ts tokushu",
     "build:tamakake": "tsx scripts/build-course.ts tamakake",
     "build:derrick": "tsx scripts/build-course.ts derrick",
+    "build:gondola": "tsx scripts/build-course.ts gondola",
     "build:kensetsulift": "tsx scripts/build-course.ts kensetsulift",
     "build:mobilecrane": "tsx scripts/build-course.ts mobilecrane",
     "build:crane": "tsx scripts/build-course.ts crane",

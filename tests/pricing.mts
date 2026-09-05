@@ -166,6 +166,7 @@ console.log("── 講座ごとの単価 ──");
   check(unitPrice("tamakake") === 5500, `玉掛け（1トン未満）は5,500円（税抜）（${unitPrice("tamakake")}）`);
   check(unitPrice("crane") === 8000, `クレーン（5トン未満）・跨線テルハは8,000円（税抜）（${unitPrice("crane")}）`);
   check(unitPrice("mobilecrane") === 8000, `移動式クレーン（1トン未満）は8,000円（税抜）（${unitPrice("mobilecrane")}）`);
+  check(unitPrice("gondola") === 5500, `ゴンドラは5,500円（税抜）（${unitPrice("gondola")}）`);
   check(unitPrice("kensetsulift") === 5500, `建設用リフトは5,500円（税抜）（${unitPrice("kensetsulift")}）`);
   check(unitPrice("derrick") === 8000, `デリック（5トン未満）は8,000円（税抜）（${unitPrice("derrick")}）`);
 
