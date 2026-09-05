@@ -80,7 +80,8 @@ console.log("\n── 時間 ──");
   const long = TOKUBETSU.filter((t) => t.gakkaMin > 13 * 60);
   check(long.length === 0, "学科が13時間を超える行は無い", long.map((t) => t.slug).join("／"));
 
-  check(TOKUBETSU.filter(hasJitsugi).length === 52, "実技のあるものが52件",
+  /* 53件。再圧室（no.66）を足して1件増えた */
+  check(TOKUBETSU.filter(hasJitsugi).length === 53, "実技のあるものが53件",
     `${TOKUBETSU.filter(hasJitsugi).length}`);
   /* 再圧室（no.66）は、実技があるはずだが時間が分からないので 0。
      「学科だけ」に数えないよう、時間の分からない行を除いて数える */
@@ -358,7 +359,24 @@ console.log("\n── 省令が定めている「教育すべき事項」──"
     kouki.map((t) => t.slug).join("／"));
   const saiatsu = findTokubetsu("recompression_chamber");
   check(!!saiatsu, "再圧室を操作する業務が目録にある");
-  check(!!saiatsu && unknownHours(saiatsu), "再圧室は、時間がまだ分からない行");
+  /* 足したときは時間が分からなかった。告示第5条が来て決まった（学科9時間・実技3時間） */
+  check(!!saiatsu && !unknownHours(saiatsu), "再圧室の時間が決まっている");
+  check(!!saiatsu && saiatsu.gakkaMin === 540 && saiatsu.jitsugiMin === 180,
+    "再圧室は学科9時間・実技3時間（告示第5条）",
+    saiatsu ? `${saiatsu.gakkaMin}/${saiatsu.jitsugiMin}` : "無し");
+  check(TOKUBETSU.filter(unknownHours).length === 0,
+    "時間の分からない行は、いま無い",
+    TOKUBETSU.filter(unknownHours).map((t) => t.slug).join("／"));
+
+  /* **規則の「教育すべき事項」と、告示の表の上欄が一致すること。**
+     どちらも条文なので、ずれていたら写し間違い。
+     告示の表は、学科の事項と実技の事項を1つの表に並べている */
+  for (const t of jk.filter((x) => !!x.gakka)) {
+    const kokuji = [...(t.gakka ?? []).map((g) => g.name), ...(t.jitsugi ?? []).map((g) => g.name)];
+    check(kokuji.join("／") === t.jikou!.join("／"),
+      `${t.slug}: 規則の事項と、告示の上欄が一致する`,
+      `告示「${kokuji.join("／")}」\n    規則「${t.jikou!.join("／")}」`);
+  }
 
   /* **時間の分からない行を、そのまま講座にしない。**
      0分を法定時間として使うと、法定時間に足りない紙が出る */
