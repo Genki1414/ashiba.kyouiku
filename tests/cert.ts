@@ -13,7 +13,7 @@ import {
   totalNoteOf,
 } from "../src/content/courses";
 import { drillGuideOf } from "../src/content/drill";
-import { RECORD_ROWS, recordItemsOf, recordSheetHtml } from "../src/lib/drillRecord";
+import { FORM_MOVED, RECORD_ROWS, recordItemsOf, recordSheetHtml } from "../src/lib/drillRecord";
 import { MAX_FILE, MAX_FILES, MAX_TOTAL } from "../src/lib/shrink";
 import { CARD_MM, CERT_H, CERT_MIN_H, CERT_W, DPI, certHeight } from "../src/components/edu/drawCert";
 import { ISSUER_NAME, ISSUER_RESPONSIBLE, issuerName, issuerResponsible } from "../src/lib/issuer";
@@ -227,8 +227,46 @@ console.log("\n── 実技の実施記録（0027）──");
     check(!html.includes("**"), `${c.id}: 様式に強調の印が残っていない`);
     /* 参加者を書く行 */
     check(html.includes("生年月日"), `${c.id}: 参加者に生年月日の欄がある`);
+    /* **同じことを2回書かせない。**
+       実施者と受講者は「2. 実施事業者」「3. 参加者」が受け持つので、
+       上の記入欄には出さない */
+    const sec1 = html.slice(html.indexOf("1. 実施したこと"), html.indexOf("2. 実施事業者"));
+    /* 見出しの側だけを見る。中の但し書きに「受講者一人あたり」と
+       書いてある講座がある（チェーンソー）。それは消してはいけない */
+    const keys1 = [...sec1.matchAll(/<th>(.*?)<\/th>/g)].map((m) => m[1]);
+    check(!keys1.some((k) => /^(実施者|受講者)/.test(k)),
+      `${c.id}: 記入欄と、事業者・参加者の欄が二重になっていない`, keys1.join("／"));
+    /* 記入欄そのものは、講座ごとに違うこと */
+    check(g.form.filter((r) => !FORM_MOVED.test(r.k)).length >= 4,
+      `${c.id}: 講座ごとの記入欄が残っている`);
   }
   check(RECORD_ROWS >= 8, `参加者を書く行が${RECORD_ROWS}行ある`);
+
+  /* **講座でしか要らない列を、落としていないこと。**
+     チェーンソーは、一人あたり何本伐ったかを残す */
+  {
+    const g = drillGuideOf("chainsaw");
+    const html = g
+      ? recordSheetHtml({ id: "chainsaw", name: "x", basis: "y" }, g)
+      : "";
+    check(!!g?.personCols?.includes("伐倒本数"), "チェーンソーの参加者に伐倒本数の列がある");
+    check(html.includes("伐倒本数"), "その列が、紙にも出ている");
+  }
+
+  /* **講座ごとに作ってあること。**
+     どこかを流用すると、その講座に関係のない欄が空のまま紙に残る */
+  const formSig = new Set<string>();
+  const itemSig = new Set<string>();
+  for (const c of drills) {
+    const g = drillGuideOf(c.id);
+    if (!g) continue;
+    formSig.add(g.form.map((f) => f.k).join("|"));
+    itemSig.add(recordItemsOf(g).flatMap((s) => s.items).join("|"));
+  }
+  check(formSig.size === drills.length, "記入欄が、講座ごとに違う",
+    `${formSig.size} ／ ${drills.length}`);
+  check(itemSig.size === drills.length, "実施内容が、講座ごとに違う",
+    `${itemSig.size} ／ ${drills.length}`);
 
   /* 学科だけの講座に様式を出さない。
      出すと「実技をやらなくてよい講座」に実技の記録が残る */

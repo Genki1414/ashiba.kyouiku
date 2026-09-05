@@ -52,10 +52,21 @@ export const recordItemsOf = (
 
 const CHECK = "☐";
 
+/** 「2. 実施事業者」「3. 参加者」へ移した記入欄。
+    講座ごとの form には昔から入っているが、紙では下の節が受け持つ */
+export const FORM_MOVED = /^(実施者|受講者)/;
+
+/** 参加者の列。書いていない講座は、これ */
+export const PERSON_COLS = ["氏名", "生年月日", "署名"];
+
 /** 紙そのもの（囲みの中身だけ）。画面にもダウンロードにも、これが出る */
 export function recordSheetHtml(course: RecordCourse, guide: DrillGuide): string {
   const steps = recordItemsOf(guide);
+  /* 講座ごとの記入欄。ただし**実施者と受講者の欄は、ここには出さない。**
+     下の「2. 実施事業者」と「3. 参加者」が、印と人数ぶんの行つきで受け持つ。
+     両方に出すと、同じことを2回書かせる紙になる */
   const rows = guide.form
+    .filter((r) => !FORM_MOVED.test(r.k))
     .map(
       (r) =>
         `<tr><th>${md(r.k)}</th><td>${md(r.v)}</td></tr>`,
@@ -63,11 +74,15 @@ export function recordSheetHtml(course: RecordCourse, guide: DrillGuide): string
     .join("");
 
   /* 参加者。**氏名だけでは、同姓の人がいる会社で分からなくなる。**
-     生年月日を添える（修了証に載るのと同じ組み合わせ） */
+     生年月日を添える（修了証に載るのと同じ組み合わせ）。
+     講座によっては、そこでしか要らない列がある
+     （チェーンソーの伐倒本数など。DrillGuide.personCols） */
+  const cols = guide.personCols ?? PERSON_COLS;
+  const head = cols.map((c) => `<th>${esc(c)}</th>`).join("");
   const people = Array.from(
     { length: RECORD_ROWS },
     (_, i) =>
-      `<tr><td class="c num">${i + 1}</td><td></td><td></td><td></td></tr>`,
+      `<tr><td class="c num">${i + 1}</td>${cols.map(() => "<td></td>").join("")}</tr>`,
   ).join("");
 
   const content = steps
@@ -107,7 +122,7 @@ export function recordSheetHtml(course: RecordCourse, guide: DrillGuide): string
 
   <h2>3. 参加者</h2>
   <table class="people">
-    <thead><tr><th class="num">#</th><th>氏名</th><th>生年月日</th><th>署名</th></tr></thead>
+    <thead><tr><th class="num">#</th>${head}</tr></thead>
     <tbody>${people}</tbody>
   </table>
 

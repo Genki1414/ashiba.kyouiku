@@ -338,6 +338,10 @@ export type DrillGuide = {
   /** 実施記録の、上半分の記入欄。**講座ごとに違う。**
       流用すると、その講座に関係のない欄が空のまま紙に残る */
   form: { k: string; v: string }[];
+  /** 実施記録の「参加者」の列。書かなければ 氏名・生年月日・署名。
+      **その講座でしか要らない列があるときだけ書く。**
+      たとえばチェーンソーは、一人あたりの伐倒本数を残す */
+  personCols?: string[];
 };
 
 const GUIDES: Record<string, DrillGuide> = {
@@ -724,6 +728,9 @@ const GUIDES: Record<string, DrillGuide> = {
     prep: CHAINSAW_DRILL_PREP,
     keepYears: 3,
     form: CHAINSAW_DRILL_FORM,
+    /* **一人あたり何本伐ったかを、参加者の行に残す。**
+       この講座だけ、受講者の欄に伐倒本数が入っていた */
+    personCols: ["氏名", "生年月日", "伐倒本数", "署名"],
   },
   roller: {
     courseId: "roller",
