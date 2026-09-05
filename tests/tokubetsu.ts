@@ -278,9 +278,26 @@ console.log("\n── 科目ごとの時間（げんきさんの講座マスタ�
   /* **業務区分で変わる行を、一つの固定時間の講座にしない。**
      除染等業務がこれ。全員一律で修了証を出すと、区分によっては足りない紙になる */
   for (const t of TOKUBETSU.filter(hasVariants)) {
+    /* 区分ごとに組む仕組みがまだ無い。一つの固定時間で講座にすると、
+       短い区分に合わせれば足りず、長い区分に合わせれば要らない時間を売る */
     check(!t.courseId, `${t.slug}: 業務区分で変わる行は、まだ講座にしていない`,
-      t.variants!.join("、"));
-    check(!trustedHours(t), `${t.slug}: 区分で変わるので、一つの時間を確かめた扱いにしない`);
+      t.variants!.map((v) => v.name).join("、"));
+    /* **区分ごとの時間が分かっていない行**に、一つの時間の確かめた印を付けない。
+       分かっている行（告示を読んだ行）は、いちばん長い区分を行の時間にしてある */
+    const withMin = t.variants!.filter((v) => typeof v.gakkaMin === "number");
+    if (withMin.length === 0) {
+      check(!trustedHours(t), `${t.slug}: 区分ごとの時間が分からないうちは、確かめた印を付けない`);
+      continue;
+    }
+    check(withMin.length === t.variants!.length,
+      `${t.slug}: 区分の時間は、全部入っているか、全部入っていないか`);
+    const maxG = Math.max(...withMin.map((v) => v.gakkaMin!));
+    const maxJ = Math.max(...withMin.map((v) => v.jitsugiMin ?? 0));
+    check(t.gakkaMin === maxG, `${t.slug}: 行の学科は、区分のうちいちばん長いもの`,
+      `行 ${t.gakkaMin}分 ／ 区分の最長 ${maxG}分`);
+    check(t.jitsugiMin === maxJ, `${t.slug}: 行の実技は、区分のうちいちばん長いもの`,
+      `行 ${t.jitsugiMin}分 ／ 区分の最長 ${maxJ}分`);
+    check(withMin.every((v) => v.gakkaMin! > 0), `${t.slug}: 区分の学科が0分でない`);
   }
 
   /* 講座マスターの数字で直した行は、確かめた印か、食い違いの断り書きのどちらかがある */
