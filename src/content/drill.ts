@@ -156,6 +156,14 @@ import {
   TAMAKAKE_JITSUGI,
 } from "./tamakake";
 import {
+  CRANE_DRILL_FORM,
+  CRANE_DRILL_PREP,
+  CRANE_DRILL_STEPS,
+  CRANE_DRILL_TEACHER,
+  CRANE_DRILL_TOTAL_MIN,
+  CRANE_JITSUGI,
+} from "./crane";
+import {
   SOUKOU_DRILL_FORM,
   SOUKOU_DRILL_PREP,
   SOUKOU_DRILL_STEPS,
@@ -396,6 +404,18 @@ const GUIDES: Record<string, DrillGuide> = {
     prep: KOUATSU_DRILL_PREP,
     keepYears: 3,
     form: KOUATSU_DRILL_FORM,
+  },
+  crane: {
+    courseId: "crane",
+    subject: CRANE_JITSUGI.name,
+    scope: CRANE_JITSUGI.scope,
+    legalMin: CRANE_JITSUGI.legalMin,
+    steps: CRANE_DRILL_STEPS,
+    totalMin: CRANE_DRILL_TOTAL_MIN,
+    teacher: CRANE_DRILL_TEACHER,
+    prep: CRANE_DRILL_PREP,
+    keepYears: 3,
+    form: CRANE_DRILL_FORM,
   },
   tamakake: {
     courseId: "tamakake",
