@@ -64,6 +64,9 @@ type Loaded =
       rejected: Request[];
       /* 受講リクエスト。まだ対応していないもの */
       courseRequests: CourseReq[];
+      /* 講座ごとの、いま配れる席の数（0028）。
+         これが無いと、押してみるまで席が余っているか分からない */
+      freeSeats: Record<string, number>;
       /* 在籍の内訳。申し込んだはずの人が居ないときに、どこへ行ったか分かる */
       member: { active: number; waiting: number; gone: number };
       /* 資格の申請。まだ現物を確かめていないもの */
@@ -108,6 +111,7 @@ export function AdminClient() {
           requests: j.requests ?? [],
           rejected: j.rejected ?? [],
           courseRequests: j.courseRequests ?? [],
+          freeSeats: j.freeSeats ?? {},
           member: j.member ?? { active: 0, waiting: 0, gone: 0 },
           quals: j.quals ?? [],
         };
@@ -398,14 +402,45 @@ export function AdminClient() {
                     {g.rows.length}名
                   </div>
                 </div>
-                <div className="mt-1 grid gap-0.5">
+                {/* **席が余っていれば、その場で配れる（0028）。**
+                    受講コードの12文字を口頭やLINEで伝えて打たせるのは、
+                    誰に受けさせるか決まっているなら要らない手間で、
+                    打ち間違いのもとになる。押せば、その人の画面に講座が出る。
+
+                    **受講コードの方式は残してある。**その場に居ない人、
+                    まだ名簿に入っていない人には、コードを渡すしかない */}
+                <div className="mt-1.5 grid gap-1">
                   {g.rows.map((q) => (
-                    <div key={q.id} className="text-[11.5px] text-dim">
-                      {q.name}
-                      {q.email ? `　${q.email}` : ""}
-                      {q.at && <span className="ml-1 text-[10.5px] text-dim2">{day(q.at)}</span>}
+                    <div key={q.id} className="flex items-center gap-2">
+                      <div className="min-w-0 flex-1 truncate text-[11.5px] text-dim">
+                        {q.name}
+                        {q.email ? `　${q.email}` : ""}
+                        {q.at && <span className="ml-1 text-[10.5px] text-dim2">{day(q.at)}</span>}
+                      </div>
+                      {(st.freeSeats[g.courseId] ?? 0) > 0 && (
+                        <button
+                          className="shrink-0 rounded-lg border border-grn px-2.5 py-1.5 text-[11px] font-extrabold text-grn disabled:opacity-50"
+                          data-testid="admin-assign"
+                          disabled={busy === q.id}
+                          onClick={async () => {
+                            setBusy(q.id);
+                            if (await post("/api/admin/assign", { userId: q.userId, courseId: g.courseId })) {
+                              await load(courseId);
+                            }
+                            setBusy(null);
+                          }}
+                        >
+                          席を配る
+                        </button>
+                      )}
                     </div>
                   ))}
+                </div>
+                {/* 席の余りを先に出す。押してみるまで分からない、をなくす */}
+                <div className="mt-1.5 text-[11px] text-dim2" data-testid="admin-free-seats">
+                  {(st.freeSeats[g.courseId] ?? 0) > 0
+                    ? `配れる席が ${st.freeSeats[g.courseId]}枚あります（受講コードを打たせずに渡せます）`
+                    : "配れる席がありません。先に申し込んでください"}
                 </div>
                 <div className="mt-2.5 grid grid-cols-2 gap-2">
                   {/* 人数のぶんだけ席を入れた状態で申し込み画面を開く。
@@ -671,6 +706,34 @@ export function AdminClient() {
             key={r.userId}
             r={r}
             busy={busy === r.userId}
+            /* **いま見ている講座の席を、その場で配れる（0028）。**
+               出すのは3つとも満たすときだけ
+                 ・在籍している（辞めた人・申し込み中の人には渡せない）
+                 ・その講座をまだ持っていない（二重に渡さない）
+                 ・その講座の席が余っている
+               ここで出し分けても、渡るかどうかは assign_seat が決める。
+               画面の出し分けだけを頼りにしない */
+            assign={
+              /* 見ている講座は、サーバが決めたもの（st.course）を使う。
+                 画面の courseId は、タブを押すまで空。講座が1つの会社では
+                 タブそのものが出ないので、そちらを見ると永久に空になる */
+              st.course &&
+              !r.left &&
+              !r.pending &&
+              (st.freeSeats[st.course.id] ?? 0) > 0 &&
+              ![...r.doing, ...r.done].some((c) => c.courseId === st.course!.id)
+                ? {
+                    courseName: st.course.short,
+                    run: async () => {
+                      setBusy(r.userId);
+                      if (await post("/api/admin/assign", { userId: r.userId, courseId: st.course!.id })) {
+                        await load(courseId);
+                      }
+                      setBusy(null);
+                    },
+                  }
+                : null
+            }
             onIssue={async (enrollmentId) => {
               setBusy(r.userId);
               if (await post("/api/admin/cert", { enrollmentId, action: "issue" }))

@@ -325,6 +325,75 @@ console.log("OK: ホームの入口");
   console.log("OK: 担当者の画面で、講座ごとにまとまって申し込める");
 }
 
+/* ── 席を直接配る（0028）──
+   受けさせる人が決まっているなら、12文字を打たせる意味は無い。
+   ただし **受講コードの方式は残す**。ここでは、配る側の押しどころが
+   正しく出るか（席が無ければ出ない・辞めた人には出ない）を見る。 */
+{
+  const posted = [];
+  const summary = (freeSeats) => ({
+    ok: true, company: "点検用工業", companyId: "c1", joinCode: "ABCD2345",
+    course: { id: "ashiba", short: "足場", name: "足場の組立て等の業務に係る特別教育" },
+    courses: [{ id: "ashiba", short: "足場", name: "足場の組立て等の業務に係る特別教育" }],
+    seats: { total: 2, used: 0, paid: 2 }, requests: [], quals: [],
+    member: { active: 2, waiting: 0, gone: 0 },
+    freeSeats,
+    courseRequests: [
+      { id: "q1", userId: "u1", name: "田中 一郎", email: "a@x", courseId: "ashiba",
+        courseName: "足場の組立て等の業務に係る特別教育", at: "2026-09-07T00:00:00Z" },
+    ],
+    rows: [
+      { userId: "u1", name: "田中 一郎", email: "a@x", admin: false, left: false, pending: false,
+        training: [], doing: [], done: [], held: [], canIssue: false },
+      { userId: "u9", name: "辞めた 九郎", email: null, admin: false, left: true, pending: false,
+        training: [], doing: [], done: [], held: [], canIssue: false },
+    ],
+    totals: { people: 2, left: 1, pending: 0, doing: 0, issued: 0, waiting: 0 },
+  });
+
+  /* 席が余っているとき */
+  await page.route("**/api/admin/summary*", (r) => r.fulfill({ json: summary({ ashiba: 2 }) }));
+  await page.route("**/api/admin/assign", (r) => {
+    posted.push(JSON.parse(r.request().postData() ?? "{}"));
+    return r.fulfill({ json: { ok: true, code: "AAAA-1111-2222" } });
+  });
+  await page.goto(`${BASE}/admin`);
+  await dismiss();
+  await page.getByTestId("admin-course-reqs").waitFor({ timeout: 8000 });
+  const free = (await page.getByTestId("admin-free-seats").innerText()).replace(/\s+/g, "");
+  check(/2枚/.test(free) && /受講コードを打たせずに/.test(free), `空きの数を先に出す（${free}）`);
+  check((await page.getByTestId("admin-assign").count()) === 1, "リクエストの人に「席を配る」が出る");
+
+  /* 名簿からも配れる。**辞めた人には出さない** */
+  check((await page.getByTestId("admin-assign-row").count()) === 1,
+    "名簿では、在籍していて持っていない人にだけ出る（辞めた人には出ない）");
+  const label = await page.getByTestId("admin-assign-row").innerText();
+  check(/コード入力なし/.test(label), `コードが要らないことを書いてある（${label}）`);
+
+  await page.getByTestId("admin-assign").click();
+  await page.waitForTimeout(400);
+  check(posted.some((b) => b.userId === "u1" && b.courseId === "ashiba"),
+    "誰に・どの講座を、だけを送っている");
+  /* 会社は画面から送らない。送ると、よその会社の席を配れてしまう */
+  check(posted.every((b) => !("companyId" in b) && !("company" in b)),
+    "会社の番号は画面から送っていない");
+  await page.screenshot({ path: `${SC}/admin-08-assign.png`, fullPage: true });
+
+  /* 席が無いとき。押しどころを出さず、先に申し込ませる */
+  await page.unroute("**/api/admin/summary*");
+  await page.route("**/api/admin/summary*", (r) => r.fulfill({ json: summary({}) }));
+  await page.goto(`${BASE}/admin`);
+  await dismiss();
+  await page.getByTestId("admin-course-reqs").waitFor({ timeout: 8000 });
+  check((await page.getByTestId("admin-assign").count()) === 0, "席が無ければ「席を配る」を出さない");
+  check((await page.getByTestId("admin-assign-row").count()) === 0, "名簿にも出さない");
+  const none = (await page.getByTestId("admin-free-seats").innerText()).replace(/\s+/g, "");
+  check(/先に申し込んで/.test(none), `次にやることを書いてある（${none}）`);
+  await page.unroute("**/api/admin/summary*");
+  await page.unroute("**/api/admin/assign");
+  console.log("OK: 席を直接配る（受講コードは残したまま）");
+}
+
 await browser.close();
 if (ng) { console.error(`\n${ng} 件失敗`); process.exit(1); }
 console.log("ALL OK");

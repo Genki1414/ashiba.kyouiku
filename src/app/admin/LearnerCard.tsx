@@ -110,6 +110,7 @@ export function LearnerCard({
   onMember,
   onRole,
   onConfirm,
+  assign,
 }: {
   r: PersonRow;
   busy: boolean;
@@ -119,6 +120,9 @@ export function LearnerCard({
   onRole: () => void;
   /** よそで取った資格。現物を見たら確認済みにする */
   onConfirm: (heldId: string, on: boolean) => void;
+  /** いま見ている講座の席を、この人に直接配る（0028）。
+      配れないとき（在籍していない・もう持っている・席が無い）は null */
+  assign: { courseName: string; run: () => void } | null;
 }) {
   /* はじめは畳んでおく。ただし修了証を出せる人だけ「受講中」を開いておく。
      担当者がやることは、開かないと見つからないと意味がない */
@@ -357,6 +361,27 @@ export function LearnerCard({
             </div>
           )}
         </div>
+      )}
+
+      {/* **いま見ている講座の席を、この人に直接配る（0028）。**
+
+          受けさせる人が決まっているなら、受講コードの12文字を
+          口頭やLINEで伝えて打たせる意味は無い。打ち間違えれば
+          「開かない」と言われて、担当者がもう一度調べることになる。
+          押せば、その人の画面にこの講座が出る。
+
+          **受講コードの方式は残してある。**その場に居ない人、
+          まだ名簿に入っていない人には、コードを渡すしかない。
+          出すのは、在籍していて・まだ持っていなくて・席が余っているときだけ */}
+      {assign && (
+        <button
+          className="mt-3 w-full rounded-lg border border-grn p-2 text-[11.5px] font-extrabold text-grn disabled:opacity-50"
+          data-testid="admin-assign-row"
+          disabled={busy}
+          onClick={assign.run}
+        >
+          {busy ? "配っています…" : `${assign.courseName}の席を配る（コード入力なし）`}
+        </button>
       )}
 
       {/* 在籍の出し入れ。退職しても記録は消さない。

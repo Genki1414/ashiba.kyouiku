@@ -17,6 +17,11 @@
 
 \set ON_ERROR_STOP on
 \pset pager off
+
+-- ここの関数を呼べるのは service_role だけ（下の⑪で見ている）。
+-- 本番でも画面のサーバ側が service_role で呼ぶので、そこに合わせる
+set test.role = 'service_role';
+
 create temp table r(label text, got text, want text);
 create or replace function t(l text, g text, w text) returns void language sql as $$
   insert into r values (l, g, w) $$;
@@ -133,6 +138,13 @@ select t('⑪RLS が入っている', relrowsecurity::text, 'true')
 select public.request_course('b2222222-2222-2222-2222-222222222222','ashiba');
 select t('⑫よその人のぶんも立つ', count(*)::text, '1')
   from public.course_requests where user_id='b2222222-2222-2222-2222-222222222222';
+/* 人を消す前に、席は未使用に戻す。本番の道筋も同じ（release_seat）。
+   戻さずに消すと、seats.used_by だけが null になって
+   used_by と used_at の対（seats_used_pair）が崩れ、削除そのものが通らない */
+update public.enrollments set closed_at = now(), seat_id = null
+ where user_id = 'b2222222-2222-2222-2222-222222222222' and seat_id is not null;
+update public.seats set used_by = null, used_at = null
+ where used_by = 'b2222222-2222-2222-2222-222222222222';
 delete from public.users where id='b2222222-2222-2222-2222-222222222222';
 select t('⑫人と一緒に消える', count(*)::text, '0')
   from public.course_requests where user_id='b2222222-2222-2222-2222-222222222222';

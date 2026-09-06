@@ -563,6 +563,50 @@ console.log("── 受講リクエストが返す形 ──");
   check(/n >= 1 && n <= 999/.test(order), "受け取った席の数を、そのまま信じていない");
 }
 
+console.log("── 席を直接配るときの形 ──");
+{
+  /* 受けさせる人が決まっているなら、12文字を打たせる意味は無い。
+     ただし **受講コードの方式は残す**（その場に居ない人、画面が動かないとき）。
+     どちらも消えていないことを、ここで見張る */
+  const api = read("src/app/api/admin/assign/route.ts");
+  check(/rpc\("assign_seat"/.test(api), "assign_seat を呼んでいる");
+  check(/p_company: admin\.companyId/.test(api), "会社は、ログインしている担当者のものを使う");
+  /* 会社を画面から受け取ると、よその会社の席を配れてしまう */
+  check(!/b\.company/.test(api) && !/companyId = /.test(api),
+    "会社の番号を画面から受け取っていない");
+  check(/currentAdmin\(\)/.test(api), "教育担当者でなければ断る");
+  check(/findCourse\(courseId\)/.test(api), "無い講座を渡していない");
+
+  /* 断る理由をそのまま出す。「空いている席がありません」と出れば、
+     次にやること（申し込む）が分かる */
+  check(/reason: error\.message/.test(api), "断った理由を、そのまま画面に出す");
+
+  const sum = read("src/app/api/admin/summary/route.ts");
+  check(/freeSeats/.test(sum), "講座ごとの空き席の数を返している");
+  check(/expires_at/.test(sum), "期限切れの席は、空きに数えていない");
+
+  const adm = read("src/app/admin/AdminClient.tsx");
+  check(/"\/api\/admin\/assign"/.test(adm), "担当者の画面から呼んでいる");
+  check(/freeSeats\[/.test(adm), "空きがあるときだけ出している");
+  check(/!r\.left &&/.test(adm) && /!r\.pending &&/.test(adm),
+    "辞めた人・申し込み中の人には出していない");
+  check(/\[\.\.\.r\.doing, \.\.\.r\.done\]\.some/.test(adm),
+    "もう持っている人には出していない（受講中も取得済みも見る）");
+  /* 見ている講座は、サーバが決めたもの（st.course）を使う。
+     画面の courseId はタブを押すまで空で、講座が1つの会社では
+     タブそのものが出ない。そちらを見ると、名簿の押しどころが永久に出ない */
+  check(/st\.course &&/.test(adm), "見ている講座は、サーバが決めたものを使う");
+
+  /* **受講コードの方式を消していない。** 残す約束 */
+  const join = read("src/app/join/JoinClient.tsx");
+  check(join.includes('data-testid="join-code"'), "受講コードを入れる所が残っている");
+  check(join.includes('"/api/join"'), "受講コードを送る先が残っている");
+  const joinApi = read("src/app/api/join/route.ts");
+  check(/redeem_seat/.test(joinApi), "受講コードで入る道（redeem_seat）が残っている");
+  const seat = read("src/app/api/admin/seat/route.ts");
+  check(/releaseSeat/.test(seat), "配った席を、未使用に戻せる道が残っている");
+}
+
 console.log("── 単元IDの渡し方 ──");
 {
   /* 0011 で単元IDに講座が付いて「ashiba:1-1」になった。

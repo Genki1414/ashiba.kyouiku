@@ -63,7 +63,14 @@ export async function GET(req: NextRequest) {
      ・席は、注文ぜんぶで1回引いて、入金済みかどうかで分ける */
   const since30 = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
 
-  const [{ data: myOrders }, { data: mems }, { data: past }, { data: openEnroll }, { data: creqs }] =
+  const [
+    { data: myOrders },
+    { data: mems },
+    { data: past },
+    { data: openEnroll },
+    { data: creqs },
+    { data: allOrders },
+  ] =
     await Promise.all([
       supabase
         .from("orders")
@@ -86,7 +93,30 @@ export async function GET(req: NextRequest) {
         .select("id, user_id, course_id, requested_at")
         .eq("company_id", admin.companyId)
         .is("handled_at", null),
+      /* **講座ごとの、空いている席の数**（0028）。
+
+         上の注文は、いま見ている講座だけに絞ってある。
+         受講リクエストは講座をまたぐので、こちらは会社ぶん全部を引く。
+         これが無いと、担当者は「配る」を押してみるまで
+         席が余っているかどうか分からない */
+      supabase
+        .from("orders")
+        .select("id, course_id, seats(used_by, expires_at)")
+        .eq("company_id", admin.companyId),
     ]);
+
+  /* 講座ごとの、いま配れる席の数。使われていない、期限も切れていないもの */
+  const freeSeats: Record<string, number> = {};
+  for (const o of (allOrders ?? []) as { course_id?: string; seats?: unknown }[]) {
+    const cid = o.course_id;
+    if (!cid) continue;
+    const rows = (o.seats ?? []) as { used_by?: string | null; expires_at?: string | null }[];
+    for (const st of rows) {
+      if (st.used_by) continue;
+      if (st.expires_at && new Date(st.expires_at).getTime() < Date.now()) continue;
+      freeSeats[cid] = (freeSeats[cid] ?? 0) + 1;
+    }
+  }
 
   const memberships = mems ?? [];
   const paidIds = new Set((myOrders ?? []).filter((o) => o.status === "paid").map((o) => o.id as string));
@@ -227,6 +257,8 @@ export async function GET(req: NextRequest) {
     requests,
     rejected,
     courseRequests,
+    /* 講座ごとの、いま配れる席の数。「席を配る」を出すかどうかに使う */
+    freeSeats,
     member,
     /* 資格の申請。名簿が空なら当然0件だが、形は揃えておく */
     quals: [] as { userId: string; name: string; email: string | null; items: unknown[] }[],
