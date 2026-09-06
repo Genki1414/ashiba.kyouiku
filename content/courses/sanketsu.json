@@ -3,7 +3,7 @@
     "title": "酸素欠乏・硫化水素危険作業に係る業務に係る特別教育（学科）",
     "basis": "労働安全衛生法第59条第3項／酸素欠乏症等防止規則第12条／酸素欠乏危険作業特別教育規程第2条",
     "total_min": 330,
-    "generated": "2026-09-02",
+    "generated": "2026-09-06",
     "stats": {
       "narration_lines": 941,
       "narration_chars": 21804,
@@ -30,8 +30,8 @@
             "narration_chars": 1888,
             "figures_min": 12,
             "cases_min": 5,
-            "quiz_min": 2.4,
-            "total_min": 25.7
+            "quiz_min": 2.45,
+            "total_min": 25.8
           },
           "script": [
             "酸素欠乏・硫化水素危険作業に係る業務の特別教育を始めます。",
@@ -918,8 +918,8 @@
             "narration_chars": 1745,
             "figures_min": 13,
             "cases_min": 10,
-            "quiz_min": 3.1,
-            "total_min": 31.9
+            "quiz_min": 3.15,
+            "total_min": 32
           },
           "script": [
             "第二の科目、酸素欠乏症等の症状です。一時間あります。",
@@ -1348,8 +1348,8 @@
             "narration_chars": 1697,
             "figures_min": 14,
             "cases_min": 10,
-            "quiz_min": 3.1,
-            "total_min": 32.8
+            "quiz_min": 3.15,
+            "total_min": 32.9
           },
           "script": [
             "この単元では、**主な症状**を見ます。",
@@ -2212,8 +2212,8 @@
             "narration_chars": 2021,
             "figures_min": 19,
             "cases_min": 10,
-            "quiz_min": 4.5,
-            "total_min": 40.2
+            "quiz_min": 4.55,
+            "total_min": 40.3
           },
           "script": [
             "この単元では、空気呼吸器等の使い方と点検を見ます。",
@@ -2764,8 +2764,8 @@
             "narration_chars": 1877,
             "figures_min": 14,
             "cases_min": 5,
-            "quiz_min": 3.1,
-            "total_min": 28.4
+            "quiz_min": 3.15,
+            "total_min": 28.5
           },
           "script": [
             "第四の科目、事故の場合の退避及び救急そ生の方法です。一時間あります。",
@@ -3165,8 +3165,8 @@
             "narration_chars": 1914,
             "figures_min": 13,
             "cases_min": 5,
-            "quiz_min": 3.1,
-            "total_min": 27.5
+            "quiz_min": 3.15,
+            "total_min": 27.6
           },
           "script": [
             "この単元では、**人工呼吸の方法**を見ます。",
@@ -3754,8 +3754,8 @@
             "narration_chars": 1615,
             "figures_min": 18,
             "cases_min": 5,
-            "quiz_min": 3.1,
-            "total_min": 31.5
+            "quiz_min": 3.15,
+            "total_min": 31.6
           },
           "script": [
             "第五の科目、その他酸素欠乏症等の防止に関し必要な事項です。一時間三十分あります。",
@@ -4205,7 +4205,7 @@
             "narration_chars": 1475,
             "figures_min": 12,
             "cases_min": 5,
-            "quiz_min": 3.1,
+            "quiz_min": 3.15,
             "total_min": 25
           },
           "script": [

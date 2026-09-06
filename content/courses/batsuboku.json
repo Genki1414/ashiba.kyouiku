@@ -3,7 +3,7 @@
     "title": "伐木等機械の運転の業務に係る特別教育（学科）",
     "basis": "労働安全衛生法第59条第3項／労働安全衛生規則第36条第6号の2／安全衛生特別教育規程第8条の2",
     "total_min": 360,
-    "generated": "2026-09-03",
+    "generated": "2026-09-06",
     "stats": {
       "narration_lines": 415,
       "narration_chars": 15004,
@@ -430,8 +430,8 @@
             "narration_chars": 1098,
             "figures_min": 19,
             "cases_min": 0,
-            "quiz_min": 2.4,
-            "total_min": 25.1
+            "quiz_min": 2.45,
+            "total_min": 25.2
           },
           "script": [
             "次の単元は、伐木等機械の**用途**と、**隣の機械との区分**です。",
@@ -671,8 +671,8 @@
             "narration_chars": 910,
             "figures_min": 20,
             "cases_min": 0,
-            "quiz_min": 2.4,
-            "total_min": 25.4
+            "quiz_min": 2.45,
+            "total_min": 25.5
           },
           "script": [
             "科目2は、**走行と作業に関する装置の構造と取扱い**。一時間。三つの単元に分けます。",
@@ -924,8 +924,8 @@
             "narration_chars": 984,
             "figures_min": 21,
             "cases_min": 0,
-            "quiz_min": 2.4,
-            "total_min": 26.7
+            "quiz_min": 2.45,
+            "total_min": 26.8
           },
           "script": [
             "次は、操縦装置、制動装置、作業装置。",
@@ -1187,8 +1187,8 @@
             "narration_chars": 1046,
             "figures_min": 19,
             "cases_min": 0,
-            "quiz_min": 2.4,
-            "total_min": 24.9
+            "quiz_min": 2.45,
+            "total_min": 25
           },
           "script": [
             "科目2の最後は、油圧装置、電気装置、附属装置。",
@@ -2229,8 +2229,8 @@
             "narration_chars": 888,
             "figures_min": 22,
             "cases_min": 5,
-            "quiz_min": 2.4,
-            "total_min": 32.4
+            "quiz_min": 2.45,
+            "total_min": 32.5
           },
           "script": [
             "次は、**造材**。倒した木の枝を払い、決めた長さの丸太に切る。",
@@ -3356,8 +3356,8 @@
             "narration_chars": 1211,
             "figures_min": 25,
             "cases_min": 0,
-            "quiz_min": 3.1,
-            "total_min": 32.1
+            "quiz_min": 3.15,
+            "total_min": 32.2
           },
           "script": [
             "次は、**電気に関する基礎知識**。",

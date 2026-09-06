@@ -84,6 +84,43 @@ for (const file of readdirSync(new URL("../content/courses/", import.meta.url)).
   let linesAll = 0;
   for (const s of cur.subjects) {
     for (const l of s.lessons) {
+      /* 中身が法定時間に届いているか。**書いてある budget は当てにしない**。
+         あれは教材を作ったときに手で書いた数で、あとから台本を足したり
+         削ったりするとずれる。実際、ずれたまま法定より短い単元が残っていた。
+         数え方：ナレーション1分300字／図解は min の合計／事例1件5分／確認問題1問0.35分 */
+      const chars = l.script.join("").length;
+      const mins =
+        Math.round(
+          (chars / 300 +
+            l.figures.reduce((n, f) => n + f.min, 0) +
+            l.cases.length * 5 +
+            l.quiz.length * 0.35) * 10,
+        ) / 10;
+      check(mins + 1e-9 >= l.legal_min,
+        `${id} ${l.id}：中身が法定 ${l.legal_min}分ぶんある（いま${mins}分）`);
+
+      /* at（図解をどの行から出すか）は昇り順。逆になっていると、
+         figureAt は「行 >= at のいちばん後ろ」を採るので、
+         **その図解は一度も出ない**。ごんどらの1-5が実際にそうなっていた */
+      const ats = l.figures.map((f) => f.at).filter((a): a is number => a !== undefined);
+      check(ats.length === 0 || ats.length === l.figures.length,
+        `${id} ${l.id}：at のある図解と無い図解を混ぜない`);
+      check(ats.every((a, i) => i === 0 || a >= ats[i - 1]),
+        `${id} ${l.id}：at が昇り順（${ats.join("／")}）`);
+      check(ats.every((a) => a < l.script.length),
+        `${id} ${l.id}：at が台本（${l.script.length}行）の中`);
+
+      /* 中身の空っぽな図解を出さない。parts/faults/points/dims/content の
+         どれも無いと、figureItems が空の配列を返して、見出しと前ふりだけの
+         **何も出ない図解**になる。実際 18枚あった（クレーン・デリック・
+         建設用リフト・移動式クレーン・ショベルローダー等）。
+         しかも min のぶんだけ時間には数えられていた */
+      for (const f of l.figures) {
+        const items = f.parts ?? f.faults ?? f.points ?? f.dims ??
+          (f.content ? Object.keys(f.content) : undefined);
+        check(!!items && items.length > 0, `${id} ${l.id} ${f.id}：図解に中身がある（${f.type}）`);
+      }
+
       if (!l.figures.length) continue;
       /* どの行でも、必ずどれか1枚に決まる（外の番号を返さない） */
       let okAll = true;

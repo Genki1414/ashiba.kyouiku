@@ -3,7 +3,7 @@
     "title": "揚貨装置（制限荷重5トン未満）の運転の業務に係る特別教育（学科）",
     "basis": "労働安全衛生法第59条第3項／労働安全衛生規則第36条第6号／安全衛生特別教育規程第8条",
     "total_min": 660,
-    "generated": "2026-09-03",
+    "generated": "2026-09-06",
     "stats": {
       "narration_lines": 680,
       "narration_chars": 22143,
@@ -625,8 +625,8 @@
             "narration_chars": 1552,
             "figures_min": 37,
             "cases_min": 5,
-            "quiz_min": 3.1,
-            "total_min": 50.3
+            "quiz_min": 3.15,
+            "total_min": 50.4
           },
           "script": [
             "次の単元は、**巻上げ装置**。荷役ウインチです。",
@@ -1086,8 +1086,8 @@
             "narration_chars": 1341,
             "figures_min": 28,
             "cases_min": 5,
-            "quiz_min": 3.1,
-            "total_min": 40.6
+            "quiz_min": 3.15,
+            "total_min": 40.7
           },
           "script": [
             "次の単元は、**制動装置**。ブレーキです。",
@@ -2221,7 +2221,7 @@
             "narration_chars": 608,
             "figures_min": 12,
             "cases_min": 0,
-            "quiz_min": 1.8,
+            "quiz_min": 1.75,
             "total_min": 15.8
           },
           "script": [
@@ -2596,8 +2596,8 @@
             "narration_chars": 644,
             "figures_min": 16,
             "cases_min": 0,
-            "quiz_min": 2.4,
-            "total_min": 20.5
+            "quiz_min": 2.45,
+            "total_min": 20.6
           },
           "script": [
             "次は、**電流、電圧、抵抗**。電気の三つの基本です。",
@@ -2817,7 +2817,7 @@
             "narration_chars": 533,
             "figures_min": 12,
             "cases_min": 0,
-            "quiz_min": 1.8,
+            "quiz_min": 1.75,
             "total_min": 15.6
           },
           "script": [
@@ -2975,8 +2975,8 @@
             "narration_chars": 836,
             "figures_min": 18,
             "cases_min": 0,
-            "quiz_min": 2.4,
-            "total_min": 23.2
+            "quiz_min": 2.45,
+            "total_min": 23.3
           },
           "script": [
             "次は、**電力計、制御装置、その他の電気機械器具**。運転席の周りにある電気の物です。",
@@ -3576,12 +3576,12 @@
           "legal_min": 30,
           "scene": "rikigaku",
           "budget": {
-            "narration_min": 3.2,
+            "narration_min": 3.3,
             "narration_chars": 975,
             "figures_min": 25,
             "cases_min": 0,
-            "quiz_min": 2.4,
-            "total_min": 30.6
+            "quiz_min": 2.45,
+            "total_min": 30.8
           },
           "script": [
             "科目3は、**揚貨装置の運転のために必要な力学**。四時間です。",
@@ -4019,7 +4019,7 @@
             "narration_chars": 586,
             "figures_min": 12,
             "cases_min": 0,
-            "quiz_min": 1.8,
+            "quiz_min": 1.75,
             "total_min": 15.8
           },
           "script": [
@@ -4179,7 +4179,7 @@
             "narration_chars": 548,
             "figures_min": 14,
             "cases_min": 0,
-            "quiz_min": 1.8,
+            "quiz_min": 1.75,
             "total_min": 17.6
           },
           "script": [
@@ -4370,8 +4370,8 @@
             "narration_chars": 843,
             "figures_min": 20,
             "cases_min": 5,
-            "quiz_min": 2.4,
-            "total_min": 30.2
+            "quiz_min": 2.45,
+            "total_min": 30.3
           },
           "script": [
             "次は、**荷重**。静荷重と動荷重。",
@@ -4678,8 +4678,8 @@
             "narration_chars": 638,
             "figures_min": 19,
             "cases_min": 0,
-            "quiz_min": 2.4,
-            "total_min": 23.5
+            "quiz_min": 2.45,
+            "total_min": 23.6
           },
           "script": [
             "次は、**応力**。",
@@ -5117,8 +5117,8 @@
             "narration_chars": 1330,
             "figures_min": 34,
             "cases_min": 5,
-            "quiz_min": 3.8,
-            "total_min": 47.2
+            "quiz_min": 3.85,
+            "total_min": 47.3
           },
           "script": [
             "次は、**ワイヤロープ**。揚貨装置は、ワイヤで持っています。",
@@ -5591,8 +5591,8 @@
             "narration_chars": 1063,
             "figures_min": 28,
             "cases_min": 5,
-            "quiz_min": 3.1,
-            "total_min": 39.6
+            "quiz_min": 3.15,
+            "total_min": 39.7
           },
           "script": [
             "次は、**フックとスリングの強さ**。",

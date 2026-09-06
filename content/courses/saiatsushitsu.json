@@ -429,8 +429,8 @@
             "narration_chars": 1476,
             "figures_min": 75,
             "cases_min": 0,
-            "quiz_min": 3.1,
-            "total_min": 83
+            "quiz_min": 3.15,
+            "total_min": 83.1
           },
           "script": [
             "高気圧障害の予防方法と、見分け方です。",
@@ -1543,8 +1543,8 @@
             "narration_chars": 1449,
             "figures_min": 77,
             "cases_min": 0,
-            "quiz_min": 3.1,
-            "total_min": 84.9
+            "quiz_min": 3.15,
+            "total_min": 85
           },
           "script": [
             "標準再圧治療法です。",
@@ -2773,8 +2773,8 @@
             "narration_chars": 1419,
             "figures_min": 86,
             "cases_min": 0,
-            "quiz_min": 3.1,
-            "total_min": 93.8
+            "quiz_min": 3.15,
+            "total_min": 93.9
           },
           "script": [
             "人工そ生法です。",
@@ -3600,8 +3600,8 @@
             "narration_chars": 1346,
             "figures_min": 55,
             "cases_min": 0,
-            "quiz_min": 3.1,
-            "total_min": 62.6
+            "quiz_min": 3.15,
+            "total_min": 62.7
           },
           "script": [
             "関係法令の続きです。",

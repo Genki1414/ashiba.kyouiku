@@ -3,7 +3,7 @@
     "title": "小型車両系建設機械（基礎工事用）の運転の業務に係る特別教育（学科）",
     "basis": "労働安全衛生法第59条第3項／労働安全衛生規則第36条第9号（令別表第7第3号）／安全衛生特別教育規程第11条の2",
     "total_min": 420,
-    "generated": "2026-09-04",
+    "generated": "2026-09-06",
     "stats": {
       "narration_lines": 357,
       "narration_chars": 13957,
@@ -30,8 +30,8 @@
             "narration_chars": 1403,
             "figures_min": 28,
             "cases_min": 5,
-            "quiz_min": 3.1,
-            "total_min": 40.8
+            "quiz_min": 3.15,
+            "total_min": 40.9
           },
           "script": [
             "小型車両系建設機械（基礎工事用）の特別教育を始めます。",
@@ -675,8 +675,8 @@
             "narration_chars": 1015,
             "figures_min": 31,
             "cases_min": 5,
-            "quiz_min": 3.1,
-            "total_min": 42.5
+            "quiz_min": 3.15,
+            "total_min": 42.6
           },
           "script": [
             "科目1の最後は、**電気装置・警報装置と、走行に関する附属装置**。",
@@ -1410,8 +1410,8 @@
             "narration_chars": 1526,
             "figures_min": 50,
             "cases_min": 5,
-            "quiz_min": 3.8,
-            "total_min": 63.9
+            "quiz_min": 3.85,
+            "total_min": 64
           },
           "script": [
             "次は、**作業装置及び作業に関する附属装置の構造及び取扱い方法**。",
@@ -1831,8 +1831,8 @@
             "narration_chars": 1920,
             "figures_min": 52,
             "cases_min": 10,
-            "quiz_min": 5.2,
-            "total_min": 73.6
+            "quiz_min": 5.25,
+            "total_min": 73.7
           },
           "script": [
             "科目2の最後、**一般的作業方法**。仕事の流れの順に見ていきます。",
@@ -2606,8 +2606,8 @@
             "narration_chars": 1148,
             "figures_min": 26,
             "cases_min": 0,
-            "quiz_min": 3.1,
-            "total_min": 32.9
+            "quiz_min": 3.15,
+            "total_min": 33
           },
           "script": [
             "次は、**土木施工の方法**。",
@@ -2906,7 +2906,7 @@
             "narration_chars": 1017,
             "figures_min": 18,
             "cases_min": 0,
-            "quiz_min": 3.1,
+            "quiz_min": 3.15,
             "total_min": 24.5
           },
           "script": [
@@ -3172,8 +3172,8 @@
             "narration_chars": 2481,
             "figures_min": 55,
             "cases_min": 5,
-            "quiz_min": 5.2,
-            "total_min": 73.5
+            "quiz_min": 5.25,
+            "total_min": 73.6
           },
           "script": [
             "最後の科目、**関係法令**。一時間。",

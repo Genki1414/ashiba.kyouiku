@@ -3,7 +3,7 @@
     "title": "チェーンソーを用いて行う立木の伐木、かかり木の処理又は造材の業務に係る特別教育（学科）",
     "basis": "労働安全衛生法第59条第3項／労働安全衛生規則第36条第8号／安全衛生特別教育規程第10条",
     "total_min": 540,
-    "generated": "2026-09-02",
+    "generated": "2026-09-06",
     "stats": {
       "narration_lines": 556,
       "narration_chars": 18820,
@@ -3567,8 +3567,8 @@
             "narration_chars": 1380,
             "figures_min": 27,
             "cases_min": 5,
-            "quiz_min": 3.8,
-            "total_min": 40.4
+            "quiz_min": 3.85,
+            "total_min": 40.5
           },
           "script": [
             "科目二の最後、**目立て**。三十分。",

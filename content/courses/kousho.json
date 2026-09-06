@@ -3,7 +3,7 @@
     "title": "高所作業車の運転の業務に係る特別教育（学科）",
     "basis": "労働安全衛生法第59条第3項／労働安全衛生規則第36条第10号の5／安全衛生特別教育規程第13条",
     "total_min": 360,
-    "generated": "2026-09-02",
+    "generated": "2026-09-06",
     "stats": {
       "narration_lines": 1081,
       "narration_chars": 25987,
@@ -30,8 +30,8 @@
             "narration_chars": 4805,
             "figures_min": 26,
             "cases_min": 15,
-            "quiz_min": 3.1,
-            "total_min": 60.1
+            "quiz_min": 3.15,
+            "total_min": 60.2
           },
           "script": [
             "高所作業車の運転の業務に係る特別教育を始めます。",
@@ -815,12 +815,12 @@
           "legal_min": 60,
           "scene": "souchi",
           "budget": {
-            "narration_min": 14.3,
+            "narration_min": 14.4,
             "narration_chars": 4305,
             "figures_min": 28,
             "cases_min": 15,
             "quiz_min": 2.8,
-            "total_min": 60.1
+            "total_min": 60.2
           },
           "script": [
             "この単元では、作業装置の構造と、その扱い方を見ます。",
@@ -1538,8 +1538,8 @@
             "narration_chars": 4166,
             "figures_min": 28,
             "cases_min": 15,
-            "quiz_min": 3.1,
-            "total_min": 60
+            "quiz_min": 3.15,
+            "total_min": 60.1
           },
           "script": [
             "この単元では、附属装置を見ます。",
@@ -3504,8 +3504,8 @@
             "narration_chars": 2130,
             "figures_min": 17,
             "cases_min": 5,
-            "quiz_min": 2.4,
-            "total_min": 31.5
+            "quiz_min": 2.45,
+            "total_min": 31.6
           },
           "script": [
             "この単元では、感電の危険を見ます。",

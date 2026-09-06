@@ -3,7 +3,7 @@
     "title": "自動車用タイヤの組立てに係る空気充てんの業務に係る特別教育（学科）",
     "basis": "労働安全衛生法第59条第3項／労働安全衛生規則第36条第33号／安全衛生特別教育規程第20条",
     "total_min": 300,
-    "generated": "2026-09-04",
+    "generated": "2026-09-06",
     "stats": {
       "narration_lines": 330,
       "narration_chars": 9270,
@@ -933,8 +933,8 @@
             "narration_chars": 1255,
             "figures_min": 40,
             "cases_min": 0,
-            "quiz_min": 3.8,
-            "total_min": 48
+            "quiz_min": 3.85,
+            "total_min": 48.1
           },
           "script": [
             "科目2に入ります。**タイヤの空気充てん作業に関する知識。**",
@@ -1667,7 +1667,7 @@
             "narration_chars": 1426,
             "figures_min": 54,
             "cases_min": 5,
-            "quiz_min": 3.8,
+            "quiz_min": 3.85,
             "total_min": 67.6
           },
           "script": [
@@ -2110,8 +2110,8 @@
             "narration_chars": 2005,
             "figures_min": 74,
             "cases_min": 5,
-            "quiz_min": 4.5,
-            "total_min": 90.2
+            "quiz_min": 4.55,
+            "total_min": 90.3
           },
           "script": [
             "最後の科目、**関係法令**です。",

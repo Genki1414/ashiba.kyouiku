@@ -3,7 +3,7 @@
     "title": "つり上げ荷重1トン未満のクレーン等の玉掛けの業務に係る特別教育（学科）",
     "basis": "労働安全衛生法第59条第3項／クレーン等安全規則第222条／クレーン取扱い業務等特別教育規程第5条",
     "total_min": 300,
-    "generated": "2026-09-05",
+    "generated": "2026-09-06",
     "stats": {
       "narration_lines": 400,
       "narration_chars": 10806,
@@ -262,8 +262,8 @@
             "narration_chars": 842,
             "figures_min": 24,
             "cases_min": 0,
-            "quiz_min": 2.4,
-            "total_min": 29.2
+            "quiz_min": 2.45,
+            "total_min": 29.3
           },
           "script": [
             "**構造及び機能。**",
@@ -2230,8 +2230,8 @@
             "narration_chars": 1078,
             "figures_min": 38,
             "cases_min": 0,
-            "quiz_min": 3.1,
-            "total_min": 44.7
+            "quiz_min": 3.15,
+            "total_min": 44.8
           },
           "script": [
             "**合図の方法。**",
@@ -2548,7 +2548,7 @@
             "narration_chars": 2132,
             "figures_min": 62,
             "cases_min": 5,
-            "quiz_min": 4.5,
+            "quiz_min": 4.55,
             "total_min": 78.6
           },
           "script": [

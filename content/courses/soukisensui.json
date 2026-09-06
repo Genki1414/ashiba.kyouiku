@@ -1349,8 +1349,8 @@
             "narration_chars": 1042,
             "figures_min": 68,
             "cases_min": 0,
-            "quiz_min": 2.4,
-            "total_min": 73.9
+            "quiz_min": 2.45,
+            "total_min": 74
           },
           "script": [
             "送気の量と、深さとの関係です。",
@@ -2478,8 +2478,8 @@
             "narration_chars": 946,
             "figures_min": 56,
             "cases_min": 0,
-            "quiz_min": 2.4,
-            "total_min": 61.6
+            "quiz_min": 2.45,
+            "total_min": 61.7
           },
           "script": [
             "潜水業務に関する設備の修理の方法です。",
@@ -3196,8 +3196,8 @@
             "narration_chars": 1221,
             "figures_min": 72,
             "cases_min": 0,
-            "quiz_min": 3.1,
-            "total_min": 79.2
+            "quiz_min": 3.15,
+            "total_min": 79.3
           },
           "script": [
             "高気圧障害の予防方法です。",
@@ -3968,8 +3968,8 @@
             "narration_chars": 1340,
             "figures_min": 55,
             "cases_min": 0,
-            "quiz_min": 3.1,
-            "total_min": 62.6
+            "quiz_min": 3.15,
+            "total_min": 62.7
           },
           "script": [
             "関係法令の続きです。",

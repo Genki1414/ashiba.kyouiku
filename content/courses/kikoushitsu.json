@@ -30,8 +30,8 @@
             "narration_chars": 1013,
             "figures_min": 46,
             "cases_min": 0,
-            "quiz_min": 2.4,
-            "total_min": 51.8
+            "quiz_min": 2.45,
+            "total_min": 51.9
           },
           "script": [
             "圧気工法の概要です。",
@@ -312,8 +312,8 @@
             "narration_chars": 966,
             "figures_min": 66,
             "cases_min": 0,
-            "quiz_min": 3.1,
-            "total_min": 72.3
+            "quiz_min": 3.15,
+            "total_min": 72.4
           },
           "script": [
             "圧気工法による業務の危険性です。",
@@ -1025,8 +1025,8 @@
             "narration_chars": 1310,
             "figures_min": 68,
             "cases_min": 0,
-            "quiz_min": 3.1,
-            "total_min": 75.5
+            "quiz_min": 3.15,
+            "total_min": 75.6
           },
           "script": [
             "二つ目の科目、**加圧及び減圧並びに換気の仕方に関すること**です。",
@@ -1417,8 +1417,8 @@
             "narration_chars": 1186,
             "figures_min": 72,
             "cases_min": 0,
-            "quiz_min": 3.1,
-            "total_min": 79.1
+            "quiz_min": 3.15,
+            "total_min": 79.2
           },
           "script": [
             "減圧の仕方です。",
@@ -1832,8 +1832,8 @@
             "narration_chars": 824,
             "figures_min": 44,
             "cases_min": 0,
-            "quiz_min": 2.4,
-            "total_min": 49.1
+            "quiz_min": 2.45,
+            "total_min": 49.2
           },
           "script": [
             "換気の仕方です。",
@@ -2107,8 +2107,8 @@
             "narration_chars": 1250,
             "figures_min": 68,
             "cases_min": 0,
-            "quiz_min": 3.1,
-            "total_min": 75.3
+            "quiz_min": 3.15,
+            "total_min": 75.4
           },
           "script": [
             "緊急時の減圧法です。",
@@ -3206,8 +3206,8 @@
             "narration_chars": 1223,
             "figures_min": 72,
             "cases_min": 0,
-            "quiz_min": 3.1,
-            "total_min": 79.2
+            "quiz_min": 3.15,
+            "total_min": 79.3
           },
           "script": [
             "高気圧障害の予防方法です。",
@@ -3978,8 +3978,8 @@
             "narration_chars": 1328,
             "figures_min": 55,
             "cases_min": 0,
-            "quiz_min": 3.1,
-            "total_min": 62.5
+            "quiz_min": 3.15,
+            "total_min": 62.6
           },
           "script": [
             "関係法令の続きです。",

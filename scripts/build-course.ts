@@ -8,6 +8,7 @@
        → その中身が抜けたまま、法定時間ぶんが出来上がる
      ・単元の合計が、科目の法定時間と違う
      ・単元の legal_min が、割り付けと違う
+     ・単元の中身（台本・図解・事例・確認問題）が、法定時間に足りない
        → 視聴時間の関門が法定より短くなる
 
    実行:
@@ -879,6 +880,44 @@ const die = (m: string): never => {
   process.exit(1);
 };
 
+/* 見積り（budget）を、教材の中身から数え直す。
+
+   もとは教材を作るときに手で書いていた数だった。手で書くと、
+   あとから台本を足したり削ったりしたときにずれる。実際、
+   ずれたまま「法定時間に足りない単元」が見つからずに残っていた。
+   だから **ここで数え直して、書いてある数は使わない**。
+
+   数え方（教材を作るときからの決まり）
+     ナレーション … 1分あたり300字
+     図解　　　　 … 図解ごとの min の合計
+     事例　　　　 … 1件5分
+     確認問題　　 … 1問0.35分 */
+const CHARS_PER_MIN = 300;
+const CASE_MIN = 5;
+const QUIZ_MIN = 0.35;
+const r1 = (n: number) => Math.round(n * 10) / 10;
+
+function budgetOf(l: {
+  script: string[];
+  figures: { min: number }[];
+  cases: unknown[];
+  quiz: unknown[];
+}) {
+  const chars = l.script.join("").length;
+  const narration = r1(chars / CHARS_PER_MIN);
+  const figures = l.figures.reduce((n, f) => n + f.min, 0);
+  const cases = l.cases.length * CASE_MIN;
+  const quiz = Math.round(l.quiz.length * QUIZ_MIN * 100) / 100;
+  return {
+    narration_min: narration,
+    narration_chars: chars,
+    figures_min: figures,
+    cases_min: cases,
+    quiz_min: quiz,
+    total_min: r1(narration + figures + cases + quiz),
+  };
+}
+
 const subjects = [];
 let missing = 0;
 
@@ -910,6 +949,15 @@ for (const s of plan.subjects) {
     }
     /* ここが視聴時間の関門になる。短いと法定より短い時間で先へ進める */
     if (l.legal_min !== w.min) die(`${w.id}: legal_min が割り付けと違う（${l.legal_min} ≠ ${w.min}）`);
+    /* 中身が法定時間に届いているか。届いていなければ、その単元は
+       法定より短い時間で終わってしまう。**足りないまま出さない** */
+    l.budget = budgetOf(l);
+    if (l.budget.total_min + 1e-9 < l.legal_min) {
+      die(
+        `${w.id}: 中身が法定時間に足りない（${l.budget.total_min}分 ＜ ${l.legal_min}分）\n` +
+          `    あと ${r1(l.legal_min - l.budget.total_min)}分。台本・図解・事例・確認問題のどれかを足すこと`,
+      );
+    }
     lessons.push(l);
   }
 

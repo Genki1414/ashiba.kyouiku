@@ -3,7 +3,7 @@
     "title": "小型ボイラーの取扱いの業務に係る特別教育（学科）",
     "basis": "労働安全衛生法第59条第3項／ボイラー及び圧力容器安全規則第92条第1項／小型ボイラー取扱業務特別教育規程第2条",
     "total_min": 420,
-    "generated": "2026-09-05",
+    "generated": "2026-09-06",
     "stats": {
       "narration_lines": 592,
       "narration_chars": 15094,
@@ -1059,8 +1059,8 @@
             "narration_chars": 1103,
             "figures_min": 46,
             "cases_min": 0,
-            "quiz_min": 2.4,
-            "total_min": 52.1
+            "quiz_min": 2.45,
+            "total_min": 52.2
           },
           "script": [
             "二つ目の科目、**ボイラーの附属品に関する知識**です。",
@@ -1415,8 +1415,8 @@
             "narration_chars": 861,
             "figures_min": 29,
             "cases_min": 0,
-            "quiz_min": 2.4,
-            "total_min": 34.3
+            "quiz_min": 2.45,
+            "total_min": 34.4
           },
           "script": [
             "圧力計です。",
@@ -2066,8 +2066,8 @@
             "narration_chars": 848,
             "figures_min": 29,
             "cases_min": 0,
-            "quiz_min": 2.4,
-            "total_min": 34.2
+            "quiz_min": 2.45,
+            "total_min": 34.3
           },
           "script": [
             "給水装置です。",
@@ -2861,8 +2861,8 @@
             "narration_chars": 981,
             "figures_min": 44,
             "cases_min": 0,
-            "quiz_min": 2.4,
-            "total_min": 49.7
+            "quiz_min": 2.45,
+            "total_min": 49.8
           },
           "script": [
             "三つ目の科目、**燃料及び燃焼に関する知識**です。",
@@ -3209,8 +3209,8 @@
             "narration_chars": 1417,
             "figures_min": 53,
             "cases_min": 0,
-            "quiz_min": 3.1,
-            "total_min": 60.8
+            "quiz_min": 3.15,
+            "total_min": 60.9
           },
           "script": [
             "燃焼方式及び燃焼装置です。",
@@ -3608,8 +3608,8 @@
             "narration_chars": 1130,
             "figures_min": 52,
             "cases_min": 0,
-            "quiz_min": 3.1,
-            "total_min": 58.9
+            "quiz_min": 3.15,
+            "total_min": 59
           },
           "script": [
             "科目3の最後、通風装置です。",

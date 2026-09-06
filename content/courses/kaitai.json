@@ -3,7 +3,7 @@
     "title": "小型車両系建設機械（解体用）の運転の業務に係る特別教育（学科）",
     "basis": "労働安全衛生法第59条第3項／労働安全衛生規則第36条第9号（令別表第7第6号）／安全衛生特別教育規程第11条の3",
     "total_min": 420,
-    "generated": "2026-09-04",
+    "generated": "2026-09-06",
     "stats": {
       "narration_lines": 376,
       "narration_chars": 14196,
@@ -30,8 +30,8 @@
             "narration_chars": 1504,
             "figures_min": 29,
             "cases_min": 5,
-            "quiz_min": 3.1,
-            "total_min": 42.1
+            "quiz_min": 3.15,
+            "total_min": 42.2
           },
           "script": [
             "小型車両系建設機械（解体用）の特別教育を始めます。",
@@ -387,8 +387,8 @@
             "narration_chars": 1091,
             "figures_min": 34,
             "cases_min": 0,
-            "quiz_min": 3.1,
-            "total_min": 40.7
+            "quiz_min": 3.15,
+            "total_min": 40.8
           },
           "script": [
             "次は、**かじ取り装置とブレーキ**。",
@@ -635,8 +635,8 @@
             "narration_chars": 1243,
             "figures_min": 32,
             "cases_min": 5,
-            "quiz_min": 3.1,
-            "total_min": 44.2
+            "quiz_min": 3.15,
+            "total_min": 44.3
           },
           "script": [
             "科目1の最後は、**電気装置・警報装置と、走行に関する附属装置**。",
@@ -1013,7 +1013,7 @@
             "narration_chars": 1300,
             "figures_min": 35,
             "cases_min": 5,
-            "quiz_min": 3.1,
+            "quiz_min": 3.15,
             "total_min": 47.4
           },
           "script": [
@@ -2811,12 +2811,12 @@
           "legal_min": 25,
           "scene": "ippan",
           "budget": {
-            "narration_min": 3.2,
+            "narration_min": 3.3,
             "narration_chars": 975,
             "figures_min": 25,
             "cases_min": 0,
             "quiz_min": 2.8,
-            "total_min": 31
+            "total_min": 31.1
           },
           "script": [
             "科目3の最後は、**建設施工の方法**。",

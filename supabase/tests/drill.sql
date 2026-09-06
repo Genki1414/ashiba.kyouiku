@@ -60,9 +60,15 @@ select t('①講座がある', count(*)::text, '1')
 select t('①単元がある', (count(*) > 0)::text, 'true')
   from public.lessons where course_id = :'course';
 -- 単元の合計が、講座に登録した総時間と合っているか。
--- ずれると、受けた人の視聴時間の合計が法定に届かない
-select t('①単元の合計＝講座の総時間',
-  (select sum(legal_min)::text from public.lessons where course_id = :'course'),
+-- ずれると、受けた人の視聴時間の合計が法定に届かない。
+--
+-- ただし、職長・安全衛生責任者教育（shokucho）だけは、法定14時間のうち
+-- **45分が討議**で、これは各自で見る単元ではなく集合でやるもの。
+-- だから 単元の合計795分 ＋ 討議45分 ＝ 総時間840分 になる。
+-- 特別教育には討議が無いので、この差が出るのはこの1講座だけ。
+select t('①単元の合計＋討議＝講座の総時間',
+  ((select sum(legal_min) from public.lessons where course_id = :'course')
+     + (case when :'course' = 'shokucho' then 45 else 0 end))::text,
   (select total_min::text from public.courses where id = :'course'));
 
 -- ② 実技の実施日と実施者を付けて申請できる

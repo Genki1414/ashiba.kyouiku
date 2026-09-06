@@ -3,7 +3,7 @@
     "title": "ローラーの運転の業務に係る特別教育（学科）",
     "basis": "労働安全衛生法第59条第3項／労働安全衛生規則第36条第10号／安全衛生特別教育規程第12条",
     "total_min": 360,
-    "generated": "2026-09-02",
+    "generated": "2026-09-06",
     "stats": {
       "narration_lines": 330,
       "narration_chars": 11266,
@@ -1724,8 +1724,8 @@
             "narration_chars": 1040,
             "figures_min": 19,
             "cases_min": 10,
-            "quiz_min": 3.1,
-            "total_min": 35.6
+            "quiz_min": 3.15,
+            "total_min": 35.7
           },
           "script": [
             "次は、**ブレーキ**。三十五分。",
@@ -2591,8 +2591,8 @@
             "narration_chars": 1051,
             "figures_min": 19,
             "cases_min": 10,
-            "quiz_min": 3.1,
-            "total_min": 35.6
+            "quiz_min": 3.15,
+            "total_min": 35.7
           },
           "script": [
             "第二の科目、**運転に必要な一般的事項**です。一時間。二つの単元。",
@@ -2973,8 +2973,8 @@
             "narration_chars": 1185,
             "figures_min": 23,
             "cases_min": 10,
-            "quiz_min": 3.8,
-            "total_min": 40.8
+            "quiz_min": 3.85,
+            "total_min": 40.9
           },
           "script": [
             "科目二の最後、**施工方法**。三十分。実際の締め固め方です。",

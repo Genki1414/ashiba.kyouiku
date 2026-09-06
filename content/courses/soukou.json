@@ -3,7 +3,7 @@
     "title": "走行集材機械の運転の業務に係る特別教育（学科）",
     "basis": "労働安全衛生法第59条第3項／労働安全衛生規則第36条第6号の3／安全衛生特別教育規程第8条の3",
     "total_min": 360,
-    "generated": "2026-09-03",
+    "generated": "2026-09-06",
     "stats": {
       "narration_lines": 451,
       "narration_chars": 15618,
@@ -503,8 +503,8 @@
             "narration_chars": 977,
             "figures_min": 23,
             "cases_min": 0,
-            "quiz_min": 2.4,
-            "total_min": 28.7
+            "quiz_min": 2.45,
+            "total_min": 28.8
           },
           "script": [
             "次の単元は、**用途**と、**隣の機械との区分**です。",
@@ -770,8 +770,8 @@
             "narration_chars": 920,
             "figures_min": 19,
             "cases_min": 0,
-            "quiz_min": 2.4,
-            "total_min": 24.5
+            "quiz_min": 2.45,
+            "total_min": 24.6
           },
           "script": [
             "科目2は、**走行と作業に関する装置の構造と取扱い**。一時間。三つの単元に分けます。",
@@ -1033,8 +1033,8 @@
             "narration_chars": 1050,
             "figures_min": 20,
             "cases_min": 0,
-            "quiz_min": 2.4,
-            "total_min": 25.9
+            "quiz_min": 2.45,
+            "total_min": 26
           },
           "script": [
             "次は、操縦装置、制動装置、作業装置。荷台、グラップル、ウインチ。",
@@ -1312,8 +1312,8 @@
             "narration_chars": 919,
             "figures_min": 20,
             "cases_min": 0,
-            "quiz_min": 2.4,
-            "total_min": 25.5
+            "quiz_min": 2.45,
+            "total_min": 25.6
           },
           "script": [
             "科目2の最後は、油圧装置、電気装置、附属装置。",
@@ -2462,12 +2462,12 @@
           "legal_min": 30,
           "scene": "unpan",
           "budget": {
-            "narration_min": 4.2,
+            "narration_min": 4.3,
             "narration_chars": 1275,
             "figures_min": 32,
             "cases_min": 5,
             "quiz_min": 3.5,
-            "total_min": 44.7
+            "total_min": 44.8
           },
           "script": [
             "次は、**原木の運搬**。積車で作業道を走る。この機械で一番人が死んでいる場面です。",
@@ -3593,8 +3593,8 @@
             "narration_chars": 750,
             "figures_min": 16,
             "cases_min": 0,
-            "quiz_min": 2.4,
-            "total_min": 20.9
+            "quiz_min": 2.45,
+            "total_min": 21
           },
           "script": [
             "次は、**電気に関する基礎知識**。",
@@ -4145,8 +4145,8 @@
             "narration_chars": 2161,
             "figures_min": 43,
             "cases_min": 10,
-            "quiz_min": 4.5,
-            "total_min": 64.7
+            "quiz_min": 4.55,
+            "total_min": 64.8
           },
           "script": [
             "最後の科目は、**関係法令**。一時間です。",

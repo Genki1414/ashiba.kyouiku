@@ -30,8 +30,8 @@
             "narration_chars": 1198,
             "figures_min": 34,
             "cases_min": 0,
-            "quiz_min": 2.4,
-            "total_min": 40.4
+            "quiz_min": 2.45,
+            "total_min": 40.5
           },
           "script": [
             "四アルキル鉛等業務の特別教育を始めます。",
@@ -732,8 +732,8 @@
             "narration_chars": 1426,
             "figures_min": 56,
             "cases_min": 0,
-            "quiz_min": 3.1,
-            "total_min": 63.9
+            "quiz_min": 3.15,
+            "total_min": 64
           },
           "script": [
             "二つ目の科目、**作業の方法**です。",
@@ -2108,8 +2108,8 @@
             "narration_chars": 1198,
             "figures_min": 35,
             "cases_min": 0,
-            "quiz_min": 3.1,
-            "total_min": 42.1
+            "quiz_min": 3.15,
+            "total_min": 42.2
           },
           "script": [
             "五つ目の科目、**事故の場合の退避及び救急処置の方法**です。",
@@ -2422,8 +2422,8 @@
             "narration_chars": 1216,
             "figures_min": 48,
             "cases_min": 0,
-            "quiz_min": 3.1,
-            "total_min": 55.2
+            "quiz_min": 3.15,
+            "total_min": 55.3
           },
           "script": [
             "除毒剤、拡散防止剤及び補修剤の使用方法です。",
@@ -2823,8 +2823,8 @@
             "narration_chars": 1673,
             "figures_min": 40,
             "cases_min": 0,
-            "quiz_min": 3.1,
-            "total_min": 48.7
+            "quiz_min": 3.15,
+            "total_min": 48.8
           },
           "script": [
             "最後の科目、**その他四アルキル鉛中毒の防止に関し必要な事項**です。",

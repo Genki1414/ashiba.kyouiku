@@ -3,7 +3,7 @@
     "title": "特定粉じん作業に係る業務に係る特別教育（学科）",
     "basis": "労働安全衛生法第59条第3項／労働安全衛生規則第36条第29号／粉じん障害防止規則第22条／粉じん作業特別教育規程",
     "total_min": 270,
-    "generated": "2026-09-02",
+    "generated": "2026-09-06",
     "stats": {
       "narration_lines": 698,
       "narration_chars": 16914,
@@ -835,8 +835,8 @@
             "narration_chars": 1693,
             "figures_min": 12,
             "cases_min": 5,
-            "quiz_min": 2.4,
-            "total_min": 25
+            "quiz_min": 2.45,
+            "total_min": 25.1
           },
           "script": [
             "ここからは第二の科目、作業場の管理です。一時間あります。",
@@ -1184,7 +1184,7 @@
             "narration_chars": 1361,
             "figures_min": 9,
             "cases_min": 5,
-            "quiz_min": 1.8,
+            "quiz_min": 1.75,
             "total_min": 20.3
           },
           "script": [
@@ -2132,8 +2132,8 @@
             "narration_chars": 1135,
             "figures_min": 6,
             "cases_min": 5,
-            "quiz_min": 1,
-            "total_min": 15.8
+            "quiz_min": 1.05,
+            "total_min": 15.9
           },
           "script": [
             "第四の科目、粉じんに係る疾病と健康管理です。一時間あります。",
@@ -2996,8 +2996,8 @@
             "narration_chars": 3493,
             "figures_min": 29,
             "cases_min": 15,
-            "quiz_min": 4.5,
-            "total_min": 60.1
+            "quiz_min": 4.55,
+            "total_min": 60.2
           },
           "script": [
             "最後の科目、関係法令です。一時間あります。",

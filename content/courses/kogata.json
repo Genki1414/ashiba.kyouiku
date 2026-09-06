@@ -3,7 +3,7 @@
     "title": "小型車両系建設機械（整地・運搬・積込み用及び掘削用）の運転の業務に係る特別教育（学科）",
     "basis": "労働安全衛生法第59条第3項／労働安全衛生規則第36条第9号／安全衛生特別教育規程第11条",
     "total_min": 420,
-    "generated": "2026-09-02",
+    "generated": "2026-09-06",
     "stats": {
       "narration_lines": 891,
       "narration_chars": 22971,
@@ -824,8 +824,8 @@
             "narration_chars": 3262,
             "figures_min": 31,
             "cases_min": 15,
-            "quiz_min": 5.2,
-            "total_min": 62.1
+            "quiz_min": 5.25,
+            "total_min": 62.2
           },
           "script": [
             "この単元では、**走行装置と操縦装置**を見ます。",
@@ -1583,8 +1583,8 @@
             "narration_chars": 3037,
             "figures_min": 33,
             "cases_min": 15,
-            "quiz_min": 5.2,
-            "total_min": 63.3
+            "quiz_min": 5.25,
+            "total_min": 63.4
           },
           "script": [
             "科目一の最後の単元です。",
@@ -3986,8 +3986,8 @@
             "narration_chars": 2062,
             "figures_min": 20,
             "cases_min": 10,
-            "quiz_min": 3.8,
-            "total_min": 40.7
+            "quiz_min": 3.85,
+            "total_min": 40.8
           },
           "script": [
             "第三の科目、運転に必要な一般的事項です。一時間あります。",
@@ -4900,8 +4900,8 @@
             "narration_chars": 2972,
             "figures_min": 34,
             "cases_min": 15,
-            "quiz_min": 5.2,
-            "total_min": 64.1
+            "quiz_min": 5.25,
+            "total_min": 64.2
           },
           "script": [
             "最後の科目、関係法令です。一時間あります。",

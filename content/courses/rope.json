@@ -3,7 +3,7 @@
     "title": "ロープ高所作業に係る業務に係る特別教育（学科）",
     "basis": "労働安全衛生法第59条第3項／労働安全衛生規則第36条第40号／安全衛生特別教育規程第23条",
     "total_min": 240,
-    "generated": "2026-09-02",
+    "generated": "2026-09-06",
     "stats": {
       "narration_lines": 713,
       "narration_chars": 18115,
@@ -30,7 +30,7 @@
             "narration_chars": 1894,
             "figures_min": 15,
             "cases_min": 5,
-            "quiz_min": 1.8,
+            "quiz_min": 1.75,
             "total_min": 28.1
           },
           "script": [
@@ -625,7 +625,7 @@
             "narration_chars": 1359,
             "figures_min": 9,
             "cases_min": 0,
-            "quiz_min": 1.8,
+            "quiz_min": 1.75,
             "total_min": 15.3
           },
           "script": [
@@ -1342,7 +1342,7 @@
             "narration_chars": 1332,
             "figures_min": 14,
             "cases_min": 5,
-            "quiz_min": 1.8,
+            "quiz_min": 1.75,
             "total_min": 25.2
           },
           "script": [
@@ -1695,8 +1695,8 @@
             "narration_chars": 889,
             "figures_min": 6,
             "cases_min": 0,
-            "quiz_min": 1,
-            "total_min": 10
+            "quiz_min": 1.05,
+            "total_min": 10.1
           },
           "script": [
             "ここからは第三の科目、労働災害の防止に関する知識です。一時間あります。",
@@ -2362,8 +2362,8 @@
             "narration_chars": 1009,
             "figures_min": 6,
             "cases_min": 0,
-            "quiz_min": 1,
-            "total_min": 10.4
+            "quiz_min": 1.05,
+            "total_min": 10.5
           },
           "script": [
             "この単元では、事故が起きたときの動きを見ます。",

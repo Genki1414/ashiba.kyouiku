@@ -3,7 +3,7 @@
     "title": "墜落制止用器具のうちフルハーネス型のものを用いて行う作業に係る特別教育（学科）",
     "basis": "労働安全衛生法第59条第3項／労働安全衛生規則第36条第41号／安全衛生特別教育規程第24条",
     "total_min": 270,
-    "generated": "2026-09-02",
+    "generated": "2026-09-06",
     "stats": {
       "narration_lines": 938,
       "narration_chars": 21845,
@@ -30,7 +30,7 @@
             "narration_chars": 1911,
             "figures_min": 12,
             "cases_min": 5,
-            "quiz_min": 1.8,
+            "quiz_min": 1.75,
             "total_min": 25.2
           },
           "script": [
@@ -2638,8 +2638,8 @@
             "narration_chars": 1047,
             "figures_min": 6,
             "cases_min": 0,
-            "quiz_min": 1,
-            "total_min": 10.5
+            "quiz_min": 1.05,
+            "total_min": 10.6
           },
           "script": [
             "ここからは第三の科目、労働災害の防止に関する知識です。一時間あります。",
@@ -2802,8 +2802,8 @@
             "narration_chars": 927,
             "figures_min": 6,
             "cases_min": 0,
-            "quiz_min": 1,
-            "total_min": 10.1
+            "quiz_min": 1.05,
+            "total_min": 10.2
           },
           "script": [
             "この単元では、物が落ちることによる危険を見ます。",
@@ -2965,8 +2965,8 @@
             "narration_chars": 895,
             "figures_min": 6,
             "cases_min": 0,
-            "quiz_min": 1,
-            "total_min": 10
+            "quiz_min": 1.05,
+            "total_min": 10.1
           },
           "script": [
             "この単元では、感電を防ぐ手当てを見ます。",
@@ -3135,8 +3135,8 @@
             "narration_chars": 988,
             "figures_min": 6,
             "cases_min": 0,
-            "quiz_min": 1,
-            "total_min": 10.3
+            "quiz_min": 1.05,
+            "total_min": 10.4
           },
           "script": [
             "この単元では、保護帽を見ます。",
@@ -3315,8 +3315,8 @@
             "narration_chars": 1000,
             "figures_min": 6,
             "cases_min": 0,
-            "quiz_min": 1,
-            "total_min": 10.3
+            "quiz_min": 1.05,
+            "total_min": 10.4
           },
           "script": [
             "この単元では、事故が起きたときの動きを見ます。",
@@ -3483,8 +3483,8 @@
             "narration_chars": 912,
             "figures_min": 6,
             "cases_min": 0,
-            "quiz_min": 1,
-            "total_min": 10
+            "quiz_min": 1.05,
+            "total_min": 10.1
           },
           "script": [
             "この単元では、これまでに出てこなかった災害を見ます。",

@@ -30,8 +30,8 @@
             "narration_chars": 1388,
             "figures_min": 70,
             "cases_min": 0,
-            "quiz_min": 2.4,
-            "total_min": 77
+            "quiz_min": 2.45,
+            "total_min": 77.1
           },
           "script": [
             "除染等業務の特別教育を始めます。",
@@ -792,8 +792,8 @@
             "narration_chars": 1405,
             "figures_min": 58,
             "cases_min": 0,
-            "quiz_min": 2.4,
-            "total_min": 65.1
+            "quiz_min": 2.45,
+            "total_min": 65.2
           },
           "script": [
             "被ばく限度です。",
@@ -1129,8 +1129,8 @@
             "narration_chars": 1273,
             "figures_min": 52,
             "cases_min": 0,
-            "quiz_min": 2.4,
-            "total_min": 58.6
+            "quiz_min": 2.45,
+            "total_min": 58.7
           },
           "script": [
             "特定汚染土壌等取扱業務に係る作業の方法及び順序です。",
@@ -1635,8 +1635,8 @@
             "narration_chars": 910,
             "figures_min": 48,
             "cases_min": 0,
-            "quiz_min": 2.4,
-            "total_min": 53.4
+            "quiz_min": 2.45,
+            "total_min": 53.5
           },
           "script": [
             "汚染防止措置の方法です。",
@@ -1898,8 +1898,8 @@
             "narration_chars": 926,
             "figures_min": 38,
             "cases_min": 0,
-            "quiz_min": 2.4,
-            "total_min": 43.5
+            "quiz_min": 2.45,
+            "total_min": 43.6
           },
           "script": [
             "身体等の汚染の状態の検査及び汚染の除去の方法です。",
@@ -2137,8 +2137,8 @@
             "narration_chars": 1050,
             "figures_min": 58,
             "cases_min": 0,
-            "quiz_min": 2.4,
-            "total_min": 63.9
+            "quiz_min": 2.45,
+            "total_min": 64
           },
           "script": [
             "保護具の性能及び使用方法です。",
@@ -2684,8 +2684,8 @@
             "narration_chars": 1058,
             "figures_min": 44,
             "cases_min": 0,
-            "quiz_min": 2.4,
-            "total_min": 49.9
+            "quiz_min": 2.45,
+            "total_min": 50
           },
           "script": [
             "特定汚染土壌等取扱業務に係る作業に使用する機械等、その名称と用途です。",
@@ -2945,8 +2945,8 @@
             "narration_chars": 2801,
             "figures_min": 114,
             "cases_min": 0,
-            "quiz_min": 3.1,
-            "total_min": 126.4
+            "quiz_min": 3.15,
+            "total_min": 126.5
           },
           "script": [
             "関係法令です。****この科目は60分あります。**",

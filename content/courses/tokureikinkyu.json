@@ -969,8 +969,8 @@
             "narration_chars": 1026,
             "figures_min": 38,
             "cases_min": 0,
-            "quiz_min": 2.4,
-            "total_min": 43.8
+            "quiz_min": 2.45,
+            "total_min": 43.9
           },
           "script": [
             "特例緊急作業における外部放射線による線量当量率及び空気中の放射性物質の濃度の監視の方法です。",
@@ -1209,8 +1209,8 @@
             "narration_chars": 936,
             "figures_min": 38,
             "cases_min": 0,
-            "quiz_min": 2.4,
-            "total_min": 43.5
+            "quiz_min": 2.45,
+            "total_min": 43.6
           },
           "script": [
             "特例緊急作業を行う場所の汚染の状態の検査及び汚染の影響の低減のために必要な措置の方法です。",
@@ -1636,8 +1636,8 @@
             "narration_chars": 1148,
             "figures_min": 46,
             "cases_min": 0,
-            "quiz_min": 2.4,
-            "total_min": 52.2
+            "quiz_min": 2.45,
+            "total_min": 52.3
           },
           "script": [
             "特例緊急作業に使用する保護具の性能及び使用方法です。",
@@ -1913,8 +1913,8 @@
             "narration_chars": 887,
             "figures_min": 26,
             "cases_min": 0,
-            "quiz_min": 2.4,
-            "total_min": 31.4
+            "quiz_min": 2.45,
+            "total_min": 31.5
           },
           "script": [
             "応急手当の方法です。",
@@ -2115,8 +2115,8 @@
             "narration_chars": 985,
             "figures_min": 32,
             "cases_min": 0,
-            "quiz_min": 2.4,
-            "total_min": 37.7
+            "quiz_min": 2.45,
+            "total_min": 37.8
           },
           "script": [
             "重大事故等及び重大事故等への対処の事例です。",
@@ -3504,7 +3504,7 @@
             "narration_chars": 610,
             "figures_min": 22,
             "cases_min": 0,
-            "quiz_min": 1.8,
+            "quiz_min": 1.75,
             "total_min": 25.8
           },
           "script": [
@@ -3667,7 +3667,7 @@
             "narration_chars": 549,
             "figures_min": 18,
             "cases_min": 0,
-            "quiz_min": 1.8,
+            "quiz_min": 1.75,
             "total_min": 21.6
           },
           "script": [
@@ -3821,7 +3821,7 @@
             "narration_chars": 643,
             "figures_min": 20,
             "cases_min": 0,
-            "quiz_min": 1.8,
+            "quiz_min": 1.75,
             "total_min": 23.9
           },
           "script": [
@@ -3979,7 +3979,7 @@
             "narration_chars": 703,
             "figures_min": 20,
             "cases_min": 0,
-            "quiz_min": 1.8,
+            "quiz_min": 1.75,
             "total_min": 24.1
           },
           "script": [
@@ -4143,7 +4143,7 @@
             "narration_chars": 641,
             "figures_min": 14,
             "cases_min": 0,
-            "quiz_min": 1.8,
+            "quiz_min": 1.75,
             "total_min": 17.9
           },
           "script": [
@@ -4280,8 +4280,8 @@
             "narration_chars": 1214,
             "figures_min": 52,
             "cases_min": 0,
-            "quiz_min": 2.4,
-            "total_min": 58.4
+            "quiz_min": 2.45,
+            "total_min": 58.5
           },
           "script": [
             "関係法令です。****この科目は30分です。**",

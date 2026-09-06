@@ -3,7 +3,7 @@
     "title": "簡易架線集材装置の運転又は架線集材機械の運転の業務に係る特別教育（学科）",
     "basis": "労働安全衛生法第59条第3項／労働安全衛生規則第36条第7号の2／安全衛生特別教育規程第9条の2",
     "total_min": 360,
-    "generated": "2026-09-03",
+    "generated": "2026-09-06",
     "stats": {
       "narration_lines": 426,
       "narration_chars": 16444,
@@ -371,8 +371,8 @@
             "narration_chars": 1350,
             "figures_min": 22,
             "cases_min": 5,
-            "quiz_min": 3.1,
-            "total_min": 34.6
+            "quiz_min": 3.15,
+            "total_min": 34.7
           },
           "script": [
             "次の単元は、**架線集材機械の種類と用途**。",
@@ -1002,8 +1002,8 @@
             "narration_chars": 1049,
             "figures_min": 18,
             "cases_min": 5,
-            "quiz_min": 3.1,
-            "total_min": 29.6
+            "quiz_min": 3.15,
+            "total_min": 29.7
           },
           "script": [
             "次は**操縦装置・制動装置・作業装置**。",
@@ -2259,12 +2259,12 @@
           "legal_min": 50,
           "scene": "sagyou",
           "budget": {
-            "narration_min": 6.8,
+            "narration_min": 6.9,
             "narration_chars": 2055,
             "figures_min": 41,
             "cases_min": 5,
-            "quiz_min": 4.5,
-            "total_min": 57.3
+            "quiz_min": 4.55,
+            "total_min": 57.5
           },
           "script": [
             "科目3の二つ目、**簡易架線集材装置の索張りの方法**。",
@@ -2967,12 +2967,12 @@
           "legal_min": 10,
           "scene": "ippan",
           "budget": {
-            "narration_min": 2.6,
+            "narration_min": 2.7,
             "narration_chars": 795,
             "figures_min": 10,
             "cases_min": 0,
             "quiz_min": 2.1,
-            "total_min": 14.7
+            "total_min": 14.8
           },
           "script": [
             "次は、**電気に関する基礎知識**。",

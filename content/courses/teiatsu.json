@@ -3,7 +3,7 @@
     "title": "低圧電気取扱業務に係る特別教育（学科）",
     "basis": "労働安全衛生法第59条第3項／労働安全衛生規則第36条第4号／安全衛生特別教育規程第6条",
     "total_min": 420,
-    "generated": "2026-09-02",
+    "generated": "2026-09-06",
     "stats": {
       "narration_lines": 544,
       "narration_chars": 18334,
@@ -3479,7 +3479,7 @@
             "narration_chars": 411,
             "figures_min": 6,
             "cases_min": 0,
-            "quiz_min": 1.8,
+            "quiz_min": 1.75,
             "total_min": 9.2
           },
           "script": [
@@ -3639,7 +3639,7 @@
             "narration_chars": 388,
             "figures_min": 6,
             "cases_min": 0,
-            "quiz_min": 1.8,
+            "quiz_min": 1.75,
             "total_min": 9.1
           },
           "script": [
@@ -3805,8 +3805,8 @@
             "narration_chars": 840,
             "figures_min": 13,
             "cases_min": 5,
-            "quiz_min": 2.4,
-            "total_min": 23.2
+            "quiz_min": 2.45,
+            "total_min": 23.3
           },
           "script": [
             "第四の科目、**低圧の活線作業及び活線近接作業の方法**です。二時間。六つの単元。",
@@ -4059,8 +4059,8 @@
             "narration_chars": 702,
             "figures_min": 11,
             "cases_min": 5,
-            "quiz_min": 2.4,
-            "total_min": 20.7
+            "quiz_min": 2.45,
+            "total_min": 20.8
           },
           "script": [
             "次は、**作業者の絶縁保護**。二十分。",
@@ -4638,8 +4638,8 @@
             "narration_chars": 848,
             "figures_min": 12,
             "cases_min": 5,
-            "quiz_min": 2.4,
-            "total_min": 22.2
+            "quiz_min": 2.45,
+            "total_min": 22.3
           },
           "script": [
             "次は、**作業管理**。二十分。",
@@ -4914,7 +4914,7 @@
             "narration_chars": 874,
             "figures_min": 12,
             "cases_min": 5,
-            "quiz_min": 2.4,
+            "quiz_min": 2.45,
             "total_min": 22.3
           },
           "script": [

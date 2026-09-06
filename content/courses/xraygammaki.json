@@ -30,8 +30,8 @@
             "narration_chars": 1533,
             "figures_min": 52,
             "cases_min": 0,
-            "quiz_min": 2.4,
-            "total_min": 59.5
+            "quiz_min": 2.45,
+            "total_min": 59.6
           },
           "script": [
             "エックス線装置又はガンマ線照射装置を取り扱う業務の特別教育を始めます。",
@@ -531,8 +531,8 @@
             "narration_chars": 1160,
             "figures_min": 52,
             "cases_min": 0,
-            "quiz_min": 2.4,
-            "total_min": 58.3
+            "quiz_min": 2.45,
+            "total_min": 58.4
           },
           "script": [
             "被ばく防止の方法です。",
@@ -819,8 +819,8 @@
             "narration_chars": 1100,
             "figures_min": 38,
             "cases_min": 0,
-            "quiz_min": 2.4,
-            "total_min": 44.1
+            "quiz_min": 2.45,
+            "total_min": 44.2
           },
           "script": [
             "事故時の措置です。",
@@ -1514,8 +1514,8 @@
             "narration_chars": 1050,
             "figures_min": 40,
             "cases_min": 0,
-            "quiz_min": 2.4,
-            "total_min": 45.9
+            "quiz_min": 2.45,
+            "total_min": 46
           },
           "script": [
             "エックス線装置の操作及び点検です。",
@@ -2515,8 +2515,8 @@
             "narration_chars": 1094,
             "figures_min": 38,
             "cases_min": 0,
-            "quiz_min": 2.4,
-            "total_min": 44
+            "quiz_min": 2.45,
+            "total_min": 44.1
           },
           "script": [
             "ガンマ線照射装置の操作及び点検です。",

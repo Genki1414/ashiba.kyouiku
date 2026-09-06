@@ -30,8 +30,8 @@
             "narration_chars": 1355,
             "figures_min": 50,
             "cases_min": 0,
-            "quiz_min": 2.4,
-            "total_min": 56.9
+            "quiz_min": 2.45,
+            "total_min": 57
           },
           "script": [
             "事故由来廃棄物等の処分の業務の特別教育を始めます。",
@@ -323,7 +323,7 @@
             "narration_chars": 709,
             "figures_min": 22,
             "cases_min": 0,
-            "quiz_min": 1.8,
+            "quiz_min": 1.75,
             "total_min": 26.2
           },
           "script": [
@@ -491,8 +491,8 @@
             "narration_chars": 941,
             "figures_min": 36,
             "cases_min": 0,
-            "quiz_min": 2.4,
-            "total_min": 41.5
+            "quiz_min": 2.45,
+            "total_min": 41.6
           },
           "script": [
             "事故由来廃棄物等の破砕等、運搬及び貯蔵の作業の方法及び順序です。",
@@ -1124,7 +1124,7 @@
             "narration_chars": 681,
             "figures_min": 22,
             "cases_min": 0,
-            "quiz_min": 1.8,
+            "quiz_min": 1.75,
             "total_min": 26.1
           },
           "script": [
@@ -1466,8 +1466,8 @@
             "narration_chars": 926,
             "figures_min": 38,
             "cases_min": 0,
-            "quiz_min": 2.4,
-            "total_min": 43.5
+            "quiz_min": 2.45,
+            "total_min": 43.6
           },
           "script": [
             "身体等の汚染の状態の検査及び汚染の除去の方法です。",
@@ -1705,8 +1705,8 @@
             "narration_chars": 1050,
             "figures_min": 58,
             "cases_min": 0,
-            "quiz_min": 2.4,
-            "total_min": 63.9
+            "quiz_min": 2.45,
+            "total_min": 64
           },
           "script": [
             "保護具の性能及び使用方法です。",
@@ -3290,8 +3290,8 @@
             "narration_chars": 1201,
             "figures_min": 55,
             "cases_min": 0,
-            "quiz_min": 2.4,
-            "total_min": 61.4
+            "quiz_min": 2.45,
+            "total_min": 61.5
           },
           "script": [
             "被ばく限度と、被ばく線量測定の方法です。",
@@ -3590,8 +3590,8 @@
             "narration_chars": 868,
             "figures_min": 50,
             "cases_min": 0,
-            "quiz_min": 2.4,
-            "total_min": 55.3
+            "quiz_min": 2.45,
+            "total_min": 55.4
           },
           "script": [
             "被ばく線量測定の結果の確認及び記録等の方法です。",

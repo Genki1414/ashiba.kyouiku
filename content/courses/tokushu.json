@@ -3,7 +3,7 @@
     "title": "特殊化学設備の取扱い、整備及び修理の業務に係る特別教育（学科）",
     "basis": "労働安全衛生法第59条第3項／労働安全衛生規則第36条第27号／安全衛生特別教育規程第16条",
     "total_min": 780,
-    "generated": "2026-09-04",
+    "generated": "2026-09-06",
     "stats": {
       "narration_lines": 882,
       "narration_chars": 22992,
@@ -509,8 +509,8 @@
             "narration_chars": 1222,
             "figures_min": 54,
             "cases_min": 0,
-            "quiz_min": 3.8,
-            "total_min": 61.9
+            "quiz_min": 3.85,
+            "total_min": 62
           },
           "script": [
             "**化学反応の概要。**",
@@ -874,7 +874,7 @@
             "narration_chars": 1389,
             "figures_min": 78,
             "cases_min": 5,
-            "quiz_min": 3.8,
+            "quiz_min": 3.85,
             "total_min": 91.4
           },
           "script": [
@@ -1355,8 +1355,8 @@
             "narration_chars": 1501,
             "figures_min": 70,
             "cases_min": 5,
-            "quiz_min": 3.8,
-            "total_min": 83.8
+            "quiz_min": 3.85,
+            "total_min": 83.9
           },
           "script": [
             "科目2に入ります。**特殊化学設備等の構造に関する知識。**",
@@ -2264,8 +2264,8 @@
             "narration_chars": 1284,
             "figures_min": 37,
             "cases_min": 0,
-            "quiz_min": 3.8,
-            "total_min": 45.1
+            "quiz_min": 3.85,
+            "total_min": 45.2
           },
           "script": [
             "**特殊化学設備用材料。**",
@@ -2582,8 +2582,8 @@
             "narration_chars": 1300,
             "figures_min": 42,
             "cases_min": 5,
-            "quiz_min": 3.8,
-            "total_min": 55.1
+            "quiz_min": 3.85,
+            "total_min": 55.2
           },
           "script": [
             "科目3に入ります。**特殊化学設備等の取扱いの方法に関する知識。**",
@@ -2973,8 +2973,8 @@
             "narration_chars": 1155,
             "figures_min": 47,
             "cases_min": 5,
-            "quiz_min": 3.8,
-            "total_min": 59.7
+            "quiz_min": 3.85,
+            "total_min": 59.8
           },
           "script": [
             "**使用中の取扱い方法。**",
@@ -3374,8 +3374,8 @@
             "narration_chars": 1032,
             "figures_min": 30,
             "cases_min": 0,
-            "quiz_min": 3.1,
-            "total_min": 36.5
+            "quiz_min": 3.15,
+            "total_min": 36.6
           },
           "script": [
             "**使用休止時の取扱い方法。****止めるときの話です。**",
@@ -3646,8 +3646,8 @@
             "narration_chars": 1020,
             "figures_min": 33,
             "cases_min": 0,
-            "quiz_min": 3.1,
-            "total_min": 39.5
+            "quiz_min": 3.15,
+            "total_min": 39.6
           },
           "script": [
             "**点検及び検査の方法。**",
@@ -3930,8 +3930,8 @@
             "narration_chars": 1350,
             "figures_min": 46,
             "cases_min": 5,
-            "quiz_min": 3.8,
-            "total_min": 59.3
+            "quiz_min": 3.85,
+            "total_min": 59.4
           },
           "script": [
             "**停電時等の異常時における応急の処置。**",
@@ -4791,8 +4791,8 @@
             "narration_chars": 1303,
             "figures_min": 48,
             "cases_min": 5,
-            "quiz_min": 3.8,
-            "total_min": 61.1
+            "quiz_min": 3.85,
+            "total_min": 61.2
           },
           "script": [
             "**通風及び換気。**",
@@ -5613,8 +5613,8 @@
             "narration_chars": 1320,
             "figures_min": 49,
             "cases_min": 5,
-            "quiz_min": 3.8,
-            "total_min": 62.2
+            "quiz_min": 3.85,
+            "total_min": 62.3
           },
           "script": [
             "**ガス検知。****中欄の最後の項目です。**",
@@ -6016,8 +6016,8 @@
             "narration_chars": 2562,
             "figures_min": 87,
             "cases_min": 5,
-            "quiz_min": 4.5,
-            "total_min": 105
+            "quiz_min": 4.55,
+            "total_min": 105.1
           },
           "script": [
             "最後の科目、**関係法令**です。",

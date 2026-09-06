@@ -30,8 +30,8 @@
             "narration_chars": 1162,
             "figures_min": 62,
             "cases_min": 0,
-            "quiz_min": 2.4,
-            "total_min": 68.3
+            "quiz_min": 2.45,
+            "total_min": 68.4
           },
           "script": [
             "特定線量下業務の特別教育を始めます。",
@@ -364,8 +364,8 @@
             "narration_chars": 1157,
             "figures_min": 62,
             "cases_min": 0,
-            "quiz_min": 2.4,
-            "total_min": 68.3
+            "quiz_min": 2.45,
+            "total_min": 68.4
           },
           "script": [
             "電離放射線が、生体の細胞、組織、器官及び全身に与える影響です。",
@@ -707,8 +707,8 @@
             "narration_chars": 976,
             "figures_min": 49,
             "cases_min": 0,
-            "quiz_min": 2.4,
-            "total_min": 54.7
+            "quiz_min": 2.45,
+            "total_min": 54.8
           },
           "script": [
             "被ばく限度と、被ばく線量測定の方法です。",
@@ -990,8 +990,8 @@
             "narration_chars": 768,
             "figures_min": 48,
             "cases_min": 0,
-            "quiz_min": 2.4,
-            "total_min": 53
+            "quiz_min": 2.45,
+            "total_min": 53.1
           },
           "script": [
             "被ばく線量測定の結果の確認及び記録等の方法です。",
@@ -1278,8 +1278,8 @@
             "narration_chars": 1073,
             "figures_min": 52,
             "cases_min": 0,
-            "quiz_min": 2.4,
-            "total_min": 58
+            "quiz_min": 2.45,
+            "total_min": 58.1
           },
           "script": [
             "放射線測定の方法です。",
@@ -1590,8 +1590,8 @@
             "narration_chars": 788,
             "figures_min": 52,
             "cases_min": 0,
-            "quiz_min": 2.4,
-            "total_min": 57
+            "quiz_min": 2.45,
+            "total_min": 57.1
           },
           "script": [
             "外部放射線による線量当量率の監視の方法です。",
@@ -1897,8 +1897,8 @@
             "narration_chars": 997,
             "figures_min": 66,
             "cases_min": 0,
-            "quiz_min": 2.4,
-            "total_min": 71.7
+            "quiz_min": 2.45,
+            "total_min": 71.8
           },
           "script": [
             "異常な事態が発生した場合における応急の措置の方法です。",
@@ -2242,8 +2242,8 @@
             "narration_chars": 2158,
             "figures_min": 106,
             "cases_min": 0,
-            "quiz_min": 3.1,
-            "total_min": 116.3
+            "quiz_min": 3.15,
+            "total_min": 116.4
           },
           "script": [
             "関係法令です。****この科目は60分あります。**",

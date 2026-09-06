@@ -3,7 +3,7 @@
     "title": "動力プレスの金型等の取付け、取外し又は調整の業務に係る特別教育（学科）",
     "basis": "労働安全衛生法第59条第3項／労働安全衛生規則第36条第2号／安全衛生特別教育規程第3条",
     "total_min": 480,
-    "generated": "2026-09-03",
+    "generated": "2026-09-06",
     "stats": {
       "narration_lines": 584,
       "narration_chars": 20254,
@@ -542,8 +542,8 @@
             "narration_chars": 1281,
             "figures_min": 14,
             "cases_min": 5,
-            "quiz_min": 2.4,
-            "total_min": 25.7
+            "quiz_min": 2.45,
+            "total_min": 25.8
           },
           "script": [
             "次の単元は、**シヤー**です。",
@@ -2615,8 +2615,8 @@
             "narration_chars": 1482,
             "figures_min": 27,
             "cases_min": 5,
-            "quiz_min": 3.1,
-            "total_min": 40
+            "quiz_min": 3.15,
+            "total_min": 40.1
           },
           "script": [
             "科目3は、**点検、取付け、調整等に関する知識**。三時間。この教育の中心です。",
@@ -3024,8 +3024,8 @@
             "narration_chars": 1779,
             "figures_min": 46,
             "cases_min": 10,
-            "quiz_min": 3.8,
-            "total_min": 65.7
+            "quiz_min": 3.85,
+            "total_min": 65.8
           },
           "script": [
             "次の単元は、**金型の取付け**。この教育でいちばん時間を使う所です。",
@@ -4033,8 +4033,8 @@
             "narration_chars": 1886,
             "figures_min": 32,
             "cases_min": 5,
-            "quiz_min": 3.8,
-            "total_min": 47.1
+            "quiz_min": 3.85,
+            "total_min": 47.2
           },
           "script": [
             "次の単元は、**調整**です。ダイハイト、ストローク、そして安全装置の合わせ直し。",
@@ -4866,8 +4866,8 @@
             "narration_chars": 2060,
             "figures_min": 39,
             "cases_min": 10,
-            "quiz_min": 4.5,
-            "total_min": 60.4
+            "quiz_min": 4.55,
+            "total_min": 60.5
           },
           "script": [
             "最後の科目は、**関係法令**。一時間です。",

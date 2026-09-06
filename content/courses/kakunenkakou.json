@@ -30,8 +30,8 @@
             "narration_chars": 1350,
             "figures_min": 58,
             "cases_min": 0,
-            "quiz_min": 2.4,
-            "total_min": 64.9
+            "quiz_min": 2.45,
+            "total_min": 65
           },
           "script": [
             "核燃料物質等を取り扱う業務の特別教育を始めます。",
@@ -840,8 +840,8 @@
             "narration_chars": 1151,
             "figures_min": 50,
             "cases_min": 0,
-            "quiz_min": 2.4,
-            "total_min": 56.2
+            "quiz_min": 2.45,
+            "total_min": 56.3
           },
           "script": [
             "加工施設における、取り扱う作業の方法及び順序です。",
@@ -1847,8 +1847,8 @@
             "narration_chars": 1044,
             "figures_min": 42,
             "cases_min": 0,
-            "quiz_min": 2.4,
-            "total_min": 47.9
+            "quiz_min": 2.45,
+            "total_min": 48
           },
           "script": [
             "異常な事態が発生した場合における応急の措置の方法です。",
@@ -2099,8 +2099,8 @@
             "narration_chars": 1117,
             "figures_min": 48,
             "cases_min": 0,
-            "quiz_min": 2.4,
-            "total_min": 54.1
+            "quiz_min": 2.45,
+            "total_min": 54.2
           },
           "script": [
             "加工設備、放射性廃棄物の廃棄設備及びその他の設備、その構造です。",
@@ -2366,8 +2366,8 @@
             "narration_chars": 1079,
             "figures_min": 48,
             "cases_min": 0,
-            "quiz_min": 2.4,
-            "total_min": 54
+            "quiz_min": 2.45,
+            "total_min": 54.1
           },
           "script": [
             "加工設備、放射性廃棄物の廃棄設備及びその他の設備、その取扱いの方法です。",
@@ -2911,8 +2911,8 @@
             "narration_chars": 1353,
             "figures_min": 56,
             "cases_min": 0,
-            "quiz_min": 2.4,
-            "total_min": 62.9
+            "quiz_min": 2.45,
+            "total_min": 63
           },
           "script": [
             "電離放射線が、生体の細胞、組織、器官及び全身に与える影響です。",

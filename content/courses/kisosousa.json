@@ -3,7 +3,7 @@
     "title": "車両系建設機械（基礎工事用）の作業装置の操作の業務に係る特別教育（学科）",
     "basis": "労働安全衛生法第59条第3項／労働安全衛生規則第36条第9号の3／安全衛生特別教育規程第11条の5",
     "total_min": 300,
-    "generated": "2026-09-04",
+    "generated": "2026-09-06",
     "stats": {
       "narration_lines": 262,
       "narration_chars": 9981,
@@ -30,8 +30,8 @@
             "narration_chars": 2105,
             "figures_min": 65,
             "cases_min": 5,
-            "quiz_min": 3.8,
-            "total_min": 80.8
+            "quiz_min": 3.85,
+            "total_min": 80.9
           },
           "script": [
             "車両系建設機械（基礎工事用）の作業装置の操作の特別教育を始めます。",
@@ -487,8 +487,8 @@
             "narration_chars": 1239,
             "figures_min": 43,
             "cases_min": 0,
-            "quiz_min": 3.8,
-            "total_min": 50.9
+            "quiz_min": 3.85,
+            "total_min": 51
           },
           "script": [
             "科目1の二つ目。**作業装置の構造**です。",
@@ -812,8 +812,8 @@
             "narration_chars": 1427,
             "figures_min": 41,
             "cases_min": 5,
-            "quiz_min": 3.8,
-            "total_min": 54.6
+            "quiz_min": 3.85,
+            "total_min": 54.7
           },
           "script": [
             "科目1の三つ目。**作業装置の取扱い方法**です。",
@@ -1213,8 +1213,8 @@
             "narration_chars": 1051,
             "figures_min": 27,
             "cases_min": 0,
-            "quiz_min": 3.1,
-            "total_min": 33.6
+            "quiz_min": 3.15,
+            "total_min": 33.7
           },
           "script": [
             "科目2に入ります。**作業装置の操作のために必要な一般的事項**。一時間。",
@@ -1750,8 +1750,8 @@
             "narration_chars": 841,
             "figures_min": 16,
             "cases_min": 0,
-            "quiz_min": 3.1,
-            "total_min": 21.9
+            "quiz_min": 3.15,
+            "total_min": 22
           },
           "script": [
             "科目2の最後は、**ワイヤロープ及び補助具**。",

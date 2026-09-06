@@ -3,7 +3,7 @@
     "title": "不整地運搬車（最大積載量1トン未満）の運転の業務に係る特別教育（学科）",
     "basis": "労働安全衛生法第59条第3項／労働安全衛生規則第36条第5号の3／安全衛生特別教育規程第7条の3",
     "total_min": 360,
-    "generated": "2026-09-03",
+    "generated": "2026-09-06",
     "stats": {
       "narration_lines": 545,
       "narration_chars": 16520,
@@ -30,8 +30,8 @@
             "narration_chars": 1663,
             "figures_min": 24,
             "cases_min": 10,
-            "quiz_min": 3.1,
-            "total_min": 42.6
+            "quiz_min": 3.15,
+            "total_min": 42.7
           },
           "script": [
             "不整地運搬車の特別教育を始めます。",
@@ -551,7 +551,7 @@
             "narration_chars": 1736,
             "figures_min": 24,
             "cases_min": 10,
-            "quiz_min": 3.1,
+            "quiz_min": 3.15,
             "total_min": 42.9
           },
           "script": [
@@ -1091,8 +1091,8 @@
             "narration_chars": 1662,
             "figures_min": 24,
             "cases_min": 10,
-            "quiz_min": 3.1,
-            "total_min": 42.6
+            "quiz_min": 3.15,
+            "total_min": 42.7
           },
           "script": [
             "この単元は、**電気装置、警報装置、そして走行に関する附属装置**です。",
@@ -1621,7 +1621,7 @@
             "narration_chars": 1580,
             "figures_min": 24,
             "cases_min": 10,
-            "quiz_min": 3.1,
+            "quiz_min": 3.15,
             "total_min": 42.4
           },
           "script": [
@@ -2151,8 +2151,8 @@
             "narration_chars": 1513,
             "figures_min": 26,
             "cases_min": 10,
-            "quiz_min": 3.1,
-            "total_min": 44.1
+            "quiz_min": 3.15,
+            "total_min": 44.2
           },
           "script": [
             "この単元は、**荷の積卸しの方法**です。積むときと、降ろすとき。",
@@ -2684,8 +2684,8 @@
             "narration_chars": 1490,
             "figures_min": 25,
             "cases_min": 10,
-            "quiz_min": 3.1,
-            "total_min": 43.1
+            "quiz_min": 3.15,
+            "total_min": 43.2
           },
           "script": [
             "この単元は、**荷の運搬の方法**です。積んでから、降ろす所まで、どう運ぶか。",
@@ -3716,8 +3716,8 @@
             "narration_chars": 1106,
             "figures_min": 18,
             "cases_min": 0,
-            "quiz_min": 2.4,
-            "total_min": 24.1
+            "quiz_min": 2.45,
+            "total_min": 24.2
           },
           "script": [
             "この単元は、**重心と、物の安定**です。倒れるかどうかの、いちばんの話。",
@@ -4294,7 +4294,7 @@
             "narration_chars": 788,
             "figures_min": 10,
             "cases_min": 0,
-            "quiz_min": 1.8,
+            "quiz_min": 1.75,
             "total_min": 14.4
           },
           "script": [
@@ -4511,8 +4511,8 @@
             "narration_chars": 2564,
             "figures_min": 34,
             "cases_min": 15,
-            "quiz_min": 5.2,
-            "total_min": 62.7
+            "quiz_min": 5.25,
+            "total_min": 62.8
           },
           "script": [
             "最後の科目、**関係法令**です。一時間あります。",

@@ -3,7 +3,7 @@
     "title": "ダイオキシン類のばく露防止に係る業務に係る特別教育（学科）",
     "basis": "労働安全衛生法第59条第3項／労働安全衛生規則第36条第34号から第36号まで／安全衛生特別教育規程第21条",
     "total_min": 240,
-    "generated": "2026-09-03",
+    "generated": "2026-09-06",
     "stats": {
       "narration_lines": 374,
       "narration_chars": 11774,
@@ -415,7 +415,7 @@
             "narration_chars": 1155,
             "figures_min": 17,
             "cases_min": 0,
-            "quiz_min": 2.4,
+            "quiz_min": 2.45,
             "total_min": 23.3
           },
           "script": [
@@ -693,8 +693,8 @@
             "narration_chars": 1067,
             "figures_min": 20,
             "cases_min": 5,
-            "quiz_min": 2.4,
-            "total_min": 31
+            "quiz_min": 2.45,
+            "total_min": 31.1
           },
           "script": [
             "この単元は、**ダイオキシン類のばく露を低減させるための措置**です。",
@@ -1023,7 +1023,7 @@
             "narration_chars": 934,
             "figures_min": 14,
             "cases_min": 0,
-            "quiz_min": 1.8,
+            "quiz_min": 1.75,
             "total_min": 18.9
           },
           "script": [
@@ -1789,8 +1789,8 @@
             "narration_chars": 1144,
             "figures_min": 21,
             "cases_min": 5,
-            "quiz_min": 2.4,
-            "total_min": 32.2
+            "quiz_min": 2.45,
+            "total_min": 32.3
           },
           "script": [
             "第三の科目、**作業開始時の設備の点検**です。三十分。",
@@ -2609,7 +2609,7 @@
             "narration_chars": 1169,
             "figures_min": 17,
             "cases_min": 0,
-            "quiz_min": 2.4,
+            "quiz_min": 2.45,
             "total_min": 23.3
           },
           "script": [

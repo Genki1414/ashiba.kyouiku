@@ -3,7 +3,7 @@
     "title": "コンクリート打設用機械の作業装置の操作の業務に係る特別教育（学科）",
     "basis": "労働安全衛生法第59条第3項／労働安全衛生規則第36条第10号の2／安全衛生特別教育規程第12条の2",
     "total_min": 420,
-    "generated": "2026-09-04",
+    "generated": "2026-09-06",
     "stats": {
       "narration_lines": 302,
       "narration_chars": 11243,
@@ -30,8 +30,8 @@
             "narration_chars": 2067,
             "figures_min": 85,
             "cases_min": 5,
-            "quiz_min": 3.8,
-            "total_min": 100.7
+            "quiz_min": 3.85,
+            "total_min": 100.8
           },
           "script": [
             "コンクリート打設用機械の作業装置の操作の特別教育を始めます。",
@@ -517,8 +517,8 @@
             "narration_chars": 1494,
             "figures_min": 62,
             "cases_min": 0,
-            "quiz_min": 3.8,
-            "total_min": 70.8
+            "quiz_min": 3.85,
+            "total_min": 70.9
           },
           "script": [
             "科目1の二つ目。**作業装置の構造**です。",
@@ -853,7 +853,7 @@
             "narration_chars": 1690,
             "figures_min": 62,
             "cases_min": 5,
-            "quiz_min": 3.8,
+            "quiz_min": 3.85,
             "total_min": 76.4
           },
           "script": [
@@ -1304,7 +1304,7 @@
             "narration_chars": 1148,
             "figures_min": 34,
             "cases_min": 0,
-            "quiz_min": 3.1,
+            "quiz_min": 3.15,
             "total_min": 40.9
           },
           "script": [
@@ -1942,8 +1942,8 @@
             "narration_chars": 1184,
             "figures_min": 33,
             "cases_min": 0,
-            "quiz_min": 3.1,
-            "total_min": 40
+            "quiz_min": 3.15,
+            "total_min": 40.1
           },
           "script": [
             "科目2の最後は、**コンクリート打設の方法**。",

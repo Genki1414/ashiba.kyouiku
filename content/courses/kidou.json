@@ -3,7 +3,7 @@
     "title": "軌道装置の動力車の運転の業務に係る特別教育（学科）",
     "basis": "労働安全衛生法第59条第3項／労働安全衛生規則第36条第13号／安全衛生特別教育規程第15条",
     "total_min": 360,
-    "generated": "2026-09-04",
+    "generated": "2026-09-06",
     "stats": {
       "narration_lines": 405,
       "narration_chars": 12499,
@@ -1703,8 +1703,8 @@
             "narration_chars": 1272,
             "figures_min": 39,
             "cases_min": 5,
-            "quiz_min": 3.1,
-            "total_min": 51.3
+            "quiz_min": 3.15,
+            "total_min": 51.4
           },
           "script": [
             "軌道の中で、**動く所**と、**止める物**を見ます。",
@@ -2069,8 +2069,8 @@
             "narration_chars": 863,
             "figures_min": 24,
             "cases_min": 0,
-            "quiz_min": 2.4,
-            "total_min": 29.3
+            "quiz_min": 2.45,
+            "total_min": 29.4
           },
           "script": [
             "科目3は、**動力車の運転に関する知識。**中欄は三つです。",
@@ -2323,8 +2323,8 @@
             "narration_chars": 938,
             "figures_min": 30,
             "cases_min": 5,
-            "quiz_min": 2.4,
-            "total_min": 40.5
+            "quiz_min": 2.45,
+            "total_min": 40.6
           },
           "script": [
             "**合図**です。**実技にも、合図の科目が独立してあります。**",
@@ -2975,8 +2975,8 @@
             "narration_chars": 2361,
             "figures_min": 80,
             "cases_min": 5,
-            "quiz_min": 4.5,
-            "total_min": 97.4
+            "quiz_min": 4.55,
+            "total_min": 97.5
           },
           "script": [
             "最後の科目、**関係法令**です。",

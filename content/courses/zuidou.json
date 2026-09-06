@@ -3,7 +3,7 @@
     "title": "ずい道等の掘削等の作業に係る業務に係る特別教育（学科）",
     "basis": "労働安全衛生法第59条第3項／労働安全衛生規則第36条第30号／安全衛生特別教育規程第17条",
     "total_min": 420,
-    "generated": "2026-09-03",
+    "generated": "2026-09-06",
     "stats": {
       "narration_lines": 557,
       "narration_chars": 17562,
@@ -30,8 +30,8 @@
             "narration_chars": 1287,
             "figures_min": 31,
             "cases_min": 5,
-            "quiz_min": 2.4,
-            "total_min": 42.7
+            "quiz_min": 2.45,
+            "total_min": 42.8
           },
           "script": [
             "ずい道等の掘削等の作業に係る業務の特別教育を始めます。",
@@ -602,8 +602,8 @@
             "narration_chars": 1165,
             "figures_min": 21,
             "cases_min": 5,
-            "quiz_min": 2.4,
-            "total_min": 32.3
+            "quiz_min": 2.45,
+            "total_min": 32.4
           },
           "script": [
             "科目一の最後は、**地質の種類及び性質**です。",
@@ -2069,8 +2069,8 @@
             "narration_chars": 1519,
             "figures_min": 36,
             "cases_min": 10,
-            "quiz_min": 3.1,
-            "total_min": 54.2
+            "quiz_min": 3.15,
+            "total_min": 54.3
           },
           "script": [
             "第三の科目、**労働災害の防止に関する知識**です。**三時間。この教育の中心**です。",
@@ -2908,8 +2908,8 @@
             "narration_chars": 1125,
             "figures_min": 26,
             "cases_min": 0,
-            "quiz_min": 2.4,
-            "total_min": 32.2
+            "quiz_min": 2.45,
+            "total_min": 32.3
           },
           "script": [
             "この単元は、**工事用設備による労働災害の防止のための措置**です。",
@@ -3217,8 +3217,8 @@
             "narration_chars": 1361,
             "figures_min": 24,
             "cases_min": 0,
-            "quiz_min": 2.4,
-            "total_min": 30.9
+            "quiz_min": 2.45,
+            "total_min": 31
           },
           "script": [
             "この単元は、**作業環境改善の方法**です。",

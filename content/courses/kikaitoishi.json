@@ -3,7 +3,7 @@
     "title": "機械研削用といしの取替え又は取替え時の試運転の業務に係る特別教育（学科）",
     "basis": "労働安全衛生法第59条第3項／労働安全衛生規則第36条第1号／安全衛生特別教育規程第1条",
     "total_min": 420,
-    "generated": "2026-09-02",
+    "generated": "2026-09-06",
     "stats": {
       "narration_lines": 471,
       "narration_chars": 14663,
@@ -998,8 +998,8 @@
             "narration_chars": 958,
             "figures_min": 23,
             "cases_min": 5,
-            "quiz_min": 3.1,
-            "total_min": 34.3
+            "quiz_min": 3.15,
+            "total_min": 34.4
           },
           "script": [
             "次は、**取付け具**。三十分。といしを主軸に固定する部品です。",
@@ -1664,7 +1664,7 @@
             "narration_chars": 979,
             "figures_min": 26,
             "cases_min": 5,
-            "quiz_min": 3.1,
+            "quiz_min": 3.15,
             "total_min": 37.4
           },
           "script": [
@@ -2001,8 +2001,8 @@
             "narration_chars": 1284,
             "figures_min": 28,
             "cases_min": 10,
-            "quiz_min": 3.8,
-            "total_min": 46.1
+            "quiz_min": 3.85,
+            "total_min": 46.2
           },
           "script": [
             "科目一の最後、**研削液**。三十分。**自由研削には無い、機械研削だけの単元**です。",
@@ -2433,8 +2433,8 @@
             "narration_chars": 829,
             "figures_min": 17,
             "cases_min": 0,
-            "quiz_min": 2.4,
-            "total_min": 22.2
+            "quiz_min": 2.45,
+            "total_min": 22.3
           },
           "script": [
             "第二の科目、**取付け方法と試運転の方法**です。二時間。五つの単元。",
@@ -3283,8 +3283,8 @@
             "narration_chars": 1118,
             "figures_min": 23,
             "cases_min": 5,
-            "quiz_min": 2.4,
-            "total_min": 34.1
+            "quiz_min": 2.45,
+            "total_min": 34.2
           },
           "script": [
             "次は、**バランス**。二十分。**機械研削で、自由研削より重く扱われる単元**です。",
@@ -3605,8 +3605,8 @@
             "narration_chars": 1086,
             "figures_min": 24,
             "cases_min": 5,
-            "quiz_min": 3.1,
-            "total_min": 35.7
+            "quiz_min": 3.15,
+            "total_min": 35.8
           },
           "script": [
             "科目二の最後、**試運転**。二十五分。",
@@ -3953,8 +3953,8 @@
             "narration_chars": 1866,
             "figures_min": 41,
             "cases_min": 10,
-            "quiz_min": 4.5,
-            "total_min": 61.7
+            "quiz_min": 4.55,
+            "total_min": 61.8
           },
           "script": [
             "第三の科目、関係法令です。一時間。",

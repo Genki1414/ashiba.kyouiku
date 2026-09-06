@@ -44,6 +44,29 @@ for (const s of ALL) {
       console.error(`NG ${id}: legal_scope が細目と違う\n    いま  「${l.legal_scope}」\n    あるべき「${want}」`);
       process.exit(1);
     }
+    /* 見積り（budget）は、教材の中身から数え直す。手で書いた数は、
+       あとから台本を足したり削ったりするとずれる。数え方は build-course.ts と同じ。
+       ここが法定を割ると、法定より短い時間で先へ進めてしまう */
+    const chars = l.script.join("").length;
+    const narration = Math.round((chars / 300) * 10) / 10;
+    const figures = l.figures.reduce((n, f) => n + f.min, 0);
+    const cases = l.cases.length * 5;
+    const quiz = Math.round(l.quiz.length * 0.35 * 100) / 100;
+    l.budget = {
+      narration_min: narration,
+      narration_chars: chars,
+      figures_min: figures,
+      cases_min: cases,
+      quiz_min: quiz,
+      total_min: Math.round((narration + figures + cases + quiz) * 10) / 10,
+    };
+    if (l.budget.total_min + 1e-9 < l.legal_min) {
+      console.error(
+        `NG ${id}: 中身が法定時間に足りない（${l.budget.total_min}分 ＜ ${l.legal_min}分）\n` +
+          `    あと ${Math.round((l.legal_min - l.budget.total_min) * 10) / 10}分`,
+      );
+      process.exit(1);
+    }
     lessons.push(l);
   }
   /* 討議のぶんは、各自で見る単元には入らない。

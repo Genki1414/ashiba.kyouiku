@@ -3,7 +3,7 @@
     "title": "アーク溶接等の業務に係る特別教育（学科）",
     "basis": "労働安全衛生法第59条第3項／労働安全衛生規則第36条第3号／安全衛生特別教育規程第4条",
     "total_min": 660,
-    "generated": "2026-09-02",
+    "generated": "2026-09-06",
     "stats": {
       "narration_lines": 658,
       "narration_chars": 21958,
@@ -4639,8 +4639,8 @@
             "narration_chars": 1545,
             "figures_min": 47,
             "cases_min": 10,
-            "quiz_min": 3.8,
-            "total_min": 66
+            "quiz_min": 3.85,
+            "total_min": 66.1
           },
           "script": [
             "次は、**災害防止**。六十分と五十分の、二つに分けてやります。前半は**感電、アーク光、火災**。",
@@ -5162,8 +5162,8 @@
             "narration_chars": 1813,
             "figures_min": 43,
             "cases_min": 10,
-            "quiz_min": 3.8,
-            "total_min": 62.8
+            "quiz_min": 3.85,
+            "total_min": 62.9
           },
           "script": [
             "災害防止の後半、**ヒューム、ガス、換気、保護具**。五十分。",

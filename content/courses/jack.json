@@ -3,7 +3,7 @@
     "title": "ジャッキ式つり上げ機械の調整又は運転の業務に係る特別教育（学科）",
     "basis": "労働安全衛生法第59条第3項／労働安全衛生規則第36条第10号の4／安全衛生特別教育規程第12条の4",
     "total_min": 360,
-    "generated": "2026-09-04",
+    "generated": "2026-09-06",
     "stats": {
       "narration_lines": 280,
       "narration_chars": 9702,
@@ -451,12 +451,12 @@
           "legal_min": 80,
           "scene": "kouzou",
           "budget": {
-            "narration_min": 5,
+            "narration_min": 5.1,
             "narration_chars": 1515,
             "figures_min": 67,
             "cases_min": 5,
-            "quiz_min": 3.8,
-            "total_min": 80.8
+            "quiz_min": 3.85,
+            "total_min": 80.9
           },
           "script": [
             "科目1の二つ目。**保持機構、ワイヤロープ等、作動装置、制御装置、同時開放防止機構等の安全装置。**",
@@ -1106,7 +1106,7 @@
             "narration_chars": 996,
             "figures_min": 41,
             "cases_min": 0,
-            "quiz_min": 3.1,
+            "quiz_min": 3.15,
             "total_min": 47.4
           },
           "script": [
@@ -1749,8 +1749,8 @@
             "narration_chars": 1167,
             "figures_min": 42,
             "cases_min": 0,
-            "quiz_min": 3.1,
-            "total_min": 49
+            "quiz_min": 3.15,
+            "total_min": 49.1
           },
           "script": [
             "科目2の最後は、**合図方法**。",

@@ -3,7 +3,7 @@
     "title": "機械集材装置の運転の業務に係る特別教育（学科）",
     "basis": "労働安全衛生法第59条第3項／労働安全衛生規則第36条第7号／安全衛生特別教育規程第9条",
     "total_min": 360,
-    "generated": "2026-09-03",
+    "generated": "2026-09-06",
     "stats": {
       "narration_lines": 316,
       "narration_chars": 11520,
@@ -615,8 +615,8 @@
             "narration_chars": 1762,
             "figures_min": 46,
             "cases_min": 5,
-            "quiz_min": 3.8,
-            "total_min": 60.7
+            "quiz_min": 3.85,
+            "total_min": 60.8
           },
           "script": [
             "次の単元は、**索張り方式**。架線をどう張るか。",
@@ -1080,8 +1080,8 @@
             "narration_chars": 1652,
             "figures_min": 44,
             "cases_min": 5,
-            "quiz_min": 3.8,
-            "total_min": 58.3
+            "quiz_min": 3.85,
+            "total_min": 58.4
           },
           "script": [
             "科目1の最後は、**集材方法**。架線で、どう丸太を運ぶか。",
@@ -1616,8 +1616,8 @@
             "narration_chars": 1778,
             "figures_min": 45,
             "cases_min": 5,
-            "quiz_min": 4.5,
-            "total_min": 60.4
+            "quiz_min": 4.55,
+            "total_min": 60.5
           },
           "script": [
             "科目2は、**ワイヤロープに関する知識**。二時間。この教育の半分はワイヤロープです。",

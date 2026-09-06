@@ -3,7 +3,7 @@
     "title": "ボーリングマシンの運転の業務に係る特別教育（学科）",
     "basis": "労働安全衛生法第59条第3項／労働安全衛生規則第36条第10号の3／安全衛生特別教育規程第12条の3",
     "total_min": 420,
-    "generated": "2026-09-04",
+    "generated": "2026-09-06",
     "stats": {
       "narration_lines": 284,
       "narration_chars": 10092,
@@ -30,8 +30,8 @@
             "narration_chars": 1862,
             "figures_min": 76,
             "cases_min": 5,
-            "quiz_min": 3.8,
-            "total_min": 91
+            "quiz_min": 3.85,
+            "total_min": 91.1
           },
           "script": [
             "ボーリングマシンの特別教育を始めます。",
@@ -1550,8 +1550,8 @@
             "narration_chars": 1178,
             "figures_min": 34,
             "cases_min": 0,
-            "quiz_min": 3.1,
-            "total_min": 41
+            "quiz_min": 3.15,
+            "total_min": 41.1
           },
           "script": [
             "次は、**土木施工の方法**。",
@@ -1829,8 +1829,8 @@
             "narration_chars": 941,
             "figures_min": 24,
             "cases_min": 0,
-            "quiz_min": 3.1,
-            "total_min": 30.2
+            "quiz_min": 3.15,
+            "total_min": 30.3
           },
           "script": [
             "科目2の最後は、**ワイヤロープ及び補助具**。",

@@ -3,7 +3,7 @@
     "title": "基礎工事用建設機械の運転の業務に係る特別教育（学科）",
     "basis": "労働安全衛生法第59条第3項／労働安全衛生規則第36条第9号の2／安全衛生特別教育規程第11条の4",
     "total_min": 420,
-    "generated": "2026-09-04",
+    "generated": "2026-09-06",
     "stats": {
       "narration_lines": 321,
       "narration_chars": 12277,
@@ -30,8 +30,8 @@
             "narration_chars": 2237,
             "figures_min": 68,
             "cases_min": 5,
-            "quiz_min": 3.8,
-            "total_min": 84.3
+            "quiz_min": 3.85,
+            "total_min": 84.4
           },
           "script": [
             "基礎工事用建設機械の特別教育を始めます。",
@@ -1519,8 +1519,8 @@
             "narration_chars": 1372,
             "figures_min": 44,
             "cases_min": 0,
-            "quiz_min": 3.8,
-            "total_min": 52.4
+            "quiz_min": 3.85,
+            "total_min": 52.5
           },
           "script": [
             "科目2に入ります。**運転に必要な一般的事項**。二時間。力学と土質工学、土木施工の方法、ワイヤロープと補助具。",
@@ -2159,8 +2159,8 @@
             "narration_chars": 1112,
             "figures_min": 24,
             "cases_min": 0,
-            "quiz_min": 3.8,
-            "total_min": 31.5
+            "quiz_min": 3.85,
+            "total_min": 31.6
           },
           "script": [
             "科目2の最後は、**ワイヤロープ及び補助具**。",

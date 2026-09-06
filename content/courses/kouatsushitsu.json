@@ -1673,8 +1673,8 @@
             "narration_chars": 1489,
             "figures_min": 76,
             "cases_min": 0,
-            "quiz_min": 3.1,
-            "total_min": 84.1
+            "quiz_min": 3.15,
+            "total_min": 84.2
           },
           "script": [
             "三つ目の科目、**急激な圧力低下、火災等の防止に関すること**です。",
@@ -2083,8 +2083,8 @@
             "narration_chars": 1349,
             "figures_min": 80,
             "cases_min": 0,
-            "quiz_min": 3.1,
-            "total_min": 87.6
+            "quiz_min": 3.15,
+            "total_min": 87.7
           },
           "script": [
             "火災等の防止方法です。",
@@ -2502,8 +2502,8 @@
             "narration_chars": 1268,
             "figures_min": 75,
             "cases_min": 0,
-            "quiz_min": 3.1,
-            "total_min": 82.3
+            "quiz_min": 3.15,
+            "total_min": 82.4
           },
           "script": [
             "事故発生時の措置です。",

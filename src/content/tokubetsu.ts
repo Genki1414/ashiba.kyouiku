@@ -1858,13 +1858,18 @@ export const TOKUBETSU: Tokubetsu[] = [
     courseId: "senryouka",
     doc: "docs/81-高気圧の六つと特定線量下業務の根拠と裏取り.md",
   },
+  /* 根拠に号を足した。足場の講座（ashiba）の根拠は初めから
+     「労働安全衛生法第59条第3項／労働安全衛生規則第36条第39号」で、
+     修了証・目次・試験にもその号が出ている（docs/18の裏取り表11行目）。
+     目録のこの行だけ号が落ちていて、講座と食い違っていたので合わせた。
+     **規程の何条かは、まだ条文で見ていないので書かない**（前後の行は第21条・第23条・第24条） */
   {
     no: 63,
     slug: "scaffolding_assembly",
     name: "足場の組立て、解体又は変更の作業に係る業務",
     gakkaMin: 360,
     jitsugiMin: 0,
-    basis: "安全衛生特別教育規程",
+    basis: "労働安全衛生規則第36条第39号／安全衛生特別教育規程",
     src: "roudoukyoku",
     courseId: "ashiba",
     checked: true,

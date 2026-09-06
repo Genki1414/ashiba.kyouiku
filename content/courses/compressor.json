@@ -30,8 +30,8 @@
             "narration_chars": 1002,
             "figures_min": 46,
             "cases_min": 0,
-            "quiz_min": 2.4,
-            "total_min": 51.7
+            "quiz_min": 2.45,
+            "total_min": 51.8
           },
           "script": [
             "圧気工法の概要です。",
@@ -312,8 +312,8 @@
             "narration_chars": 962,
             "figures_min": 66,
             "cases_min": 0,
-            "quiz_min": 3.1,
-            "total_min": 72.3
+            "quiz_min": 3.15,
+            "total_min": 72.4
           },
           "script": [
             "圧気工法による業務の危険性です。",
@@ -1026,8 +1026,8 @@
             "narration_chars": 1322,
             "figures_min": 70,
             "cases_min": 0,
-            "quiz_min": 3.1,
-            "total_min": 77.5
+            "quiz_min": 3.15,
+            "total_min": 77.6
           },
           "script": [
             "二つ目の科目、**送気設備の構造及び取扱いに関すること**です。",
@@ -1425,8 +1425,8 @@
             "narration_chars": 1160,
             "figures_min": 62,
             "cases_min": 0,
-            "quiz_min": 3.1,
-            "total_min": 69
+            "quiz_min": 3.15,
+            "total_min": 69.1
           },
           "script": [
             "送気設備の取扱い方法です。",
@@ -1783,8 +1783,8 @@
             "narration_chars": 1239,
             "figures_min": 57,
             "cases_min": 0,
-            "quiz_min": 3.1,
-            "total_min": 64.2
+            "quiz_min": 3.15,
+            "total_min": 64.3
           },
           "script": [
             "送気設備の点検修理の方法です。",
@@ -2938,8 +2938,8 @@
             "narration_chars": 1221,
             "figures_min": 72,
             "cases_min": 0,
-            "quiz_min": 3.1,
-            "total_min": 79.2
+            "quiz_min": 3.15,
+            "total_min": 79.3
           },
           "script": [
             "高気圧障害の予防方法です。",
@@ -3710,8 +3710,8 @@
             "narration_chars": 1335,
             "figures_min": 55,
             "cases_min": 0,
-            "quiz_min": 3.1,
-            "total_min": 62.6
+            "quiz_min": 3.15,
+            "total_min": 62.7
           },
           "script": [
             "関係法令の続きです。",
