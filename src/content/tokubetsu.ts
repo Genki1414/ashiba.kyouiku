@@ -1194,6 +1194,7 @@ export const TOKUBETSU: Tokubetsu[] = [
         name: "エックス線装置",
         gakkaMin: 270,
         jitsugiMin: 0,
+        courseId: "xrayki",
         note: "科目2は、エックス線装置の行（1時間30分）だけ",
         gakka: [
           { name: "エックス線装置又はガンマ線照射装置を取り扱う業務に係る作業の方法に関する知識", scope: "作業の手順　電離放射線の測定　被ばく防止の方法　事故時の措置", min: 90 },
@@ -1207,6 +1208,7 @@ export const TOKUBETSU: Tokubetsu[] = [
         name: "ガンマ線照射装置",
         gakkaMin: 270,
         jitsugiMin: 0,
+        courseId: "gammaki",
         note: "科目2は、ガンマ線照射装置の行（1時間30分）だけ",
         gakka: [
           { name: "エックス線装置又はガンマ線照射装置を取り扱う業務に係る作業の方法に関する知識", scope: "作業の手順　電離放射線の測定　被ばく防止の方法　事故時の措置", min: 90 },
@@ -1220,6 +1222,7 @@ export const TOKUBETSU: Tokubetsu[] = [
         name: "エックス線装置とガンマ線照射装置の両方",
         gakkaMin: 360,
         jitsugiMin: 0,
+        courseId: "xraygammaki",
         note: "科目2を両方の行で受ける（3時間）",
         gakka: [
           { name: "エックス線装置又はガンマ線照射装置を取り扱う業務に係る作業の方法に関する知識", scope: "作業の手順　電離放射線の測定　被ばく防止の方法　事故時の措置", min: 90 },
@@ -1237,7 +1240,7 @@ export const TOKUBETSU: Tokubetsu[] = [
     fullText: true,
     checked: true,
     checkedOn: KOKUJI_DENRI_ON,
-    doc: "docs/83-電離則の三つの告示を読んだ記録.md",
+    doc: "docs/86-エックス線装置・ガンマ線照射装置を装置ごとに三本にした記録.md",
   },
   {
     no: 48,

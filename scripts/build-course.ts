@@ -82,7 +82,12 @@
      事故由来廃棄物等の処分（電離則第52条の8）。告示が区分ごとに行を分けているので3本
      npm run build:haikihasai      # 破砕等
      npm run build:haikishokyaku   # 焼却
-     npm run build:haikiumetate    # 埋立て */
+     npm run build:haikiumetate    # 埋立て
+
+     エックス線装置・ガンマ線照射装置（電離則第52条の5）。科目2が装置で行が分かれているので3本。学科だけ
+     npm run build:xrayki          # エックス線装置
+     npm run build:gammaki         # ガンマ線照射装置
+     npm run build:xraygammaki     # 両方 */
 
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import path from "node:path";
@@ -165,6 +170,9 @@ import {
 import {
   HAIKI_BASIS, HAIKI_KUBUN, haikiLessons, haikiName, haikiSubjects, haikiTotalMin,
 } from "../src/content/haikishobun";
+import {
+  XG_BASIS, XG_KUBUN, xgLessons, xgName, xgSubjects, xgTotalMin,
+} from "../src/content/xraygamma";
 import {
   DERRICK_BASIS, DERRICK_LESSONS, DERRICK_NAME, DERRICK_SUBJECTS, DERRICK_TOTAL_MIN,
 } from "../src/content/derrick";
@@ -428,6 +436,30 @@ const PLANS: Record<string, Plan> = {
     subjects: haikiSubjects(HAIKI_KUBUN.umetate),
     lessons: haikiLessons(HAIKI_KUBUN.umetate),
     totalMin: haikiTotalMin(HAIKI_KUBUN.umetate),
+  },
+  xrayki: {
+    id: "xrayki",
+    name: `${xgName(XG_KUBUN.x)}（学科）`,
+    basis: XG_BASIS,
+    subjects: xgSubjects(XG_KUBUN.x),
+    lessons: xgLessons(XG_KUBUN.x),
+    totalMin: xgTotalMin(XG_KUBUN.x),
+  },
+  gammaki: {
+    id: "gammaki",
+    name: `${xgName(XG_KUBUN.g)}（学科）`,
+    basis: XG_BASIS,
+    subjects: xgSubjects(XG_KUBUN.g),
+    lessons: xgLessons(XG_KUBUN.g),
+    totalMin: xgTotalMin(XG_KUBUN.g),
+  },
+  xraygammaki: {
+    id: "xraygammaki",
+    name: `${xgName(XG_KUBUN.xg)}（学科）`,
+    basis: XG_BASIS,
+    subjects: xgSubjects(XG_KUBUN.xg),
+    lessons: xgLessons(XG_KUBUN.xg),
+    totalMin: xgTotalMin(XG_KUBUN.xg),
   },
   tetraalkyl: {
     id: "tetraalkyl",
