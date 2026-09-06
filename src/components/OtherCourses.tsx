@@ -88,12 +88,6 @@ function matchesCourse(c: CourseMeta, q: string): boolean {
   return words.every((w) => hay.includes(w));
 }
 
-/** 実技が要る講座か。目録の行で見る。行が無ければ分からないので、含める */
-const courseHasJitsugi = (c: CourseMeta): boolean => {
-  const t = tokubetsuOfCourse(c.id);
-  return t ? hasJitsugi(t) : false;
-};
-
 export function OtherCourses({
   ready = [],
   soon = [],
@@ -104,33 +98,19 @@ export function OtherCourses({
   soon?: CourseMeta[];
 }) {
   const [q, setQ] = useState("");
-  const [gakkaOnly, setGakkaOnly] = useState(false);
 
   /* 目録のうち、まだ講座になっていないもの */
   const todo = useMemo(() => TOKUBETSU.filter((t) => !isReady(t)), []);
 
-  const hitReady = useMemo(
-    () => (gakkaOnly ? ready.filter((c) => !courseHasJitsugi(c)) : ready)
-      .filter((c) => matchesCourse(c, q)),
-    [ready, q, gakkaOnly],
-  );
-  const hitSoon = useMemo(
-    () => (gakkaOnly ? soon.filter((c) => !courseHasJitsugi(c)) : soon)
-      .filter((c) => matchesCourse(c, q)),
-    [soon, q, gakkaOnly],
-  );
+  const hitReady = useMemo(() => ready.filter((c) => matchesCourse(c, q)), [ready, q]);
+  const hitSoon = useMemo(() => soon.filter((c) => matchesCourse(c, q)), [soon, q]);
   const hitTodo = useMemo(() => {
-    const base = gakkaOnly ? todo.filter((t) => !hasJitsugi(t)) : todo;
-    const found = searchTokubetsu(q, base);
+    const found = searchTokubetsu(q, todo);
     /* いま作っているものを先頭へ。**次に出るものが下に埋もれない**。
        ほかは目録のまま（法令の番号順） */
     return [...found.filter(isBuilding), ...found.filter((t) => !isBuilding(t))];
-  }, [q, gakkaOnly, todo]);
+  }, [q, todo]);
 
-  const nGakka =
-    ready.filter((c) => !courseHasJitsugi(c)).length +
-    soon.filter((c) => !courseHasJitsugi(c)).length +
-    todo.filter((t) => !hasJitsugi(t)).length;
   const nHit = hitReady.length + hitSoon.length + hitTodo.length;
 
   return (
@@ -148,19 +128,11 @@ export function OtherCourses({
         aria-label="特別教育を探す"
       />
 
-      <div className="mt-2 flex flex-wrap items-center gap-2">
-        <button
-          onClick={() => setGakkaOnly((v) => !v)}
-          className={`rounded-lg border px-2.5 py-1.5 text-[11.5px] ${
-            gakkaOnly ? "border-yel bg-[#1A1F14] text-yel" : "border-line text-dim2"
-          }`}
-          data-testid="other-gakka"
-        >
-          学科だけのもの（{nGakka}）
-        </button>
-        <span className="text-[11.5px] text-dim2" data-testid="other-count">
-          {nHit}件
-        </span>
+      {/* 絞り込みの札は置かない。**探す窓ひとつで足りる。**
+          「学科だけのもの」は、受ける人が講座を選ぶときの入口にならなかった。
+          実技が要るかどうかは、札を開けば書いてある */}
+      <div className="mt-2 text-[11.5px] text-dim2" data-testid="other-count">
+        {nHit}件
       </div>
 
       {/* 受けられるものが先。次に準備中。最後に、まだ講座にしていない目録 */}
