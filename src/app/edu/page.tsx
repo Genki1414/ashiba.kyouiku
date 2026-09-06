@@ -1,17 +1,9 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import {
-  COURSES,
-  KIND_TEXT,
-  hoursText,
-  kindOf,
-  menuOf,
-  splitMenu,
-  totalNoteOf,
-  type CourseMeta,
-} from "@/content/courses";
+import { COURSES, splitMenu } from "@/content/courses";
 import { loadedCourses } from "@/lib/curriculum";
 import { OtherCourses } from "@/components/OtherCourses";
+import { CourseCard, CourseSoon } from "@/components/CourseCard";
 import { TOKUBETSU, isReady } from "@/content/tokubetsu";
 
 export const dynamic = "force-dynamic";
@@ -28,37 +20,6 @@ export const dynamic = "force-dynamic";
 
    開け閉めは <details> でやる。JavaScript が動かなくても開くし、
    キーボードでも開ける。圏外で開いた人が詰まらない。 */
-
-function Card({ c }: { c: CourseMeta }) {
-  return (
-    <Link
-      href={`/edu/${c.id}`}
-      className="block rounded-xl border border-yel bg-panel p-4 no-underline"
-      data-testid="course-card"
-    >
-      {/* 種類は講座から出す。「特別教育（学科）」で決め打ちにしていたので、
-          職長教育のカードにも特別教育と出ていた */}
-      <div className="text-[11px] font-extrabold tracking-widest text-yel">
-        {KIND_TEXT[kindOf(c)].label}
-      </div>
-      <div className="mt-1 text-[16px] font-black leading-snug text-txt">{c.name}</div>
-      <div className="mt-1.5 text-[11.5px] leading-relaxed text-dim">
-        {c.basis}
-        <br />
-        {totalNoteOf(c)} {hoursText(c.totalMin)}
-      </div>
-    </Link>
-  );
-}
-
-function Soon({ c }: { c: CourseMeta }) {
-  return (
-    <div className="rounded-xl border border-line bg-bg p-3.5" data-testid="course-soon">
-      <div className="text-[13.5px] font-bold text-dim">{c.name}</div>
-      <div className="mt-0.5 text-[11px] text-dim2">準備中</div>
-    </div>
-  );
-}
 
 export default async function EduPage() {
   const ready = await loadedCourses();
@@ -88,7 +49,7 @@ export default async function EduPage() {
 
       <div className="mt-5 grid gap-2.5">
         {r.main.map((c) => (
-          <Card key={c.id} c={c} />
+          <CourseCard key={c.id} c={c} />
         ))}
       </div>
 
@@ -110,15 +71,12 @@ export default async function EduPage() {
             その他特別教育
             <span className="text-[11.5px] font-normal text-dim">{others}件</span>
           </summary>
-          <div className="grid gap-2.5 px-4 pb-4">
-            {r.other.map((c) => (
-              <Card key={c.id} c={c} />
-            ))}
-            {s.other.map((c) => (
-              <Soon key={c.id} c={c} />
-            ))}
-            {/* 法令で定められている特別教育の目録。探す所も、ここに置く */}
-            <OtherCourses />
+          <div className="px-4 pb-4">
+            {/* **探す所を、いちばん上に置く。**71講座がここに並ぶので、
+                下に置くと71枚めくらないと窓に届かない。
+                受けられる講座も、準備中も、まだ作っていない目録も、
+                同じ窓で絞る（OtherCourses が3つとも受け持つ） */}
+            <OtherCourses ready={r.other} soon={s.other} />
           </div>
         </details>
       )}
@@ -128,7 +86,7 @@ export default async function EduPage() {
           <div className="mb-2 text-[11px] tracking-[2px] text-dim">これから増えるもの</div>
           <div className="grid gap-2">
             {s.main.map((c) => (
-              <Soon key={c.id} c={c} />
+              <CourseSoon key={c.id} c={c} />
             ))}
           </div>
         </div>

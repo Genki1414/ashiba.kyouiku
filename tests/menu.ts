@@ -71,11 +71,29 @@ console.log("\n── 一覧の書き方 ──");
   check(page.includes("その他特別教育"), "見出しが出る");
   check(page.includes("others > 0"), "中身が無ければ開く所を出さない");
 
+  /* 講座の札は1か所にまとめた（src/components/CourseCard.tsx）。
+     出す場所が2つある（一覧の上と、「その他特別教育」を開いた中）ので、
+     2か所に書くと、開く前と開いたあとで札の形が変わる */
+  const card = code("src/components/CourseCard.tsx");
   /* 種類の決め打ちをやめる。職長教育のカードに「特別教育」と出ていた */
-  check(!page.includes('"特別教育（学科）"'), "カードの種類を決め打ちにしていない");
-  check(page.includes("KIND_TEXT[kindOf(c)]"), "種類は講座から出す");
-  check(page.includes("totalNoteOf(c)"), "学科だけか、討議まで含むかも講座から出す");
-  check(!page.includes("Math.floor(c.totalMin / 60)"), "時間の切り捨てをやめた");
+  check(!card.includes('"特別教育（学科）"'), "カードの種類を決め打ちにしていない");
+  check(card.includes("KIND_TEXT[kindOf(c)]"), "種類は講座から出す");
+  check(card.includes("totalNoteOf(c)"), "学科だけか、討議まで含むかも講座から出す");
+  check(!card.includes("Math.floor(c.totalMin / 60)"), "時間の切り捨てをやめた");
+  /* 札を書くのは1か所だけ。page 側に書き戻したら気づく */
+  check(!page.includes("KIND_TEXT[kindOf(c)]"), "札を page.tsx に書き戻していない");
+
+  /* 探す所は、いちばん上。71講座がここに並ぶので、下に置くと
+     71枚めくらないと窓に届かない。そして上に出した窓は、
+     下にある講座も探せなければ意味がない */
+  const other = code("src/components/OtherCourses.tsx");
+  const iSearch = other.indexOf('data-testid="other-search"');
+  const iCard = other.indexOf("<CourseCard");
+  check(iSearch > 0 && iCard > 0 && iSearch < iCard, "探す窓は、講座の札より上にある");
+  check(other.includes("matchesCourse"), "受けられる講座も、同じ窓で絞る");
+  check(other.includes("hitReady") && other.includes("hitSoon") && other.includes("hitTodo"),
+    "受けられる講座・準備中・目録の3つとも絞る");
+  check(!page.includes("r.other.map("), "その他の中身を page.tsx で並べていない（窓の下に来てしまう）");
 }
 
 console.log("\n── 時間の書き方 ──");
