@@ -77,7 +77,12 @@
      npm run build:josentokutei    # 特定汚染土壌等取扱業務
      npm run build:josentokuteigai # 特定汚染土壌等取扱業務（線量管理外）
 
-     npm run build:tokureikinkyu   # 特例緊急作業（電離則第52条の9） */
+     npm run build:tokureikinkyu   # 特例緊急作業（電離則第52条の9）
+
+     事故由来廃棄物等の処分（電離則第52条の8）。告示が区分ごとに行を分けているので3本
+     npm run build:haikihasai      # 破砕等
+     npm run build:haikishokyaku   # 焼却
+     npm run build:haikiumetate    # 埋立て */
 
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import path from "node:path";
@@ -157,6 +162,9 @@ import {
 import {
   TOKUREI_BASIS, TOKUREI_LESSONS, TOKUREI_NAME, TOKUREI_SUBJECTS, TOKUREI_TOTAL_MIN,
 } from "../src/content/tokureikinkyu";
+import {
+  HAIKI_BASIS, HAIKI_KUBUN, haikiLessons, haikiName, haikiSubjects, haikiTotalMin,
+} from "../src/content/haikishobun";
 import {
   DERRICK_BASIS, DERRICK_LESSONS, DERRICK_NAME, DERRICK_SUBJECTS, DERRICK_TOTAL_MIN,
 } from "../src/content/derrick";
@@ -396,6 +404,30 @@ const PLANS: Record<string, Plan> = {
     subjects: TOKUREI_SUBJECTS,
     lessons: TOKUREI_LESSONS,
     totalMin: TOKUREI_TOTAL_MIN,
+  },
+  haikihasai: {
+    id: "haikihasai",
+    name: `${haikiName(HAIKI_KUBUN.hasai)}（学科）`,
+    basis: HAIKI_BASIS,
+    subjects: haikiSubjects(HAIKI_KUBUN.hasai),
+    lessons: haikiLessons(HAIKI_KUBUN.hasai),
+    totalMin: haikiTotalMin(HAIKI_KUBUN.hasai),
+  },
+  haikishokyaku: {
+    id: "haikishokyaku",
+    name: `${haikiName(HAIKI_KUBUN.shokyaku)}（学科）`,
+    basis: HAIKI_BASIS,
+    subjects: haikiSubjects(HAIKI_KUBUN.shokyaku),
+    lessons: haikiLessons(HAIKI_KUBUN.shokyaku),
+    totalMin: haikiTotalMin(HAIKI_KUBUN.shokyaku),
+  },
+  haikiumetate: {
+    id: "haikiumetate",
+    name: `${haikiName(HAIKI_KUBUN.umetate)}（学科）`,
+    basis: HAIKI_BASIS,
+    subjects: haikiSubjects(HAIKI_KUBUN.umetate),
+    lessons: haikiLessons(HAIKI_KUBUN.umetate),
+    totalMin: haikiTotalMin(HAIKI_KUBUN.umetate),
   },
   tetraalkyl: {
     id: "tetraalkyl",

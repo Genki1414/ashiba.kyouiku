@@ -216,6 +216,10 @@ import {
   TOKUREI_DRILL_TEACHER, TOKUREI_DRILL_TOTAL_MIN, TOKUREI_JITSUGI,
 } from "./tokureikinkyu";
 import {
+  HAIKI_DRILL_TEACHER, HAIKI_KUBUN, haikiDrillForm, haikiDrillPrep, haikiDrillSteps,
+  haikiDrillTotalMin, haikiJitsugi,
+} from "./haikishobun";
+import {
   MOBILECRANE_DRILL_FORM,
   MOBILECRANE_DRILL_PREP,
   MOBILECRANE_DRILL_STEPS,
@@ -620,6 +624,42 @@ const GUIDES: Record<string, DrillGuide> = {
     prep: TOKUREI_DRILL_PREP,
     keepYears: 3,
     form: TOKUREI_DRILL_FORM,
+  },
+  haikihasai: {
+    courseId: "haikihasai",
+    subject: haikiJitsugi().name,
+    scope: haikiJitsugi().scope,
+    legalMin: haikiJitsugi().legalMin,
+    steps: haikiDrillSteps(HAIKI_KUBUN.hasai),
+    totalMin: haikiDrillTotalMin(HAIKI_KUBUN.hasai),
+    teacher: HAIKI_DRILL_TEACHER,
+    prep: haikiDrillPrep(HAIKI_KUBUN.hasai),
+    keepYears: 3,
+    form: haikiDrillForm(HAIKI_KUBUN.hasai),
+  },
+  haikishokyaku: {
+    courseId: "haikishokyaku",
+    subject: haikiJitsugi().name,
+    scope: haikiJitsugi().scope,
+    legalMin: haikiJitsugi().legalMin,
+    steps: haikiDrillSteps(HAIKI_KUBUN.shokyaku),
+    totalMin: haikiDrillTotalMin(HAIKI_KUBUN.shokyaku),
+    teacher: HAIKI_DRILL_TEACHER,
+    prep: haikiDrillPrep(HAIKI_KUBUN.shokyaku),
+    keepYears: 3,
+    form: haikiDrillForm(HAIKI_KUBUN.shokyaku),
+  },
+  haikiumetate: {
+    courseId: "haikiumetate",
+    subject: haikiJitsugi().name,
+    scope: haikiJitsugi().scope,
+    legalMin: haikiJitsugi().legalMin,
+    steps: haikiDrillSteps(HAIKI_KUBUN.umetate),
+    totalMin: haikiDrillTotalMin(HAIKI_KUBUN.umetate),
+    teacher: HAIKI_DRILL_TEACHER,
+    prep: haikiDrillPrep(HAIKI_KUBUN.umetate),
+    keepYears: 3,
+    form: haikiDrillForm(HAIKI_KUBUN.umetate),
   },
   boiler: {
     courseId: "boiler",

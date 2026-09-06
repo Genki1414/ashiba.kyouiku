@@ -703,6 +703,56 @@ export const COURSES: CourseMeta[] = [
     menu: "other",
   },
   {
+    /* 事故由来廃棄物等の処分の業務（目録50）を業務区分ごとに3本にした。告示第140号第2条・第3条の
+       表が区分ごとに行を分けているから（docs/83）。裏取りは docs/85。
+       **破砕等。**破砕、選別、圧縮、濃縮。粉じんが立つ。集じん機に集めた粉がいちばん濃い */
+    id: "haikihasai",
+    kind: "special",
+    type: "ondemand",
+    gate: "drill",
+    drillMin: 120,
+    name: "事故由来廃棄物等の処分の業務（破砕等）に係る特別教育",
+    short: "事故由来廃棄物等の処分（破砕等）",
+    basis:
+      "労働安全衛生法第59条第3項／電離放射線障害防止規則第52条の8第1項／事故由来廃棄物等処分業務特別教育規程第2条・第3条",
+    totalMin: 300,
+    file: "haikihasai.json",
+    ready: true,
+    menu: "other",
+  },
+  {
+    /* **焼却。**燃やして減らす。灰にする。飛灰（排ガスから集めた灰）がいちばん濃い */
+    id: "haikishokyaku",
+    kind: "special",
+    type: "ondemand",
+    gate: "drill",
+    drillMin: 120,
+    name: "事故由来廃棄物等の処分の業務（焼却）に係る特別教育",
+    short: "事故由来廃棄物等の処分（焼却）",
+    basis:
+      "労働安全衛生法第59条第3項／電離放射線障害防止規則第52条の8第1項／事故由来廃棄物等処分業務特別教育規程第2条・第3条",
+    totalMin: 300,
+    file: "haikishokyaku.json",
+    ready: true,
+    menu: "other",
+  },
+  {
+    /* **埋立て。**遮水工の上に、決められた層で。集排水と浸出水の処理。水を測って処理してから出す */
+    id: "haikiumetate",
+    kind: "special",
+    type: "ondemand",
+    gate: "drill",
+    drillMin: 120,
+    name: "事故由来廃棄物等の処分の業務（埋立て）に係る特別教育",
+    short: "事故由来廃棄物等の処分（埋立て）",
+    basis:
+      "労働安全衛生法第59条第3項／電離放射線障害防止規則第52条の8第1項／事故由来廃棄物等処分業務特別教育規程第2条・第3条",
+    totalMin: 300,
+    file: "haikiumetate.json",
+    ready: true,
+    menu: "other",
+  },
+  {
     /* 四アルキル鉛等業務の特別教育（目録43）。
 
        ・**学科6時間だけ。実技は無い**（gate なし）
