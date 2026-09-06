@@ -75,7 +75,9 @@
      npm run build:josenshushu     # 除去土壌の収集等
      npm run build:josenhaiki      # 汚染廃棄物の収集等
      npm run build:josentokutei    # 特定汚染土壌等取扱業務
-     npm run build:josentokuteigai # 特定汚染土壌等取扱業務（線量管理外） */
+     npm run build:josentokuteigai # 特定汚染土壌等取扱業務（線量管理外）
+
+     npm run build:tokureikinkyu   # 特例緊急作業（電離則第52条の9） */
 
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import path from "node:path";
@@ -152,6 +154,9 @@ import {
 import {
   JOSEN_BASIS, JOSEN_KUBUN, JOSEN_KUBUN_IDS, josenLessons, josenName, josenSubjects, josenTotalMin,
 } from "../src/content/josen";
+import {
+  TOKUREI_BASIS, TOKUREI_LESSONS, TOKUREI_NAME, TOKUREI_SUBJECTS, TOKUREI_TOTAL_MIN,
+} from "../src/content/tokureikinkyu";
 import {
   DERRICK_BASIS, DERRICK_LESSONS, DERRICK_NAME, DERRICK_SUBJECTS, DERRICK_TOTAL_MIN,
 } from "../src/content/derrick";
@@ -383,6 +388,14 @@ const PLANS: Record<string, Plan> = {
     subjects: josenSubjects(JOSEN_KUBUN.tokuteigai),
     lessons: josenLessons(JOSEN_KUBUN.tokuteigai),
     totalMin: josenTotalMin(JOSEN_KUBUN.tokuteigai),
+  },
+  tokureikinkyu: {
+    id: "tokureikinkyu",
+    name: `${TOKUREI_NAME}（学科）`,
+    basis: TOKUREI_BASIS,
+    subjects: TOKUREI_SUBJECTS,
+    lessons: TOKUREI_LESSONS,
+    totalMin: TOKUREI_TOTAL_MIN,
   },
   tetraalkyl: {
     id: "tetraalkyl",

@@ -178,6 +178,7 @@ console.log("── 講座ごとの単価 ──");
   check(unitPrice("josenhaiki") === 5000, `${unitPrice("josenhaiki")}`);
   check(unitPrice("josentokutei") === 4500, `${unitPrice("josentokutei")}`);
   check(unitPrice("josentokuteigai") === 4500, `${unitPrice("josentokuteigai")}`);
+  check(unitPrice("tokureikinkyu") === 9500, `特例緊急作業は9,500円（税抜）（${unitPrice("tokureikinkyu")}）`);
   check(unitPrice("tetraalkyl") === 6000, `四アルキル鉛等は6,000円（税抜）（${unitPrice("tetraalkyl")}）`);
   check(unitPrice("boiler") === 7000, `小型ボイラーは7,000円（税抜）（${unitPrice("boiler")}）`);
   check(unitPrice("gondola") === 5500, `ゴンドラは5,500円（税抜）（${unitPrice("gondola")}）`);

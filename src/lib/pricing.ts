@@ -429,6 +429,7 @@ export const DEFAULT_COURSE_PRICE: Record<string, number> = {
   josenhaiki: 5000,
   josentokutei: 4500,
   josentokuteigai: 4500,
+  tokureikinkyu: 9500,
   kensetsulift: 5500,
   mobilecrane: 8000,
   crane: 8000,

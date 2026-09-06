@@ -685,6 +685,24 @@ export const COURSES: CourseMeta[] = [
     menu: "other",
   },
   {
+    /* 特例緊急作業（目録51）。重大事故等に対処するために、ふつうの限度を超えて行う緊急の作業。
+       告示第361号（令和8年告示第44号による改正後）第2条・第3条の全文で確かめてある（docs/83）。
+       **うちでいちばん重い講座。**学科6時間30分＋実技6時間。裏取りは docs/84 */
+    id: "tokureikinkyu",
+    kind: "special",
+    type: "ondemand",
+    gate: "drill",
+    drillMin: 360,
+    name: "特例緊急作業に係る特別教育",
+    short: "特例緊急作業",
+    basis:
+      "労働安全衛生法第59条第3項／電離放射線障害防止規則第52条の9第1項／特例緊急作業特別教育規程第2条・第3条",
+    totalMin: 390,
+    file: "tokureikinkyu.json",
+    ready: true,
+    menu: "other",
+  },
+  {
     /* 四アルキル鉛等業務の特別教育（目録43）。
 
        ・**学科6時間だけ。実技は無い**（gate なし）

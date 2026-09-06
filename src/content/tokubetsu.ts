@@ -1389,7 +1389,8 @@ export const TOKUBETSU: Tokubetsu[] = [
     fromMaster: true,
     fullText: true,
     checkedOn: KOKUJI_DENRI_ON,
-    doc: "docs/83-電離則の三つの告示を読んだ記録.md",
+    courseId: "tokureikinkyu",
+    doc: "docs/84-特例緊急作業の根拠と裏取り.md",
   },
   /* 根拠を直した。粉じんは「安全衛生特別教育規程」ではなく、
      **粉じん作業特別教育規程（昭和54年労働省告示第68号）**。

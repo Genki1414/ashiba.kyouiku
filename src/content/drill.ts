@@ -212,6 +212,10 @@ import {
   josenDrillTotalMin, josenJitsugi,
 } from "./josen";
 import {
+  TOKUREI_DRILL_FORM, TOKUREI_DRILL_PREP, TOKUREI_DRILL_STEPS,
+  TOKUREI_DRILL_TEACHER, TOKUREI_DRILL_TOTAL_MIN, TOKUREI_JITSUGI,
+} from "./tokureikinkyu";
+import {
   MOBILECRANE_DRILL_FORM,
   MOBILECRANE_DRILL_PREP,
   MOBILECRANE_DRILL_STEPS,
@@ -604,6 +608,18 @@ const GUIDES: Record<string, DrillGuide> = {
     prep: josenDrillPrep(JOSEN_KUBUN.tokuteigai),
     keepYears: 3,
     form: josenDrillForm(JOSEN_KUBUN.tokuteigai),
+  },
+  tokureikinkyu: {
+    courseId: "tokureikinkyu",
+    subject: TOKUREI_JITSUGI.name,
+    scope: TOKUREI_JITSUGI.scope,
+    legalMin: TOKUREI_JITSUGI.legalMin,
+    steps: TOKUREI_DRILL_STEPS,
+    totalMin: TOKUREI_DRILL_TOTAL_MIN,
+    teacher: TOKUREI_DRILL_TEACHER,
+    prep: TOKUREI_DRILL_PREP,
+    keepYears: 3,
+    form: TOKUREI_DRILL_FORM,
   },
   boiler: {
     courseId: "boiler",
