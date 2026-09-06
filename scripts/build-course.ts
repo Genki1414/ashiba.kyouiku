@@ -57,7 +57,8 @@
      npm run build:kensetsulift # 建設用リフト
      npm run build:derrick    # デリック（5トン未満）
      npm run build:gondola    # ゴンドラ
-     npm run build:boiler     # 小型ボイラー */
+     npm run build:boiler     # 小型ボイラー
+     npm run build:tetraalkyl # 四アルキル鉛等（学科だけ） */
 
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import path from "node:path";
@@ -107,6 +108,9 @@ import {
 import {
   BOILER_BASIS, BOILER_LESSONS, BOILER_NAME, BOILER_SUBJECTS, BOILER_TOTAL_MIN,
 } from "../src/content/boiler";
+import {
+  TETRA_BASIS, TETRA_LESSONS, TETRA_NAME, TETRA_SUBJECTS, TETRA_TOTAL_MIN,
+} from "../src/content/tetraalkyl";
 import {
   DERRICK_BASIS, DERRICK_LESSONS, DERRICK_NAME, DERRICK_SUBJECTS, DERRICK_TOTAL_MIN,
 } from "../src/content/derrick";
@@ -238,6 +242,14 @@ const PLANS: Record<string, Plan> = {
     subjects: DERRICK_SUBJECTS,
     lessons: DERRICK_LESSONS,
     totalMin: DERRICK_TOTAL_MIN,
+  },
+  tetraalkyl: {
+    id: "tetraalkyl",
+    name: `${TETRA_NAME}（学科）`,
+    basis: TETRA_BASIS,
+    subjects: TETRA_SUBJECTS,
+    lessons: TETRA_LESSONS,
+    totalMin: TETRA_TOTAL_MIN,
   },
   boiler: {
     id: "boiler",

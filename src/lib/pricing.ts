@@ -322,6 +322,12 @@ export function parseUnitPrice(raw: string | undefined): number {
         学科9時間。クレーン・移動式クレーンと同じ長さなので、同じ 8,000円。
         実技の手引きと実施記録の様式が付く（/edu/derrick/drill）。
 
+      四アルキル鉛等業務（**学科6時間だけ。実技は無い**）
+        **よその値段はまだ調べていない**（docs/80）。
+        → ここ 6,000円（税抜）＝ 6,600円（税込）
+        学科6時間。**実技が無いので、手引きも実施記録も付かない。**
+        酸欠・硫化水素（学科5時間30分）の一つ上に置いた。
+
       小型ボイラー（学科7時間＋実技4時間。ここで出すのは学科だけ）
         **よその値段はまだ調べていない**（docs/79）。
         → ここ 7,000円（税抜）＝ 7,700円（税込）
@@ -410,6 +416,7 @@ export const DEFAULT_COURSE_PRICE: Record<string, number> = {
   derrick: 8000,
   gondola: 5500,
   boiler: 7000,
+  tetraalkyl: 6000,
   kensetsulift: 5500,
   mobilecrane: 8000,
   crane: 8000,

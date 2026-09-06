@@ -1095,6 +1095,8 @@ export const TOKUBETSU: Tokubetsu[] = [
     checked: true,
     fullText: true,
     checkedOn: KOKUJI_125_469_ON,
+    courseId: "tetraalkyl",
+    doc: "docs/80-四アルキル鉛等業務の根拠と裏取り.md",
   },
   /* 学科は5時間30分（5科目、うち「その他」が1時間30分）。CSV は240分だった */
   {

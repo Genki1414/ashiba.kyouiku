@@ -53,6 +53,7 @@
     "build:tokushu": "tsx scripts/build-course.ts tokushu",
     "build:tamakake": "tsx scripts/build-course.ts tamakake",
     "build:derrick": "tsx scripts/build-course.ts derrick",
+    "build:tetraalkyl": "tsx scripts/build-course.ts tetraalkyl",
     "build:boiler": "tsx scripts/build-course.ts boiler",
     "build:gondola": "tsx scripts/build-course.ts gondola",
     "build:kensetsulift": "tsx scripts/build-course.ts kensetsulift",
