@@ -230,7 +230,7 @@ await page.screenshot({ path: `${SC}/issue-08-drill.png` });
 
 /* 実技の手引き。会社の人が見る画面なので、ログイン無しで開けること。
    **実技のある講座は増える。決め打ちにせず、全部を回す。** */
-for (const [id, mins] of [["kousho", 180], ["harness", 90], ["rope", 180], ["kogata", 360], ["forklift", 360], ["tailgate", 120], ["toishi", 120], ["teiatsu", 420], ["winch", 240], ["roller", 240], ["chainsaw", 540], ["arc", 600], ["kikaitoishi", 180], ["shovel", 360], ["fuseichi", 360], ["kouatsu", 900], ["ev", 60], ["press", 120], ["youka", 240], ["batsuboku", 360], ["soukou", 360], ["kikaishuzai", 480], ["kanikasen", 480], ["kisokouji", 360], ["kaitai", 420], ["kisokenki", 300], ["kisosousa", 240], ["concrete", 300], ["boring", 300], ["jack", 240], ["kidou", 240], ["robotkyoji", 180], ["robotkensa", 240], ["tire", 240], ["tokushu", 900], ["tamakake", 240], ["crane", 240], ["mobilecrane", 240], ["kensetsulift", 240], ["derrick", 240], ["gondola", 240], ["boiler", 240], ["compressor", 120], ["soukiroom", 120], ["kikoushitsu", 180], ["soukisensui", 120], ["saiatsushitsu", 180]]) {
+for (const [id, mins] of [["kousho", 180], ["harness", 90], ["rope", 180], ["kogata", 360], ["forklift", 360], ["tailgate", 120], ["toishi", 120], ["teiatsu", 420], ["winch", 240], ["roller", 240], ["chainsaw", 540], ["arc", 600], ["kikaitoishi", 180], ["shovel", 360], ["fuseichi", 360], ["kouatsu", 900], ["ev", 60], ["press", 120], ["youka", 240], ["batsuboku", 360], ["soukou", 360], ["kikaishuzai", 480], ["kanikasen", 480], ["kisokouji", 360], ["kaitai", 420], ["kisokenki", 300], ["kisosousa", 240], ["concrete", 300], ["boring", 300], ["jack", 240], ["kidou", 240], ["robotkyoji", 180], ["robotkensa", 240], ["tire", 240], ["tokushu", 900], ["tamakake", 240], ["crane", 240], ["mobilecrane", 240], ["kensetsulift", 240], ["derrick", 240], ["gondola", 240], ["boiler", 240], ["compressor", 120], ["soukiroom", 120], ["kikoushitsu", 180], ["soukisensui", 120], ["saiatsushitsu", 180], ["josendojo", 90], ["josenshushu", 90], ["josenhaiki", 90], ["josentokutei", 60], ["josentokuteigai", 60]]) {
   await page.goto(`${BASE}/edu/${id}/drill`);
   await dismissNotice();
   await page.getByTestId("drill-guide").waitFor({ timeout: 6000 })
@@ -301,6 +301,21 @@ for (const [id, mins] of [["kousho", 180], ["harness", 90], ["rope", 180], ["kog
     check(form.includes("送気ホース") && form.includes("全長を手で送って見た"), "潜水への送気の様式にホースの欄がある");
     check(form.includes("信号索"), "潜水への送気の様式に信号索の欄がある");
     check(form.includes("前回いつ潜ったか"), "潜水への送気の様式に前回の潜水の欄がある");
+  } else if (id.startsWith("josen")) {
+    check(form.includes("業務区分の確認") && form.includes("ほかの区分と混ぜていない"), `${id}: 除染等の様式に業務区分の欄がある`);
+    check(form.includes("外側を素手で触らずに脱いだ"), `${id}: 除染等の様式に保護具の脱ぎ方の欄がある`);
+    check(form.includes("汚染の検査と除去"), `${id}: 除染等の様式に汚染の検査の欄がある`);
+    if (id === "josentokutei" || id === "josentokuteigai") {
+      check(!form.includes("機械等の取扱い（法定の中欄）"), `${id}: 特定汚染土壌等取扱業務の様式に機械等の欄が無い`);
+    } else {
+      check(form.includes("機械等の取扱い（法定の中欄）"), `${id}: 除染等の様式に機械等の欄がある`);
+    }
+    if (id === "josentokuteigai") {
+      check(!form.includes("線量当量率の監視（法定の中欄）"), "線量管理外の様式に線量当量率の監視の欄が無い");
+      check(form.includes("2.5マイクロシーベルト毎時以下"), "線量管理外の様式に2.5マイクロシーベルト毎時の欄がある");
+    } else {
+      check(form.includes("線量当量率の監視（法定の中欄）"), `${id}: 除染等の様式に線量当量率の監視の欄がある`);
+    }
   } else if (id === "saiatsushitsu") {
     check(form.includes("第11条第1項第5号"), "再圧室の様式に持ち場（第5号）の欄がある");
     check(form.includes("標準再圧治療の表"), "再圧室の様式に治療の表の欄がある");

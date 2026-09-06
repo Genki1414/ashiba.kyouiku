@@ -603,6 +603,88 @@ export const COURSES: CourseMeta[] = [
     menu: "other",
   },
   {
+    /* 除染等業務（目録61）を業務区分ごとに5本にした。告示第469号第2条・第3条の表が
+       区分ごとに行を分けているから（docs/73）。裏取りは docs/82。
+       **土壌等の除染等。**表土の剥ぎ取り、草刈り、落ち葉かき、洗浄。五つの区分でいちばん多い */
+    id: "josendojo",
+    kind: "special",
+    type: "ondemand",
+    gate: "drill",
+    drillMin: 90,
+    name: "除染等業務（土壌等の除染等）に係る特別教育",
+    short: "除染等業務（土壌等の除染等）",
+    basis:
+      "労働安全衛生法第59条第3項／除染則第19条第1項／除染等業務特別教育及び特定線量下業務特別教育規程第1条〜第3条",
+    totalMin: 240,
+    file: "josendojo.json",
+    ready: true,
+    menu: "other",
+  },
+  {
+    /* **除去土壌の収集等。**フレコンバッグの積込み・運搬・保管。吊る・運ぶ人 */
+    id: "josenshushu",
+    kind: "special",
+    type: "ondemand",
+    gate: "drill",
+    drillMin: 90,
+    name: "除染等業務（除去土壌の収集等）に係る特別教育",
+    short: "除染等業務（除去土壌の収集等）",
+    basis:
+      "労働安全衛生法第59条第3項／除染則第19条第1項／除染等業務特別教育及び特定線量下業務特別教育規程第1条〜第3条",
+    totalMin: 240,
+    file: "josenshushu.json",
+    ready: true,
+    menu: "other",
+  },
+  {
+    /* **汚染廃棄物の収集等。**落ち葉、枝、がれき、汚泥を集めて運ぶ。処分（破砕・焼却・埋立て）は別の業務 */
+    id: "josenhaiki",
+    kind: "special",
+    type: "ondemand",
+    gate: "drill",
+    drillMin: 90,
+    name: "除染等業務（汚染廃棄物の収集等）に係る特別教育",
+    short: "除染等業務（汚染廃棄物の収集等）",
+    basis:
+      "労働安全衛生法第59条第3項／除染則第19条第1項／除染等業務特別教育及び特定線量下業務特別教育規程第1条〜第3条",
+    totalMin: 240,
+    file: "josenhaiki.json",
+    ready: true,
+    menu: "other",
+  },
+  {
+    /* **特定汚染土壌等取扱業務。**除染そのものではなく、汚染された土のある場所で土を掘る・運ぶ工事や農作業。機械の科目が名称及び用途だけになり、実技も1時間 */
+    id: "josentokutei",
+    kind: "special",
+    type: "ondemand",
+    gate: "drill",
+    drillMin: 60,
+    name: "除染等業務（特定汚染土壌等取扱業務）に係る特別教育",
+    short: "除染等業務（特定汚染土壌等取扱業務）",
+    basis:
+      "労働安全衛生法第59条第3項／除染則第19条第1項／除染等業務特別教育及び特定線量下業務特別教育規程第1条〜第3条",
+    totalMin: 210,
+    file: "josentokutei.json",
+    ready: true,
+    menu: "other",
+  },
+  {
+    /* **特定汚染土壌等取扱業務（線量管理外）。**平均空間線量率2.5マイクロシーベルト毎時以下の場所でだけ行う人。時間は同じで、範囲が短い（線量の測定・記録と、線量当量率の監視が抜ける） */
+    id: "josentokuteigai",
+    kind: "special",
+    type: "ondemand",
+    gate: "drill",
+    drillMin: 60,
+    name: "除染等業務（特定汚染土壌等取扱業務（線量管理外））に係る特別教育",
+    short: "除染等業務（特定汚染土壌等取扱業務（線量管理外））",
+    basis:
+      "労働安全衛生法第59条第3項／除染則第19条第1項／除染等業務特別教育及び特定線量下業務特別教育規程第1条〜第3条",
+    totalMin: 210,
+    file: "josentokuteigai.json",
+    ready: true,
+    menu: "other",
+  },
+  {
     /* 四アルキル鉛等業務の特別教育（目録43）。
 
        ・**学科6時間だけ。実技は無い**（gate なし）

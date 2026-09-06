@@ -25,6 +25,7 @@ import {
   withJikou,
   hasVariants,
   unknownHours,
+  courseIdsOf,
 } from "../src/content/tokubetsu";
 import { COURSES, findCourse, hoursText } from "../src/content/courses";
 import {
@@ -128,15 +129,21 @@ console.log("\n── 作ってある講座とのつながり ──");
     oxygen_deficiency_type1: "第2種（5時間30分）は第1種（4時間）を含む",
   };
   for (const t of TOKUBETSU.filter(isReady)) {
-    const c = findCourse(t.courseId!);
-    check(!!c, `${t.slug}: つないだ講座が実在する`, t.courseId);
-    if (!c) continue;
-    check(c.totalMin >= t.gakkaMin,
-      `${t.slug}: 講座の学科が法定時間を下回らない`,
-      `目録 ${hoursText(t.gakkaMin)} ／ 講座 ${hoursText(c.totalMin)}`);
-    check(c.totalMin === t.gakkaMin || !!COVERS[t.slug],
-      `${t.slug}: 時間が違うなら、兼ねる理由が書いてある`,
-      COVERS[t.slug] ?? `目録 ${hoursText(t.gakkaMin)} ／ 講座 ${hoursText(c.totalMin)}`);
+    /* 区分ごとに講座にした行は、区分の法定時間と、区分の講座を突き合わせる */
+    const pairs: { id: string; gakkaMin: number; label: string }[] = t.courseId
+      ? [{ id: t.courseId, gakkaMin: t.gakkaMin, label: t.slug }]
+      : (t.variants ?? []).map((v) => ({ id: v.courseId!, gakkaMin: v.gakkaMin ?? t.gakkaMin, label: `${t.slug}（${v.name}）` }));
+    for (const p of pairs) {
+      const c = findCourse(p.id);
+      check(!!c, `${p.label}: つないだ講座が実在する`, p.id);
+      if (!c) continue;
+      check(c.totalMin >= p.gakkaMin,
+        `${p.label}: 講座の学科が法定時間を下回らない`,
+        `目録 ${hoursText(p.gakkaMin)} ／ 講座 ${hoursText(c.totalMin)}`);
+      check(c.totalMin === p.gakkaMin || !!COVERS[t.slug],
+        `${p.label}: 時間が違うなら、兼ねる理由が書いてある`,
+        COVERS[t.slug] ?? `目録 ${hoursText(p.gakkaMin)} ／ 講座 ${hoursText(c.totalMin)}`);
+    }
     /* 確かめていない行を、そのまま講座にしない */
     check(trustedHours(t), `${t.slug}: 講座にした行は確かめてある`);
   }
@@ -278,10 +285,48 @@ console.log("\n── 科目ごとの時間（げんきさんの講座マスタ�
   /* **業務区分で変わる行を、一つの固定時間の講座にしない。**
      除染等業務がこれ。全員一律で修了証を出すと、区分によっては足りない紙になる */
   for (const t of TOKUBETSU.filter(hasVariants)) {
-    /* 区分ごとに組む仕組みがまだ無い。一つの固定時間で講座にすると、
-       短い区分に合わせれば足りず、長い区分に合わせれば要らない時間を売る */
-    check(!t.courseId, `${t.slug}: 業務区分で変わる行は、まだ講座にしていない`,
+    /* 一つの固定時間で講座にすると、短い区分に合わせれば足りず、
+       長い区分に合わせれば要らない時間を売る。**講座にするなら、区分ごとに一本ずつ** */
+    check(!t.courseId, `${t.slug}: 業務区分で変わる行を、一つの講座にしていない`,
       t.variants!.map((v) => v.name).join("、"));
+    const withCourse = t.variants!.filter((v) => !!v.courseId);
+    check(withCourse.length === 0 || withCourse.length === t.variants!.length,
+      `${t.slug}: 区分の講座は、全部あるか、全部無いか`,
+      `${withCourse.length}／${t.variants!.length}`);
+    check(new Set(withCourse.map((v) => v.courseId)).size === withCourse.length,
+      `${t.slug}: 区分ごとに別の講座`);
+    for (const v of withCourse) {
+      const c = findCourse(v.courseId!);
+      check(!!c, `${t.slug}（${v.name}）: 区分の講座が実在する`, v.courseId);
+      if (!c) continue;
+      check(c.name.includes(v.name), `${t.slug}（${v.name}）: 講座名に区分が入っている`, c.name);
+      check(c.totalMin === v.gakkaMin, `${t.slug}（${v.name}）: 講座の学科が区分の法定時間`,
+        `講座 ${c.totalMin}分 ／ 区分 ${v.gakkaMin}分`);
+      check((c.drillMin ?? 0) === (v.jitsugiMin ?? 0), `${t.slug}（${v.name}）: 講座の実技が区分の法定時間`,
+        `講座 ${c.drillMin ?? 0}分 ／ 区分 ${v.jitsugiMin ?? 0}分`);
+      /* 区分の科目・中欄・時間が、講座と一字も違わない */
+      check(!!v.gakka && !!v.jitsugi, `${t.slug}（${v.name}）: 区分の科目と中欄が入っている`);
+      if (!v.gakka) continue;
+      const cj = JSON.parse(read(`content/courses/${v.courseId}.json`)) as { subjects: { name: string; legal_min: number; lessons: { legal_scope: string }[] }[] };
+      check(cj.subjects.length === v.gakka.length,
+        `${t.slug}（${v.name}）: 講座の科目の数が、告示のその区分の行と同じ`,
+        `講座 ${cj.subjects.length} ／ 告示 ${v.gakka.length}`);
+      v.gakka.forEach((g, i) => {
+        const sub = cj.subjects[i];
+        if (!sub) return;
+        check(sub.name === g.name, `${t.slug}（${v.name}） 科目${i + 1}: 科目名が告示のまま`,
+          `講座「${sub.name}」／ 告示「${g.name}」`);
+        check(sub.legal_min === g.min, `${t.slug}（${v.name}） 科目${i + 1}: 時間が告示のまま`,
+          `講座 ${sub.legal_min}分 ／ 告示 ${g.min}分`);
+        const joined = [...new Set(sub.lessons.map((l) => l.legal_scope))].join("　");
+        check(joined === g.scope, `${t.slug}（${v.name}） 科目${i + 1}: 中欄が告示のまま`,
+          `講座「${joined}」\n    告示「${g.scope}」`);
+      });
+      check((v.gakka ?? []).reduce((n, g) => n + g.min, 0) === v.gakkaMin,
+        `${t.slug}（${v.name}）: 区分の科目の合計が区分の学科と合う`);
+      check((v.jitsugi ?? []).reduce((n, g) => n + g.min, 0) === (v.jitsugiMin ?? 0),
+        `${t.slug}（${v.name}）: 区分の実技の科目の合計が区分の実技と合う`);
+    }
     /* **区分ごとの時間が分かっていない行**に、一つの時間の確かめた印を付けない。
        分かっている行（告示を読んだ行）は、いちばん長い区分を行の時間にしてある */
     const withMin = t.variants!.filter((v) => typeof v.gakkaMin === "number");
@@ -448,7 +493,7 @@ console.log("\n── 数え方 ──");
   const { ready, todo } = splitReady();
   check(ready.length + todo.length === 66, "作ってあるもの＋これから＝66");
   check(ready.length >= 1, `もう受けられるもの（いま ${ready.length}件）`);
-  check(todo.every((t) => !t.courseId), "これからの行は講座を指していない");
+  check(todo.every((t) => courseIdsOf(t).length === 0), "これからの行は講座を指していない");
 }
 
 console.log("\n── 探す ──");

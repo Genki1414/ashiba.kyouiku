@@ -68,7 +68,14 @@
      npm run build:saiatsushitsu # 第5号 再圧室の操作
      npm run build:kouatsushitsu # 第6号 高圧室内業務（学科だけ）
 
-     npm run build:senryouka     # 特定線量下業務（学科だけ） */
+     npm run build:senryouka     # 特定線量下業務（学科だけ）
+
+     除染等業務（目録61）。告示第2条・第3条が業務区分ごとに行を分けているので、区分ごとに5本
+     npm run build:josendojo       # 土壌等の除染等
+     npm run build:josenshushu     # 除去土壌の収集等
+     npm run build:josenhaiki      # 汚染廃棄物の収集等
+     npm run build:josentokutei    # 特定汚染土壌等取扱業務
+     npm run build:josentokuteigai # 特定汚染土壌等取扱業務（線量管理外） */
 
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import path from "node:path";
@@ -142,6 +149,9 @@ import {
 import {
   SENRYOUKA_BASIS, SENRYOUKA_LESSONS, SENRYOUKA_NAME, SENRYOUKA_SUBJECTS, SENRYOUKA_TOTAL_MIN,
 } from "../src/content/senryouka";
+import {
+  JOSEN_BASIS, JOSEN_KUBUN, JOSEN_KUBUN_IDS, josenLessons, josenName, josenSubjects, josenTotalMin,
+} from "../src/content/josen";
 import {
   DERRICK_BASIS, DERRICK_LESSONS, DERRICK_NAME, DERRICK_SUBJECTS, DERRICK_TOTAL_MIN,
 } from "../src/content/derrick";
@@ -249,6 +259,10 @@ type Plan = {
   totalMin: number;
 };
 
+/* 除染等業務は区分ごとに5本。JOSEN_KUBUN_IDS の順に並べてある */
+const JOSEN_ORDER: string[] = JOSEN_KUBUN_IDS.map((k) => JOSEN_KUBUN[k].courseId);
+void JOSEN_ORDER;
+
 const PLANS: Record<string, Plan> = {
   ishiwata: {
     id: "ishiwata",
@@ -329,6 +343,46 @@ const PLANS: Record<string, Plan> = {
     subjects: SENRYOUKA_SUBJECTS,
     lessons: SENRYOUKA_LESSONS,
     totalMin: SENRYOUKA_TOTAL_MIN,
+  },
+  josendojo: {
+    id: "josendojo",
+    name: `${josenName(JOSEN_KUBUN.dojo)}（学科）`,
+    basis: JOSEN_BASIS,
+    subjects: josenSubjects(JOSEN_KUBUN.dojo),
+    lessons: josenLessons(JOSEN_KUBUN.dojo),
+    totalMin: josenTotalMin(JOSEN_KUBUN.dojo),
+  },
+  josenshushu: {
+    id: "josenshushu",
+    name: `${josenName(JOSEN_KUBUN.shushu)}（学科）`,
+    basis: JOSEN_BASIS,
+    subjects: josenSubjects(JOSEN_KUBUN.shushu),
+    lessons: josenLessons(JOSEN_KUBUN.shushu),
+    totalMin: josenTotalMin(JOSEN_KUBUN.shushu),
+  },
+  josenhaiki: {
+    id: "josenhaiki",
+    name: `${josenName(JOSEN_KUBUN.haiki)}（学科）`,
+    basis: JOSEN_BASIS,
+    subjects: josenSubjects(JOSEN_KUBUN.haiki),
+    lessons: josenLessons(JOSEN_KUBUN.haiki),
+    totalMin: josenTotalMin(JOSEN_KUBUN.haiki),
+  },
+  josentokutei: {
+    id: "josentokutei",
+    name: `${josenName(JOSEN_KUBUN.tokutei)}（学科）`,
+    basis: JOSEN_BASIS,
+    subjects: josenSubjects(JOSEN_KUBUN.tokutei),
+    lessons: josenLessons(JOSEN_KUBUN.tokutei),
+    totalMin: josenTotalMin(JOSEN_KUBUN.tokutei),
+  },
+  josentokuteigai: {
+    id: "josentokuteigai",
+    name: `${josenName(JOSEN_KUBUN.tokuteigai)}（学科）`,
+    basis: JOSEN_BASIS,
+    subjects: josenSubjects(JOSEN_KUBUN.tokuteigai),
+    lessons: josenLessons(JOSEN_KUBUN.tokuteigai),
+    totalMin: josenTotalMin(JOSEN_KUBUN.tokuteigai),
   },
   tetraalkyl: {
     id: "tetraalkyl",
