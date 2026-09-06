@@ -1,7 +1,6 @@
 "use client";
 
-import Link from "next/link";
-import { KIND_TEXT, hoursText, kindOf, totalNoteOf, type CourseMeta } from "@/content/courses";
+import { type CourseMeta } from "@/content/courses";
 import { TOKUBETSU, isReady } from "@/content/tokubetsu";
 import { OtherCourses } from "./OtherCourses";
 
@@ -20,30 +19,16 @@ import { OtherCourses } from "./OtherCourses";
    ── ①を忘れると、同じことが起きる ──
    最初は②だけを出していたので、menu: "other" にした講座（石綿）が
    **ホームのどこにも出なかった。** 受けられるのに、行き着けない。
-   受けられる札を先に、目録をそのあとに出す。
+
+   ── 中身は OtherCourses に全部まかせる ──
+   前は、受けられる札をここで並べて、そのあとに OtherCourses を置いていた。
+   **すると探す窓が71枚の札の下に来る。**
+   講座の一覧（/edu）の側だけを直して、こちらを直し忘れ、
+   ホームでは窓が最下部のままになっていた。
+   札を並べるのも探すのも、OtherCourses が受け持つ。ここは開け閉めだけ。
 
    開け閉めは <details> でやる。JavaScript が動かなくても開くし、
    キーボードでも開ける。圏外で開いた人が詰まらない。 */
-
-function Card({ c }: { c: CourseMeta }) {
-  return (
-    <Link
-      href={`/edu/${c.id}`}
-      className="mb-2.5 block rounded-xl border border-yel bg-panel p-4 no-underline"
-      data-testid="course-card"
-    >
-      <div className="text-[11px] font-extrabold tracking-widest text-yel">
-        {KIND_TEXT[kindOf(c)].label}
-      </div>
-      <div className="mt-1 text-[16px] font-black leading-snug text-txt">{c.name}</div>
-      <div className="mt-1.5 text-[11.5px] leading-relaxed text-dim">
-        {c.basis}
-        <br />
-        {totalNoteOf(c)} {hoursText(c.totalMin)}
-      </div>
-    </Link>
-  );
-}
 
 /** @param ready 受けられる「その他」の講座。サーバ側で教材の有無を見てから渡す */
 export function OtherTokubetsu({ ready = [] }: { ready?: CourseMeta[] }) {
@@ -69,11 +54,9 @@ export function OtherTokubetsu({ ready = [] }: { ready?: CourseMeta[] }) {
         <span className="text-[11.5px] font-normal text-dim">{n}件</span>
       </summary>
       <div className="px-4 pb-4">
-        {/* 受けられるものが先。目録の中に埋もれさせない */}
-        {ready.map((c) => (
-          <Card key={c.id} c={c} />
-        ))}
-        <OtherCourses />
+        {/* **札を並べるのは OtherCourses。ここでは並べない。**
+            ここで並べると、探す窓が札の下に来る */}
+        <OtherCourses ready={ready} />
       </div>
     </details>
   );

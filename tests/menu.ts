@@ -5,7 +5,7 @@
    足場を受けに来た人が長い一覧から探すことになる。
    これから足す特別教育は「その他特別教育」を開いてから選ぶ。 */
 
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import {
   COURSES,
   KIND_TEXT,
@@ -94,6 +94,28 @@ console.log("\n── 一覧の書き方 ──");
   check(other.includes("hitReady") && other.includes("hitSoon") && other.includes("hitTodo"),
     "受けられる講座・準備中・目録の3つとも絞る");
   check(!page.includes("r.other.map("), "その他の中身を page.tsx で並べていない（窓の下に来てしまう）");
+
+  /* **「その他特別教育」を出す所は2つある。**講座の一覧（/edu）と、
+     ホーム（OtherTokubetsu）。/edu だけ直して、ホームを直し忘れ、
+     ホームでは窓が最下部のままになっていた。
+
+     どちらか片方を直しても、もう片方が残る。だから
+     **OtherCourses を出しているファイルを全部見て、
+     そのファイルが自分で札を並べていないこと**を見る。
+     札を並べるのは OtherCourses だけ。並べれば必ず窓の下に来る */
+  const users = readdirSync(new URL("../src/", import.meta.url), { recursive: true })
+    .filter((f) => `${f}`.endsWith(".tsx"))
+    .map((f) => [`src/${f}`, code(`src/${f}`)] as const)
+    .filter(([, src]) => /<OtherCourses\b/.test(src));
+  check(users.length >= 2, `OtherCourses を出しているのは ${users.length}か所（2か所以上あるはず）`);
+  for (const [name, src] of users) {
+    check(/<OtherCourses\s+ready=/.test(src), `${name}：受けられる講座を OtherCourses に渡している`);
+    /* 「その他」の中身を、そのファイルが自分で並べていないか。
+       /edu は「その他」の外（足場・職長）でも札を出すので、
+       札そのものではなく、**その他の一覧を回しているか**で見る */
+    check(!/\.other\.map\(/.test(src) && !/\bready\.map\(/.test(src),
+      `${name}：その他の中身を自分で並べていない（並べると窓の下に来る）`);
+  }
 }
 
 console.log("\n── 時間の書き方 ──");
