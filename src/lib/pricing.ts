@@ -369,31 +369,59 @@ export function parseUnitPrice(raw: string | undefined): number {
     誰でも申し込める講習ではない。値段の比べる相手には入れていない。
 
     変えるときは環境変数で。ここを書き換えると上げ直すまで直らない。 */
+/* ── 2026年9月7日、20講座を 4,500円 にそろえた ──────────
+
+   **一般社団法人 建設業教育協会（k-k-k.jp）が、特別教育のEラーニングを
+   講座の長さに関係なく一律 4,500円（税込4,950円）で売っている。**
+
+   2026年9月7日にげんきさんが確かめた。20講座ぜんぶ同じ値段で、
+   高圧・特別高圧電気（学科11時間）も、テールゲートリフター（学科4時間）も
+   同じ4,500円。ほかの5社は講座ごとにばらけているので、ここだけが特殊。
+
+   **そして、あちらも実技は事業者が自社でやる。うちと同じ形。**
+   だから「うちは実技の手引きが付くぶん高い」は、この会社には通らない。
+
+   げんきさんが「合わせる」と決めた。あちらが売っている20講座を、
+   もとの値段（5,000〜12,000円）から 4,500円 に下げた。
+   いちばん下げ幅が大きいのは高圧・特別高圧電気の 12,000 → 4,500。
+
+   **あちらが売っていない53講座は、動かしていない。**
+   比べる相手がいないので、下げる理由が無い。
+   そのうち40講座は、どこもEラーニングを売っていない（2026年9月7日の調べ）。
+
+   調べの記録は docs/89、生データは docs/nedan/。
+
+   あちらが売っている20講座
+     harness rope forklift tailgate toishi teiatsu winch chainsaw arc
+     xrayki gammaki xraygammaki boiler kensetsulift mobilecrane tamakake
+     tire dioxin ev kouatsu
+   （ashiba ishiwata funjin sanketsu も売っているが、うちはもともと
+     4,500円か、それ以下ではないので下げていない） */
 export const DEFAULT_COURSE_PRICE: Record<string, number> = {
   ashiba: 4500,
   shokucho: 7000,
   ishiwata: 4500,
   kousho: 7000,
-  harness: 6000,
-  rope: 6000,
+  harness: 4500,
+  rope: 4500,
   funjin: 4500,
   sanketsu: 5500,
   kogata: 7000,
-  forklift: 6000,
-  tailgate: 5000,
-  toishi: 5000,
-  teiatsu: 7000,
-  winch: 6000,
+  forklift: 4500,
+  tailgate: 4500,
+  toishi: 4500,
+  teiatsu: 4500,
+  winch: 4500,
   roller: 6000,
-  chainsaw: 8000,
-  arc: 9000,
+  chainsaw: 4500,
+  arc: 4500,
   kikaitoishi: 7000,
   shovel: 6000,
   fuseichi: 6000,
-  kouatsu: 12000,
-  ev: 7000,
+  kouatsu: 4500,
+  ev: 4500,
   zuidou: 7000,
-  dioxin: 5000,
+  dioxin: 4500,
   press: 8000,
   youka: 9000,
   batsuboku: 6000,
@@ -410,12 +438,12 @@ export const DEFAULT_COURSE_PRICE: Record<string, number> = {
   kidou: 6000,
   robotkyoji: 7000,
   robotkensa: 8000,
-  tire: 5500,
+  tire: 4500,
   tokushu: 10000,
-  tamakake: 5500,
+  tamakake: 4500,
   derrick: 8000,
   gondola: 5500,
-  boiler: 7000,
+  boiler: 4500,
   tetraalkyl: 6000,
   compressor: 9000,
   soukiroom: 9000,
@@ -433,15 +461,15 @@ export const DEFAULT_COURSE_PRICE: Record<string, number> = {
   haikihasai: 6500,
   haikishokyaku: 6500,
   haikiumetate: 6500,
-  xrayki: 5500,
-  gammaki: 5500,
-  xraygammaki: 7000,
+  xrayki: 4500,
+  gammaki: 4500,
+  xraygammaki: 4500,
   kakunenkakou: 7500,
   kakunensaishori: 7500,
   kakunenshiyou: 7500,
   kakunengenshiro: 7000,
-  kensetsulift: 5500,
-  mobilecrane: 8000,
+  kensetsulift: 4500,
+  mobilecrane: 4500,
   crane: 8000,
 };
 

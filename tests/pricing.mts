@@ -122,29 +122,29 @@ console.log("── 講座ごとの単価 ──");
   /* 小型車両系は学科7時間＋実技6時間。実技の手引きが付くので高所作業車と同じ 7,000円 */
   check(unitPrice("kogata") === 7000, `小型車両系は7,000円（税抜）（${unitPrice("kogata")}）`);
   /* フォークリフトは学科6時間＋実技6時間。受ける人が広いので 6,000円 */
-  check(unitPrice("forklift") === 6000, `フォークリフトは6,000円（税抜）（${unitPrice("forklift")}）`);
+  check(unitPrice("forklift") === 4500, `フォークリフトは4,500円（税抜）（${unitPrice("forklift")}）`);
   /* テールゲートリフターは学科4時間＋実技2時間。配送の会社が人数分買う教育なので 5,000円 */
-  check(unitPrice("tailgate") === 5000, `テールゲートリフターは5,000円（税抜）（${unitPrice("tailgate")}）`);
+  check(unitPrice("tailgate") === 4500, `テールゲートリフターは4,500円（税抜）（${unitPrice("tailgate")}）`);
   /* 自由研削といしは学科4時間＋実技2時間。テールゲートリフターと同じ作りで 5,000円 */
-  check(unitPrice("toishi") === 5000, `自由研削といしは5,000円（税抜）（${unitPrice("toishi")}）`);
+  check(unitPrice("toishi") === 4500, `自由研削といしは4,500円（税抜）（${unitPrice("toishi")}）`);
   /* 低圧電気は学科7時間＋実技7時間。小型車両系・高所作業車と同じ 7,000円 */
-  check(unitPrice("teiatsu") === 7000, `低圧電気は7,000円（税抜）（${unitPrice("teiatsu")}）`);
+  check(unitPrice("teiatsu") === 4500, `低圧電気は4,500円（税抜）（${unitPrice("teiatsu")}）`);
   /* 巻上げ機は学科6時間＋実技4時間。フォークリフトと同じ 6,000円 */
-  check(unitPrice("winch") === 6000, `巻上げ機は6,000円（税抜）（${unitPrice("winch")}）`);
+  check(unitPrice("winch") === 4500, `巻上げ機は4,500円（税抜）（${unitPrice("winch")}）`);
   /* ローラーは学科6時間＋実技4時間。フォークリフト・巻上げ機と同じ 6,000円 */
   check(unitPrice("roller") === 6000, `ローラーは6,000円（税抜）（${unitPrice("roller")}）`);
   /* チェーンソーは学科9時間＋実技9時間。うちでいちばん長い学科なので 8,000円 */
-  check(unitPrice("chainsaw") === 8000, `チェーンソーは8,000円（税抜）（${unitPrice("chainsaw")}）`);
+  check(unitPrice("chainsaw") === 4500, `チェーンソーは4,500円（税抜）（${unitPrice("chainsaw")}）`);
   /* アーク溶接は学科11時間＋実技10時間。うちでいちばん長いので 9,000円 */
-  check(unitPrice("arc") === 9000, `アーク溶接は9,000円（税抜）（${unitPrice("arc")}）`);
+  check(unitPrice("arc") === 4500, `アーク溶接は4,500円（税抜）（${unitPrice("arc")}）`);
   /* 機械研削といしは学科7時間＋実技3時間。低圧電気・小型車両系と同じ 7,000円 */
   check(unitPrice("kikaitoishi") === 7000, `機械研削といしは7,000円（税抜）（${unitPrice("kikaitoishi")}）`);
   check(unitPrice("shovel") === 6000, `ショベルローダー等は6,000円（税抜）（${unitPrice("shovel")}）`);
   check(unitPrice("fuseichi") === 6000, `不整地運搬車は6,000円（税抜）（${unitPrice("fuseichi")}）`);
-  check(unitPrice("kouatsu") === 12000, `高圧・特別高圧電気は12,000円（税抜）（${unitPrice("kouatsu")}）`);
-  check(unitPrice("ev") === 7000, `電気自動車の整備は7,000円（税抜）（${unitPrice("ev")}）`);
+  check(unitPrice("kouatsu") === 4500, `高圧・特別高圧電気は4,500円（税抜）（${unitPrice("kouatsu")}）`);
+  check(unitPrice("ev") === 4500, `電気自動車の整備は4,500円（税抜）（${unitPrice("ev")}）`);
   check(unitPrice("zuidou") === 7000, `ずい道等の掘削等は7,000円（税抜）（${unitPrice("zuidou")}）`);
-  check(unitPrice("dioxin") === 5000, `ダイオキシン類は5,000円（税抜）（${unitPrice("dioxin")}）`);
+  check(unitPrice("dioxin") === 4500, `ダイオキシン類は4,500円（税抜）（${unitPrice("dioxin")}）`);
   check(unitPrice("press") === 8000, `動力プレスの金型等は8,000円（税抜）（${unitPrice("press")}）`);
   check(unitPrice("youka") === 9000, `揚貨装置は9,000円（税抜）（${unitPrice("youka")}）`);
   check(unitPrice("batsuboku") === 6000, `伐木等機械は6,000円（税抜）（${unitPrice("batsuboku")}）`);
@@ -161,11 +161,11 @@ console.log("── 講座ごとの単価 ──");
   check(unitPrice("kidou") === 6000, `軌道装置の動力車は6,000円（税抜）（${unitPrice("kidou")}）`);
   check(unitPrice("robotkyoji") === 7000, `産業用ロボット（教示等）は7,000円（税抜）（${unitPrice("robotkyoji")}）`);
   check(unitPrice("robotkensa") === 8000, `産業用ロボット（検査等）は8,000円（税抜）（${unitPrice("robotkensa")}）`);
-  check(unitPrice("tire") === 5500, `自動車用タイヤの空気充てんは5,500円（税抜）（${unitPrice("tire")}）`);
+  check(unitPrice("tire") === 4500, `自動車用タイヤの空気充てんは4,500円（税抜）（${unitPrice("tire")}）`);
   check(unitPrice("tokushu") === 10000, `特殊化学設備は10,000円（税抜）（${unitPrice("tokushu")}）`);
-  check(unitPrice("tamakake") === 5500, `玉掛け（1トン未満）は5,500円（税抜）（${unitPrice("tamakake")}）`);
+  check(unitPrice("tamakake") === 4500, `玉掛け（1トン未満）は4,500円（税抜）（${unitPrice("tamakake")}）`);
   check(unitPrice("crane") === 8000, `クレーン（5トン未満）・跨線テルハは8,000円（税抜）（${unitPrice("crane")}）`);
-  check(unitPrice("mobilecrane") === 8000, `移動式クレーン（1トン未満）は8,000円（税抜）（${unitPrice("mobilecrane")}）`);
+  check(unitPrice("mobilecrane") === 4500, `移動式クレーン（1トン未満）は4,500円（税抜）（${unitPrice("mobilecrane")}）`);
   check(unitPrice("compressor") === 9000, `${unitPrice("compressor")}`);
   check(unitPrice("soukiroom") === 9000, `${unitPrice("soukiroom")}`);
   check(unitPrice("kikoushitsu") === 8500, `${unitPrice("kikoushitsu")}`);
@@ -182,17 +182,17 @@ console.log("── 講座ごとの単価 ──");
   check(unitPrice("haikihasai") === 6500, `${unitPrice("haikihasai")}`);
   check(unitPrice("haikishokyaku") === 6500, `${unitPrice("haikishokyaku")}`);
   check(unitPrice("haikiumetate") === 6500, `${unitPrice("haikiumetate")}`);
-  check(unitPrice("xrayki") === 5500, `${unitPrice("xrayki")}`);
-  check(unitPrice("gammaki") === 5500, `${unitPrice("gammaki")}`);
-  check(unitPrice("xraygammaki") === 7000, `${unitPrice("xraygammaki")}`);
+  check(unitPrice("xrayki") === 4500, `${unitPrice("xrayki")}`);
+  check(unitPrice("gammaki") === 4500, `${unitPrice("gammaki")}`);
+  check(unitPrice("xraygammaki") === 4500, `${unitPrice("xraygammaki")}`);
   check(unitPrice("kakunenkakou") === 7500, `${unitPrice("kakunenkakou")}`);
   check(unitPrice("kakunensaishori") === 7500, `${unitPrice("kakunensaishori")}`);
   check(unitPrice("kakunenshiyou") === 7500, `${unitPrice("kakunenshiyou")}`);
   check(unitPrice("kakunengenshiro") === 7000, `${unitPrice("kakunengenshiro")}`);
   check(unitPrice("tetraalkyl") === 6000, `四アルキル鉛等は6,000円（税抜）（${unitPrice("tetraalkyl")}）`);
-  check(unitPrice("boiler") === 7000, `小型ボイラーは7,000円（税抜）（${unitPrice("boiler")}）`);
+  check(unitPrice("boiler") === 4500, `小型ボイラーは4,500円（税抜）（${unitPrice("boiler")}）`);
   check(unitPrice("gondola") === 5500, `ゴンドラは5,500円（税抜）（${unitPrice("gondola")}）`);
-  check(unitPrice("kensetsulift") === 5500, `建設用リフトは5,500円（税抜）（${unitPrice("kensetsulift")}）`);
+  check(unitPrice("kensetsulift") === 4500, `建設用リフトは4,500円（税抜）（${unitPrice("kensetsulift")}）`);
   check(unitPrice("derrick") === 8000, `デリック（5トン未満）は8,000円（税抜）（${unitPrice("derrick")}）`);
 
   /* 知らない講座を聞かれても、仮置きの値で答える（0円で配らない） */
@@ -211,5 +211,46 @@ console.log("── 支払期限 ──");
 }
 
 console.log("\n── まとめ ──");
+/* ── 建設業教育協会が売っている20講座は、4,500円でそろえる ──
+
+   あちら（k-k-k.jp）は講座の長さに関係なく一律4,500円で、実技は事業者が
+   自社でやる。うちと同じ形なので、げんきさんが「合わせる」と決めた
+   （2026年9月7日、docs/89）。
+
+   ここが崩れると、比べられたときに1本だけ高い講座ができる。
+   **あちらが売っていない53講座は、この関門の外**。下げる理由が無い。 */
+console.log("── 建設業教育協会に合わせた20講座 ──");
+{
+  const SAME_AS_KKK = [
+    "harness",
+    "rope",
+    "forklift",
+    "tailgate",
+    "toishi",
+    "teiatsu",
+    "winch",
+    "chainsaw",
+    "arc",
+    "xrayki",
+    "gammaki",
+    "xraygammaki",
+    "boiler",
+    "kensetsulift",
+    "mobilecrane",
+    "tamakake",
+    "tire",
+    "dioxin",
+    "ev",
+    "kouatsu",
+  ];
+  check(SAME_AS_KKK.length === 20, `20講座ある（${SAME_AS_KKK.length}）`);
+  const off = SAME_AS_KKK.filter((id) => unitPrice(id) !== 4500);
+  check(off.length === 0,
+    off.length ? `4,500円でないものがある：${off.map((id) => `${id}=${unitPrice(id)}`).join("／")}`
+               : "20講座とも4,500円（税抜）＝4,950円（税込）");
+  /* 下げすぎの見張り。ここより下は、あちらより安くする話になる */
+  check(SAME_AS_KKK.every((id) => unitPrice(id) === 4500), "20講座とも、あちらと同じ額（安くも高くもしない）");
+}
+
 console.log(`${ok} 件通過 / ${ng} 件失敗`);
 if (ng) process.exit(1);
