@@ -31,6 +31,8 @@ import { wipeDevice } from "@/lib/device";
    外しても、その会社の席で受けた記録は、その会社の名簿に残る。 */
 
 type Found = { id: string; name: string };
+/** 受講リクエストに出す講座。名前と、送ってあるか・もう席があるか */
+type ReqCourse = { courseId: string; name: string; short: string; requested: boolean; hasSeat: boolean };
 type Mine =
   | { state: "none" }
   | { state: "active"; company: Found }
@@ -49,6 +51,12 @@ export function JoinClient() {
   const [newName, setNewName] = useState("");
   const [maybe, setMaybe] = useState<Found[] | null>(null);
   const [made, setMade] = useState("");
+  /* ④ コードをもらっていない人が、担当者に「受けたい」を送る */
+  const [reqs, setReqs] = useState<ReqCourse[] | null>(null);
+  const [reqOpen, setReqOpen] = useState(false);
+  const [reqQ, setReqQ] = useState("");
+  const [reqBusy, setReqBusy] = useState("");
+  const [reqNote, setReqNote] = useState("");
 
   const loadMine = useCallback(async () => {
     try {
@@ -60,7 +68,41 @@ export function JoinClient() {
     }
   }, []);
 
-  useEffect(() => { void loadMine(); }, [loadMine]);
+  /* 講座の一覧と、送ってあるかの印。ログインしていなければ取れないので、
+     取れなかったときは黙って何も出さない（コードを入れる方は使える） */
+  const loadReqs = useCallback(async () => {
+    try {
+      const res = await fetch("/api/course-request", { cache: "no-store" });
+      const j = await res.json().catch(() => ({}));
+      if (res.ok && j.ok) setReqs(j.courses ?? []);
+    } catch {
+      /* 圏外 */
+    }
+  }, []);
+
+  useEffect(() => { void loadMine(); void loadReqs(); }, [loadMine, loadReqs]);
+
+  /* 受けたい・取り消す。席そのものはここでは作らない。
+     担当者が見て、いつもどおり受講コードを渡す */
+  const sendReq = async (courseId: string, cancel: boolean) => {
+    setReqBusy(courseId);
+    setReqNote("");
+    try {
+      const res = await fetch("/api/course-request", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ courseId, action: cancel ? "cancel" : "request" }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok || !j.ok) {
+        setReqNote(j.reason ?? "送れませんでした。");
+        return;
+      }
+      await loadReqs();
+    } finally {
+      setReqBusy("");
+    }
+  };
 
   const search = async () => {
     setBusy(true);
@@ -426,8 +468,86 @@ export function JoinClient() {
         </div>
       )}
 
+      {/* ④ コードをもらっていないとき、担当者に「受けたい」を送る。
+
+          ここに置くのは、**コードを渡されていない人が開くのがこの画面**だから。
+          いままでは「担当者に聞いてください」と書いてあるだけで、
+          聞く手立ては画面の外（電話や口頭）にしかなかった。
+
+          会社に居ないと誰宛か決まらないので、在籍しているときだけ出す。
+          席（受講コード）はここでは作らない。担当者が見て、いつもどおり渡す */}
+      {mine?.state === "active" && !!reqs?.length && (
+        <div className="mt-8 rounded-xl border border-cyan bg-panel p-4" data-testid="join-request">
+          <div className="text-[11px] tracking-[2px] text-cyan">④ コードをもらっていないとき</div>
+          <p className="mt-1.5 text-[12px] leading-relaxed text-dim">
+            受けたい講座を選んで送ると、<span className="text-cyan">{mine.company.name}</span>の
+            教育担当者の画面に出ます。担当者が席（受講コード）を用意して渡してくれます。
+          </p>
+
+          {!reqOpen ? (
+            <button
+              onClick={() => setReqOpen(true)}
+              className="mt-3 w-full rounded-lg border border-cyan p-2.5 text-[12.5px] font-bold text-cyan"
+              data-testid="join-request-open"
+            >
+              受けたい講座を選ぶ
+            </button>
+          ) : (
+            <>
+              <input
+                value={reqQ}
+                onChange={(e) => setReqQ(e.target.value)}
+                placeholder="講座名でさがす（例：足場、玉掛け）"
+                className="mt-3 w-full rounded-lg border border-line bg-bg px-3 py-2.5 text-[13px]"
+                data-testid="join-request-find"
+              />
+              <div className="mt-2 grid max-h-[320px] gap-1.5 overflow-y-auto">
+                {reqs
+                  .filter((c) => !reqQ.trim() || c.name.includes(reqQ.trim()) || c.short.includes(reqQ.trim()))
+                  .map((c) => (
+                    <div
+                      key={c.courseId}
+                      className="flex items-center gap-2 rounded-lg border border-line bg-bg p-2.5"
+                      data-testid="join-request-row"
+                    >
+                      <div className="min-w-0 flex-1 text-[12.5px] leading-snug">{c.name}</div>
+                      {c.hasSeat ? (
+                        <span className="shrink-0 text-[11px] text-grn">席あり</span>
+                      ) : c.requested ? (
+                        <button
+                          onClick={() => void sendReq(c.courseId, true)}
+                          disabled={reqBusy === c.courseId}
+                          className="shrink-0 rounded-lg border border-line px-2.5 py-1.5 text-[11px] text-dim2 disabled:opacity-50"
+                          data-testid="join-request-cancel"
+                        >
+                          送信済み（取り消す）
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => void sendReq(c.courseId, false)}
+                          disabled={reqBusy === c.courseId}
+                          className="shrink-0 rounded-lg border border-cyan bg-cyan px-2.5 py-1.5 text-[11px] font-extrabold text-bg disabled:opacity-50"
+                          data-testid="join-request-send"
+                        >
+                          送る
+                        </button>
+                      )}
+                    </div>
+                  ))}
+              </div>
+              {reqNote && (
+                <div className="mt-2 text-[12px] text-red" data-testid="join-request-note">
+                  {reqNote}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
       <div className="mt-8 rounded-xl border border-line bg-panel p-4 text-[12px] leading-relaxed text-dim">
         コードを持っていない場合は、会社の教育担当者に聞いてください。
+        {mine?.state === "active" && "上の「④ コードをもらっていないとき」から、受けたい講座を送ることもできます。"}
         <br />
         自分の会社でこれから使い始める場合は、上の「② 会社を登録する」から。
       </div>

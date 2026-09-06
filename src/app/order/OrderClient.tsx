@@ -111,11 +111,18 @@ export function OrderClient() {
     if (params.get("cancelled")) setNote("お支払いをやめました。注文は入金待ちのまま残っています。");
   }, [params]);
 
-  /* 講座は、担当者の画面から渡されたものを既定にする。無ければ先頭 */
+  /* 講座は、担当者の画面から渡されたものを既定にする。無ければ先頭。
+
+     受講リクエストの一覧から来たときは、席の数も一緒に渡ってくる
+     （その講座に何人が「受けたい」と送っているか）。入れておけば、
+     数え直さずにそのまま申し込める。**あとから直せる**ように、
+     ここでは入れるだけで、押さえつけはしない（受けない人も混じる） */
   useEffect(() => {
     if (courseId || !st?.courses.length) return;
     const want = params.get("courseId");
     setCourseId(st.courses.find((c) => c.id === want)?.id ?? st.courses[0].id);
+    const n = Number(params.get("seats"));
+    if (Number.isInteger(n) && n >= 1 && n <= 999) setSeats(n);
   }, [st, params, courseId]);
 
 

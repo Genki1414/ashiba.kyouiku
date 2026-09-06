@@ -530,6 +530,39 @@ console.log("── /api/member が返す形 ──");
   check(/\bpending:\s*rows\.map/.test(src), "許可待ちは、開いている申し込みを並べて返す");
 }
 
+console.log("── 受講リクエストが返す形 ──");
+{
+  /* コードを渡されていない人が開くのが /join。そこで「受けたい」を送れる。
+     画面が読む項目が抜けると、講座が1つも並ばず、**押す物が無い画面**になる。
+     型では捕まらない（fetch の戻りは any）ので、書いてある字で見る */
+  const src = read("src/app/api/course-request/route.ts");
+  check(/export async function GET/.test(src), "GET がある（/join が講座の一覧を読む）");
+  for (const k of ["courseId", "name", "short", "requested", "hasSeat"]) {
+    check(new RegExp(`\\b${k}:`).test(src), `講座の${k}を返している`);
+  }
+  check(/member:/.test(src), "在籍しているかを返している（していないと誰宛か決まらない）");
+  check(/readyCourses\(\)/.test(src), "並べるのは、教材のできている講座だけ");
+  /* 会社は画面から受け取らない。受け取ると、よその会社宛に送れてしまう */
+  check(!/companyId/.test(src), "会社の番号を画面から受け取っていない");
+
+  const join = read("src/app/join/JoinClient.tsx");
+  for (const k of ["courseId", "requested", "hasSeat"]) {
+    check(join.includes(k), `/join が ${k} を読んでいる`);
+  }
+  check(join.includes('"/api/course-request"'), "/join が受講リクエストを呼んでいる");
+  /* 会社に居ないと誰宛か決まらない。在籍しているときだけ出す */
+  check(/mine\?\.state === "active" && !!reqs\?\.length/.test(join),
+    "在籍しているときだけ出している");
+
+  const adm = read("src/app/admin/AdminClient.tsx");
+  check(/\/order\?courseId=/.test(adm), "担当者の画面から、申し込み画面へ渡している");
+  check(/seats=\$\{g\.rows\.length\}/.test(adm), "人数のぶんの席を渡している");
+
+  const order = read("src/app/order/OrderClient.tsx");
+  check(/params\.get\("seats"\)/.test(order), "申し込み画面が席の数を受け取っている");
+  check(/n >= 1 && n <= 999/.test(order), "受け取った席の数を、そのまま信じていない");
+}
+
 console.log("── 単元IDの渡し方 ──");
 {
   /* 0011 で単元IDに講座が付いて「ashiba:1-1」になった。

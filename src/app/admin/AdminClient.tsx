@@ -360,43 +360,80 @@ export function AdminClient() {
         </div>
       )}
 
-      {/* 受講リクエスト。本人がマイページから「受けたい」と送ったもの。
-          席（受講コード）はここでは作らない。担当者がいつもどおり用意する */}
+      {/* 受講リクエスト。本人がマイページか、受講コードを入れる画面から
+          「受けたい」と送ったもの。
+
+          **講座ごとにまとめる。**1人ずつ並べると、同じ講座に3人来ていても
+          3行に散って、何席買えばよいのかが読み取れない。まとめておけば
+          「高所作業車 3名」と出て、そのまま3席で申し込み画面へ行ける。
+
+          席（受講コード）はここでは作らない。申し込み画面へ渡すだけ */}
       {!!st.courseRequests.length && (
         <div className="mx-5 mt-3 rounded-xl border border-cyan bg-panel p-4" data-testid="admin-course-reqs">
           <div className="text-[11px] font-extrabold tracking-[2px] text-cyan">
             受講リクエスト {st.courseRequests.length} 件
           </div>
           <p className="mt-1 text-[11.5px] leading-relaxed text-dim">
-            受講者が「この講座を受けたい」と送ってきました。席（受講コード）を用意したら、対応済みにしてください。
+            受講者が「この講座を受けたい」と送ってきました。そのまま申し込めます。
+            席を配ったら、対応済みにしてください。
           </p>
           <div className="mt-2.5 grid gap-2">
-            {st.courseRequests.map((q) => (
+            {Object.values(
+              st.courseRequests.reduce<Record<string, { courseId: string; courseName: string; rows: CourseReq[] }>>(
+                (acc, q) => {
+                  (acc[q.courseId] ??= { courseId: q.courseId, courseName: q.courseName, rows: [] }).rows.push(q);
+                  return acc;
+                },
+                {},
+              ),
+            ).map((g) => (
               <div
-                key={q.id}
-                className="flex items-center gap-2 rounded-lg border border-line bg-bg p-3"
+                key={g.courseId}
+                className="rounded-lg border border-line bg-bg p-3"
                 data-testid="admin-course-req"
               >
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-[13.5px] font-black">{q.courseName}</div>
-                  <div className="mt-0.5 truncate text-[11.5px] text-dim">
-                    {q.name}
-                    {q.email ? `　${q.email}` : ""}
+                <div className="flex items-baseline gap-2">
+                  <div className="min-w-0 flex-1 truncate text-[13.5px] font-black">{g.courseName}</div>
+                  <div className="shrink-0 text-[12px] font-extrabold text-cyan" data-testid="admin-course-req-n">
+                    {g.rows.length}名
                   </div>
-                  {q.at && <div className="mt-0.5 text-[10.5px] text-dim2">{day(q.at)} リクエスト</div>}
                 </div>
-                <button
-                  className="shrink-0 rounded-lg border border-yel bg-yel px-3 py-2 text-[12px] font-extrabold text-bg disabled:opacity-50"
-                  data-testid="admin-course-req-done"
-                  disabled={busy === q.id}
-                  onClick={async () => {
-                    setBusy(q.id);
-                    if (await post("/api/admin/course-request", { id: q.id, on: true })) await load(courseId);
-                    setBusy(null);
-                  }}
-                >
-                  対応済みにする
-                </button>
+                <div className="mt-1 grid gap-0.5">
+                  {g.rows.map((q) => (
+                    <div key={q.id} className="text-[11.5px] text-dim">
+                      {q.name}
+                      {q.email ? `　${q.email}` : ""}
+                      {q.at && <span className="ml-1 text-[10.5px] text-dim2">{day(q.at)}</span>}
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-2.5 grid grid-cols-2 gap-2">
+                  {/* 人数のぶんだけ席を入れた状態で申し込み画面を開く。
+                      数はあちらで直せる（受けない人が混じることもある） */}
+                  <Link
+                    href={`/order?courseId=${encodeURIComponent(g.courseId)}&seats=${g.rows.length}`}
+                    className="rounded-lg border border-yel bg-yel p-2.5 text-center text-[12px] font-extrabold text-bg no-underline"
+                    data-testid="admin-course-req-order"
+                  >
+                    {g.rows.length}名ぶん申し込む
+                  </Link>
+                  <button
+                    className="rounded-lg border border-line p-2.5 text-[12px] text-dim disabled:opacity-50"
+                    data-testid="admin-course-req-done"
+                    disabled={busy === g.courseId}
+                    onClick={async () => {
+                      setBusy(g.courseId);
+                      /* まとめて閉じる。1件ずつ押させると、押し忘れが残る */
+                      for (const q of g.rows) {
+                        await post("/api/admin/course-request", { id: q.id, on: true });
+                      }
+                      await load(courseId);
+                      setBusy(null);
+                    }}
+                  >
+                    対応済みにする
+                  </button>
+                </div>
               </div>
             ))}
           </div>

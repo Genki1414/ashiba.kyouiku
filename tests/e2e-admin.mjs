@@ -235,6 +235,96 @@ console.log("OK: ホームの入口");
   console.log("OK: マイページ");
 }
 
+/* ── 受講リクエスト ──
+   コードを渡されていない人が開くのが /join。いままでは
+   「担当者に聞いてください」と書いてあるだけで、聞く手立ては
+   画面の外にしかなかった。ここで送れて、担当者の画面に出て、
+   そのまま申し込みへ行けるか。 */
+{
+  const sent = [];
+  await page.route("**/api/member", (r) => r.fulfill({ json: {
+    ok: true, state: "active", company: { id: "c1", name: "点検用工業" },
+  } }));
+  await page.route("**/api/course-request", (r) => {
+    if (r.request().method() === "GET") {
+      return r.fulfill({ json: {
+        ok: true,
+        member: { state: "active", company: "点検用工業" },
+        courses: [
+          { courseId: "ashiba", name: "足場の組立て等の業務に係る特別教育", short: "足場",
+            requested: false, hasSeat: false },
+          { courseId: "kousho", name: "高所作業車の運転の業務に係る特別教育", short: "高所作業車",
+            requested: true, hasSeat: false },
+          { courseId: "tamakake", name: "つり上げ荷重1トン未満のクレーン等の玉掛けの業務に係る特別教育",
+            short: "玉掛け", requested: false, hasSeat: true },
+        ],
+      } });
+    }
+    sent.push(JSON.parse(r.request().postData() ?? "{}"));
+    return r.fulfill({ json: { ok: true } });
+  });
+
+  await page.goto(`${BASE}/join`);
+  await dismiss();
+  await page.getByTestId("join-request").waitFor({ timeout: 8000 });
+  const g = (await page.getByTestId("join-request").innerText()).replace(/\s+/g, "");
+  check(/点検用工業/.test(g), "どこの担当者に届くかを書いてある");
+
+  await page.getByTestId("join-request-open").click();
+  check((await page.getByTestId("join-request-row").count()) === 3, "講座が並ぶ");
+  /* もう席がある講座に「送る」を出すと、二重に頼むことになる */
+  const rows = await page.getByTestId("join-request-row").allInnerTexts();
+  check(/席あり/.test(rows[2]), "もう席がある講座は、送るを出さない");
+  check((await page.getByTestId("join-request-cancel").count()) === 1, "送信済みは取り消しに変わる");
+
+  /* さがせる。73講座あるので、探せないと押す物にたどり着けない */
+  await page.getByTestId("join-request-find").fill("足場");
+  check((await page.getByTestId("join-request-row").count()) === 1, "講座名でさがせる");
+
+  await page.getByTestId("join-request-send").click();
+  await page.waitForTimeout(300);
+  check(sent.some((b) => b.courseId === "ashiba" && b.action === "request"),
+    "選んだ講座を、リクエストとして送っている");
+  await page.screenshot({ path: `${SC}/admin-06-join-req.png`, fullPage: true });
+  await page.unroute("**/api/course-request");
+  await page.unroute("**/api/member");
+  console.log("OK: 受講コードの画面から、受講リクエストを送れる");
+}
+
+/* ── 担当者の画面で、講座ごとにまとまって出る ── */
+{
+  await page.route("**/api/admin/summary*", (r) => r.fulfill({ json: {
+    ok: true, company: "点検用工業", companyId: "c1", joinCode: "ABCD2345",
+    seats: { total: 0, used: 0, paid: 0 }, requests: [], quals: [], member: [],
+    courseRequests: [
+      { id: "q1", userId: "u1", name: "田中 一郎", email: "a@x", courseId: "kousho",
+        courseName: "高所作業車の運転の業務に係る特別教育", at: "2026-09-07T00:00:00Z" },
+      { id: "q2", userId: "u2", name: "佐藤 次郎", email: "b@x", courseId: "kousho",
+        courseName: "高所作業車の運転の業務に係る特別教育", at: "2026-09-07T00:00:00Z" },
+      { id: "q3", userId: "u3", name: "鈴木 三郎", email: null, courseId: "ashiba",
+        courseName: "足場の組立て等の業務に係る特別教育", at: "2026-09-07T00:00:00Z" },
+    ],
+    rows: [], totals: { people: 0, done: 0, doing: 0, yet: 0 },
+  } }));
+  await page.goto(`${BASE}/admin`);
+  await dismiss();
+  await page.getByTestId("admin-course-reqs").waitFor({ timeout: 8000 });
+  check((await page.getByTestId("admin-course-req").count()) === 2,
+    "3件のリクエストが、講座ごとに2つにまとまる");
+  const cards = await page.getByTestId("admin-course-req").allInnerTexts();
+  const kousho = cards.find((x) => x.includes("高所作業車")).replace(/\s+/g, "");
+  check(/2名/.test(kousho), "同じ講座に来た人数が出る");
+  check(/田中一郎/.test(kousho) && /佐藤次郎/.test(kousho), "誰が送ったかが並ぶ");
+
+  /* そのまま申し込みへ。人数のぶんの席が入った状態で開く */
+  const href = await page.getByTestId("admin-course-req-order").first().getAttribute("href");
+  check(/courseId=kousho/.test(href) && /seats=2/.test(href),
+    `申し込み画面へ、講座と人数を渡している（${href}）`);
+  await page.screenshot({ path: `${SC}/admin-07-course-req.png`, fullPage: true });
+  await page.unroute("**/api/admin/summary*");
+  console.log("OK: 担当者の画面で、講座ごとにまとまって申し込める");
+}
+
 await browser.close();
 if (ng) { console.error(`\n${ng} 件失敗`); process.exit(1); }
 console.log("ALL OK");
