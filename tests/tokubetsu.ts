@@ -112,8 +112,13 @@ console.log("\n── 確かめた行だけ信じる ──");
     t2 ? hoursText(t2.gakkaMin) : "無し");
   check(!!t2 && !!t1 && t2.gakkaMin > t1.gakkaMin, "第2種のほうが長い（硫化水素が乗るぶん）");
 
+  /* 確かめていない行を、隠さない。**確かめていない行は、講座にしない。**
+     2026年9月6日、電離則の告示が全部そろって、**66行すべてに確かめた印が付いた**（docs/83・docs/87）。
+     新しい行を足したときは、ここに件数が出る。出たら、条文を取るまで講座にしないこと */
   const un = TOKUBETSU.filter((t) => !trustedHours(t));
-  check(un.length > 0, "まだ確かめていない行がある（それを隠さない）", `${un.length}件`);
+  check(un.every((t) => courseIdsOf(t).length === 0), "確かめていない行は、講座にしていない",
+    un.length ? `まだ ${un.length}件：${un.map((t) => t.slug).join("／")}`
+              : `いま0件（全${TOKUBETSU.length}行が確かめ済み）`);
 }
 
 console.log("\n── 作ってある講座とのつながり ──");

@@ -797,6 +797,72 @@ export const COURSES: CourseMeta[] = [
     menu: "other",
   },
   {
+    /* 核燃料物質等（目録48・49）。告示第1条の表が加工施設・再処理施設・使用施設等の三つで
+       行を分けているので、第2条の原子炉施設と合わせて4本にした（docs/83）。裏取りは docs/87。
+       **加工施設。**核燃料物質を燃料の形にする。粉、ペレット、被覆管、集合体。臨界の管理が、量・容器・間隔・水 */
+    id: "kakunenkakou",
+    kind: "special",
+    type: "ondemand",
+    gate: "drill",
+    drillMin: 120,
+    name: "加工施設等（加工施設）において核燃料物質等を取り扱う業務に係る特別教育",
+    short: "核燃料物質等の取扱い（加工施設）",
+    basis:
+      "労働安全衛生法第59条第3項／電離放射線障害防止規則第52条の6第1項／核燃料物質等取扱業務特別教育規程第1条",
+    totalMin: 330,
+    file: "kakunenkakou.json",
+    ready: true,
+    menu: "other",
+  },
+  {
+    /* **再処理施設。**使用済燃料を溶かして分ける。溶液になるので形が自由になり、臨界の管理がいちばん難しい */
+    id: "kakunensaishori",
+    kind: "special",
+    type: "ondemand",
+    gate: "drill",
+    drillMin: 120,
+    name: "加工施設等（再処理施設）において核燃料物質等を取り扱う業務に係る特別教育",
+    short: "核燃料物質等の取扱い（再処理施設）",
+    basis:
+      "労働安全衛生法第59条第3項／電離放射線障害防止規則第52条の6第1項／核燃料物質等取扱業務特別教育規程第1条",
+    totalMin: 330,
+    file: "kakunensaishori.json",
+    ready: true,
+    menu: "other",
+  },
+  {
+    /* **使用施設等。**試験・分析・研究・製造。少量でも、集めれば臨界に近づく */
+    id: "kakunenshiyou",
+    kind: "special",
+    type: "ondemand",
+    gate: "drill",
+    drillMin: 120,
+    name: "加工施設等（使用施設等）において核燃料物質等を取り扱う業務に係る特別教育",
+    short: "核燃料物質等の取扱い（使用施設等）",
+    basis:
+      "労働安全衛生法第59条第3項／電離放射線障害防止規則第52条の6第1項／核燃料物質等取扱業務特別教育規程第1条",
+    totalMin: 330,
+    file: "kakunenshiyou.json",
+    ready: true,
+    menu: "other",
+  },
+  {
+    /* **原子炉施設。**告示第2条。施設の区分は無い。中欄に臨界の括弧書きが無く、科目1が30分（加工施設等は1時間） */
+    id: "kakunengenshiro",
+    kind: "special",
+    type: "ondemand",
+    gate: "drill",
+    drillMin: 120,
+    name: "原子炉施設において核燃料物質等を取り扱う業務に係る特別教育",
+    short: "核燃料物質等の取扱い（原子炉施設）",
+    basis:
+      "労働安全衛生法第59条第3項／電離放射線障害防止規則第52条の7第1項／核燃料物質等取扱業務特別教育規程第2条",
+    totalMin: 300,
+    file: "kakunengenshiro.json",
+    ready: true,
+    menu: "other",
+  },
+  {
     /* 四アルキル鉛等業務の特別教育（目録43）。
 
        ・**学科6時間だけ。実技は無い**（gate なし）

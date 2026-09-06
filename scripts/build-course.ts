@@ -87,7 +87,13 @@
      エックス線装置・ガンマ線照射装置（電離則第52条の5）。科目2が装置で行が分かれているので3本。学科だけ
      npm run build:xrayki          # エックス線装置
      npm run build:gammaki         # ガンマ線照射装置
-     npm run build:xraygammaki     # 両方 */
+     npm run build:xraygammaki     # 両方
+
+     核燃料物質等（電離則第52条の6・第52条の7）。告示第1条の表が三つの施設で行を分けているので、原子炉施設と合わせて4本
+     npm run build:kakunenkakou    # 加工施設
+     npm run build:kakunensaishori # 再処理施設
+     npm run build:kakunenshiyou   # 使用施設等
+     npm run build:kakunengenshiro # 原子炉施設 */
 
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import path from "node:path";
@@ -173,6 +179,9 @@ import {
 import {
   XG_BASIS, XG_KUBUN, xgLessons, xgName, xgSubjects, xgTotalMin,
 } from "../src/content/xraygamma";
+import {
+  KAKUNEN_KUBUN, kakunenBasis, kakunenLessons, kakunenName, kakunenSubjects, kakunenTotalMin,
+} from "../src/content/kakunenryou";
 import {
   DERRICK_BASIS, DERRICK_LESSONS, DERRICK_NAME, DERRICK_SUBJECTS, DERRICK_TOTAL_MIN,
 } from "../src/content/derrick";
@@ -460,6 +469,38 @@ const PLANS: Record<string, Plan> = {
     subjects: xgSubjects(XG_KUBUN.xg),
     lessons: xgLessons(XG_KUBUN.xg),
     totalMin: xgTotalMin(XG_KUBUN.xg),
+  },
+  kakunenkakou: {
+    id: "kakunenkakou",
+    name: `${kakunenName(KAKUNEN_KUBUN.kakou)}（学科）`,
+    basis: kakunenBasis(KAKUNEN_KUBUN.kakou),
+    subjects: kakunenSubjects(KAKUNEN_KUBUN.kakou),
+    lessons: kakunenLessons(KAKUNEN_KUBUN.kakou),
+    totalMin: kakunenTotalMin(KAKUNEN_KUBUN.kakou),
+  },
+  kakunensaishori: {
+    id: "kakunensaishori",
+    name: `${kakunenName(KAKUNEN_KUBUN.saishori)}（学科）`,
+    basis: kakunenBasis(KAKUNEN_KUBUN.saishori),
+    subjects: kakunenSubjects(KAKUNEN_KUBUN.saishori),
+    lessons: kakunenLessons(KAKUNEN_KUBUN.saishori),
+    totalMin: kakunenTotalMin(KAKUNEN_KUBUN.saishori),
+  },
+  kakunenshiyou: {
+    id: "kakunenshiyou",
+    name: `${kakunenName(KAKUNEN_KUBUN.shiyou)}（学科）`,
+    basis: kakunenBasis(KAKUNEN_KUBUN.shiyou),
+    subjects: kakunenSubjects(KAKUNEN_KUBUN.shiyou),
+    lessons: kakunenLessons(KAKUNEN_KUBUN.shiyou),
+    totalMin: kakunenTotalMin(KAKUNEN_KUBUN.shiyou),
+  },
+  kakunengenshiro: {
+    id: "kakunengenshiro",
+    name: `${kakunenName(KAKUNEN_KUBUN.genshiro)}（学科）`,
+    basis: kakunenBasis(KAKUNEN_KUBUN.genshiro),
+    subjects: kakunenSubjects(KAKUNEN_KUBUN.genshiro),
+    lessons: kakunenLessons(KAKUNEN_KUBUN.genshiro),
+    totalMin: kakunenTotalMin(KAKUNEN_KUBUN.genshiro),
   },
   tetraalkyl: {
     id: "tetraalkyl",
