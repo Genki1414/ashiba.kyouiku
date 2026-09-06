@@ -230,7 +230,7 @@ await page.screenshot({ path: `${SC}/issue-08-drill.png` });
 
 /* 実技の手引き。会社の人が見る画面なので、ログイン無しで開けること。
    **実技のある講座は増える。決め打ちにせず、全部を回す。** */
-for (const [id, mins] of [["kousho", 180], ["harness", 90], ["rope", 180], ["kogata", 360], ["forklift", 360], ["tailgate", 120], ["toishi", 120], ["teiatsu", 420], ["winch", 240], ["roller", 240], ["chainsaw", 540], ["arc", 600], ["kikaitoishi", 180], ["shovel", 360], ["fuseichi", 360], ["kouatsu", 900], ["ev", 60], ["press", 120], ["youka", 240], ["batsuboku", 360], ["soukou", 360], ["kikaishuzai", 480], ["kanikasen", 480], ["kisokouji", 360], ["kaitai", 420], ["kisokenki", 300], ["kisosousa", 240], ["concrete", 300], ["boring", 300], ["jack", 240], ["kidou", 240], ["robotkyoji", 180], ["robotkensa", 240], ["tire", 240], ["tokushu", 900], ["tamakake", 240], ["crane", 240], ["mobilecrane", 240], ["kensetsulift", 240], ["derrick", 240], ["gondola", 240], ["boiler", 240]]) {
+for (const [id, mins] of [["kousho", 180], ["harness", 90], ["rope", 180], ["kogata", 360], ["forklift", 360], ["tailgate", 120], ["toishi", 120], ["teiatsu", 420], ["winch", 240], ["roller", 240], ["chainsaw", 540], ["arc", 600], ["kikaitoishi", 180], ["shovel", 360], ["fuseichi", 360], ["kouatsu", 900], ["ev", 60], ["press", 120], ["youka", 240], ["batsuboku", 360], ["soukou", 360], ["kikaishuzai", 480], ["kanikasen", 480], ["kisokouji", 360], ["kaitai", 420], ["kisokenki", 300], ["kisosousa", 240], ["concrete", 300], ["boring", 300], ["jack", 240], ["kidou", 240], ["robotkyoji", 180], ["robotkensa", 240], ["tire", 240], ["tokushu", 900], ["tamakake", 240], ["crane", 240], ["mobilecrane", 240], ["kensetsulift", 240], ["derrick", 240], ["gondola", 240], ["boiler", 240], ["compressor", 120], ["soukiroom", 120], ["kikoushitsu", 180], ["soukisensui", 120], ["saiatsushitsu", 180]]) {
   await page.goto(`${BASE}/edu/${id}/drill`);
   await dismissNotice();
   await page.getByTestId("drill-guide").waitFor({ timeout: 6000 })
@@ -282,6 +282,30 @@ for (const [id, mins] of [["kousho", 180], ["harness", 90], ["rope", 180], ["kog
     check(form.includes("ブーム角度") && form.includes("定格荷重表"), "デリックの様式にブーム角度と定格荷重表の欄がある");
     check(form.includes("5トン未満"), "デリックの様式に5トン未満の欄がある");
     check(!form.includes("作業床の高さ"), "デリックの様式に「作業床の高さ」が無い");
+  } else if (id === "compressor") {
+    check(form.includes("第11条第1項第1号"), "空気圧縮機の様式に持ち場（第1号）の欄がある");
+    check(form.includes("吸込みの口") && form.includes("排気ガス"), "空気圧縮機の様式に吸込みの欄がある");
+    check(form.includes("下に人がいるあいだは止めない"), "空気圧縮機の様式に、止めないことの欄がある");
+    check(form.includes("自動警報装置"), "空気圧縮機の様式に自動警報装置の欄がある");
+  } else if (id === "soukiroom") {
+    check(form.includes("第11条第1項第2号"), "作業室への送気の様式に持ち場（第2号）の欄がある");
+    check(form.includes("減圧表のとおり") && form.includes("早めなかった"), "作業室への送気の様式に減圧表の欄がある");
+    check(form.includes("再圧室の用意"), "作業室への送気の様式に再圧室の欄がある");
+  } else if (id === "kikoushitsu") {
+    check(form.includes("第11条第1項第3号"), "気こう室の様式に持ち場（第3号）の欄がある");
+    check(form.includes("耳が抜けない"), "気こう室の様式に加圧の欄がある");
+    check(form.includes("いた時間といた圧"), "気こう室の様式に減圧の元になる記録の欄がある");
+    check(form.includes("かゆい") && form.includes("圧を戻す"), "気こう室の様式に減圧症の欄がある");
+  } else if (id === "soukisensui") {
+    check(form.includes("第11条第1項第4号"), "潜水への送気の様式に持ち場（第4号）の欄がある");
+    check(form.includes("送気ホース") && form.includes("全長を手で送って見た"), "潜水への送気の様式にホースの欄がある");
+    check(form.includes("信号索"), "潜水への送気の様式に信号索の欄がある");
+    check(form.includes("前回いつ潜ったか"), "潜水への送気の様式に前回の潜水の欄がある");
+  } else if (id === "saiatsushitsu") {
+    check(form.includes("第11条第1項第5号"), "再圧室の様式に持ち場（第5号）の欄がある");
+    check(form.includes("標準再圧治療の表"), "再圧室の様式に治療の表の欄がある");
+    check(form.includes("人形で全員が胸骨圧迫をした"), "再圧室の様式にそ生法の欄がある");
+    check(form.includes("再圧室の中では使わない"), "再圧室の様式に AED の欄がある");
   } else if (id === "boiler") {
     check(form.includes("水面計") && form.includes("水位を自分の目で見た"), "小型ボイラーの様式に水面計の欄がある");
     check(form.includes("水を入れない") && form.includes("自然に冷ます"), "小型ボイラーの様式に、水が見えなくなったときの欄がある");

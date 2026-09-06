@@ -58,7 +58,17 @@
      npm run build:derrick    # デリック（5トン未満）
      npm run build:gondola    # ゴンドラ
      npm run build:boiler     # 小型ボイラー
-     npm run build:tetraalkyl # 四アルキル鉛等（学科だけ） */
+     npm run build:tetraalkyl # 四アルキル鉛等（学科だけ）
+
+     高気圧（高圧則第11条第1項の六つの業務。持ち場ごとに告示の条が違う）
+     npm run build:compressor    # 第1号 空気圧縮機の運転
+     npm run build:soukiroom     # 第2号 作業室への送気の調節
+     npm run build:kikoushitsu   # 第3号 気こう室への送気・排気の調節
+     npm run build:soukisensui   # 第4号 潜水作業者への送気の調節
+     npm run build:saiatsushitsu # 第5号 再圧室の操作
+     npm run build:kouatsushitsu # 第6号 高圧室内業務（学科だけ）
+
+     npm run build:senryouka     # 特定線量下業務（学科だけ） */
 
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import path from "node:path";
@@ -111,6 +121,27 @@ import {
 import {
   TETRA_BASIS, TETRA_LESSONS, TETRA_NAME, TETRA_SUBJECTS, TETRA_TOTAL_MIN,
 } from "../src/content/tetraalkyl";
+import {
+  COMPRESSOR_BASIS, COMPRESSOR_LESSONS, COMPRESSOR_NAME, COMPRESSOR_SUBJECTS, COMPRESSOR_TOTAL_MIN,
+} from "../src/content/compressor";
+import {
+  SOUKIROOM_BASIS, SOUKIROOM_LESSONS, SOUKIROOM_NAME, SOUKIROOM_SUBJECTS, SOUKIROOM_TOTAL_MIN,
+} from "../src/content/soukiroom";
+import {
+  KIKOUSHITSU_BASIS, KIKOUSHITSU_LESSONS, KIKOUSHITSU_NAME, KIKOUSHITSU_SUBJECTS, KIKOUSHITSU_TOTAL_MIN,
+} from "../src/content/kikoushitsu";
+import {
+  SENSUI_BASIS, SENSUI_LESSONS, SENSUI_NAME, SENSUI_SUBJECTS, SENSUI_TOTAL_MIN,
+} from "../src/content/soukisensui";
+import {
+  SAIATSU_BASIS, SAIATSU_LESSONS, SAIATSU_NAME, SAIATSU_SUBJECTS, SAIATSU_TOTAL_MIN,
+} from "../src/content/saiatsushitsu";
+import {
+  KOUATSUSHITSU_BASIS, KOUATSUSHITSU_LESSONS, KOUATSUSHITSU_NAME, KOUATSUSHITSU_SUBJECTS, KOUATSUSHITSU_TOTAL_MIN,
+} from "../src/content/kouatsushitsu";
+import {
+  SENRYOUKA_BASIS, SENRYOUKA_LESSONS, SENRYOUKA_NAME, SENRYOUKA_SUBJECTS, SENRYOUKA_TOTAL_MIN,
+} from "../src/content/senryouka";
 import {
   DERRICK_BASIS, DERRICK_LESSONS, DERRICK_NAME, DERRICK_SUBJECTS, DERRICK_TOTAL_MIN,
 } from "../src/content/derrick";
@@ -242,6 +273,62 @@ const PLANS: Record<string, Plan> = {
     subjects: DERRICK_SUBJECTS,
     lessons: DERRICK_LESSONS,
     totalMin: DERRICK_TOTAL_MIN,
+  },
+  compressor: {
+    id: "compressor",
+    name: `${COMPRESSOR_NAME}（学科）`,
+    basis: COMPRESSOR_BASIS,
+    subjects: COMPRESSOR_SUBJECTS,
+    lessons: COMPRESSOR_LESSONS,
+    totalMin: COMPRESSOR_TOTAL_MIN,
+  },
+  soukiroom: {
+    id: "soukiroom",
+    name: `${SOUKIROOM_NAME}（学科）`,
+    basis: SOUKIROOM_BASIS,
+    subjects: SOUKIROOM_SUBJECTS,
+    lessons: SOUKIROOM_LESSONS,
+    totalMin: SOUKIROOM_TOTAL_MIN,
+  },
+  kikoushitsu: {
+    id: "kikoushitsu",
+    name: `${KIKOUSHITSU_NAME}（学科）`,
+    basis: KIKOUSHITSU_BASIS,
+    subjects: KIKOUSHITSU_SUBJECTS,
+    lessons: KIKOUSHITSU_LESSONS,
+    totalMin: KIKOUSHITSU_TOTAL_MIN,
+  },
+  soukisensui: {
+    id: "soukisensui",
+    name: `${SENSUI_NAME}（学科）`,
+    basis: SENSUI_BASIS,
+    subjects: SENSUI_SUBJECTS,
+    lessons: SENSUI_LESSONS,
+    totalMin: SENSUI_TOTAL_MIN,
+  },
+  saiatsushitsu: {
+    id: "saiatsushitsu",
+    name: `${SAIATSU_NAME}（学科）`,
+    basis: SAIATSU_BASIS,
+    subjects: SAIATSU_SUBJECTS,
+    lessons: SAIATSU_LESSONS,
+    totalMin: SAIATSU_TOTAL_MIN,
+  },
+  kouatsushitsu: {
+    id: "kouatsushitsu",
+    name: `${KOUATSUSHITSU_NAME}（学科）`,
+    basis: KOUATSUSHITSU_BASIS,
+    subjects: KOUATSUSHITSU_SUBJECTS,
+    lessons: KOUATSUSHITSU_LESSONS,
+    totalMin: KOUATSUSHITSU_TOTAL_MIN,
+  },
+  senryouka: {
+    id: "senryouka",
+    name: `${SENRYOUKA_NAME}（学科）`,
+    basis: SENRYOUKA_BASIS,
+    subjects: SENRYOUKA_SUBJECTS,
+    lessons: SENRYOUKA_LESSONS,
+    totalMin: SENRYOUKA_TOTAL_MIN,
   },
   tetraalkyl: {
     id: "tetraalkyl",

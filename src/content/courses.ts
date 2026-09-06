@@ -484,6 +484,125 @@ export const COURSES: CourseMeta[] = [
     menu: "other",
   },
   {
+    /* 高気圧の六つ（高圧則第11条第1項）。持ち場ごとに告示の条も時間も違う。
+       告示第129号の全文で確かめてある（docs/71）。裏取りは docs/81。
+       **第1号 空気圧縮機の運転。**いちばん上流。止まれば下に水が入る */
+    id: "compressor",
+    kind: "special",
+    type: "ondemand",
+    gate: "drill",
+    drillMin: 120,
+    name: "作業室及び気こう室へ送気するための空気圧縮機を運転する業務に係る特別教育",
+    short: "空気圧縮機の運転（高気圧）",
+    basis:
+      "労働安全衛生法第59条第3項／高気圧作業安全衛生規則第11条第1項第1号／高気圧業務特別教育規程第1条",
+    totalMin: 600,
+    file: "compressor.json",
+    ready: true,
+    menu: "other",
+  },
+  {
+    /* **第2号 作業室への送気の調節。**圧縮機を回す人ではなく、バルブを回す人。
+       科目2がまるごと第1号と違う（送気及び排気／緊急時の減圧法／設備） */
+    id: "soukiroom",
+    kind: "special",
+    type: "ondemand",
+    gate: "drill",
+    drillMin: 120,
+    name: "作業室への送気の調節を行うためのバルブ又はコツクを操作する業務に係る特別教育",
+    short: "作業室への送気の調節",
+    basis:
+      "労働安全衛生法第59条第3項／高気圧作業安全衛生規則第11条第1項第2号／高気圧業務特別教育規程第2条",
+    totalMin: 600,
+    file: "soukiroom.json",
+    ready: true,
+    menu: "other",
+  },
+  {
+    /* **第3号 気こう室への送気・排気の調節。**この持ち場だけ実技が3時間。
+       科目2の名前が「加圧及び減圧並びに換気の仕方」。設備ではなく、人の体を上げ下げする手順 */
+    id: "kikoushitsu",
+    kind: "special",
+    type: "ondemand",
+    gate: "drill",
+    drillMin: 180,
+    name: "気こう室への送気又は気こう室からの排気の調節を行うためのバルブ又はコツクを操作する業務に係る特別教育",
+    short: "気こう室の送気・排気の調節",
+    basis:
+      "労働安全衛生法第59条第3項／高気圧作業安全衛生規則第11条第1項第3号／高気圧業務特別教育規程第3条",
+    totalMin: 540,
+    file: "kikoushitsu.json",
+    ready: true,
+    menu: "other",
+  },
+  {
+    /* **第4号 潜水作業者への送気の調節。**六つのうち、これだけが水の中の話。
+       だから科目1が「潜水業務に関する知識」で、ほかの五つ（圧気工法）と違う */
+    id: "soukisensui",
+    kind: "special",
+    type: "ondemand",
+    gate: "drill",
+    drillMin: 120,
+    name: "潜水作業者への送気の調節を行うためのバルブ又はコツクを操作する業務に係る特別教育",
+    short: "潜水作業者への送気の調節",
+    basis:
+      "労働安全衛生法第59条第3項／高気圧作業安全衛生規則第11条第1項第4号／高気圧業務特別教育規程第4条",
+    totalMin: 540,
+    file: "soukisensui.json",
+    ready: true,
+    menu: "other",
+  },
+  {
+    /* **第5号 再圧室の操作。**目録に抜けていた行（docs/70 で見つけて足した no.66）。
+       相手がけが人。**「救急そ生法」が学科の科目に入っている講座は、うちでここだけ** */
+    id: "saiatsushitsu",
+    kind: "special",
+    type: "ondemand",
+    gate: "drill",
+    drillMin: 180,
+    name: "再圧室を操作する業務に係る特別教育",
+    short: "再圧室の操作",
+    basis:
+      "労働安全衛生法第59条第3項／高気圧作業安全衛生規則第11条第1項第5号／高気圧業務特別教育規程第5条",
+    totalMin: 540,
+    file: "saiatsushitsu.json",
+    ready: true,
+    menu: "other",
+  },
+  {
+    /* **第6号 高圧室内業務。**六つのうち、これだけが「中で働く人」の教育。
+       **実技が無い**（回すバルブが無いから）。そのかわり
+       科目3「急激な圧力低下、火災等の防止」に180分 */
+    id: "kouatsushitsu",
+    kind: "special",
+    type: "ondemand",
+    name: "高圧室内業務に係る特別教育",
+    short: "高圧室内業務",
+    basis:
+      "労働安全衛生法第59条第3項／高気圧作業安全衛生規則第11条第1項第6号／高気圧業務特別教育規程第6条",
+    totalMin: 420,
+    file: "kouatsushitsu.json",
+    ready: true,
+    menu: "other",
+  },
+  {
+    /* 特定線量下業務（目録62）。**学科2時間30分だけ。実技は無い。**
+       告示第469号第5条の全文で確かめてある（docs/73）。裏取りは docs/81。
+       **除染をしない仕事。**線量の高い場所で、ふつうの仕事をする業務。
+       **除染等業務（61）と違って業務区分が無い**ので、そのまま一本の講座にできる */
+    id: "senryouka",
+    kind: "special",
+    type: "ondemand",
+    name: "特定線量下業務に係る特別教育",
+    short: "特定線量下業務",
+    basis:
+      "労働安全衛生法第59条第3項／除染則第25条の8第1項／除染等業務特別教育及び特定線量下業務特別教育規程第5条",
+    totalMin: 150,
+    file: "senryouka.json",
+    ready: true,
+    menu: "other",
+  },
+  {
     /* 四アルキル鉛等業務の特別教育（目録43）。
 
        ・**学科6時間だけ。実技は無い**（gate なし）

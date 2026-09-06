@@ -876,6 +876,8 @@ export const TOKUBETSU: Tokubetsu[] = [
     checked: true,
     fullText: true,
     checkedOn: KOKUJI_129_ON,
+    courseId: "compressor",
+    doc: "docs/81-高気圧の六つと特定線量下業務の根拠と裏取り.md",
   },
   {
     no: 39,
@@ -910,6 +912,8 @@ export const TOKUBETSU: Tokubetsu[] = [
     checked: true,
     fullText: true,
     checkedOn: KOKUJI_129_ON,
+    courseId: "soukiroom",
+    doc: "docs/81-高気圧の六つと特定線量下業務の根拠と裏取り.md",
   },
   {
     no: 40,
@@ -947,6 +951,8 @@ export const TOKUBETSU: Tokubetsu[] = [
     checked: true,
     fullText: true,
     checkedOn: KOKUJI_129_ON,
+    courseId: "kikoushitsu",
+    doc: "docs/81-高気圧の六つと特定線量下業務の根拠と裏取り.md",
   },
   {
     no: 41,
@@ -984,6 +990,8 @@ export const TOKUBETSU: Tokubetsu[] = [
     checked: true,
     fullText: true,
     checkedOn: KOKUJI_129_ON,
+    courseId: "soukisensui",
+    doc: "docs/81-高気圧の六つと特定線量下業務の根拠と裏取り.md",
   },
   {
     no: 42,
@@ -1045,6 +1053,8 @@ export const TOKUBETSU: Tokubetsu[] = [
     fromMaster: true,
     fullText: true,
     checkedOn: KOKUJI_129_ON,
+    courseId: "kouatsushitsu",
+    doc: "docs/81-高気圧の六つと特定線量下業務の根拠と裏取り.md",
   },
   {
     no: 43,
@@ -1468,6 +1478,8 @@ export const TOKUBETSU: Tokubetsu[] = [
     fromMaster: true,
     fullText: true,
     checkedOn: KOKUJI_125_469_ON,
+    courseId: "senryouka",
+    doc: "docs/81-高気圧の六つと特定線量下業務の根拠と裏取り.md",
   },
   {
     no: 63,
@@ -1561,6 +1573,8 @@ export const TOKUBETSU: Tokubetsu[] = [
     checked: true,
     fullText: true,
     checkedOn: KOKUJI_129_ON,
+    courseId: "saiatsushitsu",
+    doc: "docs/81-高気圧の六つと特定線量下業務の根拠と裏取り.md",
   },
 ];
 

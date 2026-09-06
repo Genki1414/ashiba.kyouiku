@@ -188,6 +188,26 @@ import {
   BOILER_JITSUGI,
 } from "./boiler";
 import {
+  COMPRESSOR_DRILL_FORM, COMPRESSOR_DRILL_PREP, COMPRESSOR_DRILL_STEPS,
+  COMPRESSOR_DRILL_TEACHER, COMPRESSOR_DRILL_TOTAL_MIN, COMPRESSOR_JITSUGI,
+} from "./compressor";
+import {
+  SOUKIROOM_DRILL_FORM, SOUKIROOM_DRILL_PREP, SOUKIROOM_DRILL_STEPS,
+  SOUKIROOM_DRILL_TEACHER, SOUKIROOM_DRILL_TOTAL_MIN, SOUKIROOM_JITSUGI,
+} from "./soukiroom";
+import {
+  KIKOUSHITSU_DRILL_FORM, KIKOUSHITSU_DRILL_PREP, KIKOUSHITSU_DRILL_STEPS,
+  KIKOUSHITSU_DRILL_TEACHER, KIKOUSHITSU_DRILL_TOTAL_MIN, KIKOUSHITSU_JITSUGI,
+} from "./kikoushitsu";
+import {
+  SENSUI_DRILL_FORM, SENSUI_DRILL_PREP, SENSUI_DRILL_STEPS,
+  SENSUI_DRILL_TEACHER, SENSUI_DRILL_TOTAL_MIN, SENSUI_JITSUGI,
+} from "./soukisensui";
+import {
+  SAIATSU_DRILL_FORM, SAIATSU_DRILL_PREP, SAIATSU_DRILL_STEPS,
+  SAIATSU_DRILL_TEACHER, SAIATSU_DRILL_TOTAL_MIN, SAIATSU_JITSUGI,
+} from "./saiatsushitsu";
+import {
   MOBILECRANE_DRILL_FORM,
   MOBILECRANE_DRILL_PREP,
   MOBILECRANE_DRILL_STEPS,
@@ -460,6 +480,66 @@ const GUIDES: Record<string, DrillGuide> = {
     prep: DERRICK_DRILL_PREP,
     keepYears: 3,
     form: DERRICK_DRILL_FORM,
+  },
+  compressor: {
+    courseId: "compressor",
+    subject: COMPRESSOR_JITSUGI.name,
+    scope: COMPRESSOR_JITSUGI.scope,
+    legalMin: COMPRESSOR_JITSUGI.legalMin,
+    steps: COMPRESSOR_DRILL_STEPS,
+    totalMin: COMPRESSOR_DRILL_TOTAL_MIN,
+    teacher: COMPRESSOR_DRILL_TEACHER,
+    prep: COMPRESSOR_DRILL_PREP,
+    keepYears: 3,
+    form: COMPRESSOR_DRILL_FORM,
+  },
+  soukiroom: {
+    courseId: "soukiroom",
+    subject: SOUKIROOM_JITSUGI.name,
+    scope: SOUKIROOM_JITSUGI.scope,
+    legalMin: SOUKIROOM_JITSUGI.legalMin,
+    steps: SOUKIROOM_DRILL_STEPS,
+    totalMin: SOUKIROOM_DRILL_TOTAL_MIN,
+    teacher: SOUKIROOM_DRILL_TEACHER,
+    prep: SOUKIROOM_DRILL_PREP,
+    keepYears: 3,
+    form: SOUKIROOM_DRILL_FORM,
+  },
+  kikoushitsu: {
+    courseId: "kikoushitsu",
+    subject: KIKOUSHITSU_JITSUGI.name,
+    scope: KIKOUSHITSU_JITSUGI.scope,
+    legalMin: KIKOUSHITSU_JITSUGI.legalMin,
+    steps: KIKOUSHITSU_DRILL_STEPS,
+    totalMin: KIKOUSHITSU_DRILL_TOTAL_MIN,
+    teacher: KIKOUSHITSU_DRILL_TEACHER,
+    prep: KIKOUSHITSU_DRILL_PREP,
+    keepYears: 3,
+    form: KIKOUSHITSU_DRILL_FORM,
+  },
+  soukisensui: {
+    courseId: "soukisensui",
+    subject: SENSUI_JITSUGI.name,
+    scope: SENSUI_JITSUGI.scope,
+    legalMin: SENSUI_JITSUGI.legalMin,
+    steps: SENSUI_DRILL_STEPS,
+    totalMin: SENSUI_DRILL_TOTAL_MIN,
+    teacher: SENSUI_DRILL_TEACHER,
+    prep: SENSUI_DRILL_PREP,
+    keepYears: 3,
+    form: SENSUI_DRILL_FORM,
+  },
+  saiatsushitsu: {
+    courseId: "saiatsushitsu",
+    subject: SAIATSU_JITSUGI.name,
+    scope: SAIATSU_JITSUGI.scope,
+    legalMin: SAIATSU_JITSUGI.legalMin,
+    steps: SAIATSU_DRILL_STEPS,
+    totalMin: SAIATSU_DRILL_TOTAL_MIN,
+    teacher: SAIATSU_DRILL_TEACHER,
+    prep: SAIATSU_DRILL_PREP,
+    keepYears: 3,
+    form: SAIATSU_DRILL_FORM,
   },
   boiler: {
     courseId: "boiler",
