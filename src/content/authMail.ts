@@ -1,3 +1,5 @@
+import { BRAND } from "@/content/brand";
+
 /* 認証メール（合言葉の決め直し・登録の確認）の差出人。
 
    受け取る側にはこう見える。送ったあとの画面で、先に同じものを見せておく。
@@ -19,8 +21,12 @@
    画面に嘘の差出人が出たままになる（/setup にも出している）。
    AUTH_MAIL_FROM を空文字にすれば、画面の案内も /setup の行も消える。 */
 
-/** 認証メールの差出人。受信箱にこう出る */
-export const AUTH_MAIL_FROM = "足場屋革命 <noreply@ashibase.jp>";
+/** 認証メールの差出人。受信箱にこう出る。
+
+    店ごとに名前が変わる（src/content/brand.ts）。
+    **住所（noreply@ashibase.jp）は変えない。**変えると送信の認証を
+    もう一度通すことになり、通るまでメールが届かない */
+export const AUTH_MAIL_FROM = BRAND.mailFrom;
 
 /** 自前の送信元か。false だと Supabase の共用送信元（英語・1時間に数通まで） */
 export const AUTH_MAIL_OWN = true;

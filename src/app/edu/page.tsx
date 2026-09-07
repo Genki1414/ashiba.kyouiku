@@ -4,7 +4,8 @@ import { COURSES, splitMenu } from "@/content/courses";
 import { loadedCourses } from "@/lib/curriculum";
 import { OtherCourses } from "@/components/OtherCourses";
 import { CourseCard, CourseSoon } from "@/components/CourseCard";
-import { TOKUBETSU, isReady } from "@/content/tokubetsu";
+import { TOKUBETSU, isReady, tokubetsuOfCourse } from "@/content/tokubetsu";
+import { BRAND } from "@/content/brand";
 
 export const dynamic = "force-dynamic";
 
@@ -28,6 +29,30 @@ export default async function EduPage() {
   const soon = COURSES.filter((c) => !c.ready);
   const r = splitMenu(ready);
   const s = splitMenu(soon);
+
+  /* 特別教育ドットコムは業種を選ばない。足場を大きな札で上に置くと、
+     塗装屋さんや解体屋さんには邪魔になるだけなので、**足場も含めて**
+     全部を法令（目録）の号順に平らに並べ、探す窓ひとつで選んでもらう。
+     ホーム（src/app/page.tsx）と同じ考え方。 */
+  const byLaw = <T extends { id: string }>(list: T[]): T[] =>
+    [...list].sort((a, b) =>
+      (tokubetsuOfCourse(a.id)?.no ?? 0) - (tokubetsuOfCourse(b.id)?.no ?? 0));
+
+  if (BRAND.flatList) {
+    return (
+      <main className="px-5 py-8" data-testid="course-list">
+        <div className="tape -mx-5 mb-6" />
+        <Link href="/" className="backlink text-[13px] text-dim no-underline">← ホーム</Link>
+        <h1 className="mt-2 text-[19px] font-black">受ける講座</h1>
+        <p className="mt-1 text-[12px] leading-relaxed text-dim">
+          受ける講座を選んでください。修了証は講座ごとに出ます。
+        </p>
+        <div className="mt-5">
+          <OtherCourses ready={byLaw(ready)} soon={byLaw(soon)} />
+        </div>
+      </main>
+    );
+  }
   /* 「その他特別教育」の中身。
      講座として作ったもの（menu: "other"）に加えて、
      **まだ作っていない特別教育の目録**も並べる。

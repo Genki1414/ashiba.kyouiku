@@ -573,9 +573,19 @@ console.log("\n── その他特別教育に出す ──");
 
   const page = code("src/app/edu/page.tsx");
   check(page.includes("<OtherCourses"), "講座の一覧にも出している");
-  /* 開く前は出さない。64件がいきなり並ぶと、足場を受けに来た人が迷う */
-  check(page.indexOf("<OtherCourses") > page.indexOf("course-other-open"),
+  /* 開く前は出さない。64件がいきなり並ぶと、足場を受けに来た人が迷う。
+
+     **これは足場屋革命の話。**特別教育ドットコムは業種を選ばないので、
+     最初から平らに並べる（そちらは先に return する別の枝）。
+     だから「いちばん後ろの OtherCourses」が details の中にあるかで見る。
+     足場屋革命の枝から details が外れたら、ここで気づく */
+  check(page.lastIndexOf("<OtherCourses") > page.indexOf("course-other-open"),
     "開いてから出す");
+  /* 平らに並べる枝は、必ず店で切り替える。
+     うっかり素で置くと、足場屋革命でも64件がいきなり並ぶ */
+  const flat = page.indexOf("<OtherCourses");
+  check(flat > page.indexOf("BRAND.flatList") && page.indexOf("BRAND.flatList") >= 0,
+    "平らに並べる枝は BRAND.flatList の中にある");
   check(page.includes("TOKUBETSU.filter((t) => !isReady(t)).length"),
     "件数に、まだ作っていないものを数える");
 

@@ -1,3 +1,4 @@
+import { BRAND } from "@/content/brand";
 /* 申込が来たときに、運営へ出す知らせの中身。
 
    ── なぜ中身を書かないか ──
@@ -56,7 +57,7 @@ export function notifyText(k: NotifyKind, site: string, n = 1): string {
   const base = site.replace(/\/+$/, "");
   const count = n > 1 ? `${n}件` : "1件";
   return [
-    `【足場屋革命】${d.t}が${count}`,
+    `【${BRAND.notifyPrefix}】${d.t}が${count}`,
     d.why,
     "",
     `${base}${d.path}`,

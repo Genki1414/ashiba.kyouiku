@@ -54,9 +54,12 @@ console.log("── 1回目（まだ何も覚えていない）──");
 await page.goto(URL, { waitUntil: "domcontentloaded" });
 await dismiss();
 
-/* 作り置きのぶんは、聞き終わる前に出ている */
-await page.waitForSelector("text=実務トレーニング", { timeout: 5000 });
-const early = await page.getByTestId("home-course").count();
+/* 作り置きのぶんは、聞き終わる前に出ている。
+   並べ方は店で変わるので、どちらの形でも数える
+   （足場屋革命は大きな札、特別教育ドットコムは平らな一覧） */
+const CARDS = '[data-testid="home-course"], [data-testid="course-card"]';
+await page.waitForSelector(CARDS, { timeout: 5000 });
+const early = await page.locator(CARDS).count();
 check(early >= 1, `特別教育の札が、聞き終わる前に出ている（${early}件）`);
 
 /* 帯の高さは先に取ってある。取っていないと、あとから出たときに全部ずり下がる */
@@ -64,9 +67,9 @@ const hold = await page.getByTestId("account-bar-hold").count();
 const bar = await page.getByTestId("account-bar").count();
 check(hold + bar === 1, `帯の場所は先に取ってある（受け ${hold}／本物 ${bar}）`);
 
-const before = await page.getByTestId("home-course").first().boundingBox();
+const before = await page.locator(CARDS).first().boundingBox();
 await page.waitForSelector('[data-testid="home-admin"]', { timeout: 15000 });
-const after = await page.getByTestId("home-course").first().boundingBox();
+const after = await page.locator(CARDS).first().boundingBox();
 check(
   Math.abs((before?.y ?? 0) - (after?.y ?? 0)) < 2,
   `名前が出ても、特別教育の札がずれない（${Math.round(before?.y ?? 0)} → ${Math.round(after?.y ?? 0)}）`,

@@ -1,15 +1,31 @@
 import Link from "next/link";
-import { COURSES, hoursText, splitMenu, textOf, totalNoteOf } from "@/content/courses";
+import { COURSES, hoursText, splitMenu, textOf, totalNoteOf, type CourseMeta } from "@/content/courses";
 import { loadedCourses } from "@/lib/curriculum";
 import { AccountBar } from "@/components/AccountBar";
 import { HomeCards } from "@/components/HomeCards";
 import { FirstSteps } from "@/components/FirstSteps";
 import { Notices } from "@/components/Notices";
 import { OtherTokubetsu } from "@/components/OtherTokubetsu";
+import { OtherCourses } from "@/components/OtherCourses";
+import { tokubetsuOfCourse } from "@/content/tokubetsu";
+import { BRAND } from "@/content/brand";
 
 /* ここはサーバ側で誰かを見ていない（立場ごとの出し分けは HomeCards が
    あとから聞きに行く）。作り置きにしておけば、開いた瞬間に出る */
 export const revalidate = 3600;
+
+/* 平らな一覧の並び順。**法令（目録）の号順にする。**
+
+   COURSES の並びは足場屋革命の看板順で、足場がいちばん上にある。
+   そのまま特別教育ドットコムに出すと、塗装屋さんや解体屋さんが開いて
+   最初に見るのが足場になる。「足場屋のところか」と読まれる。
+
+   売り文句で決めずに、法令の号順に置く。うちの都合が入らないし、
+   下に並ぶ「まだ作っていない目録」と同じ順になるので、探すときに迷わない。
+   目録に無いもの（職長教育）は先頭。特別教育ではないので号を持たない */
+const flatOrder = (list: CourseMeta[]): CourseMeta[] =>
+  [...list].sort((a, b) =>
+    (tokubetsuOfCourse(a.id)?.no ?? 0) - (tokubetsuOfCourse(b.id)?.no ?? 0));
 
 export default async function Home() {
   /* 特別教育は種類が増えていく。受けられるものを並べる */
@@ -18,19 +34,22 @@ export default async function Home() {
      足場を受けに来た人の一覧を長くしないため（courses.ts の menu）。
      ただし**開いた中には必ず出す。** 出し忘れると、受けられるのに
      行き着けない講座ができる（石綿でそうなった） */
-  const { main: ready, other: otherReady } = splitMenu(all);
+  /* main … 大きな札で出すもの（足場・職長）。other … 「その他特別教育」に畳むもの。
+     名前を ready にしない。**OtherCourses に渡す配列と同じ名前にすると、
+     「その他の中身を自分で並べていないか」の見張りが見分けられなくなる** */
+  const { main: mainCourses, other: otherReady } = splitMenu(all);
   const soon = COURSES.filter((c) => !c.ready);
   return (
     <main>
       <div className="tape" />
       <AccountBar />
       <div className="px-5 pt-10 pb-6">
-        <div className="text-[11px] tracking-[3px] text-yel font-extrabold">ASHIBAYA KAKUMEI</div>
-        <h1 className="mt-2 text-[22px] font-black leading-snug">足場屋革命</h1>
+        <div className="text-[11px] tracking-[3px] text-yel font-extrabold">{BRAND.eyebrow}</div>
+        <h1 className="mt-2 text-[22px] font-black leading-snug">{BRAND.name}</h1>
         <p className="mt-2 text-[13px] leading-relaxed text-dim">
-          特別教育・職長教育と、実務トレーニング。
+          {BRAND.lead[0]}
           <br />
-          労働安全衛生法にもとづく学科と、組む手順の練習。
+          {BRAND.lead[1]}
         </p>
       </div>
 
@@ -46,7 +65,25 @@ export default async function Home() {
 
         <FirstSteps />
 
-        {ready.map((c) => (
+        {/* 講座の並べ方は店で変わる（src/content/brand.ts）。
+
+            足場屋革命は、足場と職長を大きな札で出して、残りを
+            「その他特別教育」に畳む。足場を受けに来た人の一覧を長くしないため。
+
+            特別教育ドットコムは業種を選ばない。どれかを上に置くと、
+            その業種以外の人には邪魔になるだけなので、**足場も含めて**
+            73講座を平らに並べ、探す窓ひとつで選んでもらう。 */}
+        {BRAND.flatList ? (
+          <div className="rounded-xl border border-line bg-panel p-4" data-testid="home-flat">
+            <div className="text-[11px] font-extrabold tracking-widest text-yel">
+              受けられる講座
+            </div>
+            <div className="mt-3">
+              <OtherCourses ready={flatOrder(all.filter((c) => c.ready))} soon={flatOrder(soon)} />
+            </div>
+          </div>
+        ) : (
+        mainCourses.map((c) => (
           <Link
             key={c.id}
             href={`/edu/${c.id}`}
@@ -68,15 +105,17 @@ export default async function Home() {
               {totalNoteOf(c)} 計{hoursText(c.totalMin)}
             </div>
           </Link>
-        ))}
+        )))}
 
         {/* 法令で決まっている特別教育の目録。教育の札のすぐ下に置く。
 
             前は講座の一覧（/edu）にだけ置いていたが、**ホームの札は
             各講座へ直接飛ぶ**ので、一覧に辿り着く道がどこにも無かった。
             置いたのに誰にも見えていなかった。人が見ているのはホーム。 */}
-        <OtherTokubetsu ready={otherReady} />
+        {!BRAND.flatList && <OtherTokubetsu ready={otherReady} />}
 
+        {/* 実務トレーニングは足場を組むゲーム。足場屋さん以外には要らない */}
+        {BRAND.training && (
         <Link
           href="/training"
           className="block rounded-xl border border-line bg-panel p-5 no-underline"
@@ -89,9 +128,10 @@ export default async function Home() {
             第1章 段取りと根がらみ／第2章 高所作業／第3章 火打とシート
           </div>
         </Link>
+        )}
 
         {/* これから増える講座。何が来るのかが分かるように名前だけ出す */}
-        {!!soon.length && (
+        {!BRAND.flatList && !!soon.length && (
           <div className="rounded-xl border border-line bg-bg p-4" data-testid="home-soon">
             <div className="text-[11px] tracking-[2px] text-dim">これから増える講座</div>
             <ul className="mt-1.5 grid gap-1 text-[12.5px] leading-relaxed text-dim2">

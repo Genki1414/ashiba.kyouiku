@@ -1,0 +1,159 @@
+/* 店が二つあることの決まり。
+   実行: npm run test:brand
+
+   足場屋革命          … 足場屋さん向け。特別教育・職長教育＋実務トレーニング
+   特別教育ドットコム  … それ以外の業種向け。特別教育・職長教育だけ
+
+   **足場屋革命が正。**中身（講座・席・修了証・migration）は一つで、
+   ここで変わるのは名前と表紙と、実務トレーニングを出すかどうかだけ。
+
+   いちばん怖いのは、**特別教育ドットコムに足場屋の文字が残ること**。
+   塗装屋さんや解体屋さんが開いて「足場屋のところか」と思って閉じる。
+   げんきさんの決めごと（これは全ての業種の人が受ける）が、
+   講座の中身では守られていても、看板で壊れる。 */
+
+import { readFileSync, readdirSync } from "node:fs";
+import { BRAND, BRANDS, type Brand } from "../src/content/brand";
+import { COURSES } from "../src/content/courses";
+import { tokubetsuOfCourse } from "../src/content/tokubetsu";
+
+let ok = 0;
+let ng = 0;
+const check = (c: boolean, label: string, extra?: string) => {
+  if (c) ok++;
+  else { ng++; console.error(`NG  ${label}${extra ? `\n    ${extra}` : ""}`); }
+};
+const read = (p: string) => readFileSync(new URL(`../${p}`, import.meta.url), "utf8");
+const code = (p: string) =>
+  read(p).replace(/\/\*[\s\S]*?\*\//g, " ").replace(/^\s*\/\/.*$/gm, " ");
+
+console.log("── 店は二つ、既定は足場屋革命 ──");
+{
+  check(BRANDS.length === 2, `店は2つ（いま ${BRANDS.length}）`);
+  check(BRAND.id === "ashibaya",
+    "**環境変数を書かなければ足場屋革命。**いまの本番は何も足さなくてよい", BRAND.id);
+  const ids = BRANDS.map((b) => b.id);
+  check(new Set(ids).size === ids.length, "同じ id の店が二つない");
+}
+
+console.log("\n── どちらの店も、名前が全部そろっている ──");
+{
+  const keys: (keyof Brand)[] = [
+    "name", "shortName", "eyebrow", "title", "manifestName",
+    "description", "metaDescription", "mailFrom", "notifyPrefix",
+  ];
+  for (const b of BRANDS) {
+    for (const k of keys) {
+      check(typeof b[k] === "string" && (b[k] as string).trim().length > 0,
+        `${b.id}: ${String(k)} が空でない`);
+    }
+    check(b.lead.length === 2 && b.lead.every((x) => x.trim().length > 0),
+      `${b.id}: 表紙の一言が2行そろっている`);
+    /* ホーム画面のアイコンの下は短い名前。長いと途中で切れる */
+    check(b.shortName.length <= 12, `${b.id}: 短い名前が12文字以内`, b.shortName);
+    /* 差出人は「名前 <住所>」の形。崩れると送れない */
+    check(/^.+ <[^@\s]+@[^@\s]+>$/.test(b.mailFrom),
+      `${b.id}: メールの差出人の形が正しい`, b.mailFrom);
+  }
+  /* 二つの店で、名前がかぶっていない。かぶると別サービスにならない */
+  for (const k of ["name", "shortName", "title", "notifyPrefix"] as const) {
+    check(BRANDS[0][k] !== BRANDS[1][k], `${k} が二つの店で違う`);
+  }
+}
+
+console.log("\n── 送信の住所は変えていない ──");
+{
+  /* ドメインを増やすと SPF・DKIM をもう一度通すことになる。
+     通るまでメールが1通も届かない。名前だけ変える */
+  const at = BRANDS.map((b) => b.mailFrom.replace(/^.*</, "").replace(/>$/, ""));
+  check(new Set(at).size === 1, "差出人の住所は二つの店で同じ", at.join(" / "));
+}
+
+console.log("\n── 特別教育ドットコムに足場屋の文字が出ない ──");
+{
+  const t = BRANDS.find((b) => b.id === "tokubetsu")!;
+  const words = [...Object.values(t).filter((v) => typeof v === "string") as string[], ...t.lead];
+  for (const w of words) {
+    check(!w.includes("足場"),
+      `特別教育ドットコムの文字に「足場」が入っていない`, w);
+  }
+  check(!t.training, "特別教育ドットコムでは実務トレーニングを出さない");
+  /* 業種を選ばないので、どれかを大きく出すと、その業種以外には邪魔になる。
+     足場も含めて平らに並べ、探す窓ひとつで選んでもらう */
+  check(t.flatList, "特別教育ドットコムは、足場も含めて一覧＋探す窓にする");
+}
+
+console.log("\n── 足場屋革命は、いままでのまま ──");
+{
+  const a = BRANDS.find((b) => b.id === "ashibaya")!;
+  check(a.name === "足場屋革命", "名前", a.name);
+  check(a.shortName === "足場屋革命", "ホーム画面の名前", a.shortName);
+  check(a.eyebrow === "ASHIBAYA KAKUMEI", "英字", a.eyebrow);
+  check(a.title === "足場屋革命｜特別教育・職長教育と実務トレーニング", "タブの題", a.title);
+  check(a.manifestName === "足場屋革命｜足場の特別教育と実務トレーニング",
+    "ホーム画面に追加するときの名前", a.manifestName);
+  check(a.mailFrom === "足場屋革命 <noreply@ashibase.jp>", "メールの差出人", a.mailFrom);
+  check(a.notifyPrefix === "足場屋革命", "知らせの頭", a.notifyPrefix);
+  check(a.training, "実務トレーニングを出す");
+  check(!a.flatList, "足場と職長は大きな札のまま");
+}
+
+console.log("\n── 名前を決め打ちで書き残していないか ──");
+{
+  /* 画面やメールに「足場屋革命」と直に書くと、特別教育ドットコムでも
+     そのまま出る。名前は brand.ts から取る。
+     （changelog と講座の中身は、書かれた当時の記録なので見ない） */
+  const files = (readdirSync(new URL("../src/", import.meta.url), { recursive: true }) as string[])
+    .filter((f) => /\.(ts|tsx)$/.test(`${f}`))
+    .map((f) => `src/${f}`)
+    .filter((f) => !f.includes("content/brand.ts")
+      && !f.includes("content/changelog.ts")
+      && !f.includes("content/courses/"));
+  for (const f of files) {
+    const src = code(f);
+    check(!/["'`][^"'`]*足場屋革命/.test(src),
+      `${f}：「足場屋革命」を直に書いていない（brand.ts から取る）`);
+  }
+  check(files.length > 50, `見たファイルは ${files.length}本`);
+}
+
+console.log("\n── 平らな一覧の並び順 ──");
+{
+  /* COURSES の並びは足場屋革命の看板順で、足場がいちばん上にある。
+     そのまま出すと、塗装屋さんが開いて最初に見るのが足場になる。
+     売り文句ではなく**法令（目録）の号順**に置く */
+  const page = code("src/app/page.tsx");
+  check(page.includes("flatOrder("), "平らな一覧は並べ替えてから渡す");
+  check(page.includes("tokubetsuOfCourse"), "並べ替えは目録の号で決める");
+
+  const ready = COURSES.filter((c) => c.ready);
+  const sorted = [...ready].sort((a, b) =>
+    (tokubetsuOfCourse(a.id)?.no ?? 0) - (tokubetsuOfCourse(b.id)?.no ?? 0));
+  check(sorted[0].id !== "ashiba", "先頭が足場になっていない", sorted[0].id);
+  /* 足場も必ず一覧に入っている（探して出る）。
+     業種で講座を隠すと、受けられるはずの人が行き着けない */
+  check(sorted.some((c) => c.id === "ashiba"), "足場も一覧に入っている");
+  check(sorted.length === ready.length, "並べ替えで講座が減っていない");
+  const nos = sorted.map((c) => tokubetsuOfCourse(c.id)?.no ?? 0);
+  check(nos.every((n, i) => i === 0 || nos[i - 1] <= n), "号の小さい順に並んでいる");
+}
+
+console.log("\n── 講座は両方の店で同じ ──");
+{
+  /* 分けているのは売り先であって、中身ではない。
+     法令で決まった講座なので、業種で中身が変わることはない。
+     修了証も同じ様式・同じ発行者 */
+  const ready = COURSES.filter((c) => c.ready);
+  check(ready.length > 70, `受けられる講座は ${ready.length}本（両方の店で同じ）`);
+  const page = code("src/app/page.tsx");
+  check(page.includes("BRAND.flatList"), "並べ方は店で分ける");
+  check(page.includes("BRAND.training"), "実務トレーニングの札は店で分ける");
+  /* 講座そのものを店で絞っていないこと。絞ると、
+     足場屋さん以外が石綿を受けられない、のような穴が開く */
+  check(!/BRAND[\s\S]{0,80}COURSES\.filter/.test(page),
+    "講座そのものを店で絞っていない（絞ると受けられない講座ができる）");
+}
+
+console.log("\n── まとめ ──");
+console.log(`${ok} 件通過 / ${ng} 件失敗`);
+if (ng) process.exit(1);

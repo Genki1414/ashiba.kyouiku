@@ -9,6 +9,7 @@
 import { readFileSync } from "node:fs";
 import { orderLabel, TRAIN_LABEL } from "../src/lib/orderLabel";
 import { COURSES, readyCourses, findCourse, totalNoteOf, SERVICE_NAME } from "../src/content/courses";
+import manifest from "../src/app/manifest";
 import { isOpenPath } from "../src/lib/authGate";
 import { DEFAULT_COURSE_PRICE } from "../src/lib/pricing";
 
@@ -99,8 +100,13 @@ console.log("\n── 規約と表記が、公開中の講座を全部おおう�
   const login = code("src/app/login/LoginClient.tsx");
   check(!login.includes('>足場の特別教育<'), "ログイン画面の見出しが足場で固定でない");
   check(login.includes("SERVICE_NAME"), "見出しはサービス名を使う");
-  check(SERVICE_NAME.length > 0 && !SERVICE_NAME.includes("特別教育"),
-    "サービス名に講座名が混ざっていない", SERVICE_NAME);
+  /* サービス名に**講座の名前**を入れないこと。「足場の特別教育」を看板に
+     すると、73講座あるのに1つしか売っていないように見える。
+     「特別教育ドットコム」のような**種類の名前**は構わない
+     （講座の名前ではないので、講座が増えても嘘にならない） */
+  check(SERVICE_NAME.length > 0, "サービス名がある");
+  check(!COURSES.some((c) => SERVICE_NAME.includes(c.name) || SERVICE_NAME.includes(c.short)),
+    "サービス名に、特定の講座の名前が混ざっていない", SERVICE_NAME);
 }
 
 console.log("\n── 講座を足したときに置き去りにならないか ──");
@@ -141,7 +147,9 @@ console.log("\n── 独自ドメインへ移すとき ──");
 
   /* ホーム画面のアイコンは、入れたときの住所に張り付く。
      manifest の中を絶対URLにすると、住所を変えたときに直しきれない */
-  const mani = JSON.parse(read("public/manifest.webmanifest"));
+  /* manifest は src/app/manifest.ts で組み立てる（店ごとに名前が変わるので、
+     public に置いた文字そのものではなくなった）。中身を呼んで見る */
+  const mani = manifest();
   check(mani.start_url === "/", "manifest の start_url が相対", mani.start_url);
   check(mani.scope === "/", "manifest の scope が相対", mani.scope);
   const abs = [...mani.icons.map((i: { src: string }) => i.src),

@@ -40,11 +40,15 @@ const dismissNotice = async () => {
 await page.goto(BASE);
 /* 名前で待たない。サービス名を変えたときに、ここだけ古いまま残って
    この試験が丸ごと動かなくなっていた（見出しの字は商売の都合で変わる）。
-   講座の札は作り置きで必ず出るので、そちらを待つ */
-await page.waitForSelector('[data-testid="home-course"]');
+
+   **札の形でも待たない。**店によって並べ方が変わる
+   （足場屋革命は大きな札 home-course、特別教育ドットコムは
+   平らな一覧 course-card）。行き先の住所で待って、そこを押す。
+   住所は法令で決まった講座の id なので、商売の都合では変わらない */
+await page.waitForSelector('a[href="/edu/ashiba"]');
 await dismissNotice();
 await shot(page, "01-home");
-await page.click("text=特別教育（学科）");
+await page.click('a[href="/edu/ashiba"]');
 await page.waitForURL("**/edu/ashiba");
 await page.waitForSelector('a[href="/edu/ashiba/1-1"]');
 const hrefs = await page.locator('a[href^="/edu/ashiba/"]').evaluateAll((as) => as.map((a) => a.getAttribute("href")));

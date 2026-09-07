@@ -130,9 +130,15 @@ console.log("\n── ホームの札 ──");
 {
   const page0 = code("src/app/page.tsx");
   check(page0.includes("<FirstSteps"), "ホームに出している");
-  /* 講座の札より上に出す。押してから断られたのでは遅い */
+  /* 講座の札より上に出す。押してから断られたのでは遅い。
+     並べ方は店で変わる（足場屋革命は大きな札、特別教育ドットコムは
+     平らな一覧）。**先に来るほうの上**にあれば良い */
+  const firstList = Math.min(
+    ...[page0.indexOf("mainCourses.map"), page0.indexOf('data-testid="home-flat"')]
+      .filter((i) => i >= 0),
+  );
   check(
-    page0.indexOf("<FirstSteps") < page0.indexOf("ready.map"),
+    page0.indexOf("<FirstSteps") < firstList,
     "道のりは講座の札より上に出す",
   );
   const h = code("src/components/HomeCards.tsx");

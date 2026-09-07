@@ -110,10 +110,13 @@ console.log("\n── 一覧の書き方 ──");
   check(users.length >= 2, `OtherCourses を出しているのは ${users.length}か所（2か所以上あるはず）`);
   for (const [name, src] of users) {
     check(/<OtherCourses\s+ready=/.test(src), `${name}：受けられる講座を OtherCourses に渡している`);
-    /* 「その他」の中身を、そのファイルが自分で並べていないか。
-       /edu は「その他」の外（足場・職長）でも札を出すので、
-       札そのものではなく、**その他の一覧を回しているか**で見る */
-    check(!/\.other\.map\(/.test(src) && !/\bready\.map\(/.test(src),
+    /* 見るのは「その他」の一覧を回していないか。
+       **OtherCourses に渡した物を、同じファイルで自分でも並べていないか**が芯。
+       ホームは「その他」の外（足場・職長）でも札を出すので、
+       その札まで止めない（mainCourses という別の名前にしてある） */
+    check(!/\.other\.map\(/.test(src)
+      && !/\bready\.map\(/.test(src)
+      && !/\botherReady\.map\(/.test(src),
       `${name}：その他の中身を自分で並べていない（並べると窓の下に来る）`);
   }
 }

@@ -1,3 +1,4 @@
+import { BRAND } from "./brand";
 /* 講座（特別教育）の一覧。
 
    足場だけでなく、これから何種類も増やしていく。
@@ -1888,7 +1889,9 @@ export const splitMenu = (
   other: list.filter((c) => menuOf(c) === "other"),
 });
 
-export const SERVICE_NAME = "足場屋革命";
+/** 店の名前。ログイン画面の見出しに出る。
+    足場屋革命か、特別教育ドットコムか（src/content/brand.ts） */
+export const SERVICE_NAME = BRAND.name;
 
 export const readyCourses = (): CourseMeta[] => COURSES.filter((c) => c.ready);
 

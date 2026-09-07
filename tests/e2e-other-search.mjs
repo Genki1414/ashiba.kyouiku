@@ -29,7 +29,10 @@ for (const [label, path] of [["ホーム", "/"], ["一覧", "/edu"]]) {
   const d = page.getByTestId("update-close");
   await d.waitFor({ timeout: 3000 }).catch(() => {});
   if (await d.count()) { await d.click(); await page.waitForTimeout(200); }
-  await page.getByTestId("course-other-open").first().click();
+  /* 足場屋革命は「その他特別教育」を開いてから窓が出る。
+     特別教育ドットコムは最初から平らに並んでいるので、開く所が無い */
+  const open = page.getByTestId("course-other-open");
+  if (await open.count()) await open.first().click();
   await page.waitForSelector('[data-testid="other-search"]', { timeout: 15000 });
 
   const box = page.getByTestId("other-search").first();

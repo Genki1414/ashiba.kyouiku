@@ -3,16 +3,17 @@ import "./globals.css";
 import { UpdateNotice } from "@/components/UpdateNotice";
 import { ServiceWorker } from "@/components/ServiceWorker";
 import { LATEST } from "@/content/changelog";
+import { BRAND } from "@/content/brand";
 
 export const metadata: Metadata = {
-  title: "足場屋革命｜特別教育・職長教育と実務トレーニング",
-  description: "足場の組立て等の業務に係る特別教育（学科6時間）、職長・安全衛生責任者教育（14時間）、そして組む手順を覚える実務トレーニング",
+  title: BRAND.title,
+  description: BRAND.metaDescription,
   manifest: "/manifest.webmanifest",
-  applicationName: "足場屋革命",
+  applicationName: BRAND.name,
   appleWebApp: {
     capable: true,
     /* ホーム画面のアイコンの下に出る名前。長いと途中で切れる */
-    title: "足場屋革命",
+    title: BRAND.shortName,
     statusBarStyle: "black-translucent",
   },
   icons: {
