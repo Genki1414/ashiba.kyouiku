@@ -4,8 +4,15 @@ node_modules/
 out/
 *.tsbuildinfo
 next-env.d.ts
-.env
-.env.local
+
+# 鍵の入ったファイル。**このリポジトリは公開されている。**
+# 前は .env と .env.local の2つだけを書いていたが、
+# vercel env pull は行き先の名前を自由に付けられる（.env.production など）。
+# 名前を1文字変えただけで commit できてしまうので、.env で始まる物は全部見ない。
+# 例が要るときは .env.example（鍵の値を入れないこと）
+.env*
+!.env.example
+.vercel/
 
 # 画面の試験が置いていく写し（SC で行き先を変えられる）
 /*.png

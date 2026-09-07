@@ -111,6 +111,33 @@ for (const f of serverOnly) {
   check(/SEAT_UNIT_PRICE/.test(server), "単価を読むのは src/lib/price.server.ts");
 }
 
+console.log("\n── 鍵の入ったファイルを、置き場に上げないか ──");
+{
+  /* **このリポジトリは公開されている。**
+     service_role の鍵や Stripe の鍵が1回でも入れば、履歴に残る。
+
+     前は .gitignore に .env と .env.local の2行だけ書いていた。
+     ところが `vercel env pull` は行き先の名前を自由に付けられる
+     （.env.production など）。名前を1文字変えただけで commit できた。
+     .env で始まる物は全部見ないようにしてある。 */
+  const ig = readFileSync(path.join(ROOT, ".gitignore"), "utf-8")
+    .split("\n").map((l) => l.trim()).filter((l) => l && !l.startsWith("#"));
+  check(ig.includes(".env*"), ".gitignore が .env で始まる物を全部見ない（.env*）");
+  check(ig.includes(".vercel/"), ".gitignore が .vercel/ を見ない（つないだ先の控えが入る）");
+
+  /* 例のファイルに、本物の鍵を書かない。ここは追跡している */
+  const ex = readFileSync(path.join(ROOT, ".env.example"), "utf-8");
+  for (const key of ["SUPABASE_SERVICE_ROLE_KEY", "STRIPE_SECRET_KEY",
+                     "STRIPE_WEBHOOK_SECRET", "EXAM_SECRET", "LINE_TOKEN",
+                     "NEXT_PUBLIC_SUPABASE_ANON_KEY"]) {
+    const m = new RegExp(`^${key}=(.+)$`, "m").exec(ex);
+    check(!m, `.env.example に ${key} の値を書いていない`);
+  }
+  /* 鍵らしい長い文字列が紛れていないか（JWT・Stripe の鍵の形） */
+  check(!/eyJ[A-Za-z0-9_-]{20,}/.test(ex), ".env.example に JWT らしき文字列が無い");
+  check(!/sk_(live|test)_[A-Za-z0-9]{10,}/.test(ex), ".env.example に Stripe の鍵らしき文字列が無い");
+}
+
 console.log("\n── まとめ ──");
 console.log(`${ok} 件通過 / ${ng} 件失敗`);
 if (ng) process.exit(1);
