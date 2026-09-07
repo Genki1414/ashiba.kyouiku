@@ -6,7 +6,7 @@ import { HomeCards } from "@/components/HomeCards";
 import { FirstSteps } from "@/components/FirstSteps";
 import { Notices } from "@/components/Notices";
 import { OtherTokubetsu } from "@/components/OtherTokubetsu";
-import { OtherCourses } from "@/components/OtherCourses";
+import { CourseDrawer } from "@/components/CourseDrawer";
 import { tokubetsuOfCourse } from "@/content/tokubetsu";
 import { BRAND } from "@/content/brand";
 
@@ -74,14 +74,13 @@ export default async function Home() {
             その業種以外の人には邪魔になるだけなので、**足場も含めて**
             73講座を平らに並べ、探す窓ひとつで選んでもらう。 */}
         {BRAND.flatList ? (
-          <div className="rounded-xl border border-line bg-panel p-4" data-testid="home-flat">
-            <div className="text-[11px] font-extrabold tracking-widest text-yel">
-              受けられる講座
-            </div>
-            <div className="mt-3">
-              <OtherCourses ready={flatOrder(all.filter((c) => c.ready))} soon={flatOrder(soon)} />
-            </div>
-          </div>
+          /* 73枚をいきなり並べると、開いた瞬間に画面が札で埋まる。
+             押して開く（げんきさん 2026-09-07） */
+          <CourseDrawer
+            title="受けられる講座"
+            ready={flatOrder(all.filter((c) => c.ready))}
+            soon={flatOrder(soon)}
+          />
         ) : (
         mainCourses.map((c) => (
           <Link

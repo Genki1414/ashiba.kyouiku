@@ -7,7 +7,7 @@ import { LATEST } from "@/content/changelog";
 import { bankReady, invoiceOk, missingSeller, seller } from "@/content/legal";
 import { isOwnerEmail, ownerEmails } from "@/lib/owner";
 import { FALLBACK_SITE, sameSite, siteUrl as resetSiteUrl } from "@/lib/siteUrl";
-import { allPrices, missingPrice } from "@/lib/price.server";
+import { allPrices, missingPrice, priceOverrides } from "@/lib/price.server";
 import { AUTH_MAIL_FROM, AUTH_MAIL_OWN } from "@/content/authMail";
 import { notifyReady } from "@/lib/notify.server";
 import { siteUrl as paySiteUrl } from "@/lib/stripe";
@@ -118,6 +118,8 @@ export async function GET() {
     prices: allPrices().map((p) => ({ id: p.id, name: p.name, price: p.price })),
     /* 0円のまま公開している講座。ここが空でないときだけ困る */
     priceMissing: missingPrice(),
+    /* 環境変数がコードの値段を上書きしている講座。空なら健全 */
+    priceOverrides: priceOverrides(),
     /* カード払い。無くても請求書払いで売れる */
     stripeKey: !!process.env.STRIPE_SECRET_KEY,
     stripeHook: !!process.env.STRIPE_WEBHOOK_SECRET,

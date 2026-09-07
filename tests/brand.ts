@@ -138,6 +138,28 @@ console.log("\n── 平らな一覧の並び順 ──");
   check(nos.every((n, i) => i === 0 || nos[i - 1] <= n), "号の小さい順に並んでいる");
 }
 
+console.log("\n── 平らな店でも、押して開く ──");
+{
+  /* 73講座を平らに並べると、開いた瞬間に画面が札で埋まる。
+     実測で縦 13,982px（スマホ17画面ぶん）。**その下に置いた
+     「はじめかた」やお知らせに、誰も辿り着かない。**
+     足場屋革命の「その他特別教育」と同じく、押して開く形にした
+     （げんきさん 2026-09-07）。閉じていれば 812px＝1画面。 */
+  const drawer = code("src/components/CourseDrawer.tsx");
+  check(drawer.includes("<details"), "開け閉めは details（JS が動かなくても開く）");
+  check(drawer.includes("<OtherCourses"), "中身は OtherCourses に任せる");
+  /* ここで札を並べると、探す窓が札の下に来る（一度やらかしている） */
+  check(!/\bready\.map\(/.test(drawer), "CourseDrawer が自分で札を並べていない");
+
+  for (const f of ["src/app/page.tsx", "src/app/edu/page.tsx"]) {
+    const src = code(f);
+    check(src.includes("<CourseDrawer"), `${f}：平らな店では押して開く`);
+    /* 開きっぱなしに戻していないか */
+    check(!/<OtherCourses[^>]*\bready=\{(flatOrder|byLaw)/.test(src),
+      `${f}：講座をいきなり並べていない（CourseDrawer に渡す）`);
+  }
+}
+
 console.log("\n── 講座は両方の店で同じ ──");
 {
   /* 分けているのは売り先であって、中身ではない。

@@ -210,7 +210,7 @@ console.log("── 支払期限 ──");
   check(feb.getDate() === 28, `2月は28日（${feb.getMonth() + 1}/${feb.getDate()}）`);
 }
 
-console.log("\n── まとめ ──");
+
 /* ── 建設業教育協会が売っている20講座は、4,500円でそろえる ──
 
    あちら（k-k-k.jp）は講座の長さに関係なく一律4,500円で、実技は事業者が
@@ -252,5 +252,37 @@ console.log("── 建設業教育協会に合わせた20講座 ──");
   check(SAME_AS_KKK.every((id) => unitPrice(id) === 4500), "20講座とも、あちらと同じ額（安くも高くもしない）");
 }
 
+console.log("\n── 環境変数がコードの値段に勝つことを、画面で見せているか ──");
+{
+  /* **ここが無かったせいで、半年気づかなかった。**
+     コードでフルハーネスを4,500円に下げたのに、本番には
+     SEAT_UNIT_PRICE_HARNESS=6000 が残っていて、6,000円で売れ続けた。
+     決め方は ①SEAT_UNIT_PRICE_◯◯ → ②コードの表 → ③SEAT_UNIT_PRICE。
+     ①はコードより強い。強いこと自体は正しいが、**強いことが画面に出ない**
+     のが問題だった。
+
+     店が二つになった今はもっと効く。片方だけ環境変数が残っていると、
+     同じ講座が店によって違う値段になる。 */
+  const fs = await import("node:fs");
+  const read = (p: string) => fs.readFileSync(new URL(`../${p}`, import.meta.url), "utf-8");
+
+  const server = read("src/lib/price.server.ts");
+  check(server.includes("priceOverrides"), "上書きしている講座を数える口がある");
+  check(server.includes("pickUnitPrice({ courseId: c.id })"),
+    "環境変数を消したらいくらになるかも出す（直す判断ができる）");
+
+  const health = read("src/app/api/health/route.ts");
+  check(health.includes("priceOverrides"), "/api/health が上書きを返す");
+
+  const setup = read("src/app/setup/SetupClient.tsx");
+  check(setup.includes("priceOverrides"), "/setup が上書きを出す");
+  check(setup.includes("を消すと"), "環境変数を消したときの値段まで画面に出す");
+  /* 「設定済み／未設定」では足りない。**どの講座がいくらになっているか**
+     を出さないと、気づいても直しようがない */
+  check(setup.includes("o.now") && setup.includes("o.code"),
+    "いまの値段と、コードの値段を並べて出す");
+}
+
+console.log("\n── まとめ ──");
 console.log(`${ok} 件通過 / ${ng} 件失敗`);
 if (ng) process.exit(1);

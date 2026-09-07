@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { COURSES, splitMenu } from "@/content/courses";
 import { loadedCourses } from "@/lib/curriculum";
 import { OtherCourses } from "@/components/OtherCourses";
+import { CourseDrawer } from "@/components/CourseDrawer";
 import { CourseCard, CourseSoon } from "@/components/CourseCard";
 import { TOKUBETSU, isReady, tokubetsuOfCourse } from "@/content/tokubetsu";
 import { BRAND } from "@/content/brand";
@@ -48,7 +49,7 @@ export default async function EduPage() {
           受ける講座を選んでください。修了証は講座ごとに出ます。
         </p>
         <div className="mt-5">
-          <OtherCourses ready={byLaw(ready)} soon={byLaw(soon)} />
+          <CourseDrawer title="受けられる講座" ready={byLaw(ready)} soon={byLaw(soon)} />
         </div>
       </main>
     );

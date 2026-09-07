@@ -35,6 +35,29 @@ export const unitPrice = (courseId?: string): number =>
 export const allPrices = (): { id: string; name: string; price: number }[] =>
   readyCourses().map((c) => ({ id: c.id, name: c.name, price: unitPrice(c.id) }));
 
+/** **環境変数がコードの値を上書きしている講座。**
+
+    決め方は ①SEAT_UNIT_PRICE_◯◯ → ②コードの表 → ③SEAT_UNIT_PRICE → ④仮置き。
+    ①はコードより強いので、**コードで値下げしても、環境変数が残っていると
+    古い値段で売れ続ける。** 実際にフルハーネスがそうなっていた
+    （コード4,500円／本番6,000円。半年気づかなかった）。
+
+    画面に出ないと誰も気づけないので、/setup に出す。
+    店が二つになった今は、片方だけ環境変数が残っていると
+    **同じ講座が店によって違う値段になる。** */
+export const priceOverrides = (): { id: string; name: string; env: string; now: number; code: number }[] =>
+  COURSES.filter((c) => c.ready)
+    .map((c) => ({ c, env: priceEnvName(c.id) }))
+    .filter(({ env }) => `${process.env[env] ?? ""}`.trim() !== "")
+    .map(({ c, env }) => ({
+      id: c.id,
+      name: c.name,
+      env,
+      now: unitPrice(c.id),
+      /* 環境変数を消したら、いくらになるか */
+      code: pickUnitPrice({ courseId: c.id }),
+    }));
+
 /** 値段が0円のまま公開している講座。/setup で出す */
 export const missingPrice = (): string[] =>
   COURSES.filter((c) => c.ready && unitPrice(c.id) <= 0).map((c) => c.id);

@@ -45,8 +45,12 @@ await page.goto(BASE);
    （足場屋革命は大きな札 home-course、特別教育ドットコムは
    平らな一覧 course-card）。行き先の住所で待って、そこを押す。
    住所は法令で決まった講座の id なので、商売の都合では変わらない */
-await page.waitForSelector('a[href="/edu/ashiba"]');
 await dismissNotice();
+/* 特別教育ドットコムは講座を押して開く形なので、先に開ける。
+   足場屋革命には開く所が無い（大きな札で出ている） */
+const drawer = page.getByTestId("course-other-open");
+if (await drawer.count()) { await drawer.first().click(); await page.waitForTimeout(400); }
+await page.waitForSelector('a[href="/edu/ashiba"]');
 await shot(page, "01-home");
 await page.click('a[href="/edu/ashiba"]');
 await page.waitForURL("**/edu/ashiba");

@@ -57,7 +57,9 @@ await dismiss();
 /* 作り置きのぶんは、聞き終わる前に出ている。
    並べ方は店で変わるので、どちらの形でも数える
    （足場屋革命は大きな札、特別教育ドットコムは平らな一覧） */
-const CARDS = '[data-testid="home-course"], [data-testid="course-card"]';
+/* 足場屋革命は大きな札、特別教育ドットコムは押して開く行。
+   どちらも**聞きに行く前から出ている作り置き**なので、これを待つ */
+const CARDS = '[data-testid="home-course"], [data-testid="course-drawer"]';
 await page.waitForSelector(CARDS, { timeout: 5000 });
 const early = await page.locator(CARDS).count();
 check(early >= 1, `特別教育の札が、聞き終わる前に出ている（${early}件）`);

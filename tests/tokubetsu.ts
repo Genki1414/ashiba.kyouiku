@@ -171,6 +171,30 @@ console.log("\n── 作ってある講座とのつながり ──");
     orphan.map((c) => c.id).join("／"));
 }
 
+console.log("\n── 裏取りの記録があるか ──");
+{
+  /* checked が付いていても、印の強さは同じではない。
+     告示の全文を突き合わせた行（fullText）、docs に条文で確認した記録が
+     ある行、どちらも無い行がある。**どちらも無いのが1行だけ残っている。**
+
+     no.63 足場。**うちがいちばん多く売る講座**なのに、学科6時間の出どころが
+     東京労働局のまとめで、規程の何条かも見ていない（docs/94）。
+     数を書いておく。増えたら止まる。減ったら、この数を下げること。 */
+  const ready = TOKUBETSU.filter(isReady);
+  const noDoc = ready.filter((t) => !t.doc);
+  check(noDoc.length <= 1, `裏取りの記録が無い行は1行まで（いま ${noDoc.length}行）`,
+    noDoc.map((t) => `no.${t.no} ${t.slug}`).join("／"));
+  check(noDoc.every((t) => t.slug === "scaffolding_assembly"),
+    "記録が無いのは足場（no.63）だけ。ほかの行に広がっていない",
+    noDoc.map((t) => t.slug).join("／"));
+  /* 足場の根拠に、確かめていない条番号を書き足していないか。
+     安衛則第36条第39号は確かめてある（docs/18）。規程の条は見ていない */
+  const ashiba = findTokubetsu("scaffolding_assembly");
+  check(!!ashiba && ashiba.basis.includes("第36条第39号"), "足場の号は確かめてある");
+  check(!!ashiba && !/規程\s*第\d+条/.test(ashiba.basis),
+    "**規程の条番号は書かない**（条文で見ていない。docs/94 §3）", ashiba?.basis);
+}
+
 console.log("\n── いま作っているもの ──");
 {
   /* 「準備中」だけだと、いつになるか分からないものと同じに見える。

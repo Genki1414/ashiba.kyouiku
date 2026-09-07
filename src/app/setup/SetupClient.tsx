@@ -28,6 +28,7 @@ type Health = {
     unitPrice: boolean;
     prices: { id: string; name: string; price: number }[];
     priceMissing: string[];
+    priceOverrides: { id: string; name: string; env: string; now: number; code: number }[];
     stripeKey: boolean;
     stripeHook: boolean;
     siteUrl: boolean;
@@ -280,6 +281,23 @@ export function SetupClient() {
                             .map((p) => `${p.name} ${p.price.toLocaleString()}円`)
                             .join("／") || "公開中の講座がありません",
                       h.sell.priceMissing.length === 0 && (h.sell.prices ?? []).length > 0,
+                      true,
+                    ],
+                    /* **環境変数がコードの値段に勝っている講座。**
+                       ここを出していなかったので、コードでフルハーネスを
+                       4,500円に下げたのに、本番は6,000円のままだった。
+                       半年ぶんの取りこぼしに、画面のどこを見ても気づけなかった。
+
+                       店が二つになった今は、片方に環境変数が残っていると
+                       同じ講座が店によって違う値段になる。 */
+                    [
+                      "値段を環境変数で上書きしていないか",
+                      (h.sell.priceOverrides ?? []).length
+                        ? (h.sell.priceOverrides ?? [])
+                            .map((o) => `${o.name}：いま ${o.now.toLocaleString()}円（${o.env} を消すと ${o.code.toLocaleString()}円）`)
+                            .join("／")
+                        : "上書きなし（値段はコードだけで決まっています）",
+                      (h.sell.priceOverrides ?? []).length === 0,
                       true,
                     ],
                     ["本番のURL（SITE_URL / NEXT_PUBLIC_SITE_URL）", h.sell.siteUrl ? "設定済み" : "未設定（配信ごとの住所を使う）", h.sell.siteUrl, true],
