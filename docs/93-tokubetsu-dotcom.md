@@ -102,16 +102,71 @@ COURSES の並びは足場屋革命の看板順で、足場がいちばん上に
 
 ## 5　本番に出すとき（げんきさんの作業）
 
-1. ドメインを取る（特別教育ドットコム）
-2. Vercel でこのリポジトリから**2つ目のプロジェクト**を作る
-3. そのプロジェクトの環境変数に `NEXT_PUBLIC_BRAND=tokubetsu` を入れる
-4. 取ったドメインをそのプロジェクトに当てる
+Vercel のプロジェクト `tokubetsu-kyouiku` は作ってある
+（2026-09-07。同じリポジトリ、本番ブランチも `claude/new-session-l82zs5`）。
+残りは環境変数とドメイン。
 
-いまの `ashiba-kyouiku-nkdr`（kyouiku.ashibase.jp）は**触らない**。
-環境変数を足さなければ足場屋革命のままなので、勝手に変わることはない。
+### 5-1　環境変数
 
-値段は触っていない（バーセラの環境変数も足していない）。
-どちらの店でも同じ値段で、`src/lib/pricing.ts` の既定のまま。
+**足場屋革命（ashiba-kyouiku-nkdr）から値をそのまま写すもの。**
+同じDB・同じ名簿・同じ修了証・同じ請求にするため、ここは必ず同じ値にする。
+別の値を入れると、店ごとに名簿が割れる。
+
+| 名前 | 種別 |
+| --- | --- |
+| `NEXT_PUBLIC_SUPABASE_URL` | Config |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Config（anon public は Config でよい） |
+| `SUPABASE_SERVICE_ROLE_KEY` | **Secret** |
+| `STRIPE_SECRET_KEY` | **Secret** |
+| `STRIPE_WEBHOOK_SECRET` | **Secret**（5-3 を読むこと） |
+| `EXAM_SECRET` | **Secret**。入れないと本番で修了試験が出ない |
+| `OWNER_EMAILS` | Config |
+| `CERT_ISSUER_NAME` / `CERT_ISSUER_RESPONSIBLE` | Config（入れているなら） |
+| `LINE_TOKEN` / `LINE_TO` | **Secret**（入れているなら） |
+
+**この店だけ違う値にするもの。**
+
+| 名前 | 値 |
+| --- | --- |
+| `NEXT_PUBLIC_BRAND` | `tokubetsu` ← これを入れないと足場屋革命の見た目のまま出る |
+| `NEXT_PUBLIC_SITE_URL` | 新しいドメイン（`https://…`） |
+| `SITE_URL` | 同上 |
+
+`SELLER_*`（特商法の表記）は入れなくてよい。入れなければ
+`src/content/legal.ts` の既定（東北三上機材株式会社）が出る。
+値段の環境変数（`SEAT_UNIT_PRICE` / `TRAIN_UNIT_PRICE`）も入れない。
+どちらの店も `src/lib/pricing.ts` の既定で売る。
+
+### 5-2　入れたあと、必ず作り直す
+
+`NEXT_PUBLIC_BRAND` は**組み立てるときに画面へ焼き付く。**
+環境変数を足しただけでは、すでに出来ている配信は変わらない。
+入れてから Deployments → Redeploy（または次の push）。
+
+### 5-3　Stripe の webhook
+
+いまの webhook の宛先が kyouiku.ashibase.jp のままでも、**支払いは通る。**
+webhook は注文の行を Supabase で「入金済み」に直すだけで、
+その Supabase は両方の店で同じものだから。
+
+新しいドメインにも webhook の宛先を足すなら、**Stripe がその宛先ごとに
+別の署名の鍵を出す。**そのときは、その鍵を
+`tokubetsu-kyouiku` の `STRIPE_WEBHOOK_SECRET` に入れること。
+古い鍵のままにすると署名が合わず、**払ったのに入金済みにならない。**
+足さないなら、上の表のとおり同じ値を写すだけでよい。
+
+### 5-4　ドメイン
+
+取ったドメインを `tokubetsu-kyouiku` に当てる。
+`ashiba-kyouiku-nkdr`（kyouiku.ashibase.jp）は**触らない**。
+
+### 5-5　出したあとの確かめ方
+
+- ホームの見出しが「特別教育ドットコム」／英字が `TOKUBETSU KYOIKU .COM`
+- 実務トレーニング（足場を組むゲーム）の札が**出ていない**
+- 講座が73件、先頭が職長教育、探す窓に「足場」で1件出る
+- `/manifest.webmanifest` の `short_name` が `特別教育.com`
+- kyouiku.ashibase.jp を開くと、いままでどおり足場屋革命
 
 ## 6　決めていないこと
 
