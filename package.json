@@ -128,6 +128,8 @@
     "test:e2e:face": "node tests/e2e-face.mjs",
     "test:e2e:resume": "node tests/e2e-resume.mjs",
     "test:e2e:catalog": "node tests/e2e-catalog-demo.mjs",
+    "test:e2e:othersearch": "node tests/e2e-other-search.mjs",
+    "test:e2e:routes": "node tests/e2e-all-routes.mjs",
     "test:e2e:demo23": "node tests/e2e-demo23.mjs",
     "test:ch2": "tsx tests/ch2-rules.ts",
     "test:e2e:ch2": "node tests/e2e-ch2.mjs",
