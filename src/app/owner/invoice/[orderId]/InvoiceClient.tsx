@@ -15,6 +15,8 @@ import { yen } from "@/lib/pricing";
 type Inv = {
   order: {
     id: string; no: string; to: string; addr: string; what: string;
+    /** 講座ごとの明細。**1講座だけの申込みでも1件入る**（0029） */
+    items?: { what: string; qty: number; unit: number; net: number; tax: number; amount: number }[];
     qty: number; unit: number; net: number; tax: number; amount: number;
     taxRate: number; due: string | null; at: string | null; invoicedAt?: string | null;
     paidAt: string | null; status: string; note: string; solo: boolean;
@@ -176,12 +178,20 @@ export function InvoiceClient({ orderId, mine = false }: { orderId: string; mine
               </tr>
             </thead>
             <tbody>
-              <tr className="border-b border-line">
-                <td className="py-2">{o.what}</td>
-                <td className="whitespace-nowrap py-2 text-right">{o.qty}</td>
-                <td className="whitespace-nowrap py-2 text-right">{yen(o.unit)}</td>
-                <td className="whitespace-nowrap py-2 text-right">{yen(o.net)}</td>
-              </tr>
+              {/* 講座ごとに1行。まとめて申し込めるので、行は増える（0029）。
+                  古い請求書（明細を返さない版）でも1行は出るように、
+                  無ければこの注文そのものを1行として出す */}
+              {(o.items?.length
+                ? o.items
+                : [{ what: o.what, qty: o.qty, unit: o.unit, net: o.net, tax: o.tax, amount: o.amount }]
+              ).map((it, i) => (
+                <tr key={`${it.what}-${i}`} className="border-b border-line" data-testid="invoice-item">
+                  <td className="py-2">{it.what}</td>
+                  <td className="whitespace-nowrap py-2 text-right">{it.qty}</td>
+                  <td className="whitespace-nowrap py-2 text-right">{yen(it.unit)}</td>
+                  <td className="whitespace-nowrap py-2 text-right">{yen(it.net)}</td>
+                </tr>
+              ))}
             </tbody>
           </table>
 

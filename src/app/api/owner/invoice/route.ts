@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
   const { data: o } = await supabase
     .from("orders")
     .select(
-      "id, company_id, user_id, kind, course_id, seats, unit_price, amount, method, status, due_date, paid_at, invoiced_at, bill_to, bill_addr, note, created_at",
+      "id, company_id, user_id, kind, course_id, group_id, seats, unit_price, amount, method, status, due_date, paid_at, invoiced_at, bill_to, bill_addr, note, created_at",
     )
     .eq("id", id)
     .maybeSingle();
@@ -72,16 +72,51 @@ export async function GET(req: NextRequest) {
     to = (u?.name as string) ?? "";
   }
 
-  const amount = (o.amount as number) ?? 0;
-  /* 税込から割り戻す。注文を作ったときの計算と食い違わせない */
-  const net = Math.round(amount / (1 + TAX_RATE));
+  /* ── 同じ申込みの行を、ぜんぶ並べる ──
+
+     講座ごとに1行だが、**申込みは1回で、振込も1回。**
+     だから請求書は group ごとに1枚にして、講座ごとの行を並べ、
+     合計をひとつ出す（0029）。
+
+     3枚に分けると、1回でまとめて振り込まれたときに
+     **どの請求書の入金か分からなくなる。** */
+  const { data: rows } = await supabase
+    .from("orders")
+    .select("id, course_id, kind, seats, unit_price, amount, created_at")
+    .eq("group_id", (o.group_id as string) ?? (o.id as string))
+    .order("created_at", { ascending: true });
+  /* 版が古くて group_id がまだ無いときは、開いた1行だけで出す。
+     ここで空にすると、**古い請求書が真っ白になる** */
+  const group = (rows ?? []).length ? rows! : [o];
+
+  const nameOf = (r: Record<string, unknown>) =>
+    r.kind === "training"
+      ? "実務トレーニング 利用権（第2章以降）"
+      : `${findCourse((r.course_id as string) ?? "")?.short ?? "特別教育"} 受講コード`;
+
+  const items = group.map((r) => {
+    const a = (r.amount as number) ?? 0;
+    const n = Math.round(a / (1 + TAX_RATE));
+    return {
+      what: nameOf(r as Record<string, unknown>),
+      qty: (r.seats as number) ?? 1,
+      unit: (r.unit_price as number) ?? 0,
+      net: n,
+      tax: a - n,
+      amount: a,
+    };
+  });
+
+  const amount = items.reduce((n, i) => n + i.amount, 0);
+  /* 税込から割り戻す。注文を作ったときの計算と食い違わせない。
+     **行ごとに割り戻してから足す。**合計から割り戻すと、
+     行の税額を足したものと1円ずれることがある */
+  const net = items.reduce((n, i) => n + i.net, 0);
   const tax = amount - net;
 
-  const course = findCourse((o.course_id as string) ?? "");
-  const what =
-    o.kind === "training"
-      ? "実務トレーニング 利用権（第2章以降）"
-      : `${course?.short ?? "特別教育"} 受講コード`;
+  const what = items.length === 1
+    ? items[0].what
+    : `${items[0].what} ほか${items.length - 1}件`;
 
   const s = seller();
   return NextResponse.json({
@@ -93,6 +128,8 @@ export async function GET(req: NextRequest) {
       to,
       addr: (o.bill_addr as string) ?? "",
       what,
+      /* 講座ごとの明細。**1講座だけの申込みでも1件入る**（例外を作らない） */
+      items,
       qty: (o.seats as number) ?? 1,
       unit: (o.unit_price as number) ?? 0,
       net,

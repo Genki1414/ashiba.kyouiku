@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
   const session = event.data.object as {
     id: string;
     payment_status?: string;
-    metadata?: { order_id?: string } | null;
+    metadata?: { order_id?: string; group_id?: string } | null;
     client_reference_id?: string | null;
   };
   if (session.payment_status !== "paid") {
@@ -43,22 +43,30 @@ export async function POST(req: NextRequest) {
   const orderId = session.metadata?.order_id ?? session.client_reference_id ?? "";
   const { data: order } = await supabase
     .from("orders")
-    .select("id, seats, status")
+    .select("id, seats, status, group_id")
     .eq("id", orderId)
     .maybeSingle();
   if (!order) {
     return NextResponse.json({ ok: true, skipped: "no order" });
   }
-  /* 同じ知らせが二度来ても、席を二重に配らない */
-  if (order.status === "paid") {
+
+  /* 申込みまるごと入金にする。カードは1回で切ってあるので（checkout）、
+     ここで一部だけ立てると、払ったのに受講コードの出ない講座が残る（0029） */
+  const group = session.metadata?.group_id ?? (order.group_id as string) ?? (order.id as string);
+
+  /* 同じ知らせが二度来ても、席を二重に配らない。
+     **「入金待ちのものだけ」を立てる**ので、後から来た方は0件になる */
+  const { data: won } = await supabase
+    .from("orders")
+    .update({ status: "paid", paid_at: new Date().toISOString(), stripe_session_id: session.id })
+    .eq("group_id", group)
+    .eq("status", "pending")
+    .select("id, seats");
+  if (!won?.length) {
     return NextResponse.json({ ok: true, already: true });
   }
 
-  await supabase
-    .from("orders")
-    .update({ status: "paid", paid_at: new Date().toISOString(), stripe_session_id: session.id })
-    .eq("id", order.id as string);
-
-  const made = await issueSeats(supabase, order.id as string, order.seats as number);
-  return NextResponse.json({ ok: true, seatsIssued: made });
+  let made = 0;
+  for (const r of won) made += await issueSeats(supabase, r.id as string, r.seats as number);
+  return NextResponse.json({ ok: true, seatsIssued: made, orders: won.length });
 }

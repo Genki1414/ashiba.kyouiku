@@ -420,9 +420,12 @@ console.log("── 講座ごとの値段 ──");
   check(/unitPrice\(course\.id\)/.test(order), "請求する金額は、選んだ講座の単価で立てる");
   check(/unitPrice: unitPrice\(c\.id\)/.test(order), "講座ごとの単価を画面へ返す");
   const oc = read("src/app/order/OrderClient.tsx");
+  /* **講座ごとの単価で、行ごとに計算すること。**
+     まとめて申し込めるようにしたので（0029）、1つの単価に
+     人数を掛けると、講座ごとに値段が違うのに合わなくなる */
   check(
-    /courses\.find\(\(c\) => c\.id === courseId\)\?\.unitPrice/.test(oc),
-    "画面は、選んでいる講座の単価で計算する",
+    /quote\(picked\[c\.id\], c\.unitPrice\)/.test(oc),
+    "画面は、講座ごとの単価で1行ずつ計算する",
   );
 
   /* 特商法の表記には、売っている講座を全部載せる */
@@ -573,7 +576,36 @@ console.log("── 受講リクエストが返す形 ──");
 
   const order = read("src/app/order/OrderClient.tsx");
   check(/params\.get\("seats"\)/.test(order), "申し込み画面が席の数を受け取っている");
-  check(/n >= 1 && n <= 999/.test(order), "受け取った席の数を、そのまま信じていない");
+  check(/n >= 1 && n <= MAX_SEATS/.test(order), "受け取った席の数を、そのまま信じていない");
+
+  /* ── まとめ申込み（0029）──
+     3講座を3回に分けると請求書が3枚出て、振込も3回になる。
+     1回でまとめて振り込まれると、どの請求書の入金か分からない */
+  const api = read("src/app/api/order/route.ts");
+  check(/items\?:\s*Item\[\]/.test(api), "申込みは講座ごとの並びで受け取る");
+  check(/group_id: groupId/.test(api), "同じ申込みの行に、ひとまとめの印を付ける");
+  check(!/\bawait notify\("order"\)[\s\S]{0,80}for \(/.test(api),
+    "知らせは申込み1件につき1回（講座の数だけ鳴らさない）");
+  const oc2 = read("src/app/order/OrderClient.tsx");
+  check(/body: JSON\.stringify\(\{ items,/.test(oc2), "画面は講座と人数の並びを送る");
+  check(!/JSON\.stringify\(\{ courseId, seats,/.test(oc2),
+    "1講座ぶんだけ送る古い形が残っていない");
+
+  /* 請求書は group で1枚。行ごとに分かれない */
+  const inv = read("src/app/api/owner/invoice/route.ts");
+  check(/\.eq\("group_id"/.test(inv), "請求書は、同じ申込みの行をまとめて出す");
+  check(/items,/.test(inv), "講座ごとの明細を返す");
+  const invc = read("src/app/owner/invoice/[orderId]/InvoiceClient.tsx");
+  check(/o\.items\?\.length/.test(invc), "請求書の画面が明細を並べる");
+
+  /* 入金の確認も1回。振込が1回だから */
+  const own = read("src/app/api/owner/orders/route.ts");
+  check(/\.eq\("group_id", group\)/.test(own),
+    "入金の確認は、申込みまるごと立てる（押し忘れた講座だけコードが出ない、を起こさない）");
+  const hook = read("src/app/api/stripe/webhook/route.ts");
+  check(/\.eq\("group_id", group\)/.test(hook), "カード払いの戻りも、申込みまるごと立てる");
+  const co = read("src/app/api/stripe/checkout/route.ts");
+  check(/line_items: lines\.map/.test(co), "カードは申込みまるごと1回で切る");
 }
 
 console.log("── 席を直接配るときの形 ──");

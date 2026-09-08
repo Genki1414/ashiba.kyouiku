@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
   const { orderId } = (await req.json().catch(() => ({}))) as { orderId?: string };
   const { data: order } = await supabase
     .from("orders")
-    .select("id, company_id, seats, amount, status, method, kind, course_id")
+    .select("id, company_id, group_id, seats, amount, status, method, kind, course_id")
     .eq("id", (orderId ?? "").trim())
     .maybeSingle();
   if (!order || order.company_id !== admin.companyId) {
@@ -36,32 +36,50 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, reason: "もう入金済みです。" }, { status: 409 });
   }
 
+  /* ── 申込みまるごとで払う ──
+
+     複数の講座をまとめて申し込めるので（0029）、1回の申込みが
+     講座ごとの行に分かれている。**カードを切るのも1回。**
+     行ごとにカード決済させると、途中でやめられたときに
+     「足場だけ払って石綿は未払い」という半端な申込みが残る。 */
+  const group = (order.group_id as string) ?? (order.id as string);
+  const { data: rows } = await supabase
+    .from("orders")
+    .select("id, seats, amount, status, kind, course_id")
+    .eq("group_id", group)
+    .eq("company_id", admin.companyId)
+    .order("created_at", { ascending: true });
+  const lines = (rows ?? []).length ? rows! : [order];
+  if (lines.some((r) => r.status === "paid")) {
+    return NextResponse.json({ ok: false, reason: "もう入金済みです。" }, { status: 409 });
+  }
+
   const base = siteUrl();
   const session = await stripe.checkout.sessions.create({
     mode: "payment",
     /* 日本の会社が買うので、領収に要る情報を取っておく */
     billing_address_collection: "required",
-    line_items: [
-      {
-        quantity: 1,
-        price_data: {
-          currency: "jpy",
-          unit_amount: order.amount as number,
-          product_data: {
-            /* 品名は注文から作る。決め打ちにすると、
-               職長を買った人の領収書に「足場の特別教育」と残る */
-            name: orderLabel({
-              kind: order.kind as string | null,
-              courseId: order.course_id as string | null,
-            }),
-            description: `${order.seats}名ぶん・税込`,
-          },
+    /* 講座ごとに1行。領収書にも講座ごとに並ぶ */
+    line_items: lines.map((r) => ({
+      quantity: 1,
+      price_data: {
+        currency: "jpy" as const,
+        unit_amount: r.amount as number,
+        product_data: {
+          /* 品名は注文から作る。決め打ちにすると、
+             職長を買った人の領収書に「足場の特別教育」と残る */
+          name: orderLabel({
+            kind: r.kind as string | null,
+            courseId: r.course_id as string | null,
+          }),
+          description: `${r.seats}名ぶん・税込`,
         },
       },
-    ],
-    /* どの注文の支払いかを、戻ってきたときに突き合わせる */
+    })),
+    /* どの申込みの支払いかを、戻ってきたときに突き合わせる。
+       **group も渡す。**戻りで group の行を全部入金にするため */
     client_reference_id: order.id as string,
-    metadata: { order_id: order.id as string },
+    metadata: { order_id: order.id as string, group_id: group },
     success_url: `${base}/order?paid=${order.id}`,
     cancel_url: `${base}/order?cancelled=${order.id}`,
   });

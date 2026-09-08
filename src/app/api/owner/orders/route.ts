@@ -41,7 +41,7 @@ export async function GET() {
   const { data: orders } = await supabase
     .from("orders")
     .select(
-      "id, company_id, user_id, kind, seats, unit_price, amount, method, status, due_date, paid_at, bill_to, bill_addr, note, created_at",
+      "id, company_id, user_id, kind, course_id, group_id, seats, unit_price, amount, method, status, due_date, paid_at, bill_to, bill_addr, note, created_at",
     )
     .order("created_at", { ascending: false })
     .limit(200);
@@ -128,7 +128,7 @@ export async function POST(req: NextRequest) {
   }
   const { data: order } = await supabase
     .from("orders")
-    .select("id, seats, status, method, kind, user_id, ordered_by")
+    .select("id, seats, status, method, kind, user_id, ordered_by, group_id")
     .eq("id", id)
     .maybeSingle();
   if (!order) {
@@ -189,6 +189,16 @@ export async function POST(req: NextRequest) {
       { status: 409 },
     );
   }
+  /* ── 申込みまるごと入金にする ──
+
+     複数の講座をまとめて申し込めるので（0029）、1回の申込みが
+     講座ごとの行に分かれている。**請求書は1枚、振込も1回。**
+     だから立てるのも1回で、group の行を全部いっぺんに入金にする。
+
+     行ごとに押させると、押し忘れた講座だけ受講コードが出ない。
+     「足場は届いたのに石綿が来ない」になり、原因が分からない。 */
+  const group = (order.group_id as string) ?? id;
+
   /* 「入金待ちのものだけ」を入金にする。
      状態を読んでから書くまでの間に、もう一方が先に立てているかもしれない。
      窓を2つ開けて同時に押すと、どちらも「未入金」を見て、
@@ -197,26 +207,31 @@ export async function POST(req: NextRequest) {
   const { data: won, error } = await supabase
     .from("orders")
     .update({ status: "paid", paid_at: new Date().toISOString() })
-    .eq("id", id)
+    .eq("group_id", group)
     .eq("status", "pending")
-    .select("id");
+    .select("id, seats, ordered_by");
   if (error) return NextResponse.json({ ok: false, reason: error.message }, { status: 500 });
   if (!won?.length) {
     /* 先に誰かが立てた。受講コードはその人が作っているので、ここでは作らない */
     return NextResponse.json({ ok: true, already: true });
   }
 
-  /* ここで受講コードを作る。
+  /* ここで受講コードを作る。**行ごとに、その講座のぶんだけ。**
      申込みのときには作らない（払わずに受講できてしまう）。
      すでにある枚数を数えてから足すので、二度押しても増えない */
-  const { count } = await supabase
-    .from("seats")
-    .select("id", { count: "exact", head: true })
-    .eq("order_id", id);
-  const short = (order.seats as number) - (count ?? 0);
-  const made = short > 0 ? await issueSeats(supabase, id, short) : 0;
+  let made = 0;
+  for (const row of won) {
+    const rid = row.id as string;
+    const { count } = await supabase
+      .from("seats")
+      .select("id", { count: "exact", head: true })
+      .eq("order_id", rid);
+    const short = (row.seats as number) - (count ?? 0);
+    if (short > 0) made += await issueSeats(supabase, rid, short);
+  }
   /* 申し込んだ担当者に返す。コードが出たことが伝わらないと、
-     受講する人に配られないまま止まる */
-  await addNotice(order.ordered_by as string | null, "seat");
-  return NextResponse.json({ ok: true, seatsIssued: made });
+     受講する人に配られないまま止まる。
+     **申込み1件につき1回。**講座の数だけ鳴らさない */
+  await addNotice((order.ordered_by as string | null) ?? (won[0].ordered_by as string | null), "seat");
+  return NextResponse.json({ ok: true, seatsIssued: made, orders: won.length });
 }

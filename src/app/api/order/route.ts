@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase/server";
 import { currentAdmin } from "@/lib/admin";
@@ -14,7 +15,19 @@ import { notify } from "@/lib/notify.server";
 
    金額はサーバで計算する。画面から送られてきた金額は見ない。 */
 
-type Body = { courseId?: string; seats?: number; method?: "card" | "invoice"; billTo?: string; note?: string };
+/** 申し込む中身。**講座ごとに人数を持つ。**
+
+    `items` がまとめ申込み。`courseId`/`seats` は1講座だけの古い形で、
+    受け続ける（画面が新しくなっても、古い呼び方で壊さない）。 */
+type Item = { courseId?: string; seats?: number };
+type Body = {
+  items?: Item[];
+  courseId?: string;
+  seats?: number;
+  method?: "card" | "invoice";
+  billTo?: string;
+  note?: string;
+};
 
 export async function GET() {
   const supabase = getServiceClient();
@@ -73,39 +86,74 @@ export async function POST(req: NextRequest) {
   }
 
   const b = (await req.json().catch(() => ({}))) as Body;
-  /* 受講コードは1講座ぶん。どの講座の席かをここで決める */
-  const course = findCourse(b.courseId) ?? readyCourses()[0] ?? null;
-  if (!course) {
+  /* まとめ申込み。1講座だけの古い呼び方も、1件の申込みとして受ける */
+  const raw: Item[] = Array.isArray(b.items) && b.items.length
+    ? b.items
+    : [{ courseId: b.courseId, seats: b.seats }];
+
+  /* 受講コードは講座ごと。行も講座ごとに立てる。
+
+     **同じ講座を2行に分けない。**分けると受講コードの束が2つに割れ、
+     担当者が「足場の10枚」を数えるのに2か所を足すことになる */
+  const seen = new Set<string>();
+  const lines: { courseId: string; short: string; seats: number; unitPrice: number; total: number }[] = [];
+  for (const it of raw) {
+    const course = findCourse(it?.courseId) ?? (raw.length === 1 ? readyCourses()[0] : null);
+    if (!course) {
+      return NextResponse.json({ ok: false, reason: "講座が分かりません。" }, { status: 400 });
+    }
+    if (seen.has(course.id)) {
+      return NextResponse.json(
+        { ok: false, reason: `${course.short}が2回入っています。` },
+        { status: 400 },
+      );
+    }
+    seen.add(course.id);
+    const q = quote(Number(it?.seats), unitPrice(course.id));
+    if (!q) {
+      return NextResponse.json(
+        { ok: false, reason: `${course.short}の人数を確かめてください。` },
+        { status: 400 },
+      );
+    }
+    lines.push({ courseId: course.id, short: course.short, seats: q.seats, unitPrice: q.unitPrice, total: q.total });
+  }
+  if (!lines.length) {
     return NextResponse.json({ ok: false, reason: "講座がありません。" }, { status: 400 });
   }
-  const method = b.method === "card" ? "card" : "invoice";
-  const q = quote(Number(b.seats), unitPrice(course.id));
-  if (!q) {
-    return NextResponse.json({ ok: false, reason: "人数を確かめてください。" }, { status: 400 });
-  }
 
+  const method = b.method === "card" ? "card" : "invoice";
   const now = new Date();
-  const { data: order, error } = await supabase
+  const due = method === "invoice" ? dueDate(now).toISOString().slice(0, 10) : null;
+  /* ひとまとめの印。請求書と入金の確認は、これでまとめる。
+     1講座だけでも group を作る。**例外を作らない**（0029） */
+  const groupId = randomUUID();
+
+  const { data: made, error } = await supabase
     .from("orders")
-    .insert({
-      company_id: admin.companyId,
-      course_id: course.id,
-      seats: q.seats,
-      unit_price: q.unitPrice,
-      amount: q.total,
-      method,
-      status: "pending",
-      due_date: method === "invoice" ? dueDate(now).toISOString().slice(0, 10) : null,
-      ordered_by: admin.userId,
-      bill_to: (b.billTo ?? "").trim() || null,
-      note: (b.note ?? "").trim() || null,
-    })
-    .select("id")
-    .single();
-  if (error || !order) {
+    .insert(
+      lines.map((l) => ({
+        company_id: admin.companyId,
+        group_id: groupId,
+        course_id: l.courseId,
+        seats: l.seats,
+        unit_price: l.unitPrice,
+        amount: l.total,
+        method,
+        status: "pending",
+        due_date: due,
+        ordered_by: admin.userId,
+        bill_to: (b.billTo ?? "").trim() || null,
+        note: (b.note ?? "").trim() || null,
+      })),
+    )
+    .select("id, course_id, amount");
+  if (error || !made?.length) {
     return NextResponse.json({ ok: false, reason: error?.message ?? "作れません" }, { status: 500 });
   }
-  /* 運営に知らせる。請求書を送るまで受講コードが出ない */
+
+  /* 運営に知らせる。**申込み1件につき1回。**講座の数だけ鳴らすと、
+     3講座まとめて頼まれただけで3回鳴り、そのうち誰も見なくなる */
   await notify("order");
 
   /* 受講コードは、ここでは作らない。
@@ -115,12 +163,20 @@ export async function POST(req: NextRequest) {
      「お振込みの確認後、受講コードを発行します」と書いてあるのに
      先に配ってしまうと、払わずに受講できる。
      カード払いは Stripe からの知らせで作る（/api/stripe/webhook）。 */
+  /* 請求書は group で1枚。**どの行を開いても同じ1枚が出る**ので、
+     返すのは先頭の行の番号でよい（/invoice/<orderId>） */
+  const first = made[0];
   return NextResponse.json({
     ok: true,
-    orderId: order.id,
-    course: { id: course.id, short: course.short },
+    orderId: first.id,
+    groupId,
+    course: { id: first.course_id as string, short: lines[0].short },
+    items: lines.map((l) => ({ courseId: l.courseId, short: l.short, seats: l.seats, amount: l.total })),
     method,
-    quote: q,
+    quote: {
+      seats: lines.reduce((n, l) => n + l.seats, 0),
+      total: lines.reduce((n, l) => n + l.total, 0),
+    },
     seatsIssued: 0,
   });
 }

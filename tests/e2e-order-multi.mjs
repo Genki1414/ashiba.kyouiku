@@ -1,0 +1,153 @@
+/* 複数の講座を、まとめて申し込めるか（0029）。
+   実行: npm run dev -- -p 3100 のあと node tests/e2e-order-multi.mjs
+
+   ── なぜ差し替えるか ──
+   申込みの画面は教育担当者だけが開ける。手元では Supabase につないで
+   いないので、そのままでは「教育担当者だけの画面です」で止まり、
+   **申込みの form が一度も描かれない。**
+
+   ここで見たいのは画面の作りなので、口（/api/order）の返事だけ差し替える。
+   本物かどうかは admin-db と order-group.sql（SQL）が見ている。
+
+   ── 何を見るか ──
+   ・3講座を選んで、講座ごとに人数を入れられるか
+   ・合計が、**講座ごとの単価で足した額**になっているか
+     （1つの単価で掛けると、値段の違う講座で合わない）
+   ・送る中身が「講座と人数の並び」になっているか
+   ・**絞り込みで隠れている選択を、見失わせないか**
+     （絞ったまま押すと、画面に出ていない講座まで買うことになる）
+   ・何も選んでいないうちは押せないか */
+import { chromium } from "playwright-core";
+
+const BASE = process.env.BASE ?? "http://localhost:3100";
+let ng = 0;
+const check = (c, m) => { if (!c) { console.error("NG:", m); ng++; } };
+
+/* 値段の違う講座を混ぜる。同じ値段だと、
+   1つの単価で掛けても合ってしまい、間違いに気づけない */
+const COURSES = [
+  { id: "ashiba", short: "足場", name: "足場の組立て等の業務に係る特別教育", unitPrice: 4500 },
+  { id: "shokucho", short: "職長", name: "職長・安全衛生責任者教育", unitPrice: 7000 },
+  { id: "ishiwata", short: "石綿", name: "石綿使用建築物等解体等業務に係る特別教育", unitPrice: 5000 },
+  ...Array.from({ length: 8 }, (_, i) => ({
+    id: `x${i}`,
+    short: `その他${i}`,
+    name: `ならべもの${i}の業務に係る特別教育`,
+    unitPrice: 4500,
+  })),
+];
+
+const browser = await chromium.launch({
+  executablePath: process.env.PW_CHROMIUM ?? "/opt/pw-browsers/chromium-1194/chrome-linux/chrome",
+});
+const page = await browser.newPage({ viewport: { width: 390, height: 900 } });
+page.on("pageerror", (e) => { console.error("NG: pageerror", e.message); ng++; });
+
+/** 送られてきた申込みの中身 */
+let sent = null;
+
+await page.route("**/api/order", async (route) => {
+  const req = route.request();
+  if (req.method() === "POST") {
+    sent = JSON.parse(req.postData() ?? "{}");
+    return route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ ok: true, orderId: "o1", groupId: "g1", method: "invoice" }),
+    });
+  }
+  return route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify({
+      ok: true,
+      company: "まとめ工業",
+      unitPrice: 4500,
+      orders: [],
+      seats: { total: 0, used: 0, paid: 0 },
+      codes: [],
+      courses: COURSES,
+    }),
+  });
+});
+/* カード払いが使えるかを聞きに行く。使えないことにする（請求書で見る） */
+await page.route("**/api/stripe/checkout", (route) =>
+  route.fulfill({ status: 503, contentType: "application/json", body: '{"ok":false}' }),
+);
+
+await page.goto(`${BASE}/order`);
+{
+  const b = page.getByTestId("update-close");
+  await b.waitFor({ timeout: 2000 }).catch(() => {});
+  if (await b.count()) { await b.click(); await page.waitForTimeout(200); }
+}
+await page.waitForSelector('[data-testid="order-courses"]', { timeout: 8000 });
+
+/* ── はじめは何も選んでいない ── */
+check((await page.getByTestId("order-none").count()) === 1, "はじめは「講座を選んでください」と出る");
+check(await page.getByTestId("order-invoice").isDisabled(), "何も選んでいないうちは押せない");
+check((await page.getByTestId("order-quote").count()) === 0, "選ぶ前は金額を出さない");
+
+/* ── 3講座を選ぶ ── */
+const pick = async (name, seats) => {
+  const row = page.locator('[data-testid="order-course"]', { hasText: name });
+  await row.getByTestId("order-course-pick").click();
+  await row.getByTestId("order-seats-input").fill(String(seats));
+  await page.waitForTimeout(80);
+};
+await pick("足場の組立て等", 5);
+await pick("職長・安全衛生責任者教育", 3);
+await pick("石綿使用建築物等", 2);
+
+check(!(await page.getByTestId("order-invoice").isDisabled()), "選べば押せる");
+const money = (await page.getByTestId("order-quote").innerText()).replace(/\s/g, "");
+
+/* 足場 5×4,500＝22,500／職長 3×7,000＝21,000／石綿 2×5,000＝10,000
+   小計 53,500 ／ 税 5,350 ／ 合計 58,850 */
+check(money.includes("53,500"), `小計が講座ごとの単価で足されている（${money.slice(0, 80)}）`);
+check(money.includes("58,850"), "合計（税込）が出る");
+check(money.includes("3講座") && money.includes("10名"), "何講座・何名かが出る");
+await page.screenshot({ path: `${process.env.SC ?? "."}/order-multi-01.png` });
+
+/* ── 絞り込みで隠れても、選択を見失わせない ── */
+await page.getByTestId("order-filter").fill("石綿");
+await page.waitForTimeout(120);
+const hidden = await page.getByTestId("order-hidden").count();
+check(hidden === 1, "絞り込みで隠れている選択を知らせる");
+const hiddenText = hidden ? await page.getByTestId("order-hidden").innerText() : "";
+check(hiddenText.includes("足場") && hiddenText.includes("職長"),
+  `隠れている講座の名前と人数を出す（${hiddenText.replace(/\s+/g, " ")}）`);
+/* 絞っても合計は変わらない。変わると、隠れたぶんが消えたように見える */
+const money2 = (await page.getByTestId("order-quote").innerText()).replace(/\s/g, "");
+check(money2.includes("58,850"), "絞り込んでも合計は変わらない");
+await page.getByTestId("order-filter").fill("");
+await page.waitForTimeout(120);
+
+/* ── 送る中身 ── */
+await page.getByTestId("order-invoice").click();
+await page.waitForTimeout(400);
+check(!!sent, "申込みが送られた");
+check(Array.isArray(sent?.items) && sent.items.length === 3, `講座と人数の並びで送る（${JSON.stringify(sent?.items)}）`);
+const byId = Object.fromEntries((sent?.items ?? []).map((i) => [i.courseId, i.seats]));
+check(byId.ashiba === 5 && byId.shokucho === 3 && byId.ishiwata === 2, "講座ごとの人数がそのまま乗る");
+/* 金額は送らない。送ると、画面の額で請求できてしまう */
+check(!("amount" in (sent ?? {})) && !("total" in (sent ?? {})), "金額は送らない（サーバが計算する）");
+check(sent?.method === "invoice", "払い方が乗る");
+
+/* 送ったあとは選択が空に戻る。残すと、押し直しで二重に申し込む */
+await page.waitForTimeout(300);
+check((await page.getByTestId("order-quote").count()) === 0, "送ったら選択が空に戻る");
+console.log("OK: 3講座をまとめて申し込める");
+
+/* ── 講座を渡されたら、それを選んだ状態で開く（導線）── */
+sent = null;
+await page.goto(`${BASE}/order?courseId=ishiwata&seats=4`);
+await page.waitForSelector('[data-testid="order-courses"]', { timeout: 8000 });
+const one = (await page.getByTestId("order-quote").innerText()).replace(/\s/g, "");
+check(one.includes("石綿") && one.includes("4名"), `渡された講座と人数で開く（${one.slice(0, 60)}）`);
+check(!one.includes("足場") && !one.includes("職長"), "渡していない講座は選ばない");
+console.log("OK: 講座を渡すと、それを選んだ状態で開く");
+
+await browser.close();
+if (ng) { console.error(`\n${ng} 件失敗`); process.exit(1); }
+console.log("ALL OK");

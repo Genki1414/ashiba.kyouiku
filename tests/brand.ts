@@ -334,6 +334,24 @@ console.log("\n── 売っていないものへ連れて行かないか ──
   }
 }
 
+console.log("\n── 断られた画面から、申込みへ直に行けるか ──");
+{
+  /* **担当者は、その講座の受講コードを申し込みに来ている。**
+     /admin へ送ると、名簿や進み具合の中から入口を探すことになる
+     （げんきさん 2026-09-08）。申込みの画面へ、その講座を選んだ状態で送る。 */
+  const seat = code("src/components/NeedSeat.tsx");
+  check(seat.includes("<OrderLink />"), "受講コードが要る画面から、申込みへ行ける");
+  check(!/href="\/admin"/.test(seat), "**担当者の画面へは送らない**（そこから探し直しになる）");
+  const link = code("src/components/OrderLink.tsx");
+  check(/\/order\?courseId=/.test(link), "いま見ていた講座を持って行く");
+  check(link.includes("usePathname"), "どの講座かは住所から取る（/edu/<講座>）");
+  /* 目録に無い id のときに、壊れずに申込みへ行けること */
+  check(/course \? `\/order\?courseId=/.test(link) && /: "\/order"/.test(link),
+    "講座が分からないときも、申込みの画面へは行ける");
+  /* この入口も店で分けない */
+  check(!link.includes("BRAND"), "申込みへの入口は店で分けない");
+}
+
 console.log("\n── 売っていないものの口も閉じているか ──");
 {
   /* **画面を 404 にしても、口が開いていれば住所を直接叩ける。**

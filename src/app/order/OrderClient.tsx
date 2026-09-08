@@ -67,11 +67,16 @@ export function OrderClient() {
   const [st, setSt] = useState<Loaded | null>(null);
   const [ng, setNg] = useState<string>("");
   const [note, setNote] = useState<string>("");
-  /* 初期値は1名。10人ぶんが入っていると、そのまま押した人が
+  /* **講座ごとの人数。**まとめて申し込めるようにしたので、
+     「選んでいる講座1つ」ではなく「講座 → 人数」で持つ（0029）。
+
+     初期値は1名。10人ぶんが入っていると、そのまま押した人が
      10人ぶん申し込むことになる。足す側の操作は取り返しがつくが、
      多い数で申し込んでしまうのは請求に効く */
-  const [seats, setSeats] = useState(1);
-  const [courseId, setCourseId] = useState("");
+  const [picked, setPicked] = useState<Record<string, number>>({});
+  /* 講座が73本あるので、絞れないと目当ての1本に届かない */
+  const [q2, setQ2] = useState("");
+  const [ready, setReady] = useState(false);
   const [billTo, setBillTo] = useState("");
   const [memo, setMemo] = useState("");
   const [busy, setBusy] = useState(false);
@@ -118,22 +123,36 @@ export function OrderClient() {
      数え直さずにそのまま申し込める。**あとから直せる**ように、
      ここでは入れるだけで、押さえつけはしない（受けない人も混じる） */
   useEffect(() => {
-    if (courseId || !st?.courses.length) return;
+    if (ready || !st?.courses.length) return;
     const want = params.get("courseId");
-    setCourseId(st.courses.find((c) => c.id === want)?.id ?? st.courses[0].id);
+    const c = st.courses.find((x) => x.id === want);
     const n = Number(params.get("seats"));
-    if (Number.isInteger(n) && n >= 1 && n <= 999) setSeats(n);
-  }, [st, params, courseId]);
+    const seats = Number.isInteger(n) && n >= 1 && n <= MAX_SEATS ? n : 1;
+    /* 講座を渡されていれば、それだけを選んだ状態で開く。
+       渡されていなければ**何も選ばない。**先頭を勝手に選ぶと、
+       まとめ申込みでは「押したつもりのない講座」が混じる */
+    setPicked(c ? { [c.id]: seats } : {});
+    setReady(true);
+  }, [st, params, ready]);
 
 
   const order = async (method: "card" | "invoice") => {
+    /* 送るのは「講座と人数」の並び。**画面で金額は作らない**
+       （サーバがもう一度計算する。見せる額と請求する額を食い違わせない） */
+    const items = Object.entries(picked)
+      .filter(([, n]) => n > 0)
+      .map(([courseId, seats]) => ({ courseId, seats }));
+    if (!items.length) {
+      setNote("受ける講座を選んでください。");
+      return;
+    }
     setBusy(true);
     setNote("");
     try {
       const res = await fetch("/api/order", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ courseId, seats, method, billTo, note: memo }),
+        body: JSON.stringify({ items, method, billTo, note: memo }),
       });
       const j = await res.json().catch(() => ({}));
       if (!res.ok || !j.ok) {
@@ -142,8 +161,10 @@ export function OrderClient() {
       }
       if (method === "invoice") {
         setNote(
-          "申し込みました。請求書を運営から送ります。お振込みの確認後、受講コードが出ます。",
+          `申し込みました（${items.length}講座）。請求書は**1枚**で送ります。` +
+            "お振込みの確認後、受講コードが出ます。",
         );
+        setPicked({});
         await load();
         return;
       }
@@ -177,10 +198,23 @@ export function OrderClient() {
   if (!st) return null;
 
   /* 単価はサーバの値で計算する。実際に請求されるのと同じ額を見せるため */
-  /* 単価は講座ごとに違う。選んでいる講座のものを使う。
-     ここを1つの値にしていると、講座を選び直しても金額が変わらない */
-  const price = st.courses.find((c) => c.id === courseId)?.unitPrice ?? st.unitPrice;
-  const q = quote(seats, price);
+  /* 単価は講座ごとに違う。**行ごとに計算して足す。**
+     1つの単価でまとめて掛けると、講座ごとに値段が違うのに合わなくなる */
+  const rows = st.courses
+    .filter((c) => picked[c.id] > 0)
+    .map((c) => ({ c, seats: picked[c.id], q: quote(picked[c.id], c.unitPrice) }))
+    .filter((r) => r.q);
+  const sum = {
+    seats: rows.reduce((n, r) => n + r.seats, 0),
+    subtotal: rows.reduce((n, r) => n + r.q!.subtotal, 0),
+    tax: rows.reduce((n, r) => n + r.q!.tax, 0),
+    total: rows.reduce((n, r) => n + r.q!.total, 0),
+  };
+  /* 絞り込み。名前でも、正式名称でも当たるようにする */
+  const key = q2.trim().toLowerCase();
+  const list = key
+    ? st.courses.filter((c) => `${c.name}${c.short}`.toLowerCase().includes(key))
+    : st.courses;
 
   return (
     <main className="px-5 py-8 pb-12">
@@ -210,65 +244,127 @@ export function OrderClient() {
 
       {/* 申し込む */}
       <div className="mt-5 rounded-xl border border-line bg-panel p-4">
-        {/* 受講コードは1講座ぶん。どの講座の席を買うかを先に決める */}
-        {st.courses.length > 1 ? (
-          <>
-            <label className="mb-1 block text-[11px] tracking-[2px] text-dim">講座</label>
-            <div className="mb-4 grid gap-1.5" data-testid="order-courses">
-              {st.courses.map((c) => (
-                <button
-                  key={c.id}
-                  onClick={() => setCourseId(c.id)}
-                  className={`rounded-lg border px-3 py-2.5 text-left text-[13px] ${
-                    courseId === c.id ? "border-yel bg-[#1A1F14] text-yel" : "border-line text-dim"
-                  }`}
-                  data-testid="order-course"
-                >
-                  {c.name}
-                </button>
-              ))}
-            </div>
-          </>
-        ) : (
-          st.courses[0] && (
-            <div className="mb-4 text-[12px] leading-relaxed text-dim2" data-testid="order-course-one">
-              <span className="text-dim">{st.courses[0].name}</span> の受講コードです。
-            </div>
-          )
+        {/* ── 受ける講座と人数 ──
+
+            受講コードは講座ごとに出る。**まとめて申し込める**ようにした
+            （げんきさん 2026-09-08）。「足場5人、石綿3人、酸欠2人」を
+            3回に分けると請求書が3枚出て、振込も3回になり、
+            1回でまとめて振り込まれると、どの請求書の入金か分からなくなる。
+
+            申込みは1回・請求書は1枚・振込も1回にする（0029）。 */}
+        <label className="mb-1 block text-[11px] tracking-[2px] text-dim">受ける講座と人数</label>
+
+        {/* 講座が73本ある。絞れないと目当ての1本まで指が届かない */}
+        {st.courses.length > 8 && (
+          <input
+            value={q2}
+            onChange={(e) => setQ2(e.target.value)}
+            type="search"
+            inputMode="search"
+            placeholder="講座を絞る（例：石綿、酸欠、フルハーネス）"
+            className="mb-2 w-full rounded-lg border border-line bg-bg px-3 py-2.5 text-[13px]"
+            data-testid="order-filter"
+            aria-label="講座を絞る"
+          />
         )}
 
-        <label className="mb-1 block text-[11px] tracking-[2px] text-dim">人数</label>
-        <div className="flex items-center gap-2">
-          <button
-            className="h-11 w-11 shrink-0 rounded-lg border border-line text-[18px]"
-            onClick={() => setSeats((n) => Math.max(1, n - 1))}
-          >
-            −
-          </button>
-          <input
-            type="number"
-            min={1}
-            max={MAX_SEATS}
-            value={seats}
-            onChange={(e) => setSeats(Math.max(1, Math.min(MAX_SEATS, Number(e.target.value) || 1)))}
-            className="w-full rounded-lg border border-line bg-bg px-3 py-2.5 text-center text-[18px] font-black"
-            data-testid="order-seats-input"
-          />
-          <button
-            className="h-11 w-11 shrink-0 rounded-lg border border-line text-[18px]"
-            onClick={() => setSeats((n) => Math.min(MAX_SEATS, n + 1))}
-          >
-            ＋
-          </button>
+        <div className="mb-1 grid gap-1.5" data-testid="order-courses">
+          {list.map((c) => {
+            const n = picked[c.id] ?? 0;
+            const on = n > 0;
+            const set = (v: number) =>
+              setPicked((m) => {
+                const next = { ...m };
+                /* 0にしたら消す。0のまま残すと、送る並びに
+                   「0人の講座」が混じって、サーバに断られる */
+                if (v <= 0) delete next[c.id];
+                else next[c.id] = Math.min(MAX_SEATS, v);
+                return next;
+              });
+            return (
+              <div
+                key={c.id}
+                className={`rounded-lg border ${on ? "border-yel bg-[#1A1F14]" : "border-line"}`}
+                data-testid="order-course"
+              >
+                <button
+                  onClick={() => set(on ? 0 : 1)}
+                  className={`block w-full px-3 py-2.5 text-left text-[13px] ${on ? "text-yel" : "text-dim"}`}
+                  data-testid="order-course-pick"
+                  aria-pressed={on}
+                >
+                  {/* 選んであることが、色だけでなく字でも分かるようにする */}
+                  <span className="mr-1.5 font-black">{on ? "✓" : "＋"}</span>
+                  {c.name}
+                  <span className="ml-1.5 text-[11.5px] text-dim2">{yen(c.unitPrice)}／人</span>
+                </button>
+                {on && (
+                  <div className="flex items-center gap-2 border-t border-line px-3 py-2">
+                    <span className="shrink-0 text-[11px] tracking-[2px] text-dim">人数</span>
+                    <button
+                      className="h-9 w-9 shrink-0 rounded-lg border border-line text-[16px]"
+                      onClick={() => set(n - 1)}
+                      aria-label={`${c.short}の人数を減らす`}
+                    >
+                      −
+                    </button>
+                    <input
+                      type="number"
+                      min={1}
+                      max={MAX_SEATS}
+                      value={n}
+                      onChange={(e) => set(Math.max(0, Number(e.target.value) || 0))}
+                      className="w-full rounded-lg border border-line bg-bg px-2 py-1.5 text-center text-[16px] font-black"
+                      data-testid="order-seats-input"
+                      aria-label={`${c.short}の人数`}
+                    />
+                    <button
+                      className="h-9 w-9 shrink-0 rounded-lg border border-line text-[16px]"
+                      onClick={() => set(n + 1)}
+                      aria-label={`${c.short}の人数を増やす`}
+                    >
+                      ＋
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          {!list.length && (
+            <div className="rounded-lg border border-line bg-bg p-3 text-[12px] text-dim">
+              「{q2}」に当たる講座がありませんでした。
+            </div>
+          )}
         </div>
 
-        {q && (
+        {/* 絞り込みで隠れている選択を、見失わせない。
+            絞ったまま申し込むと、画面に出ていない講座まで買うことになる */}
+        {rows.some((r) => !list.some((c) => c.id === r.c.id)) && (
+          <div className="mt-1 text-[11.5px] leading-relaxed text-yel" data-testid="order-hidden">
+            絞り込みで隠れている選択があります：
+            {rows.filter((r) => !list.some((c) => c.id === r.c.id)).map((r) => `${r.c.short} ${r.seats}名`).join("・")}
+          </div>
+        )}
+
+        {!!rows.length && (
           <div className="mt-3 rounded-lg border border-line bg-bg px-3.5 py-3 text-[12.5px] leading-[1.9]" data-testid="order-quote">
-            <div className="flex justify-between"><span className="text-dim">単価（税抜）</span><span>{yen(q.unitPrice)}</span></div>
-            <div className="flex justify-between"><span className="text-dim">小計</span><span>{yen(q.subtotal)}</span></div>
-            <div className="flex justify-between"><span className="text-dim">消費税</span><span>{yen(q.tax)}</span></div>
+            {/* 講座ごとに1行。合計だけ出すと、どの講座を何人ぶん
+                頼んだのかが、押す前に確かめられない */}
+            {rows.map((r) => (
+              <div key={r.c.id} className="flex justify-between">
+                <span className="text-dim">
+                  {r.c.short}　{r.seats}名 × {yen(r.c.unitPrice)}
+                </span>
+                <span>{yen(r.q!.subtotal)}</span>
+              </div>
+            ))}
+            <div className="mt-1 flex justify-between border-t border-line pt-1">
+              <span className="text-dim">小計</span><span>{yen(sum.subtotal)}</span>
+            </div>
+            <div className="flex justify-between"><span className="text-dim">消費税</span><span>{yen(sum.tax)}</span></div>
             <div className="mt-1 flex justify-between border-t border-line pt-1 font-black">
-              <span>合計（税込）</span><span className="text-yel">{yen(q.total)}</span>
+              <span>合計（税込）{rows.length > 1 ? `　${rows.length}講座・${sum.seats}名` : ""}</span>
+              <span className="text-yel">{yen(sum.total)}</span>
             </div>
           </div>
         )}
@@ -289,14 +385,21 @@ export function OrderClient() {
         />
 
         <div className="mt-4 grid gap-2">
+          {/* 何も選んでいないうちは押せない。押せてしまうと、
+              「申し込めませんでした」で止まるだけの一手が増える */}
           {canCard && (
-            <Btn tone="y" dis={busy} onClick={() => order("card")} testid="order-card">
+            <Btn tone="y" dis={busy || !rows.length} onClick={() => order("card")} testid="order-card">
               {busy ? "…" : "カードで払う"}
             </Btn>
           )}
-          <Btn dis={busy} onClick={() => order("invoice")} testid="order-invoice">
+          <Btn dis={busy || !rows.length} onClick={() => order("invoice")} testid="order-invoice">
             {busy ? "…" : "請求書で払う"}
           </Btn>
+          {!rows.length && (
+            <div className="text-center text-[11.5px] text-dim2" data-testid="order-none">
+              受ける講座を選んでください。まとめて選べます。
+            </div>
+          )}
         </div>
         <div className="mt-2 text-[11.5px] leading-relaxed text-dim2">
           申し込むと請求書をお送りします。
