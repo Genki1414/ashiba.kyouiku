@@ -224,6 +224,92 @@ console.log("\n── 受講リクエストの入口 ──");
     "リクエストの札は、受講コードの札より前に置く（条件が重ならない）");
 }
 
+console.log("\n── 断られたその場から送れるか ──");
+{
+  /* **ホームの札1枚では足りなかった。**
+
+     いちばん「受けたい」と思うのは、講座を押して受講コードが要ると
+     断られた瞬間（NeedSeat）。そこに送る所が無く、/join まで行って
+     73講座の中からさっき見ていた講座を探し直すことになっていた。
+     講座を平らに73本並べる店（特別教育ドットコム）では特にきつい。
+
+     ホームの札は**席を持っている人**にしか出ないので、
+     まだ席が1つも無い人には、どこにも入口が無かった。 */
+  const seat = code("src/components/NeedSeat.tsx");
+  check(seat.includes("<RequestCourse />"), "受講コードが要る画面に、送る所がある");
+  const req = code("src/components/RequestCourse.tsx");
+  check(req.includes('data-testid="need-seat-request-send"'), "送る釦がある");
+  check(req.includes('"/api/course-request"'), "送り先は受講リクエストの口");
+  /* どの講座かを持って送る。持たずに送ると、担当者の画面に
+     「何かを受けたい」としか出ない */
+  check(/courseId:\s*course\.id/.test(req), "**見ていた講座を持って送る**");
+  check(req.includes("usePathname"), "どの講座かは住所から取る（/edu/<講座>）");
+  /* 席そのものはここで作らない。作れると、金額を見ないまま売り物が出る。
+     叩く口が受講リクエストの1本だけであることで見る */
+  {
+    const hit = [...req.matchAll(/fetch\(\s*["'`]([^"'`]+)/g)].map((m) => m[1]);
+    check(hit.length > 0 && hit.every((u) => u === "/api/course-request"),
+      `席そのものはここで作らない。叩く口は受講リクエストだけ（${hit.join("・") || "無し"}）`);
+  }
+  /* 在籍していないと誰宛か決まらない。黙って消さず、次にやることを出す */
+  check(req.includes('data-testid="need-seat-request-none"'),
+    "会社とつながっていない人には、先に何をするかを出す");
+  /* もう送ってある人に、同じ釦をもう一度出さない */
+  check(req.includes('data-testid="need-seat-request-sent"'), "送ってあるときは、そう出す");
+  /* この入口も店で分けない（ホームの札と同じ考え方） */
+  check(!req.includes("BRAND"), "送る所は店で分けない（両方の店で出す）");
+}
+
+console.log("\n── 売っていないものへ連れて行かないか ──");
+{
+  /* 特別教育ドットコムは実務トレーニングを売っていない。
+     2026-09-07 に利用規約と個人情報の取扱いからは外したが、
+     **画面と道はそのままだった。**
+
+     ・受講コードが要る画面が「実務トレーニングの第1章は…」と勧めていた
+     ・/training も /train（申し込み）も、住所を打てば開いた
+     ・お知らせの一覧の下に「章の一覧へ」が出ていた
+
+     規約が対象にしていないものを、有料で売れる状態だった。 */
+  const seat = code("src/components/NeedSeat.tsx");
+  check(/BRAND\.training &&[\s\S]{0,200}need-seat-train/.test(seat),
+    "受講コードが要る画面：実務トレーニングは売っている店でだけ勧める");
+
+  /* 札を消すだけでは足りない。住所を打てば開けてしまう */
+  const tl = code("src/app/training/layout.tsx");
+  check(/if \(!BRAND\.training\) notFound\(\)/.test(tl),
+    "**/training は、売っていない店では 404**（札を消すだけでは開ける）");
+  const trn = code("src/app/train/page.tsx");
+  check(/if \(!BRAND\.training\) notFound\(\)/.test(trn),
+    "**/train（申し込み）も、売っていない店では 404**");
+
+  const up = code("src/app/updates/page.tsx");
+  check(/BRAND\.training &&[\s\S]{0,200}href="\/training"/.test(up),
+    "お知らせの一覧：章の一覧へ の札も店で分ける");
+
+  /* 名簿もデータベースも両方の店で同じ。足場屋革命で利用権を買った人が
+     特別教育ドットコムを開くと、行き先の無い知らせが出ていた */
+  const nt = code("src/app/api/notices/route.ts");
+  check(nt.includes('neq("kind", "train")'),
+    "実務トレーニングの知らせは、売っている店でだけ出す");
+  check((nt.match(/neq\("kind", "train"\)/g) ?? []).length >= 2,
+    "**数える方からも外す**（1件と出るのに開くと空、を出さない）");
+
+  /* 画面の外に道が残っていないか。/training への直の行き先を数える */
+  const outside = [
+    "src/components/NeedSeat.tsx",
+    "src/app/updates/page.tsx",
+    "src/app/page.tsx",
+    "src/app/manifest.ts",
+  ];
+  for (const f of outside) {
+    const src = code(f);
+    if (!/["'`]\/train/.test(src)) continue;
+    check(src.includes("BRAND.training"),
+      `${f}：実務トレーニングへの行き先を店で分けている`);
+  }
+}
+
 console.log("\n── 講座は両方の店で同じ ──");
 {
   /* 分けているのは売り先であって、中身ではない。

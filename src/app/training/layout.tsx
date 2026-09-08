@@ -1,4 +1,6 @@
+import { notFound } from "next/navigation";
 import { canTrain } from "@/lib/training";
+import { BRAND } from "@/content/brand";
 import { NeedTrain } from "@/components/NeedTrain";
 import { TrialNote } from "@/components/TrialNote";
 
@@ -17,6 +19,12 @@ export const dynamic = "force-dynamic";
    実務トレーニングは修了証の要件ではないので、席とは分ける。 */
 
 export default async function TrainingLayout({ children }: { children: React.ReactNode }) {
+  /* **売っていない店では、この道ごと無い。**
+     特別教育ドットコムは実務トレーニングを売っていない。
+     ホームに札を出さないだけでは、住所を直接打てば開けてしまう。
+     開けると、あの店の利用規約が対象にしていないものを（第2章から先は
+     有料で）売ることになる。/train も同じ（src/app/train/page.tsx）。 */
+  if (!BRAND.training) notFound();
   const may = await canTrain();
   /* ログインしていない人だけ、ここで止める */
   if (!may.ok && may.why === "signin") return <NeedTrain why="signin" />;

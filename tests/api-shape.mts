@@ -550,6 +550,19 @@ console.log("── 受講リクエストが返す形 ──");
     check(join.includes(k), `/join が ${k} を読んでいる`);
   }
   check(join.includes('"/api/course-request"'), "/join が受講リクエストを呼んでいる");
+
+  /* 受講コードが要ると断られた画面からも送れる（2026-09-08）。
+     こちらも同じ返しを読むので、項目が抜けると釦が出ない画面になる */
+  const need = read("src/components/RequestCourse.tsx");
+  for (const k of ["courseId", "requested", "hasSeat"]) {
+    check(need.includes(k), `断られた画面が ${k} を読んでいる`);
+  }
+  check(need.includes('"/api/course-request"'), "断られた画面が受講リクエストを呼んでいる");
+  /* 在籍しているかで出し分ける。していない人に釦だけ出すと、
+     押しても「送れませんでした」で終わる */
+  check(/member\?\.state !== "active"/.test(need), "在籍していない人には、先にやることを出す");
+  /* 会社は画面から渡さない（GET と同じ決まり） */
+  check(!/companyId/.test(need), "会社の番号を画面から渡していない");
   /* 会社に居ないと誰宛か決まらない。在籍しているときだけ出す */
   check(/mine\?\.state === "active" && !!reqs\?\.length/.test(join),
     "在籍しているときだけ出している");

@@ -174,7 +174,11 @@ console.log(`   （未設定の欄 ${miss}件）`);
 /* ホームから読める（登録していない人も買う前に読む） */
 await page.goto(BASE);
 await dismiss();
-await page.waitForSelector("text=実務トレーニング");
+/* ホームが描き終わるのを待つだけ。**「実務トレーニング」の字では待たない。**
+   あれは足場屋革命だけの売り物で、特別教育ドットコムには出ない。
+   売り物の名前で待つと、店を増やしたときに、関係のない試験が止まる。
+   講座の札（または平らな一覧）は、どちらの店にも必ず出る */
+await page.waitForSelector('[data-testid="home-course"], [data-testid="course-drawer"]');
 for (const href of ["/legal/tokushoho", "/legal/terms", "/legal/privacy"]) {
   check((await page.locator(`a[href="${href}"]`).count()) >= 1, `ホームから ${href} へ行ける`);
 }

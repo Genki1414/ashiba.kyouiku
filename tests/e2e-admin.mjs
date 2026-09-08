@@ -151,7 +151,9 @@ console.log("OK: 参加コードの画面");
 /* ── ホームに担当者の入口は、担当者にだけ出る ── */
 await page.goto(BASE);
 await dismiss();
-await page.waitForSelector("text=実務トレーニング", { timeout: 8000 });
+/* ホームが描き終わるのを待つだけ。売り物の名前では待たない
+   （実務トレーニングは足場屋革命だけ。e2e-order と同じ直し） */
+await page.waitForSelector('[data-testid="home-course"], [data-testid="course-drawer"]', { timeout: 8000 });
 const homeAdmin = await page.getByTestId("home-admin").count();
 check(homeAdmin === (has.list ? 1 : 0), `ホームの入口は担当者にだけ出る（${homeAdmin}）`);
 console.log("OK: ホームの入口");

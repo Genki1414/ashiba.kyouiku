@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BRAND } from "@/content/brand";
 import { RELEASES } from "@/content/changelog";
 
 /* 更新の一覧。お知らせを閉じたあとでも、ここから読み返せる */
@@ -34,12 +35,17 @@ export default function UpdatesPage() {
         ))}
       </div>
 
-      <Link
-        href="/training"
-        className="mt-2 block rounded-lg border border-line p-3 text-center text-[13px] text-dim no-underline"
-      >
-        章の一覧へ
-      </Link>
+      {/* 実務トレーニングを売っている店でだけ出す。
+          売っていない店では、この道は 404 にしてある
+          （src/app/training/layout.tsx） */}
+      {BRAND.training && (
+        <Link
+          href="/training"
+          className="mt-2 block rounded-lg border border-line p-3 text-center text-[13px] text-dim no-underline"
+        >
+          章の一覧へ
+        </Link>
+      )}
     </main>
   );
 }

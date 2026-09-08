@@ -1,10 +1,21 @@
 import Link from "next/link";
+import { BRAND } from "@/content/brand";
+import { RequestCourse } from "./RequestCourse";
 
 /* 受講コードが無い人に出す画面。
 
    ただ断るのではなく、何を持っていれば開くのか、
    どこで手に入るのかまで書く。現場で聞ける相手は教育担当者なので、
-   そこへ行き着くように書く。 */
+   そこへ行き着くように書く。
+
+   **断って終わりにしない。**ここは「この講座を受けたい」と
+   いちばん強く思っている場所なので、担当者に送る所も置く
+   （RequestCourse）。前は送る所が /join にしか無く、
+   73講座の中からさっき見ていた講座を探し直す必要があった。
+
+   出すものは店で変わる（src/content/brand.ts）。
+   実務トレーニングは足場屋革命だけの売り物なので、
+   特別教育ドットコムでは案内しない。 */
 
 export function NeedSeat({ why, company }: { why: "signin" | "seat"; company: string }) {
   if (why === "signin") {
@@ -68,14 +79,24 @@ export function NeedSeat({ why, company }: { why: "signin" | "seat"; company: st
         教育担当者の方はこちら（申込み）
       </Link>
       {/* 実務トレーニングは別の売り物。第1章はコードが無くても遊べる。
-         ここで断られた人に、いま出来ることが何も無いと、そのまま閉じられる */}
-      <Link
-        href="/training"
-        className="mt-2 block rounded-lg border border-line p-3 text-center text-[12.5px] text-dim no-underline"
-        data-testid="need-seat-train"
-      >
-        実務トレーニングの第1章は、コード無しで遊べます
-      </Link>
+         ここで断られた人に、いま出来ることが何も無いと、そのまま閉じられる。
+
+         **売っている店でだけ出す。**特別教育ドットコムは実務トレーニングを
+         売っていない。売っていない店で勧めると、あの店の利用規約が
+         対象にしていないものへ連れて行くことになる（2026-09-07 に
+         規約から外したばかり）。 */}
+      {BRAND.training && (
+        <Link
+          href="/training"
+          className="mt-2 block rounded-lg border border-line p-3 text-center text-[12.5px] text-dim no-underline"
+          data-testid="need-seat-train"
+        >
+          実務トレーニングの第1章は、コード無しで遊べます
+        </Link>
+      )}
+
+      {/* 「受けたい」を担当者に送る。どの講座かは住所から取る */}
+      <RequestCourse />
       <Link href="/" className="mt-5 block text-center text-[12.5px] text-dim2 no-underline">
         ← ホームへ
       </Link>

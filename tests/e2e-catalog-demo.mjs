@@ -19,7 +19,26 @@ const dismissNotice = async () => {
   if (await b.count()) { await b.click(); await page.waitForTimeout(200); }
 };
 
-await page.goto(`${BASE}/training`);
+/* 実務トレーニングは**足場屋革命だけの売り物。**
+   特別教育ドットコムでは /training ごと 404 にしてある
+   （src/app/training/layout.tsx）。売っていない店では、
+   「無いこと」を確かめて終わる。素通りさせると、
+   売っていないはずの店で開けるようになっても気づけない */
+{
+  const r = await page.goto(`${BASE}/training`);
+  if (r && r.status() === 404) {
+    check(await page.getByTestId("notfound").count() > 0,
+      "売っていない店では、実務トレーニングは無い（404）");
+    for (const u of ["/training/catalog", "/training/ch1", "/train"]) {
+      const x = await page.goto(`${BASE}${u}`);
+      check(x?.status() === 404, `${u} も開けない`);
+    }
+    await browser.close();
+    if (ng) { console.error(`\n${ng} 件失敗`); process.exit(1); }
+    console.log("ALL OK（この店は実務トレーニングを売っていない）");
+    process.exit(0);
+  }
+}
 await page.waitForSelector("text=実務トレーニング");
 await dismissNotice();
 for (const t of ["① 資材カタログ", "② 通し見学", "③ チュートリアル"]) {

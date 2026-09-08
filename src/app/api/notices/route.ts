@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase/server";
 import { currentUser } from "@/lib/supabase/session";
 import { noticeView } from "@/lib/noticeText";
+import { BRAND } from "@/content/brand";
 
 /* ホームのお知らせ。
 
@@ -27,18 +28,28 @@ export async function GET() {
     return NextResponse.json({ ok: true, unread: 0, notices: [] });
   }
 
+  /* 実務トレーニングの知らせは、それを売っている店でだけ出す。
+
+     名簿もデータベースも両方の店で同じものなので、足場屋革命で
+     利用権を買った人が特別教育ドットコムを開くと、この知らせが出る。
+     あの店では /training を 404 にしてあるので、押しても行き先が無い。
+
+     **数える方からも外す。**一覧から消して数だけ残すと、
+     「1件」と出ているのに開くと何も無い、という出方になる。 */
+  const list = supabase
+    .from("notices")
+    .select("id, kind, course_id, note, created_at, read_at")
+    .eq("user_id", user.id);
+  const unread = supabase
+    .from("notices")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", user.id)
+    .is("read_at", null);
   const [{ data }, { count }] = await Promise.all([
-    supabase
-      .from("notices")
-      .select("id, kind, course_id, note, created_at, read_at")
-      .eq("user_id", user.id)
+    (BRAND.training ? list : list.neq("kind", "train"))
       .order("created_at", { ascending: false })
       .limit(LIMIT),
-    supabase
-      .from("notices")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", user.id)
-      .is("read_at", null),
+    BRAND.training ? unread : unread.neq("kind", "train"),
   ]);
 
   return NextResponse.json({
