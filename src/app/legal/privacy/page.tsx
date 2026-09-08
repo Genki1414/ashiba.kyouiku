@@ -1,5 +1,6 @@
 import { Article, LegalPage } from "@/components/legal/Page";
-import { PERSONAL_DATA, THIRD_PARTIES, seller } from "@/content/legal";
+import { PERSONAL_DATA, TRAINING_DATA, THIRD_PARTIES, seller } from "@/content/legal";
+import { BRAND } from "@/content/brand";
 
 export const metadata = { title: "個人情報の取扱い" };
 
@@ -17,7 +18,9 @@ export default function PrivacyPage() {
       <div data-testid="privacy">
         <Article n={1} t="お預かりするもの">
           <div className="grid gap-0">
-            {PERSONAL_DATA.map((d) => (
+            {/* 実務トレーニングの記録は、それを売っている店でだけ並べる。
+                売っていない店で並べると、預かっていない物を「預かる」と書くことになる */}
+            {[...PERSONAL_DATA, ...(BRAND.training ? [TRAINING_DATA] : [])].map((d) => (
               <div key={d.k} className="border-t border-line py-2">
                 <div className="text-[12.5px] font-bold text-txt">{d.k}</div>
                 <div className="text-[12px] text-dim">{d.v}</div>
@@ -51,7 +54,7 @@ export default function PrivacyPage() {
 
         <Article n={4} t="事業者への開示">
           受講者の所属する事業者の教育担当者は、その事業者に属する受講者について、
-          学科の進み具合・修了試験の結果・実務トレーニングの成績・修了証の発行状況を見ることができます。
+          学科の進み具合・修了試験の結果・{BRAND.training ? "実務トレーニングの成績・" : ""}修了証の発行状況を見ることができます。
           <br />
           <strong className="text-txt">他の事業者の受講者は見られません。</strong>
         </Article>
@@ -83,7 +86,8 @@ export default function PrivacyPage() {
         </Article>
 
         <Article n={7} t="端末に残るもの">
-          実務トレーニングの成績や途中の状態、音の入切、更新のお知らせを読んだかどうかは、
+          {BRAND.training ? "実務トレーニングの成績や途中の状態、音の入切、" : "音の入切、"}
+          更新のお知らせを読んだかどうかは、
           お使いの端末の中にも保存されます。ブラウザの設定から消せます。
         </Article>
 

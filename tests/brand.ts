@@ -138,6 +138,38 @@ console.log("\n── 平らな一覧の並び順 ──");
   check(nos.every((n, i) => i === 0 || nos[i - 1] <= n), "号の小さい順に並んでいる");
 }
 
+console.log("\n── 売っていないものを、規約に書いていないか ──");
+{
+  /* **特別教育ドットコムは実務トレーニングを売っていない。**
+     それなのに利用規約の書き出しが
+     「…提供する教育（…）**および実務トレーニング**（以下「本サービス」）の
+     利用条件を定めます」になっていた。
+     個人情報の取扱いにも「実務トレーニングの成績」「端末に残る途中の状態」
+     「預かるもの：実務トレーニングの記録」が並んでいた。
+
+     **売っていないものの利用条件を、売る前に読ませることになる。**
+     規約と特商法は買う前に読まれる文書なので、ここは実害がある。
+
+     terms/page.tsx には前から同じ趣旨の注意書きがある
+     （「対象の講座は決め打ちにしない。職長教育を売り始めたときに
+       規約の対象から外れていた」）。**店でも決め打ちにしない。** */
+  const terms = code("src/app/legal/terms/page.tsx");
+  check(!/および実務トレーニング（以下/.test(terms),
+    "規約の書き出しで実務トレーニングを決め打ちにしていない");
+  check(terms.includes("BRAND.training"), "規約は店で出し分ける");
+
+  const priv = code("src/app/legal/privacy/page.tsx");
+  check(priv.includes("BRAND.training"), "個人情報の取扱いも店で出し分ける");
+  check(priv.includes("TRAINING_DATA"),
+    "**預かるものの一覧**も店で出し分ける（売っていない物を預かると書かない）");
+
+  /* 一覧そのものに混ぜ戻していないか。混ぜると出し分けが効かない */
+  const legal = code("src/content/legal.ts");
+  const pd = legal.slice(legal.indexOf("PERSONAL_DATA"), legal.indexOf("THIRD_PARTIES"));
+  check(!pd.includes("実務トレーニング"),
+    "PERSONAL_DATA に実務トレーニングを混ぜ戻していない");
+}
+
 console.log("\n── 平らな店でも、押して開く ──");
 {
   /* 73講座を平らに並べると、開いた瞬間に画面が札で埋まる。

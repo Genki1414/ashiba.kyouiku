@@ -1,6 +1,7 @@
 import { Article, LegalPage } from "@/components/legal/Page";
 import { seller } from "@/content/legal";
 import { needsLive, readyCourses, totalNoteOf } from "@/content/courses";
+import { BRAND } from "@/content/brand";
 
 export const metadata = { title: "利用規約" };
 
@@ -10,13 +11,18 @@ export default function TermsPage() {
   /* 対象の講座は決め打ちにしない。
      「足場の特別教育および実務トレーニング」と書いてあったので、
      職長教育を売り始めたときに、規約の対象から外れていた。
-     講座を足すたびに規約を直すのは、必ず忘れる */
+     講座を足すたびに規約を直すのは、必ず忘れる。
+
+     **店でも決め打ちにしない。**特別教育ドットコムは実務トレーニングを
+     売っていないのに、規約には「および実務トレーニング」と書いてあった。
+     売っていないものの利用条件を、売る前に読ませることになる（2026-09-07）。 */
   const courses = readyCourses();
   const names = courses.map((c) => c.name).join("、");
+  const training = BRAND.training ? "および実務トレーニング" : "";
   return (
     <LegalPage
       title="利用規約"
-      lead={`${s.name}（以下「当社」）が提供する教育（${names}）および実務トレーニング（以下「本サービス」）の利用条件を定めます。`}
+      lead={`${s.name}（以下「当社」）が提供する教育（${names}）${training}（以下「本サービス」）の利用条件を定めます。`}
       updated="2026年8月24日"
     >
       <div data-testid="terms">
