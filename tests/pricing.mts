@@ -284,5 +284,27 @@ console.log("\n── 環境変数がコードの値段に勝つことを、画�
 }
 
 console.log("\n── まとめ ──");
+console.log("── 値段の上書きを、誰にでも見せていないか ──");
+{
+  /* /api/health は鍵を返さないので、ログインしていなくても開ける作り。
+     ところが値段の上書きの表だけは
+     「コードでは4,500円だが、いま6,000円で売っている」という中身で、
+     誰でも見られると**値引きの余地があるように読まれる**（2026-09-08）。 */
+  const fs2 = await import("node:fs");
+  const rd = (q: string) => fs2.readFileSync(new URL(`../${q}`, import.meta.url), "utf-8");
+  const h = rd("src/app/api/health/route.ts");
+  check(/priceOverrides:\s*isOwnerEmail\(user\?\.email\)\s*\?\s*priceOverrides\(\)\s*:\s*null/.test(h),
+    "値段の上書きは運営だけに返す");
+  /* 値段そのもの（特商法に載せている）は、誰でも見てよい */
+  check(/prices:\s*allPrices\(\)/.test(h), "単価そのものは誰でも見てよい（特商法に載せている）");
+
+  const st = rd("src/app/setup/SetupClient.tsx");
+  /* null（出していない）と空配列（上書きなし）を混ぜない。
+     混ぜると、ログインせずに開いた人に「上書きなし」と出て、
+     **本当は上書きされているのに安心してしまう** */
+  check(st.includes("h.sell.priceOverrides === null"),
+    "「出していない」と「上書きなし」を分けて出す");
+}
+
 console.log(`${ok} 件通過 / ${ng} 件失敗`);
 if (ng) process.exit(1);

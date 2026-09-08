@@ -19,7 +19,12 @@ const notice = () => page.getByTestId("update-notice");
 const seen = () => page.evaluate(() => window.localStorage.getItem("ashiba.seen-update"));
 
 /* ── はじめて開いたとき ── */
-await page.goto(`${BASE}/training`);
+/* **どちらの店にもある画面で見る。**前は /training で見ていたが、
+   あれは足場屋革命だけの売り物で、特別教育ドットコムでは 404。
+   お知らせは店に関係のない仕組みなので、
+   売り物の画面ではなく、**人がいちばん先に開くホーム**で見る
+   （2026-09-08） */
+await page.goto(BASE);
 await notice().waitFor({ timeout: 5000 }).catch(() => check(false, "はじめて開いたらお知らせが出る"));
 check((await seen()) === null, "閉じるまでは覚えない");
 check((await notice().textContent()).includes("更新のお知らせ"), "見出しが出る");
@@ -39,16 +44,17 @@ check(!!v && /^\d{4}-\d{2}-\d{2}-\d+$/.test(v), `見たところを覚えてい�
 
 /* ── もう一度読み込んでも出ない ── */
 await page.reload();
-await page.waitForSelector("text=実務トレーニング", { timeout: 5000 }).catch(() => {});
+/* 描き終わりは、どちらの店にもある講座の札で待つ（売り物の名前では待たない） */
+await page.waitForSelector('[data-testid="home-course"], [data-testid="course-drawer"]', { timeout: 5000 }).catch(() => {});
 await page.waitForTimeout(700);
 check((await notice().count()) === 0, "もう一度開いても出ない");
 console.log("OK: 一度閉じれば出ない");
 
-/* ── 章の中でも同じ ── */
-await page.goto(`${BASE}/training/ch1`);
-await page.waitForSelector("text=段取りと根がらみ");
+/* ── 別の画面でも同じ ── */
+await page.goto(`${BASE}/edu`);
+await page.waitForSelector('[data-testid="course-list"]', { timeout: 8000 });
 await page.waitForTimeout(600);
-check((await notice().count()) === 0, "章の中でも出ない");
+check((await notice().count()) === 0, "別の画面でも出ない");
 
 /* ── 新しい更新が来たら、また出る ── */
 await page.evaluate(() => window.localStorage.setItem("ashiba.seen-update", "2000-01-01-1"));
@@ -68,10 +74,13 @@ const rows = await page.locator("text=/足した|直した/").count();
 check(rows > 3, `一覧に中身が並ぶ（${rows}件）`);
 await page.screenshot({ path: `${SC}/update-03-list.png` });
 
-await page.goto(`${BASE}/training`);
-await page.waitForTimeout(400);
-const link = page.getByRole("link", { name: "更新の一覧を見る" });
-check((await link.count()) === 1, "章の一覧から一覧へ行ける");
+/* **どちらの店からも辿り着けること。**前はこの札が実務トレーニングの
+   画面にしかなく、特別教育ドットコムではお知らせを一度閉じたら
+   二度と読めなかった（2026-09-08）。ホームの足元に置いた */
+await page.goto(BASE);
+await page.waitForSelector('[data-testid="home-course"], [data-testid="course-drawer"]', { timeout: 8000 });
+const link = page.locator('a[href="/updates"]').first();
+check((await page.locator('a[href="/updates"]').count()) >= 1, "ホームから更新の一覧へ行ける");
 await link.click();
 await page.waitForSelector("text=直したところ・足したところ", { timeout: 5000 })
   .catch(() => check(false, "リンクから開ける"));

@@ -211,9 +211,20 @@ console.log("\n── 受講リクエストの入口 ──");
   check(cards.includes('data-testid="home-request"'), "リクエストの入口の札がある");
   check(/me\.canLearn && me\.member === "active"/.test(cards),
     "**席を持っている人**に出す（席が無い人には受講コードの札が出る）");
-  /* ここを店で分けない。分けると片方の店に穴が残る */
-  check(!/BRAND[\s\S]{0,60}home-request/.test(cards) && !cards.includes("BRAND"),
-    "受講リクエストの入口は店で分けない（両方の店で出す）");
+  /* ここを店で分けない。分けると片方の店に穴が残る。
+
+     この画面で BRAND を使ってよいのは、実務トレーニングの一文だけ
+     （足場屋革命だけの売り物なので、売っていない店では出さない）。
+     リクエストの札そのものを店で分けたら止める。 */
+  {
+    const i = cards.indexOf("home-request");
+    /* 札の条件（直前）と中身（直後）に BRAND が入っていないこと */
+    check(!cards.slice(i - 500, i + 900).includes("BRAND"),
+      "受講リクエストの入口は店で分けない（両方の店で出す）");
+    const uses = [...cards.matchAll(/BRAND\.(\w+)/g)].map((m) => m[1]);
+    check(uses.every((u) => u === "training"),
+      `この画面で店ごとに変えてよいのは実務トレーニングだけ（${[...new Set(uses)].join("・") || "無し"}）`);
+  }
   check(/!me\.admin/.test(cards.slice(cards.indexOf("home-request") - 400, cards.indexOf("home-request"))),
     "教育担当者には出さない（自分に頼むことになる）");
   check(cards.includes('href="/join"'), "行き先は受講コードの画面（そこにリクエストが出る）");
@@ -308,6 +319,80 @@ console.log("\n── 売っていないものへ連れて行かないか ──
     check(src.includes("BRAND.training"),
       `${f}：実務トレーニングへの行き先を店で分けている`);
   }
+}
+
+console.log("\n── 売っていないものの口も閉じているか ──");
+{
+  /* **画面を 404 にしても、口が開いていれば住所を直接叩ける。**
+     扉を閉めて窓を開けたままにしない（2026-09-08）。
+     とくに /api/train-order は**注文を立てる口**で、
+     開いていると、あの店の利用規約が対象にしていない売り物の
+     請求書が本当に出てしまう。 */
+  for (const f of [
+    "src/app/api/train-order/route.ts",
+    "src/app/api/training/route.ts",
+    "src/app/api/training/view/route.ts",
+  ]) {
+    const src = code(f);
+    const handlers = (src.match(/export async function (?:GET|POST)\(/g) ?? []).length;
+    const guards = (src.match(/if \(!BRAND\.training\) return closed\(\);/g) ?? []).length;
+    check(handlers > 0 && guards === handlers,
+      `${f}：口が ${handlers} 本、どれも売っていない店では閉じる（いま ${guards} 本）`);
+  }
+
+  /* 担当者の名簿に、売っていないものの成績を並べない */
+  const lc = code("src/app/admin/LearnerCard.tsx");
+  check(/BRAND\.training \|\| c\.k !== "training"/.test(lc),
+    "担当者の名簿：売っていない店では実務トレーニングの札を出さない");
+  check(!lc.includes('grid-cols-3" data-testid="admin-tabs"'),
+    "札の数を決め打ちにしていない（1枠空く）");
+
+  /* 端末に残るものの説明が、その店の個人情報の取扱いと食い違わないこと */
+  const me = code("src/app/me/MeClient.tsx");
+  check(/BRAND\.training \? "・実務の成績"/.test(me),
+    "マイページ：端末に残るものの書き方を店で分ける（規約と食い違わせない）");
+}
+
+console.log("\n── よその店へ客を飛ばしていないか ──");
+{
+  /* **見つけたとき、実際にそうなっていた（2026-09-08）。**
+
+     合言葉の決め直しは、メールのリンクで戻ってくる。その戻り先は
+     src/lib/siteUrl.ts に**足場屋革命の住所が1つ**書いてあるだけだった。
+     特別教育ドットコムには NEXT_PUBLIC_SITE_URL をまだ入れていないので、
+     **あの店で合言葉を決め直した人が、足場屋革命に着いていた。**
+     LINE の知らせのリンクも同じ所を読む（src/lib/notify.server.ts）。
+
+     住所は店ごとに持つ。決まっていない店は空で、
+     そのときは「いま開いている住所」へ戻す（よそへは送らない）。 */
+  const sites = BRANDS.map((b) => [b.id, b.site] as const);
+  for (const [id, site] of sites) {
+    if (!site) { check(true, `${id}：住所はまだ決めていない（空。いま開いている住所へ戻す）`); continue; }
+    check(site.startsWith("https://"), `${id}：住所は https（${site}）`);
+    check(!site.endsWith("/"), `${id}：末尾に / を付けない（つなぐと // になる）`);
+    check(!site.includes("vercel.app"), `${id}：配信ごとに変わる住所を決め打ちにしない`);
+    check(!site.includes("localhost"), `${id}：手元の住所を決め打ちにしない`);
+  }
+  /* **同じ住所を2つの店が持たない。**持つと、片方の店の客が
+     もう片方に着く。空どうしは数えない（まだ決めていないだけ） */
+  const set = sites.map(([, v]) => v).filter(Boolean);
+  check(new Set(set).size === set.length,
+    `店ごとに別の住所（${set.join("・") || "決まっているのは無し"}）`);
+
+  /* 住所をコードに1つだけ書き戻したら止める */
+  const su = code("src/lib/siteUrl.ts");
+  check(su.includes("BRAND.site"), "戻り先は店ごとの住所から取る");
+  check(!/FALLBACK_SITE\s*=\s*["']https/.test(su),
+    "**住所を1つ決め打ちで書き戻していない**（書き戻すと、また片方の店の客がよそへ着く）");
+  /* 空のときに、よその店の住所を借りない */
+  check(/FALLBACK_SITE \|\| o/.test(su),
+    "住所が決まっていない店では、いま開いている住所へ戻す");
+
+  /* /setup で気づけること。直すまで橙で出す */
+  const h = code("src/app/api/health/route.ts");
+  check(h.includes("brandSite"), "この店の住所を /setup へ渡している");
+  const st = code("src/app/setup/SetupClient.tsx");
+  check(st.includes("brandSite"), "/setup がこの店の住所を出す");
 }
 
 console.log("\n── 講座は両方の店で同じ ──");

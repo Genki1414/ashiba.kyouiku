@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { BRAND } from "@/content/brand";
 import { getServiceClient } from "@/lib/supabase/server";
 import { currentEnrollment } from "@/lib/enrollment";
 import { TRAINING_COURSE } from "@/content/courses";
@@ -13,7 +14,20 @@ import { CHAPTERS } from "@/training/chapters";
    開いたときに done=false、最後まで見たときに done=true で呼ぶ。
    Supabase が未設定・圏外なら mode:"local" を返し、画面は端末だけで進む。 */
 
+/* **売っていない店では、この口も無い。**
+
+   画面（/training・/train）は 404 にしてあるが、**口が開いていれば
+   住所を直接叩ける。**扉を閉めて窓を開けたままにしない。
+   ここは注文と記録を作る口なので、開いていると、あの店の利用規約が
+   対象にしていない売り物の注文が、本当に立ってしまう（2026-09-08）。 */
+const closed = () =>
+  NextResponse.json(
+    { ok: false, reason: "この画面はありません。" },
+    { status: 404 },
+  );
+
 export async function POST(req: NextRequest) {
+  if (!BRAND.training) return closed();
   const supabase = getServiceClient();
   const who = supabase ? await currentEnrollment(TRAINING_COURSE) : null;
   if (!supabase || !who) {

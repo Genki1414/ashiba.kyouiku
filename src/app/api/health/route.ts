@@ -7,6 +7,7 @@ import { LATEST } from "@/content/changelog";
 import { bankReady, invoiceOk, missingSeller, seller } from "@/content/legal";
 import { isOwnerEmail, ownerEmails } from "@/lib/owner";
 import { FALLBACK_SITE, sameSite, siteUrl as resetSiteUrl } from "@/lib/siteUrl";
+import { BRAND } from "@/content/brand";
 import { allPrices, missingPrice, priceOverrides } from "@/lib/price.server";
 import { AUTH_MAIL_FROM, AUTH_MAIL_OWN } from "@/content/authMail";
 import { notifyReady } from "@/lib/notify.server";
@@ -114,12 +115,21 @@ export async function GET() {
 
        見るべきは「公開しているのに0円の講座があるか」。 */
     unitPrice: !!process.env.SEAT_UNIT_PRICE,
-    /* 講座ごとの、いま実際に請求する単価（税抜） */
+    /* 講座ごとの、いま実際に請求する単価（税抜）。
+       特商法の表記に載せている値なので、誰が見てもよい */
     prices: allPrices().map((p) => ({ id: p.id, name: p.name, price: p.price })),
     /* 0円のまま公開している講座。ここが空でないときだけ困る */
     priceMissing: missingPrice(),
-    /* 環境変数がコードの値段を上書きしている講座。空なら健全 */
-    priceOverrides: priceOverrides(),
+    /* 環境変数がコードの値段を上書きしている講座。空なら健全。
+
+       **ここは運営だけに返す。**中身は
+       「コードでは4,500円だが、いま6,000円で売っている」という表で、
+       誰でも見られると、買う人に**値引きの余地があるように読まれる。**
+       この画面は鍵を返さないので誰でも開ける作りにしてあるが、
+       ここだけは商売の中身なので分ける（2026-09-08）。
+
+       運営でログインしていないときは null。/setup がそう出す。 */
+    priceOverrides: isOwnerEmail(user?.email) ? priceOverrides() : null,
     /* カード払い。無くても請求書払いで売れる */
     stripeKey: !!process.env.STRIPE_SECRET_KEY,
     stripeHook: !!process.env.STRIPE_WEBHOOK_SECRET,
@@ -147,6 +157,14 @@ export async function GET() {
     resetEnv: !!(process.env.NEXT_PUBLIC_SITE_URL ?? "").trim(),
     /* 決め打ちの値そのもの。食い違ったときに、どこを直すかの手がかり */
     resetDefault: FALLBACK_SITE,
+    /* **この店の住所が決まっているか。**
+
+       決まっていないと、合言葉の決め直しのメールと LINE の知らせが、
+       いま開いている住所（配信ごとに変わる）へ戻る。
+       Supabase の許した住所に入っていないと弾かれる。
+       前はここでよその店の住所へ飛んでいた（2026-09-08 に直した）。 */
+    brandSite: BRAND.site,
+    brand: BRAND.id,
     /* いま開いている入口。設定した住所と食い違っていないかを見るため。
 
        独自ドメインに移したとき、環境変数が古い住所のまま残っていると

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { BRAND } from "@/content/brand";
 import { getServiceClient } from "@/lib/supabase/server";
 import { currentUser } from "@/lib/supabase/session";
 import { dueDate, quote } from "@/lib/pricing";
@@ -25,7 +26,20 @@ type Body = { billTo?: string; billAddr?: string; note?: string };
 const clip = (v: unknown, n: number) =>
   typeof v === "string" && v.trim() ? v.trim().slice(0, n) : null;
 
+/* **売っていない店では、この口も無い。**
+
+   画面（/training・/train）は 404 にしてあるが、**口が開いていれば
+   住所を直接叩ける。**扉を閉めて窓を開けたままにしない。
+   ここは注文と記録を作る口なので、開いていると、あの店の利用規約が
+   対象にしていない売り物の注文が、本当に立ってしまう（2026-09-08）。 */
+const closed = () =>
+  NextResponse.json(
+    { ok: false, reason: "この画面はありません。" },
+    { status: 404 },
+  );
+
 export async function GET() {
+  if (!BRAND.training) return closed();
   const supabase = getServiceClient();
   const user = supabase ? await currentUser() : null;
   if (!supabase || !user) {
@@ -57,6 +71,7 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  if (!BRAND.training) return closed();
   const supabase = getServiceClient();
   const user = supabase ? await currentUser() : null;
   if (!supabase || !user) {

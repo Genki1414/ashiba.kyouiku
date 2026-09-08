@@ -1,6 +1,7 @@
 /* 資材カタログと通し見学のE2E。
    実行: npm run dev -- -p 3100 のあと node tests/e2e-catalog-demo.mjs */
 import { chromium } from "playwright-core";
+import { closedStore } from "./training-store.mjs";
 const BASE = "http://localhost:3100";
 const SC = process.env.SC ?? ".";
 let ng = 0;
@@ -19,26 +20,16 @@ const dismissNotice = async () => {
   if (await b.count()) { await b.click(); await page.waitForTimeout(200); }
 };
 
-/* 実務トレーニングは**足場屋革命だけの売り物。**
-   特別教育ドットコムでは /training ごと 404 にしてある
-   （src/app/training/layout.tsx）。売っていない店では、
-   「無いこと」を確かめて終わる。素通りさせると、
-   売っていないはずの店で開けるようになっても気づけない */
-{
-  const r = await page.goto(`${BASE}/training`);
-  if (r && r.status() === 404) {
-    check(await page.getByTestId("notfound").count() > 0,
-      "売っていない店では、実務トレーニングは無い（404）");
-    for (const u of ["/training/catalog", "/training/ch1", "/train"]) {
-      const x = await page.goto(`${BASE}${u}`);
-      check(x?.status() === 404, `${u} も開けない`);
-    }
-    await browser.close();
-    if (ng) { console.error(`\n${ng} 件失敗`); process.exit(1); }
-    console.log("ALL OK（この店は実務トレーニングを売っていない）");
-    process.exit(0);
-  }
+/* 実務トレーニングは足場屋革命だけの売り物。
+   売っていない店では画面ごと 404 にしてある。**素通りさせず、
+   閉じていることを確かめて終わる**（tests/training-store.mjs、docs/98） */
+if (await closedStore(page, BASE, (m) => { console.error("NG:", m); ng++; })) {
+  await browser.close();
+  if (ng) { console.error(`\n${ng} 件失敗`); process.exit(1); }
+  console.log("ALL OK（この店は実務トレーニングを売っていない）");
+  process.exit(0);
 }
+await page.goto(`${BASE}/training`);
 await page.waitForSelector("text=実務トレーニング");
 await dismissNotice();
 for (const t of ["① 資材カタログ", "② 通し見学", "③ チュートリアル"]) {

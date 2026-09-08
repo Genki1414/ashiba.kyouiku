@@ -28,7 +28,9 @@ type Health = {
     unitPrice: boolean;
     prices: { id: string; name: string; price: number }[];
     priceMissing: string[];
-    priceOverrides: { id: string; name: string; env: string; now: number; code: number }[];
+    /** 環境変数が値段を上書きしている講座。
+        **運営でログインしていないときは null**（商売の中身なので出さない） */
+    priceOverrides: { id: string; name: string; env: string; now: number; code: number }[] | null;
     stripeKey: boolean;
     stripeHook: boolean;
     siteUrl: boolean;
@@ -46,6 +48,9 @@ type Health = {
     invoiceNo?: boolean;
     invoiceShape?: boolean;
     bank?: boolean;
+    /** この店の本番の住所（src/content/brand.ts）。決まっていない店は空 */
+    brandSite?: string;
+    brand?: string;
   };
 };
 
@@ -292,15 +297,36 @@ export function SetupClient() {
                        同じ講座が店によって違う値段になる。 */
                     [
                       "値段を環境変数で上書きしていないか",
-                      (h.sell.priceOverrides ?? []).length
-                        ? (h.sell.priceOverrides ?? [])
-                            .map((o) => `${o.name}：いま ${o.now.toLocaleString()}円（${o.env} を消すと ${o.code.toLocaleString()}円）`)
-                            .join("／")
-                        : "上書きなし（値段はコードだけで決まっています）",
-                      (h.sell.priceOverrides ?? []).length === 0,
+                      /* null は「運営でログインしていないので出していない」。
+                         空配列（上書きなし）と区別する。区別しないと、
+                         ログインせずに開いた人に「上書きなし」と出て、
+                         **本当は上書きされているのに安心してしまう** */
+                      h.sell.priceOverrides === null
+                        ? "運営でログインすると出ます（商売の中身なので、誰にでもは出しません）"
+                        : h.sell.priceOverrides.length
+                          ? h.sell.priceOverrides
+                              .map((o) => `${o.name}：いま ${o.now.toLocaleString()}円（${o.env} を消すと ${o.code.toLocaleString()}円）`)
+                              .join("／")
+                          : "上書きなし（値段はコードだけで決まっています）",
+                      h.sell.priceOverrides === null ? true : h.sell.priceOverrides.length === 0,
                       true,
                     ],
                     ["本番のURL（SITE_URL / NEXT_PUBLIC_SITE_URL）", h.sell.siteUrl ? "設定済み" : "未設定（配信ごとの住所を使う）", h.sell.siteUrl, true],
+                    /* **店ごとの住所。**決まっていない店で環境変数も入れないと、
+                       合言葉の決め直しのメールと LINE の知らせが、配信ごとに
+                       変わる住所へ戻る（Supabase の許した住所に無いと弾かれる）。
+                       前はここでよその店の住所へ飛んでいた（2026-09-08 に直した）。
+                       よそへ飛ばすよりは弾かれる方がよいが、直すまでは橙で出す */
+                    [
+                      "この店の住所（src/content/brand.ts の site）",
+                      h.sell.brandSite
+                        ? h.sell.brandSite
+                        : h.sell.siteUrl
+                          ? "コードには入れていない（NEXT_PUBLIC_SITE_URL が勝つので、いまは大丈夫）"
+                          : "**決まっていません。**NEXT_PUBLIC_SITE_URL を入れるまで、合言葉の決め直しのメールが配信ごとの住所へ飛びます",
+                      !!(h.sell.brandSite || h.sell.siteUrl),
+                      true,
+                    ],
                     /* 住所そのものを出す。「設定済み」だけだと、
                        どちらの変数を入れたかで戻り先が食い違っていても気づけない。
 

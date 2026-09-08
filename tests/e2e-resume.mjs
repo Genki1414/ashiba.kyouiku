@@ -2,6 +2,7 @@
    章の途中で閉じて、開き直したら続きから戻れるかを実際のブラウザで見る。
    実行: npm run dev -- -p 3100 のあと node tests/e2e-resume.mjs */
 import { chromium } from "playwright-core";
+import { closedStore } from "./training-store.mjs";
 const BASE = "http://localhost:3100";
 const SC = process.env.SC ?? ".";
 let ng = 0;
@@ -14,6 +15,17 @@ const browser = await chromium.launch({
 const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
 let page = await ctx.newPage();
 page.on("pageerror", (e) => { console.error("NG: pageerror", e.message); ng++; });
+
+/* 実務トレーニングは足場屋革命だけの売り物。
+   売っていない店では画面ごと 404 にしてあるので、ここは走れない。
+   **素通りさせず、閉じていることを確かめて終わる**
+   （tests/training-store.mjs、docs/98） */
+if (await closedStore(page, BASE, (m) => { console.error("NG:", m); ng++; })) {
+  await browser.close();
+  if (ng) { console.error(`\n${ng} 件失敗`); process.exit(1); }
+  console.log("ALL OK（この店は実務トレーニングを売っていない）");
+  process.exit(0);
+}
 
 const dismissNotice = async (p) => {
   const b = p.getByTestId("update-close");

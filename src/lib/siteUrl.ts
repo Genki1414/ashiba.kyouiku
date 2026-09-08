@@ -1,3 +1,5 @@
+import { BRAND } from "@/content/brand";
+
 /* この仕組みの本番の住所。
 
    なぜ要るか。
@@ -14,12 +16,17 @@
    （NEXT_PUBLIC_ が付くのは、画面から読むため。
      ここに入るのは公開している住所なので、隠す必要は無い） */
 
-/** 本番の住所。
+/** この店の本番の住所（src/content/brand.ts）。
 
     環境変数 NEXT_PUBLIC_SITE_URL を入れ忘れたときの落ち先でもあるので、
     ここが古いままだと、決め直しのメールだけ古い住所へ飛び続ける。
-    住所を変えたら、ここと Supabase の許した住所の両方を変えること。 */
-export const FALLBACK_SITE = "https://kyouiku.ashibase.jp";
+    住所を変えたら、ここと Supabase の許した住所の両方を変えること。
+
+    **店ごとに違う。**前はここに足場屋革命の住所が1つ書いてあり、
+    特別教育ドットコムで合言葉を決め直すと、メールのリンクが
+    **足場屋革命へ飛んでいた**（2026-09-08）。
+    住所が決まっていない店では空になる（そのときは、いま開いている住所） */
+export const FALLBACK_SITE = BRAND.site;
 
 const trim = (s: string) => s.replace(/\/+$/, "");
 
@@ -31,7 +38,15 @@ export function siteUrl(origin?: string | null): string {
   const o = (origin ?? "").trim();
   if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(o)) return trim(o);
   const set = (process.env.NEXT_PUBLIC_SITE_URL ?? "").trim();
-  return trim(set || FALLBACK_SITE);
+  if (set) return trim(set);
+  /* この店の住所が決まっていれば、そこへ。
+
+     決まっていない店（ドメインを当てる前）は、**いま開いている住所**へ戻す。
+     ここでよその店の住所を返すと、うちの客をよその店へ送ることになる。
+     配信ごとに変わる住所なので Supabase の許した住所に入っていないと
+     弾かれるが、**弾かれる方が、別の店に着くよりよい。**
+     /setup がここを橙で出す。 */
+  return trim(FALLBACK_SITE || o);
 }
 
 /** 住所から入口（ホスト名）だけ取り出す。読めなければ空 */

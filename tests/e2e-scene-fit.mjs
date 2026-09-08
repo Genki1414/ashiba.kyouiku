@@ -1,8 +1,28 @@
 /* 小さい画面でも場面のボタンに手が届くか */
 import { chromium } from "playwright-core";
+import { closedStore } from "./training-store.mjs";
 const SC = process.env.SC ?? ".";
 const browser = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium-1194/chrome-linux/chrome" });
 let ng = 0;
+
+/* 実務トレーニングは足場屋革命だけの売り物。
+   売っていない店では画面ごと 404 にしてあるので、ここは走れない。
+   **素通りさせず、閉じていることを確かめて終わる**
+   （tests/training-store.mjs、docs/98） */
+{
+  const p0 = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  const closed = await closedStore(p0, "http://localhost:3100", (m) => {
+    console.error("NG:", m);
+    ng++;
+  });
+  await p0.close();
+  if (closed) {
+    await browser.close();
+    if (ng) { console.error(`\n${ng} 件失敗`); process.exit(1); }
+    console.log("ALL OK（この店は実務トレーニングを売っていない）");
+    process.exit(0);
+  }
+}
 
 for (const [w, h, name] of [[390, 640, "small"], [360, 600, "tiny"], [390, 844, "normal"]]) {
   const page = await browser.newPage({ viewport: { width: w, height: h } });

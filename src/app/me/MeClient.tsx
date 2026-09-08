@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { BRAND } from "@/content/brand";
 import Link from "next/link";
 import { Loading } from "@/components/Loading";
 import { Btn } from "@/components/ui/Btn";
@@ -444,8 +445,11 @@ export function MeClient() {
         ログアウトする
       </button>
       <div className="mt-1 text-[11px] leading-relaxed text-dim2">
+        {/* 実務の成績は足場屋革命だけ。売っていない店で書くと、
+            その店の個人情報の取扱い（第7条 端末に残るもの）と食い違う */}
         端末を次の人に渡すときに押してください。この端末に残っている
-        受講の準備（氏名・顔の登録）と、視聴時間・実務の成績が消えます。
+        受講の準備（氏名・顔の登録）と、視聴時間
+        {BRAND.training ? "・実務の成績" : ""}が消えます。
         サーバに残っている記録は消えません。
       </div>
     </main>

@@ -5,6 +5,7 @@ import { Btn } from "@/components/ui/Btn";
 import { Bar } from "@/components/ui/Bar";
 import { dur, hm } from "@/components/ui/format";
 import { CHAPTERS } from "@/training/chapters";
+import { BRAND } from "@/content/brand";
 import type { CourseRow, PersonRow } from "@/training/roster";
 
 /* 名簿の1人ぶん。
@@ -137,7 +138,12 @@ export function LearnerCard({
   const seen = r.training.filter((t) => t.seen > 0);
   const chapters = r.training.filter((t) => t.passed).length;
 
-  const chips: { k: Tab; t: string; v: string; on: boolean; mark: boolean }[] = [
+  /* 実務トレーニングは足場屋革命だけの売り物。
+     売っていない店で並べると、担当者に「まだ」とだけ出る札が増える。
+     売っていないものの成績を見せられても、担当者にできることが無い
+     （2026-09-08） */
+  type Chip = { k: Tab; t: string; v: string; on: boolean; mark: boolean };
+  const chips: Chip[] = ([
     {
       k: "training",
       t: "実務トレーニング",
@@ -167,7 +173,7 @@ export function LearnerCard({
       on: !!(r.done.length + r.held.length),
       mark: false,
     },
-  ];
+  ] as Chip[]).filter((c) => BRAND.training || c.k !== "training");
 
   return (
     <div className="rounded-xl border border-line bg-panel p-4" data-testid="admin-row">
@@ -189,8 +195,13 @@ export function LearnerCard({
       </div>
       {r.email && <div className="mt-0.5 truncate text-[11px] text-dim2">{r.email}</div>}
 
-      {/* 3つの札。押した1つだけ開く */}
-      <div className="mt-3 grid grid-cols-3 gap-1.5" data-testid="admin-tabs">
+      {/* 札は押した1つだけ開く */}
+      {/* 札の数だけ横に並べる。決め打ちで3にすると、
+          実務トレーニングを売っていない店で1枠空く */}
+      <div
+        className={`mt-3 grid gap-1.5 ${chips.length === 3 ? "grid-cols-3" : "grid-cols-2"}`}
+        data-testid="admin-tabs"
+      >
         {chips.map((c) => (
           <button
             key={c.k}
@@ -226,8 +237,8 @@ export function LearnerCard({
         </div>
       )}
 
-      {/* ── 実務トレーニング ── */}
-      {tab === "training" && (
+      {/* ── 実務トレーニング ── 売っている店だけ */}
+      {BRAND.training && tab === "training" && (
         <div className="mt-2 rounded-lg border border-line bg-bg p-3" data-testid="admin-training">
           {!played.length && !tried.length && !seen.length ? (
             <div className="text-[12px] text-dim2">まだ何も開いていません。</div>

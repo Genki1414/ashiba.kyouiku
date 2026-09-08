@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { loadMe, readMe, sameMe, type Me } from "@/lib/me";
+import { BRAND } from "@/content/brand";
 
 /* ホームの出し分け。
 
@@ -175,8 +176,15 @@ export function HomeCards() {
         <div className="mt-1 text-[12px] leading-relaxed text-dim">
           特別教育（学科）は、受講コード（12文字）を入れると開きます。
           会社の教育担当者から受け取ってください。
-          <br />
-          実務トレーニングの第1章は、コードが無くても遊べます。
+          {/* 実務トレーニングは足場屋革命だけの売り物。
+              売っていない店で勧めると、あの店の利用規約が対象にして
+              いないものへ連れて行くことになる（2026-09-08） */}
+          {BRAND.training && (
+            <>
+              <br />
+              実務トレーニングの第1章は、コードが無くても遊べます。
+            </>
+          )}
         </div>
       </Link>,
     );

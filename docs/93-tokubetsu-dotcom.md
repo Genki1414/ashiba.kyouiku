@@ -132,6 +132,20 @@ Vercel のプロジェクト `tokubetsu-kyouiku` は作ってある
 | `NEXT_PUBLIC_SITE_URL` | 新しいドメイン（`https://…`） |
 | `SITE_URL` | 同上 |
 
+`NEXT_PUBLIC_SITE_URL` は、**入れるまで合言葉の決め直しのメールが
+配信ごとに変わる住所へ飛ぶ。**Supabase の許した住所に入っていないと弾かれる。
+
+> 2026-09-08 まで、ここは**もっと悪かった。**戻り先が
+> `src/lib/siteUrl.ts` に**足場屋革命の住所1つ**で決め打ちされていて、
+> 特別教育ドットコムで合言葉を決め直した人が、
+> **足場屋革命に着いていた。**住所は店ごとに持つように直した
+> （`src/content/brand.ts` の `site`）。この店はまだ空なので、
+> ドメインを当てたら**3か所そろえる**こと。
+>
+>     src/content/brand.ts の TOKUBETSU.site
+>     Vercel の NEXT_PUBLIC_SITE_URL と SITE_URL
+>     Supabase の許した戻り先（Redirect URLs）
+
 `SELLER_*`（特商法の表記）は入れなくてよい。入れなければ
 `src/content/legal.ts` の既定（東北三上機材株式会社）が出る。
 値段の環境変数（`SEAT_UNIT_PRICE` / `TRAIN_UNIT_PRICE`）も入れない。

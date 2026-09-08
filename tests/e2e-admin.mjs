@@ -109,21 +109,48 @@ const sent = await page.evaluate(async () => {
   });
   return { status: res.status, body: await res.json() };
 });
-check(sent.status === 200, `/api/training は応答する（${sent.status}）`);
-check(
-  sent.body.mode === "local" || sent.body.mode === "supabase",
-  `どちらに書いたかを返す（${JSON.stringify(sent.body)}）`,
-);
-const badCh = await page.evaluate(async () => {
-  const res = await fetch("/api/training", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ chapter: "ch9", skill: 90 }),
+/* 実務トレーニングは**足場屋革命だけの売り物。**
+   特別教育ドットコムでは画面（/training・/train）も口（/api/training ほか）も
+   閉じてある。売っていない店では「閉じていること」を確かめる。
+   素通りさせると、開くようになっても気づけない（2026-09-08）。
+
+   どちらの店で動いているかは、返ってきた status で見分ける。
+   店の名前を試験に持ち込むより、**口の実際の返事**で見る方が確か。 */
+if (sent.status === 404) {
+  check(sent.body?.ok === false, `売っていない店では口が閉じている（${JSON.stringify(sent.body)}）`);
+  const others = await page.evaluate(async () => {
+    const out = {};
+    for (const u of ["/api/train-order", "/api/training/view"]) {
+      const res = await fetch(u, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: "{}",
+      });
+      out[u] = res.status;
+    }
+    return out;
   });
-  return res.status;
-});
-check(badCh === 400 || sent.body.mode === "local", `知らない章は断る（${badCh}）`);
-console.log("OK: 実務の成績の送り先");
+  for (const [u, st] of Object.entries(others)) {
+    check(st === 404, `${u} も閉じている（${st}）`);
+  }
+  console.log("OK: 売っていないものの口は、どれも閉じている");
+} else {
+  check(sent.status === 200, `/api/training は応答する（${sent.status}）`);
+  check(
+    sent.body.mode === "local" || sent.body.mode === "supabase",
+    `どちらに書いたかを返す（${JSON.stringify(sent.body)}）`,
+  );
+  const badCh = await page.evaluate(async () => {
+    const res = await fetch("/api/training", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ chapter: "ch9", skill: 90 }),
+    });
+    return res.status;
+  });
+  check(badCh === 400 || sent.body.mode === "local", `知らない章は断る（${badCh}）`);
+  console.log("OK: 実務の成績の送り先");
+}
 
 /* ── 参加コードの画面 ── */
 await page.goto(`${BASE}/join`);

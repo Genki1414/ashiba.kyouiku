@@ -18,17 +18,34 @@ const browser = await chromium.launch({
 const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
 page.on("pageerror", (e) => { console.error("NG: pageerror", e.message); ng++; });
 
+/* 更新のお知らせを閉じる。
+
+   **2秒待って居なければ諦める、では足りない。**あれは画面が描かれた
+   あとに出てくるので、間に合わないと**そのあとの札に覆いかぶさる。**
+   要素は在るのに「見えていない」ので、待ち受けだけが時間切れになり、
+   そのすぐ次の行では文字が読める、というちぐはぐな落ち方をする
+   （2026-09-08 に、修了証の画面でこれに当たった）。
+
+   お知らせが出るのは新しい版を足した直後なので、
+   **お知らせを足した日にだけ落ちる。**気づきにくい。
+   だから、居なくなるまで何度か閉じる。 */
 const dismissNotice = async () => {
-  const b = page.getByTestId("update-close");
-  await b.waitFor({ timeout: 2000 }).catch(() => {});
-  if (await b.count()) { await b.click(); await page.waitForTimeout(200); }
+  for (let i = 0; i < 3; i++) {
+    const b = page.getByTestId("update-close");
+    await b.waitFor({ timeout: 2500 }).catch(() => {});
+    if (!(await b.count())) return;
+    await b.click().catch(() => {});
+    await page.waitForTimeout(250);
+  }
 };
 
 /* ── 出せないときは、なぜ出せないかを言う ── */
 await page.goto(`${BASE}/edu/${COURSE}/cert`);
 await dismissNotice();
-await page.getByTestId("cert-reason").waitFor({ timeout: 6000 })
+/* 覆いが遅れて出てくることがあるので、待つ直前にもう一度閉じる */
+await page.getByTestId("cert-reason").waitFor({ state: "attached", timeout: 8000 })
   .catch(() => check(false, "出せない理由が出る"));
+await dismissNotice();
 const why = await page.getByTestId("cert-reason").textContent();
 check(why.trim().length > 5, `理由が書いてある（${why.trim().slice(0, 30)}）`);
 check((await page.getByTestId("cert-issue").count()) === 0, "出せないのに発行ボタンは出さない");

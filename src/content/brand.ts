@@ -55,6 +55,18 @@ export type Brand = {
       73講座を平らに並べ、探す窓で選んでもらう。
       どれかを上に置くと、その業種の人以外には邪魔になる */
   flatList: boolean;
+  /** この店の本番の住所（`https://…`、末尾の / なし）。
+
+      合言葉の決め直しのメールと、LINE の知らせのリンクが、ここへ戻る。
+      **決まっていない店は空。**空のときは、いま開いている住所を使う。
+
+      ここを空にできるようにしたのは、**よその店の住所へ飛ばさない**ため。
+      前は src/lib/siteUrl.ts に足場屋革命の住所が1つ書いてあるだけで、
+      特別教育ドットコムで合言葉を決め直すと、メールのリンクが
+      **足場屋革命へ飛んでいた**（2026-09-08 に見つけた）。
+
+      NEXT_PUBLIC_SITE_URL を入れれば、そちらが勝つ。 */
+  site: string;
 };
 
 const ASHIBAYA: Brand = {
@@ -76,6 +88,7 @@ const ASHIBAYA: Brand = {
   notifyPrefix: "足場屋革命",
   training: true,
   flatList: false,
+  site: "https://kyouiku.ashibase.jp",
 };
 
 const TOKUBETSU: Brand = {
@@ -99,6 +112,11 @@ const TOKUBETSU: Brand = {
   notifyPrefix: "特別教育ドットコム",
   training: false,
   flatList: true,
+  /* **まだドメインを当てていない。**（げんきさんが取得済み、当てるのはこれから）
+     空のあいだは、いま開いている住所へ戻す。足場屋革命の住所は入れない。
+     ドメインを当てたら、ここと NEXT_PUBLIC_SITE_URL と
+     Supabase の許した住所の3つを合わせる。 */
+  site: "",
 };
 
 const ALL: Record<BrandId, Brand> = { ashibaya: ASHIBAYA, tokubetsu: TOKUBETSU };

@@ -1,6 +1,7 @@
 /* 第1章のE2E。段取り→建方→完了までを実際のブラウザで通す。
    実行: npm run dev -- -p 3100 のあと node e2e-ch1.mjs */
 import { chromium } from "playwright-core";
+import { closedStore } from "./training-store.mjs";
 const BASE = "http://localhost:3100";
 const SC = process.env.SC ?? ".";
 const shot = (p, n) => p.screenshot({ path: `${SC}/ch1-${n}.png` });
@@ -10,6 +11,17 @@ const check = (c, m) => { if (!c) die(m); };
 
 const browser = await chromium.launch({ executablePath: process.env.PW_CHROMIUM ?? "/opt/pw-browsers/chromium-1194/chrome-linux/chrome" });
 const page = await browser.newPage({ viewport: { width: 390, height: 900 } });
+
+/* 実務トレーニングは足場屋革命だけの売り物。
+   売っていない店（特別教育ドットコム）では画面ごと 404 にしてあるので、
+   ここは走れない。**素通りさせず、閉じていることを確かめて終わる**
+   （tests/training-store.mjs、docs/98） */
+if (await closedStore(page, BASE, (m) => { console.error("NG:", m); ng++; })) {
+  await browser.close();
+  if (ng) { console.error(`\n${ng} 件失敗`); process.exit(1); }
+  console.log("ALL OK（この店は実務トレーニングを売っていない）");
+  process.exit(0);
+}
 page.on("pageerror", (e) => die(`pageerror: ${e.message}`));
 
 const skill = async () => Number(await page.getByTestId("hud-skill").textContent());

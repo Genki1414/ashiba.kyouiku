@@ -157,6 +157,13 @@ export default async function Home() {
           <Link href="/legal/privacy" className="text-dim no-underline">
             個人情報の取扱い
           </Link>
+          {/* 更新のお知らせの一覧。**前は実務トレーニングの画面にしか無かった。**
+              あれは足場屋革命だけの売り物なので、特別教育ドットコムでは
+              お知らせを一度閉じたら二度と読めなかった（2026-09-08）。
+              どちらの店にもあるホームの足元に置く */}
+          <Link href="/updates" className="text-dim no-underline">
+            更新のお知らせ
+          </Link>
         </div>
       </div>
     </main>

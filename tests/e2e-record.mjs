@@ -3,6 +3,7 @@
    言われたことが間違いノートに溜まるかを見る。
    実行: npm run dev -- -p 3100 のあと node tests/e2e-record.mjs */
 import { chromium } from "playwright-core";
+import { closedStore } from "./training-store.mjs";
 const BASE = "http://localhost:3100";
 const SC = process.env.SC ?? ".";
 let ng = 0;
@@ -12,6 +13,17 @@ const browser = await chromium.launch({
   executablePath: process.env.PW_CHROMIUM ?? "/opt/pw-browsers/chromium-1194/chrome-linux/chrome",
 });
 const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+
+/* 実務トレーニングは足場屋革命だけの売り物。
+   売っていない店では画面ごと 404 にしてあるので、ここは走れない。
+   **素通りさせず、閉じていることを確かめて終わる**
+   （tests/training-store.mjs、docs/98） */
+if (await closedStore(page, BASE, (m) => { console.error("NG:", m); ng++; })) {
+  await browser.close();
+  if (ng) { console.error(`\n${ng} 件失敗`); process.exit(1); }
+  console.log("ALL OK（この店は実務トレーニングを売っていない）");
+  process.exit(0);
+}
 page.on("pageerror", (e) => { console.error("NG: pageerror", e.message); ng++; });
 
 const dismissNotice = async () => {
