@@ -51,6 +51,19 @@ console.log("\n── どちらの店も、名前が全部そろっている ─
       `${b.id}: 表紙の一言が2行そろっている`);
     /* ホーム画面のアイコンの下は短い名前。長いと途中で切れる */
     check(b.shortName.length <= 12, `${b.id}: 短い名前が12文字以内`, b.shortName);
+    /* **短い名前は、長い名前の一部にすること。**
+
+       別の綴りにすると、ホーム画面のアイコンの下だけ違う名前になり、
+       押した人が「これは何のアプリだったか」と迷う。
+       実際にそうなっていた（特別教育ドットコムなのに
+       アイコンの下は「特別教育.com」。2026-09-08）。
+
+       **これは本番の作りでしか出なかった**（manifest は
+       出来上がった配信を見ないと読めない）ので、ここでも見る。 */
+    check(b.manifestName.includes(b.shortName),
+      `${b.id}: 短い名前は、ホーム画面に入れる名前の一部`, `${b.shortName} ⊂ ${b.manifestName}`);
+    check(b.name.includes(b.shortName) || b.shortName.includes(b.name),
+      `${b.id}: 短い名前とサービス名がずれていない`, `${b.shortName} / ${b.name}`);
     /* 差出人は「名前 <住所>」の形。崩れると送れない */
     check(/^.+ <[^@\s]+@[^@\s]+>$/.test(b.mailFrom),
       `${b.id}: メールの差出人の形が正しい`, b.mailFrom);

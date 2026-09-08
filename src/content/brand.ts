@@ -94,7 +94,12 @@ const ASHIBAYA: Brand = {
 const TOKUBETSU: Brand = {
   id: "tokubetsu",
   name: "特別教育ドットコム",
-  shortName: "特別教育.com",
+  /* ホーム画面に出る名前。**長い名前の一部にすること。**
+     前は「特別教育.com」にしていたが、正式な名前は「特別教育ドットコム」で、
+     ホーム画面のアイコンの下だけ別の綴りになっていた。
+     押した人が「これは何のアプリだったか」と迷う（2026-09-08、
+     本番の作りでしか出ないので tests/e2e-pwa.mjs で見つけた）。 */
+  shortName: "特別教育ドットコム",
   eyebrow: "TOKUBETSU KYOIKU .COM",
   lead: [
     "特別教育と、職長・安全衛生責任者教育。",

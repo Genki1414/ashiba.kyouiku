@@ -79,7 +79,11 @@ await page.waitForFunction(() => navigator.serviceWorker.controller !== null, { 
   .catch(() => check(false, "圏外の仕込みが入らない"));
 
 /* 何画面か開いて、端末に写しておく */
-const WARM = ["/training", "/edu/ashiba", "/training/catalog"];
+/* **どちらの店にもある画面を開く。**前は実務トレーニングの画面を
+   「適当な数枚」として使っていたが、あれは足場屋革命だけの売り物で、
+   特別教育ドットコムでは 404。写せなくて当たり前だった（2026-09-08）。
+   人がいちばん先に開くのはホームなので、そこを見る方が本筋でもある */
+const WARM = ["/", "/edu", "/edu/ashiba"];
 for (const u of WARM) { await page.goto(BASE + u); await page.waitForTimeout(600); }
 const cached = await page.evaluate(async () => {
   const c = await caches.open("ashiba-v1");
