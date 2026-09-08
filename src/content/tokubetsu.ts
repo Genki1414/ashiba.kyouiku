@@ -44,6 +44,11 @@ export const SOURCES: Record<string, { name: string; url: string }> = {
     name: "安全衛生特別教育規程",
     url: "https://www.mhlw.go.jp/web/t_doc?dataId=74085000&dataType=0",
   },
+  kokuji121: {
+    /* 告示なので e-Gov には無い。表が行ごとに読める形で載っている */
+    name: "ゴンドラ取扱い業務特別教育規程（昭和47年労働省告示第121号）",
+    url: "https://www.mhlw.go.jp/web/t_doc?dataId=74034000&dataType=0",
+  },
   roudoukyoku: {
     name: "東京労働局 安全衛生教育の一覧",
     url: "https://jsite.mhlw.go.jp/tokyo-roudoukyoku/hourei_seido_tetsuzuki/anzen_eisei/a-kyoiku.html",
@@ -826,15 +831,16 @@ export const TOKUBETSU: Tokubetsu[] = [
     jitsugiMin: 240,
     basis:
       "ゴンドラ安全規則（昭和47年労働省令第35号）第12条第1項／ゴンドラ取扱い業務特別教育規程 第2条・第3条（昭和47年労働省告示第121号）",
-    /* **学科（第2条）は告示の全文で確かめた**（2026年9月5日・docs/72）。3科目で300分。
+    /* **学科（第2条）・実技（第3条）とも、告示の全文で確かめた。**
+       学科は 2026-09-05（docs/72）、実技は 2026-09-07。
 
-       **実技（第3条）は、二つ目の「ゴンドラの操作のための合図」の時間のところで
-       写しが切れていた。**下の 60分は、
+       実技は、二つ目の「ゴンドラの操作のための合図」の時間のところで写しが
+       切れていて、60分は
          ・目録の実技240分から、一つ目の180分を引いた数
          ・同じ形の建設用リフト（規程第4条）の合図が1時間
-       この二つから置いた数字であって、**条文で見た数字ではない。**
-       だから **fullText（告示の全文で確かめた印）は付けていない。**
-       **合図の時間が載っているところを、もう一度もらうこと。** */
+       から置いた**推定**だった。げんきさんが第3条の表を出してくれて、
+       **一時間で条文どおりだった。中欄の文字まで一字も違わなかった。**
+       推定が当たっていたが、当たっていたことは条文を見るまで分からない。 */
     gakka: [
       {
         name: "ゴンドラに関する知識",
@@ -859,12 +865,12 @@ export const TOKUBETSU: Tokubetsu[] = [
         scope: "作業床の昇降の操作　機械部分及び電路の点検",
         min: 180,
       },
-      /* **この60分だけ、条文で見ていない**（上のコメント） */
       { name: "ゴンドラの操作のための合図", scope: "電鈴等による合図の方法", min: 60 },
     ],
-    src: "roudoukyoku",
+    src: "kokuji121",
     checked: true,
-    checkedOn: KOKUJI_121_115_ON,
+    fullText: true,
+    checkedOn: KOKUJI_92_ON,
     courseId: "gondola",
     doc: "docs/78-ゴンドラの根拠と裏取り.md",
   },

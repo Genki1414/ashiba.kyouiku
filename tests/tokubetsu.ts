@@ -171,6 +171,75 @@ console.log("\n── 作ってある講座とのつながり ──");
     orphan.map((c) => c.id).join("／"));
 }
 
+console.log("\n── 安衛則第36条の号を、ぜんぶ押さえているか ──");
+{
+  /* **げんきさんが安衛則第36条の全文を写して渡してくれた（2026-09-07）。**
+     ここが長いあいだ宙に浮いていた。うちは第35号まで確かめてあり、
+     中災防のまとめは「全49業務」と書いていて、数が合わなかった。
+
+     条文を数えたら **第12号は「削除」で、生きている号は59。**
+     「49業務」は数え方が違うだけだった（枝番の数え方か、古い版か）。
+
+     59号は、うちの目録66行にすべて入っている。**抜けは無い。**
+     ただし引き方が2通りある。
+       ・安衛則第36条を直に引く行 … 38号
+       ・その業務の省令を引く行   … 21号
+         （クレーン則・ゴンドラ則・高圧則・電離則・四アルキル鉛則・
+           酸欠則・除染則・ボイラー則）
+     どちらも正しい。安衛則第36条が業務を挙げ、それぞれの省令が
+     教育を義務づけている。**引き方が違うだけで、抜けているのではない。**
+
+     下の表は、その21号がどの行に対応するか。ここが割れたら、
+     号が増えたか（法令改正）、行を消したかのどちらか。 */
+  const HOKA: Record<string, string[]> = {
+    "14": ["small_boiler"],
+    "15": ["crane_under_5t", "overhead_traverser_5t_plus"],
+    "16": ["mobile_crane_under_1t"],
+    "17": ["derrick_under_5t"],
+    "18": ["construction_lift"],
+    "19": ["slinging_under_1t"],
+    "20": ["gondola_operation"],
+    "20-2": ["air_compressor_hyperbaric"],
+    "21": ["work_chamber_air_valve"],
+    "22": ["airlock_air_valve"],
+    "23": ["diver_air_supply_valve"],
+    "24": ["recompression_chamber"],
+    "24-2": ["hyperbaric_work"],
+    "25": ["tetraalkyl_lead"],
+    "26": ["oxygen_deficiency_type1", "oxygen_deficiency_type2"],
+    "28": ["xray_gamma_device"],
+    "28-2": ["nuclear_fuel_processing_facility"],
+    "28-3": ["nuclear_reactor_facility"],
+    "28-4": ["accident_radioactive_waste_disposal"],
+    "28-5": ["special_emergency_radiation_work"],
+    "38": ["decontamination_work", "specified_dose_work"],
+  };
+  /* 安衛則第36条を直に引いている号を、目録の basis から拾う */
+  const chokusetsu = new Set<string>();
+  for (const t of TOKUBETSU) {
+    if (!t.basis.includes("第36条")) continue;
+    const range = /第36条第(\d+)号[〜～](?:第)?(\d+)号/.exec(t.basis);
+    if (range) { for (let i = +range[1]; i <= +range[2]; i++) chokusetsu.add(String(i)); continue; }
+    const re = /第36条第(\d+)号(?:の(\d+))?/g;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(t.basis))) chokusetsu.add(m[2] ? `${m[1]}-${m[2]}` : m[1]);
+  }
+  check(chokusetsu.size === 38, `安衛則第36条を直に引いている号は38（いま ${chokusetsu.size}）`,
+    [...chokusetsu].sort().join("、"));
+  check(Object.keys(HOKA).length === 21, `それぞれの省令で引いている号は21（いま ${Object.keys(HOKA).length}）`);
+  check(chokusetsu.size + Object.keys(HOKA).length === 59,
+    "**あわせて59号。条文の号を全部押さえている**（第12号は削除）");
+  /* 引き方が二重になっていないか */
+  const kasanari = Object.keys(HOKA).filter((g) => chokusetsu.has(g));
+  check(kasanari.length === 0, "同じ号を二通りで引いていない", kasanari.join("、"));
+  /* 対応する行が実在するか */
+  for (const [g, slugs] of Object.entries(HOKA)) {
+    for (const slug of slugs) {
+      check(!!findTokubetsu(slug), `第${g.replace("-", "号の")}号 → ${slug} が目録にある`);
+    }
+  }
+}
+
 console.log("\n── 告示第92号の条文と突き合わせる ──");
 {
   /* **げんきさんが安全衛生特別教育規程（昭和47年労働省告示第92号）の
@@ -243,6 +312,28 @@ console.log("\n── 告示第92号の条文と突き合わせる ──");
     check(t.basis.includes(`規程${k.jou}`) || t.basis.includes(k.jou),
       `${slug}: 根拠に ${k.jou} が入っている`, t.basis);
   }
+}
+
+console.log("\n── 安衛則第37条・第38条（条文で確かめた） ──");
+{
+  /* この2条は、うちのコードが名指しで引いているのに、
+     長いあいだ条文で確かめていなかった（docs/94 §4-C）。
+     2026-09-07、げんきさんが写した条文で確定した。
+
+       第37条（特別教育の科目の省略）
+         十分な知識及び技能を有していると認められる労働者については、
+         当該科目についての特別教育を省略することができる
+       第38条（特別教育の記録の保存）
+         受講者、科目等の記録を作成して、**これを三年間保存**しておかなければならない
+
+     src/lib/retention.ts が第38条を引いて3年で消している。条文どおり。 */
+  const ret = read("src/lib/retention.ts");
+  check(ret.includes("第38条"), "保存の決まりは安衛則第38条を引いている");
+  check(/YEARS\s*=\s*3|3\s*年/.test(ret), "**3年**（条文は「三年間保存」）");
+  /* 第37条の「科目の省略」を、うちが勝手に使っていないか。
+     受講者ごとに科目を飛ばす仕組みは作っていない（作るなら事業者の判断） */
+  const drill = read("src/content/drill.ts");
+  check(drill.includes("第38条"), "実技の記録も第38条を引いている");
 }
 
 console.log("\n── 裏取りの記録があるか ──");
