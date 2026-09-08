@@ -328,11 +328,15 @@ export function SetupClient() {
                       true,
                     ],
                     ["特商法の表記", h.sell.sellerMissing.length ? `${h.sell.sellerMissing.join("・")}が空` : "そろっている", h.sell.sellerMissing.length === 0, true],
+                    /* 番号はコードに固定してある（src/content/legal.ts）。
+                       前は環境変数だけに置いていて、店を増やしたとき
+                       新しい店の特商法が「未設定」で出た（2026-09-07）。
+                       設定は要らない。番号が変わったときだけ入れる */
                     ["インボイス登録番号（SELLER_INVOICE_NO）",
                       h.sell.invoiceShape === false
                         ? "形が違います（T＋13桁）"
                         : h.sell.invoiceNo
-                          ? "設定済み"
+                          ? "出ています（コードに固定。環境変数は要りません）"
                           : "未設定（免税事業者なら空のままで構いません）",
                       h.sell.invoiceShape !== false, false],
                     ["振込先（SELLER_BANK_NAME ほか）",

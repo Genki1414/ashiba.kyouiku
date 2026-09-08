@@ -118,17 +118,34 @@ console.log("── インボイス登録番号 ──");
 {
   const before = process.env.SELLER_INVOICE_NO;
 
+  /* **うちは課税事業者で、番号がある。**2026-09-07 から、番号は環境変数ではなく
+     コードの既定値（src/content/legal.ts）に入れてある。国税庁が公表している
+     番号で、請求書に刷って送るもの。会社名・住所・振込先と同じ扱い。
+
+     環境変数だけに置いていたとき、Vercel の Sensitive で読み出せなくなり、
+     **店を増やしたら片方の特商法が「未設定」で出た**（特別教育ドットコム）。
+     だから、環境変数を消しても空にはならない。 */
   delete process.env.SELLER_INVOICE_NO;
-  check(seller().invoiceNo === "", "登録していなければ空");
-  check(invoiceOk(""), "空は通す（免税事業者）");
-  check(
-    !tokushoho(PRICES).some((i) => i.k.includes("登録番号")),
-    "空のときは、特商法の表記に行ごと出さない",
-  );
+  check(/^T\d{13}$/.test(seller().invoiceNo),
+    "**環境変数が無くても番号が出る**（コードの既定値）", seller().invoiceNo || "（空）");
+  check(seller().invoiceNo === "T4370001041531", "東北三上機材の番号", seller().invoiceNo);
+  {
+    const row = tokushoho(PRICES).find((i) => i.k.includes("登録番号"));
+    check(!!row, "環境変数が無くても、特商法の表記に行が出る");
+  }
   check(
     !missingSeller().some((k) => k.includes("登録番号")),
-    "空でも「特商法の未設定」には数えない",
+    "「特商法の未設定」に数えない",
   );
+
+  /* 免税事業者の会社が使うときのために、**空を通す筋は残してある。**
+     seller() からは空にできなくなったので、関数の側で確かめる */
+  check(invoiceOk(""), "空は通す（免税事業者。番号そのものが無い）");
+  {
+    const src = readFileSync(new URL("../src/content/legal.ts", import.meta.url), "utf-8");
+    check(/s\.invoiceNo\s*\n?\s*\?/.test(src) || src.includes("s.invoiceNo"),
+      "空のときは行ごと出さない分岐が残っている");
+  }
 
   process.env.SELLER_INVOICE_NO = "T1234567890123";
   check(seller().invoiceNo === "T1234567890123", "入れた番号が出る");
