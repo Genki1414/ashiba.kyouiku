@@ -171,6 +171,80 @@ console.log("\n── 作ってある講座とのつながり ──");
     orphan.map((c) => c.id).join("／"));
 }
 
+console.log("\n── 告示第92号の条文と突き合わせる ──");
+{
+  /* **げんきさんが安全衛生特別教育規程（昭和47年労働省告示第92号）の
+     全文を写して渡してくれた（2026-09-07）。**この告示ひとつで、
+     目録40行ぶんの科目・範囲・時間が決まっている。
+
+     下の数字は、条文の表の「時間」欄を科目の順にそのまま並べたもの。
+     足し算した合計が、うちの目録の学科の時間と合うかを毎回見る。
+     **条文が手元にある行は、条文で見張る。**まとめや講座マスターではなく。
+
+     40行すべて一致した（ちがい0）。ここが割れたら、
+     目録を触ったか、告示が改正されたかのどちらか。 */
+  const KOKUJI92: Record<string, { jou: string; gakka: number[]; jitsugi: number }> = {
+    machine_grinding_wheel:            { jou: "第1条",     gakka: [240, 120, 60],         jitsugi: 180 },
+    free_grinding_wheel:               { jou: "第2条",     gakka: [120, 60, 60],          jitsugi: 120 },
+    power_press_die:                   { jou: "第3条",     gakka: [120, 120, 180, 60],    jitsugi: 120 },
+    arc_welding:                       { jou: "第4条",     gakka: [60, 180, 360, 60],     jitsugi: 600 },
+    high_voltage_electrical:           { jou: "第5条",     gakka: [90, 120, 90, 300, 60], jitsugi: 900 },
+    low_voltage_electrical:            { jou: "第6条",     gakka: [60, 120, 60, 120, 60], jitsugi: 420 },
+    electric_vehicle_maintenance:      { jou: "第6条の2",  gakka: [60, 150, 30, 60, 60],  jitsugi: 60 },
+    forklift_under_1t:                 { jou: "第7条",     gakka: [120, 120, 60, 60],     jitsugi: 360 },
+    shovel_loader_under_1t:            { jou: "第7条の2",  gakka: [120, 120, 60, 60],     jitsugi: 360 },
+    rough_terrain_vehicle_under_1t:    { jou: "第7条の3",  gakka: [120, 120, 60, 60],     jitsugi: 360 },
+    tailgate_lifter:                   { jou: "第7条の4",  gakka: [90, 120, 30],          jitsugi: 120 },
+    cargo_lifting_appliance_under_5t:  { jou: "第8条",     gakka: [240, 120, 240, 60],    jitsugi: 240 },
+    felling_machine:                   { jou: "第8条の2",  gakka: [60, 60, 120, 60, 60],  jitsugi: 360 },
+    running_yarding_machine:           { jou: "第8条の3",  gakka: [60, 60, 120, 60, 60],  jitsugi: 360 },
+    mechanical_yarding_system:         { jou: "第9条",     gakka: [180, 120, 60],         jitsugi: 480 },
+    simple_cable_yarding:              { jou: "第9条の2",  gakka: [60, 60, 120, 60, 60],  jitsugi: 480 },
+    chainsaw_felling:                  { jou: "第10条",    gakka: [240, 120, 120, 60],    jitsugi: 540 },
+    small_vehicle_construction_leveling:    { jou: "第11条",    gakka: [180, 120, 60, 60], jitsugi: 360 },
+    small_vehicle_construction_foundation:  { jou: "第11条の2", gakka: [120, 180, 60, 60], jitsugi: 360 },
+    small_vehicle_construction_demolition:  { jou: "第11条の3", gakka: [120, 150, 90, 60], jitsugi: 420 },
+    foundation_construction_machine:   { jou: "第11条の4", gakka: [240, 120, 60],         jitsugi: 300 },
+    foundation_machine_attachment:     { jou: "第11条の5", gakka: [180, 60, 60],          jitsugi: 240 },
+    roller_operation:                  { jou: "第12条",    gakka: [240, 60, 60],          jitsugi: 240 },
+    concrete_placing_machine:          { jou: "第12条の2", gakka: [240, 120, 60],         jitsugi: 300 },
+    boring_machine:                    { jou: "第12条の3", gakka: [240, 120, 60],         jitsugi: 300 },
+    jack_lifting_machine:              { jou: "第12条の4", gakka: [180, 120, 60],         jitsugi: 240 },
+    aerial_work_platform_under_10m:    { jou: "第13条",    gakka: [180, 60, 60, 60],      jitsugi: 180 },
+    winch_operation:                   { jou: "第14条",    gakka: [180, 120, 60],         jitsugi: 240 },
+    railway_power_vehicle:             { jou: "第15条",    gakka: [180, 60, 60, 60],      jitsugi: 240 },
+    special_chemical_equipment:        { jou: "第16条",    gakka: [180, 180, 180, 180, 60], jitsugi: 900 },
+    tunnel_excavation_lining:          { jou: "第17条",    gakka: [90, 90, 180, 60],      jitsugi: 0 },
+    industrial_robot_teaching:         { jou: "第18条",    gakka: [120, 240, 60],         jitsugi: 180 },
+    industrial_robot_inspection:       { jou: "第19条",    gakka: [240, 240, 60],         jitsugi: 240 },
+    tire_air_inflation:                { jou: "第20条",    gakka: [120, 120, 60],         jitsugi: 240 },
+    /* 第21条は安衛則第34号から第36号までを一つの表で定めている。
+       うちは業務ごとに3行に分けてあるので、3行とも同じ時間 */
+    dioxin_ash_handling:               { jou: "第21条",    gakka: [30, 90, 30, 60, 30],   jitsugi: 0 },
+    dioxin_maintenance:                { jou: "第21条",    gakka: [30, 90, 30, 60, 30],   jitsugi: 0 },
+    dioxin_demolition:                 { jou: "第21条",    gakka: [30, 90, 30, 60, 30],   jitsugi: 0 },
+    /* **うちの看板。学科だけで、実技の項は無い**（「学科教育により行うものとする」） */
+    scaffolding_assembly:              { jou: "第22条",    gakka: [180, 30, 90, 60],      jitsugi: 0 },
+    rope_access_work:                  { jou: "第23条",    gakka: [60, 60, 60, 60],       jitsugi: 180 },
+    full_harness:                      { jou: "第24条",    gakka: [60, 120, 60, 30],      jitsugi: 90 },
+  };
+
+  check(Object.keys(KOKUJI92).length === 40, `告示第92号が決めている行は40（いま ${Object.keys(KOKUJI92).length}）`);
+  for (const [slug, k] of Object.entries(KOKUJI92)) {
+    const t = findTokubetsu(slug);
+    check(!!t, `${slug}: 目録にある`);
+    if (!t) continue;
+    const g = k.gakka.reduce((a, b) => a + b, 0);
+    check(t.gakkaMin === g, `${slug}（${k.jou}）: 学科が条文どおり`,
+      `条文 ${g}分 ／ 目録 ${t.gakkaMin}分`);
+    check(t.jitsugiMin === k.jitsugi, `${slug}（${k.jou}）: 実技が条文どおり`,
+      `条文 ${k.jitsugi}分 ／ 目録 ${t.jitsugiMin}分`);
+    /* 条文が手元にあるのだから、条番号を書いていること */
+    check(t.basis.includes(`規程${k.jou}`) || t.basis.includes(k.jou),
+      `${slug}: 根拠に ${k.jou} が入っている`, t.basis);
+  }
+}
+
 console.log("\n── 裏取りの記録があるか ──");
 {
   /* checked が付いていても、印の強さは同じではない。
@@ -182,17 +256,17 @@ console.log("\n── 裏取りの記録があるか ──");
      数を書いておく。増えたら止まる。減ったら、この数を下げること。 */
   const ready = TOKUBETSU.filter(isReady);
   const noDoc = ready.filter((t) => !t.doc);
-  check(noDoc.length <= 1, `裏取りの記録が無い行は1行まで（いま ${noDoc.length}行）`,
+  /* **2026-09-07、足場の条文が来て 0行になった。**もう増やさない */
+  check(noDoc.length === 0, `裏取りの記録が無い行は0（いま ${noDoc.length}行）`,
     noDoc.map((t) => `no.${t.no} ${t.slug}`).join("／"));
-  check(noDoc.every((t) => t.slug === "scaffolding_assembly"),
-    "記録が無いのは足場（no.63）だけ。ほかの行に広がっていない",
-    noDoc.map((t) => t.slug).join("／"));
-  /* 足場の根拠に、確かめていない条番号を書き足していないか。
-     安衛則第36条第39号は確かめてある（docs/18）。規程の条は見ていない */
+  /* 足場の根拠。**2026-09-07 に条文が来て、第22条で確定した。**
+     それまでは東京労働局のまとめしか出どころが無く、条番号も書けなかった。
+     いまは条文が手元にあるので、号も条も書いてある状態が正しい */
   const ashiba = findTokubetsu("scaffolding_assembly");
-  check(!!ashiba && ashiba.basis.includes("第36条第39号"), "足場の号は確かめてある");
-  check(!!ashiba && !/規程\s*第\d+条/.test(ashiba.basis),
-    "**規程の条番号は書かない**（条文で見ていない。docs/94 §3）", ashiba?.basis);
+  check(!!ashiba && ashiba.basis.includes("第36条第39号"), "足場の号（安衛則第36条第39号）");
+  check(!!ashiba && ashiba.basis.includes("安全衛生特別教育規程第22条"),
+    "足場の条（安全衛生特別教育規程第22条。条文で確かめた）", ashiba?.basis);
+  check(!!ashiba && ashiba.fullText === true, "足場は告示の全文で裏を取ってある");
 }
 
 console.log("\n── いま作っているもの ──");
