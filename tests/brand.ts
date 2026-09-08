@@ -160,6 +160,33 @@ console.log("\n── 平らな店でも、押して開く ──");
   }
 }
 
+console.log("\n── 受講リクエストの入口 ──");
+{
+  /* 受講リクエストの仕組み（0025）は前からあり、両方の店で同じコード。
+     足りていなかったのは**入口**で、/join への案内が
+     「席が無い人」にしか出ていなかった。
+
+     73講座あるのに、**席を1つ持っている人には行き先が無い。**
+     「次はこれも受けたい」と思っても、押す所がどこにも無かった。
+     とくに特別教育ドットコムはお客さんが全業種にまたがるので、
+     石綿を受けた会社が次に酸欠を要る、が当たり前に起きる。
+
+     いまは足場屋革命には出していない（そのままにする決めごと）。
+     出したくなったら BRAND.flatList の条件を外すだけ。 */
+  const cards = code("src/components/HomeCards.tsx");
+  check(cards.includes('data-testid="home-request"'), "リクエストの入口の札がある");
+  check(/BRAND\.flatList[\s\S]{0,80}me\.canLearn/.test(cards),
+    "**席を持っている人**に出す（席が無い人には受講コードの札が出る）");
+  check(/!me\.admin/.test(cards.slice(cards.indexOf("home-request") - 400, cards.indexOf("home-request"))),
+    "教育担当者には出さない（自分に頼むことになる）");
+  check(cards.includes('href="/join"'), "行き先は受講コードの画面（そこにリクエストが出る）");
+
+  /* 札が二重に出ないこと。席が無い人には home-seat、
+     席がある人には home-request。両方に当てはまる状態は無い */
+  check(cards.indexOf("home-request") < cards.indexOf("home-seat"),
+    "リクエストの札は、受講コードの札より前に置く（条件が重ならない）");
+}
+
 console.log("\n── 講座は両方の店で同じ ──");
 {
   /* 分けているのは売り先であって、中身ではない。

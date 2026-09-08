@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { BRAND } from "@/content/brand";
 import { loadMe, readMe, sameMe, type Me } from "@/lib/me";
 
 /* ホームの出し分け。
@@ -123,6 +124,37 @@ export function HomeCards() {
         <div className="mt-1 text-[12px] leading-relaxed text-dim">
           自分の会社をさがして申し込みます。まだこの仕組みを使っていない会社なら、
           そこから登録もできます。つながっていないと、名簿に載らず、修了証も出せません。
+        </div>
+      </Link>,
+    );
+  }
+
+  /* **すでに受けている人が、ほかの講座も受けたいとき。**
+
+     73講座あるのに、席を1つ持っている人には /join への案内がどこにも
+     出ていなかった。「次はこれも受けたい」と思っても行き先が無い。
+     受講リクエストの仕組みは前からあるのに、**入口が
+     「席が無い人」にしか出ていなかった**（下の home-seat）。
+
+     とくに特別教育ドットコムは、**お客さんが全業種にまたがる。**
+     石綿を受けた会社が次に酸欠を要る、が当たり前に起きる。
+
+     担当者本人には出さない。自分に頼むことになる（担当者は申込みの札が出る）。 */
+  if (BRAND.flatList && me.canLearn && me.member === "active" && !me.admin) {
+    cards.push(
+      <Link
+        key="request"
+        href="/join"
+        className="block rounded-xl border border-line bg-panel p-4 no-underline"
+        data-testid="home-request"
+      >
+        <div className="text-[11px] font-extrabold tracking-widest text-cyan">ほかの講座も</div>
+        <div className="mt-1 text-[15px] font-black text-txt">受けたい講座をリクエストする</div>
+        <div className="mt-1 text-[12px] leading-relaxed text-dim">
+          受けたい講座を選んで送ると、会社の教育担当者の画面に出ます。
+          担当者が席を用意すると、次に開いたときからその講座が出ます。
+          <br />
+          受講コード（12文字）を受け取っているときは、そのまま入れても始められます。
         </div>
       </Link>,
     );
