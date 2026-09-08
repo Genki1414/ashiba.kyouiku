@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { BRAND } from "@/content/brand";
 import { loadMe, readMe, sameMe, type Me } from "@/lib/me";
 
 /* ホームの出し分け。
@@ -136,11 +135,12 @@ export function HomeCards() {
      受講リクエストの仕組みは前からあるのに、**入口が
      「席が無い人」にしか出ていなかった**（下の home-seat）。
 
-     とくに特別教育ドットコムは、**お客さんが全業種にまたがる。**
-     石綿を受けた会社が次に酸欠を要る、が当たり前に起きる。
+     **両方の店で出す。**はじめは特別教育ドットコムだけにしたが、
+     講座が73本あるのは足場屋革命も同じで、足場を受けた人が石綿を
+     受けたいときに行き先が無いのは変わらなかった（げんきさん 2026-09-07）。
 
      担当者本人には出さない。自分に頼むことになる（担当者は申込みの札が出る）。 */
-  if (BRAND.flatList && me.canLearn && me.member === "active" && !me.admin) {
+  if (me.canLearn && me.member === "active" && !me.admin) {
     cards.push(
       <Link
         key="request"

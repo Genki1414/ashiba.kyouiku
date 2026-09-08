@@ -171,12 +171,17 @@ console.log("\n── 受講リクエストの入口 ──");
      とくに特別教育ドットコムはお客さんが全業種にまたがるので、
      石綿を受けた会社が次に酸欠を要る、が当たり前に起きる。
 
-     いまは足場屋革命には出していない（そのままにする決めごと）。
-     出したくなったら BRAND.flatList の条件を外すだけ。 */
+     **両方の店で出す。**はじめは特別教育ドットコムだけにしたが、
+     講座が73本あるのは足場屋革命も同じで、足場を受けた人が石綿を
+     受けたいときに行き先が無いのは変わらなかった（げんきさん 2026-09-07）。
+     ここは店で分けない。分けると片方の穴が残る。 */
   const cards = code("src/components/HomeCards.tsx");
   check(cards.includes('data-testid="home-request"'), "リクエストの入口の札がある");
-  check(/BRAND\.flatList[\s\S]{0,80}me\.canLearn/.test(cards),
+  check(/me\.canLearn && me\.member === "active"/.test(cards),
     "**席を持っている人**に出す（席が無い人には受講コードの札が出る）");
+  /* ここを店で分けない。分けると片方の店に穴が残る */
+  check(!/BRAND[\s\S]{0,60}home-request/.test(cards) && !cards.includes("BRAND"),
+    "受講リクエストの入口は店で分けない（両方の店で出す）");
   check(/!me\.admin/.test(cards.slice(cards.indexOf("home-request") - 400, cards.indexOf("home-request"))),
     "教育担当者には出さない（自分に頼むことになる）");
   check(cards.includes('href="/join"'), "行き先は受講コードの画面（そこにリクエストが出る）");
