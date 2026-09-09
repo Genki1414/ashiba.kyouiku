@@ -293,3 +293,52 @@ psql -d appdb -q -t -A -f supabase/tests/coupon.sql
 片方だけ直すと、見せた金額と請求する金額が食い違う。
 画面側は `npx tsx tests/coupon.ts`、`npx tsx tests/api-shape.mts`、
 `node tests/e2e-coupon.mjs` が見ている。
+
+---
+
+## 動いている本番に、もう一度流せるか（rerun.sql）
+
+`apply-all.sql` は「何度実行しても壊れない」約束で書いてある。
+**2つ以上の講座を受けている人が居る**データベースに流し直したときに
+落ちないかを、ここで確かめる。
+
+```sh
+# 新しいデータベースに
+psql -v ON_ERROR_STOP=1 \
+  -f supabase/tests/00-supabase-shim.sql \
+  -f supabase/apply-all.sql \
+  -f supabase/tests/rerun.sql \
+  -f supabase/apply-all.sql      # ← 2回目。ここが通れば通過
+```
+
+2026-09-09、げんきさんの本番で 0034 を流したときに、ここで止まった。
+
+```
+ERROR: could not create unique index "enrollments_one_per_user_idx"
+DETAIL: Key (user_id)=(…) is duplicated.
+```
+
+0004 が作る索引を 0011 が外しているので、流し直すと 0004 で作り直そうとして
+いまのデータに弾かれていた。0004 側に「0011 まで進んでいたら作らない」を
+足して直した。
+
+---
+
+## LINE の紐付けが店ごとに分かれているか（line-link.sql）
+
+```sh
+psql -v ON_ERROR_STOP=1 \
+  -f supabase/tests/00-supabase-shim.sql \
+  -f supabase/apply-all.sql \
+  -f supabase/tests/line-link.sql
+```
+
+NOTICE で `expected: …` が5つ出れば通過。
+
+| # | 内容 |
+| --- | --- |
+| ① | 同じ人が、店ごとに違う番号を持てる |
+| ② | 同じ店の中では、1つの番号は1人にだけ |
+| ③ | 店が違えば、同じ字の番号でも別物として入る |
+| ④ | 1人につき、1店1行 |
+| ⑤ | 人を消したら、紐付けも消える |
