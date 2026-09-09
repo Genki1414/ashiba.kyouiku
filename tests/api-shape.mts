@@ -1334,17 +1334,31 @@ console.log("── 下の行き先と、お知らせの出し方 ──");
   check(/count \?\? 0\) <= 1/.test(role), "サーバも、最後の1人は外させない");
 
   const me = read("src/app/me/MeClient.tsx");
-  /* 外部で取得しただけの講座は出さない（げんきさん 2026-09-09
-     「マイページに取得済みの受講不要な講座は表示しない」）。
-     修了証が出ているものは残す（受け取る道がここにしか無い） */
-  check(/c\.hasSeat \|\| c\.started \|\| c\.cert/.test(me),
-    "マイページは、いま関わりのある講座だけ出す");
+  /* 受講の欄は、これからやることだけ（げんきさん 2026-09-10）。
+     修了したものも、外部で取得したものも、下の「取得済みの資格」に出る */
+  check(/\(c\.hasSeat \|\| c\.started\) && !c\.cert/.test(me),
+    "受講の欄は、これからやる講座だけ出す");
   /* しぼっている行だけを見る。「取得済みのため受講不要」を出す所では
      held を見てよい（受け始めた講座に印を付けるため） */
+  /* ── マイページの分け方（げんきさん 2026-09-10）──
+     「取得済みはマイページの受講には表示しない」
+     「取得済み資格は下部の取得済みの資格に表示。
+       システムで取得した資格はここからも修了証が出せる」
+     「取得済みの資格は閉じておく。展開式にする」 */
+  check(!/取得済みのため受講不要/.test(strip(me)), "「受講不要」の札は出さない");
+
+  const hq = read("src/app/me/HeldQuals.tsx");
+  check(/<details/.test(hq), "取得済みの資格は畳んで出す（展開式）");
+  check(/me-quals-open/.test(hq), "押して開く所がある");
+  check(/me-qual-cert/.test(hq), "この仕組みで取ったものは、ここから修了証を受け取れる");
+  const quals = read("src/app/api/quals/route.ts");
+  check(/courseId: cid/.test(quals), "修了証へ行くのに要る講座を返す");
+
   const meFilter = me.split("\n").find((l) => l.includes("st.learning.filter")) ?? "";
   check(!!meFilter && !/held\.has/.test(meFilter),
     "取得済み（自己申告）だけの講座は、やることの一覧に出さない");
-  check(/取得済みのため受講不要/.test(me), "取得済みの講座は「受講不要」と出す");
+  check(!!meFilter && !/\bc\.cert\b(?!\))/.test(meFilter.replace("!c.cert", "")),
+    "受講の欄に、修了した講座は出さない");
   check(/data-testid="me-find-course"/.test(me), "ほかの講座を探す道は残す");
   const mp = read("src/app/api/mypage/route.ts");
   check(/heldCourseIds\(supabase, \[user\.id\]\)/.test(mp), "外部で取得した講座も返す");

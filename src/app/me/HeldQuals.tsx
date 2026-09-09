@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { Btn } from "@/components/ui/Btn";
 import { KINDS, OTHER, search, totalH, type QualKind } from "@/content/quals";
@@ -24,7 +25,15 @@ import type { Held } from "@/lib/quals";
    ここで書けるのは自己申告まで。「確かめた」印は会社が押す。
    自分で確かめたことにできると、印の意味が無くなる。 */
 
-type Mine = { id: string; name: string; kind: string; certNo: string; gotOn: string | null };
+type Mine = {
+  id: string;
+  /** 修了証を受け取る所へ行くのに使う */
+  courseId?: string;
+  name: string;
+  kind: string;
+  certNo: string;
+  gotOn: string | null;
+};
 
 const day = (s: string | null) => {
   if (!s) return "";
@@ -128,11 +137,25 @@ export function HeldQuals() {
      他の種類で選んだぶんも消えないので、合計も出す */
   const total = picked.length;
 
-  return (
-    <div className="mt-3" data-testid="me-quals">
-      <div className="mb-2 text-[11px] tracking-[2px] text-dim">取得済みの資格</div>
+  /* ── 閉じておく（げんきさん 2026-09-10）──
+     「取得済みの資格は閉じておく。展開式にする」
 
-      <div className="rounded-xl border border-line bg-panel p-4">
+     持っている人ほど長くなる所で、**ふだん開く必要が無い。**
+     開いたままだと、下にある「受講管理へ」やログアウトまで遠くなる。
+     件数は畳んだままでも見えるようにする（開くかどうかを決められる）。 */
+  const count = held.length + mine.length;
+
+  return (
+    <details className="mt-3 rounded-xl border border-line bg-panel" data-testid="me-quals">
+      <summary
+        className="cursor-pointer list-none p-3.5 text-[12.5px] font-bold text-txt"
+        data-testid="me-quals-open"
+      >
+        取得済みの資格　{count}件
+        <span className="ml-2 text-[11px] font-normal text-dim2">（押すと開きます）</span>
+      </summary>
+
+      <div className="border-t border-line p-4">
         <p className="text-[11.5px] leading-relaxed text-dim2">
           持っている資格をまとめておく所です。前の会社で受けた特別教育や、
           教習機関で取った技能講習も入れておけます。
@@ -160,6 +183,18 @@ export function HeldQuals() {
               <br />
               修了証番号 {m.certNo}
             </div>
+            {/* **ここからも修了証を受け取れる**（げんきさん 2026-09-10）。
+                受講の欄からは、修了したものを外した。受け取る道が
+                無くなると、出した修了証にたどり着けない */}
+            {m.courseId && (
+              <Link
+                href={`/edu/${m.courseId}/cert`}
+                className="mt-2 block rounded-lg border border-grn p-2 text-center text-[12px] font-bold text-grn no-underline"
+                data-testid="me-qual-cert"
+              >
+                修了証を受け取る
+              </Link>
+            )}
           </div>
         ))}
 
@@ -358,6 +393,6 @@ export function HeldQuals() {
 
         {note && <div className="mt-2 text-[12px] text-red" data-testid="me-qual-note">{note}</div>}
       </div>
-    </div>
+    </details>
   );
 }

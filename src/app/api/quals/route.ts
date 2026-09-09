@@ -69,6 +69,9 @@ async function minted(
       const cid = courseOf.get(c.enrollment_id as string) ?? "";
       return {
         id: c.cert_no as string,
+        /* 修了証を受け取る所へ行くのに要る（げんきさん 2026-09-10
+           「システムで取得した資格はここからも修了証が出せる」） */
+        courseId: cid,
         name: name.get(cid) ?? cid,
         kind: "特別教育",
         certNo: c.cert_no as string,

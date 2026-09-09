@@ -203,8 +203,6 @@ export function MeClient() {
      同じ待ち時間でもずっと遅く感じる */
   if (!st) return <Loading title="マイページ" back="/" rows={4} />;
 
-  /* 外部で取得した資格（本人が登録したもの）に当たる講座 */
-  const held = new Set(st.held ?? []);
   /* **いま自分に関わりのある講座だけ。**
      受講コードがある・受け始めている・修了証が出ている、のどれか。
 
@@ -215,7 +213,92 @@ export function MeClient() {
 
      修了証が出ているものは残す。**受け取る道がここにしか無い。**
      受け始めたあとに自己申告した場合も残る（記録があるので）。 */
-  const mine = st.learning.filter((c) => c.hasSeat || c.started || c.cert);
+  /* **受講の欄は、これからやることだけ。**
+     げんきさん（2026-09-10）「取得済みはマイページの受講には表示しない」。
+     修了したものも、外部で取得したものも、下の「取得済みの資格」に出る
+     （修了証もそこから受け取れる）。 */
+  const mine = st.learning.filter((c) => (c.hasSeat || c.started) && !c.cert);
+
+
+  /* 講座1つぶんの札。**やることのある講座と、修了した講座で同じものを出す。**
+     修了したほうは下に畳むだけで、中身は変えない（げんきさん 2026-09-10） */
+  const CourseRow = ({ c }: { c: Learn }) => (
+    <div className="rounded-xl border border-line bg-panel p-4" data-testid="me-course">
+              <div className="text-[14px] font-black leading-snug">{c.name}</div>
+              <div className="mt-2 flex items-baseline gap-2 text-[12.5px]">
+                <span className="shrink-0 text-dim">学科</span>
+                <span className={c.lessonsPassed >= c.lessonsTotal ? "font-bold text-grn" : ""}>
+                  {c.lessonsPassed} / {c.lessonsTotal} 単元
+                </span>
+                <span className="ml-auto text-[11.5px] text-dim2">
+                  {dur(c.watchedSec)} / {dur(c.requiredSec)}
+                </span>
+              </div>
+              <div className="mt-1.5">
+                <Bar
+                  v={c.lessonsPassed}
+                  max={c.lessonsTotal}
+                  color={c.lessonsPassed >= c.lessonsTotal ? "var(--color-grn)" : undefined}
+                />
+              </div>
+
+              {c.cert ? (
+                <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <span className="font-mono text-[12px] text-grn">証明番号 {c.cert.no}</span>
+                  <span className="text-[11px] text-dim2">{day(c.cert.at)} 発行</span>
+                </div>
+              ) : (
+                <div className="mt-2 text-[11.5px] text-dim2">
+                  修了試験　{c.examPassed ? "合格" : "まだ"}
+                </div>
+              )}
+
+              {/* 受講リクエスト。まだこの講座の席が無い人だけ出す。
+                  会社に居ないと誰宛か決まらないので、在籍しているときだけ */}
+              {!c.cert && !c.hasSeat && st.member.state === "active" && (
+                <div className="mt-2.5">
+                  {c.requested ? (
+                    <button
+                      className="w-full rounded-lg border border-line p-2.5 text-[12px] text-dim2 disabled:opacity-50"
+                      data-testid="me-course-request-cancel"
+                      disabled={busyReq === c.courseId}
+                      onClick={() => void requestCourse(c.courseId, true)}
+                    >
+                      教育担当者にリクエスト送信済み（取り消す）
+                    </button>
+                  ) : (
+                    <button
+                      className="w-full rounded-lg border border-cyan p-2.5 text-[12.5px] font-bold text-cyan disabled:opacity-50"
+                      data-testid="me-course-request"
+                      disabled={busyReq === c.courseId}
+                      onClick={() => void requestCourse(c.courseId, false)}
+                    >
+                      教育担当者に受講リクエストを送る
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* **受講の欄は、これからやることだけ。**
+                  修了したものはここに並ばない（下の「取得済みの資格」に出て、
+                  修了証もそこから受け取れる。げんきさん 2026-09-10）。 */}
+              <div className="mt-2.5 grid grid-cols-2 gap-2">
+                <Link
+                  href={`/edu/${c.courseId}`}
+                  className="rounded-lg border border-yel bg-yel p-2.5 text-center text-[12.5px] font-extrabold text-bg no-underline"
+                  data-testid="me-go"
+                >
+                  {c.started ? "続きから受講" : "受講を開始"}
+                </Link>
+                <Link
+                  href={`/edu/${c.courseId}/cert`}
+                  className="rounded-lg border border-line p-2.5 text-center text-[12.5px] text-dim no-underline"
+                >
+                  修了証
+                </Link>
+              </div>
+            </div>
+  );
 
   return (
     <main className="px-5 py-8 pb-12" data-testid="me">
@@ -507,108 +590,10 @@ export function MeClient() {
         )}
         <div className="grid gap-2">
           {mine.map((c) => (
-            <div key={c.courseId} className="rounded-xl border border-line bg-panel p-4" data-testid="me-course">
-              <div className="text-[14px] font-black leading-snug">{c.name}</div>
-              <div className="mt-2 flex items-baseline gap-2 text-[12.5px]">
-                <span className="shrink-0 text-dim">学科</span>
-                <span className={c.lessonsPassed >= c.lessonsTotal ? "font-bold text-grn" : ""}>
-                  {c.lessonsPassed} / {c.lessonsTotal} 単元
-                </span>
-                <span className="ml-auto text-[11.5px] text-dim2">
-                  {dur(c.watchedSec)} / {dur(c.requiredSec)}
-                </span>
-              </div>
-              <div className="mt-1.5">
-                <Bar
-                  v={c.lessonsPassed}
-                  max={c.lessonsTotal}
-                  color={c.lessonsPassed >= c.lessonsTotal ? "var(--color-grn)" : undefined}
-                />
-              </div>
-
-              {c.cert ? (
-                <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1">
-                  <span className="font-mono text-[12px] text-grn">証明番号 {c.cert.no}</span>
-                  <span className="text-[11px] text-dim2">{day(c.cert.at)} 発行</span>
-                </div>
-              ) : (
-                <div className="mt-2 text-[11.5px] text-dim2">
-                  修了試験　{c.examPassed ? "合格" : "まだ"}
-                </div>
-              )}
-
-              {/* 受講リクエスト。まだこの講座の席が無い人だけ出す。
-                  会社に居ないと誰宛か決まらないので、在籍しているときだけ */}
-              {!c.cert && !c.hasSeat && st.member.state === "active" && (
-                <div className="mt-2.5">
-                  {c.requested ? (
-                    <button
-                      className="w-full rounded-lg border border-line p-2.5 text-[12px] text-dim2 disabled:opacity-50"
-                      data-testid="me-course-request-cancel"
-                      disabled={busyReq === c.courseId}
-                      onClick={() => void requestCourse(c.courseId, true)}
-                    >
-                      教育担当者にリクエスト送信済み（取り消す）
-                    </button>
-                  ) : (
-                    <button
-                      className="w-full rounded-lg border border-cyan p-2.5 text-[12.5px] font-bold text-cyan disabled:opacity-50"
-                      data-testid="me-course-request"
-                      disabled={busyReq === c.courseId}
-                      onClick={() => void requestCourse(c.courseId, false)}
-                    >
-                      教育担当者に受講リクエストを送る
-                    </button>
-                  )}
-                </div>
-              )}
-
-              {/* **取得済みの講座は、受講の入口を出さない。**
-                  同じ特別教育を受け直す必要はないので、押せると迷わせる
-                  （げんきさん 2026-09-09） */}
-              {c.cert || held.has(c.courseId) ? (
-                <div className="mt-2.5 grid grid-cols-2 gap-2">
-                  <div
-                    className="rounded-lg border border-grn bg-[#14201A] p-2.5 text-center text-[12.5px] font-extrabold text-grn"
-                    data-testid="me-done"
-                  >
-                    取得済みのため受講不要
-                  </div>
-                  {c.cert ? (
-                    <Link
-                      href={`/edu/${c.courseId}/cert`}
-                      className="rounded-lg border border-line p-2.5 text-center text-[12.5px] text-dim no-underline"
-                    >
-                      修了証
-                    </Link>
-                  ) : (
-                    <div className="rounded-lg border border-line p-2.5 text-center text-[11.5px] leading-tight text-dim2">
-                      外部で取得
-                      <br />
-                      （自己申告）
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="mt-2.5 grid grid-cols-2 gap-2">
-                  <Link
-                    href={`/edu/${c.courseId}`}
-                    className="rounded-lg border border-yel bg-yel p-2.5 text-center text-[12.5px] font-extrabold text-bg no-underline"
-                    data-testid="me-go"
-                  >
-                    {c.started ? "続きから受講" : "受講を開始"}
-                  </Link>
-                  <Link
-                    href={`/edu/${c.courseId}/cert`}
-                    className="rounded-lg border border-line p-2.5 text-center text-[12.5px] text-dim no-underline"
-                  >
-                    修了証
-                  </Link>
-                </div>
-              )}
-            </div>
+            <CourseRow key={c.courseId} c={c} />
           ))}
         </div>
+
       </div>
 
       {/* これまでのおしらせ。ホームは未読のときだけ出すので、
