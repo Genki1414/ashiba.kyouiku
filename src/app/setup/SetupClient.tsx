@@ -39,6 +39,8 @@ type Health = {
     mailFrom: string;
     mailOwn: boolean;
     notify: boolean;
+    /** LINE でログインできるか */
+    lineLogin?: boolean;
     resetEnv: boolean;
     resetDefault: string;
     here: string;
@@ -387,6 +389,14 @@ export function SetupClient() {
                       "申込の知らせ（LINE_TOKEN / LINE_TO）",
                       h.sell.notify ? "設定済み" : "未設定（申込が来ても知らせません）",
                       h.sell.notify,
+                      false,
+                    ],
+                    /* LINE でログインできるか（0033）。無くてもメールで入れるので
+                       「！」にはしない。現場の方はメールを使わないことが多い */
+                    [
+                      "LINEログイン（LINE_LOGIN_CHANNEL_ID / SECRET）",
+                      h.sell.lineLogin ? "設定済み" : "未設定（メールとパスワードのみ）",
+                      !!h.sell.lineLogin,
                       false,
                     ],
                     ["カード払い（STRIPE_SECRET_KEY）", h.sell.stripeKey ? "設定済み" : "未設定（請求書払いのみ）", h.sell.stripeKey, false],

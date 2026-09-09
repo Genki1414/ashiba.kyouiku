@@ -11,6 +11,7 @@ import { BRAND } from "@/content/brand";
 import { allPrices, missingPrice, priceOverrides } from "@/lib/price.server";
 import { AUTH_MAIL_FROM, AUTH_MAIL_OWN } from "@/content/authMail";
 import { notifyReady } from "@/lib/notify.server";
+import { lineLoginReady } from "@/lib/line";
 import { siteUrl as paySiteUrl } from "@/lib/stripe";
 import { currentAdmin } from "@/lib/admin";
 import { myCompany } from "@/lib/tenant";
@@ -186,6 +187,8 @@ export async function GET() {
        無くても売れるので「！」にはしないが、入れていないと
        許可の出し忘れに気づけない */
     notify: notifyReady(),
+    /* LINE でログインできるか（0033）。無くてもメールで入れる */
+    lineLogin: lineLoginReady(),
     /* 特商法の表記で、まだ空の項目 */
     sellerMissing: missingSeller(),
     /* 振込先。空だと請求書に「別途ご案内」としか出ず、そのぶん入金が遅れる */

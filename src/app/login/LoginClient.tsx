@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getBrowserClient } from "@/lib/supabase/browser";
@@ -34,6 +34,16 @@ const RESET_PATH = "/auth/reset";
 export function LoginClient() {
   const router = useRouter();
   const next = useSearchParams().get("next") ?? "/";
+  /* LINE で入れる店かどうか。設定していない店では出さない */
+  const [line, setLine] = useState(false);
+  useEffect(() => {
+    fetch("/api/health", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => setLine(!!j?.sell?.lineLogin))
+      .catch(() => {
+        /* 聞けなくても、メールの欄は出ている */
+      });
+  }, []);
   const [mode, setMode] = useState<Mode>("in");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -266,6 +276,27 @@ export function LoginClient() {
       {err && (
         <div className="mt-4 rounded-lg border border-red bg-ng-bg px-3.5 py-3 text-[12.5px] leading-relaxed text-ng-tx" data-testid="login-error">
           {err}
+        </div>
+      )}
+
+      {/* ── LINE で入る（0033）──
+          現場の方はメールを持っていない・使わないことが多い。
+          設定してある店にだけ出す（/api/health の lineLogin）。
+          ここが本命なので、**メールの欄より上**に置く */}
+      {line && mode !== "forgot" && (
+        <div className="mt-5">
+          <a
+            href={`/api/line/login?next=${encodeURIComponent(next)}`}
+            className="block rounded-lg bg-[#06C755] p-3.5 text-center text-[15px] font-extrabold text-white no-underline"
+            data-testid="login-line"
+          >
+            LINEではじめる
+          </a>
+          <p className="mt-1.5 text-center text-[11.5px] leading-relaxed text-dim2">
+            メールとパスワードは要りません。修了証に載る氏名は、
+            <br />
+            入ったあとマイページで入れてください。
+          </p>
         </div>
       )}
 

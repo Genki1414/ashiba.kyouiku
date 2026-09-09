@@ -103,6 +103,7 @@
     "test:apishape": "tsx tests/api-shape.mts",
     "test:quals": "tsx tests/quals.ts",
     "test:coupon": "tsx tests/coupon.ts",
+    "test:line": "tsx tests/line.ts",
     "test:coname": "tsx tests/company-name.ts",
     "test:record": "tsx tests/record.ts",
     "test:authgate": "tsx tests/auth-gate.ts",
