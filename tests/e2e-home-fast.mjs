@@ -46,7 +46,7 @@ await page.route("**/api/me", async (r) => {
 });
 
 const dismiss = async () => {
-  const b = page.getByRole("button", { name: "分かった" });
+  const b = page.getByRole("button", { name: "閉じる" });
   if (await b.count()) await b.first().click().catch(() => {});
 };
 

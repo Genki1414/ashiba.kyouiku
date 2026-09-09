@@ -13,7 +13,7 @@ const check = (c: boolean, label: string, extra?: string) => {
   }
 };
 
-const R = (v: string, d = v): Release => ({ v, d, title: v, items: [{ k: "直した", t: v }] });
+const R = (v: string, d = v): Release => ({ v, d, title: v, items: [{ k: "修正", t: v }] });
 const list = [R("c"), R("b"), R("a")]; // 上が新しい。日付は全部ばらばら
 
 /* ── 出し分け ── */

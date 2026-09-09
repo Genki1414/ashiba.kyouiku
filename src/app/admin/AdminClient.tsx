@@ -258,28 +258,40 @@ export function AdminClient() {
         <p className="mt-1 text-[12px] text-dim">{st.company}</p>
       </div>
 
-      {/* 講座の切り替え。名簿も受講コードも講座ごとに分かれている。
+      {/* 講座の切り替え。
+
+          **何のための場所か分かるように、見出しを付ける**
+          （げんきさん 2026-09-09「この部分は何用？」）。
+          札を横に並べていたが、講座が73件あるので画面の上半分が
+          札の壁になっていた。選ぶ形にして1行に収める。
+
+          切り替えると変わるのは、受講コードの残りと、実技の案内と、
+          名簿から配る受講コードの講座。名簿そのものは、その人が受けている
+          特別教育をまとめて出すので、どれを選んでも同じ人が並ぶ。
           1つしか無いあいだは、選ぶ物が無いので出さない */}
       {st.courses.length > 1 && (
-        <div className="mx-5 mb-3 flex flex-wrap gap-2" data-testid="admin-courses">
-          {st.courses.map((c) => (
-            <button
-              key={c.id}
-              onClick={() => { setCourseId(c.id); void load(c.id); }}
-              className={`rounded-lg border px-3 py-1.5 text-[12px] ${
-                st.course?.id === c.id ? "border-yel bg-[#1A1F14] text-yel" : "border-line text-dim2"
-              }`}
-              data-testid="admin-course-tab"
-            >
-              {c.short}
-            </button>
-          ))}
+        <div className="mx-5 mb-3" data-testid="admin-courses">
+          <label className="mb-1 block text-[11px] tracking-[2px] text-dim">
+            受講コードと実技を見る講座
+          </label>
+          <select
+            value={st.course?.id ?? ""}
+            onChange={(e) => { setCourseId(e.target.value); void load(e.target.value); }}
+            className="w-full rounded-lg border border-line bg-bg px-3 py-2.5 text-[13.5px] text-txt"
+            data-testid="admin-course-select"
+            aria-label="受講コードと実技を見る講座"
+          >
+            {st.courses.map((c) => (
+              <option key={c.id} value={c.id}>{c.short}</option>
+            ))}
+          </select>
         </div>
       )}
       {st.course && (
         <p className="mx-5 mb-2 text-[11.5px] leading-relaxed text-dim2" data-testid="admin-course-name">
-          受講コードの残りは「{st.course.short}」の分です。
-          名簿は、その人が受けている特別教育をまとめて出します。
+          {st.courses.length > 1 ? "選んだ講座「" : "「"}{st.course.short}
+          」の受講コードの残りと、実技の案内を表示しています。
+          下の名簿は、講座に関係なく在籍する全員を表示します。
         </p>
       )}
       {/* 実技のある講座（高所作業車）。実技は**この会社が**行う。

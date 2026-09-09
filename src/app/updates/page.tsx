@@ -22,7 +22,7 @@ export default function UpdatesPage() {
                 <div key={i} className="mb-2 flex gap-2.5 last:mb-0">
                   <span
                     className={`mt-0.5 flex-none rounded px-1.5 py-0.5 text-[11px] font-extrabold ${
-                      c.k === "足した" ? "bg-grn text-bg" : "bg-cyan text-bg"
+                      c.k === "追加" ? "bg-grn text-bg" : "bg-cyan text-bg"
                     }`}
                   >
                     {c.k}

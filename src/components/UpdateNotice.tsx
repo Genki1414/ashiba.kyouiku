@@ -75,7 +75,7 @@ export function UpdateNotice() {
                 <div key={i} className="mb-2 flex gap-2.5">
                   <span
                     className={`mt-0.5 flex-none rounded px-1.5 py-0.5 text-[11px] font-extrabold ${
-                      c.k === "足した" ? "bg-grn text-bg" : "bg-cyan text-bg"
+                      c.k === "追加" ? "bg-grn text-bg" : "bg-cyan text-bg"
                     }`}
                   >
                     {c.k}
@@ -89,7 +89,7 @@ export function UpdateNotice() {
 
         <div className="flex-none border-t border-line p-3">
           <Btn tone="y" onClick={close} testid="update-close">
-            分かった
+            閉じる
           </Btn>
         </div>
       </div>
