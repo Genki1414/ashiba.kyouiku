@@ -1104,5 +1104,75 @@ console.log("── 1回の申込みを、1件として見せているか ──
   check(/coalesce\(invoiced_at, now\(\)\)/.test(m30), "送り直しで日付を動かさない");
 }
 
+console.log("── 受講コードを指して配る（0031）──");
+{
+  /* 受講コードの一覧の「配る」は、**押したそのコード**が渡らないとおかしい。
+     SQL の中身は supabase/tests/assign-by-code.sql が見ている */
+  const m31 = read("supabase/migrations/0031_assign_by_code.sql");
+  check(/drop function if exists public\.assign_seat\(uuid, uuid, text, uuid\)/.test(m31),
+    "古い形（4つ）を消してから作り直す（同じ名前が2本並ばない）");
+  check(/p_code is null or s\.code = p_code/.test(m31), "コードを指したら、その1枚だけ");
+  check(/その受講コードは配れません/.test(m31), "配れない理由を1つにまとめている");
+  /* よその会社のコードを打って「別の講座です」と返すと、在ることを教えてしまう */
+  check(!/別の講座のコードです/.test(m31) && !/よその会社/.test(m31.replace(/--.*$/gm, "")),
+    "断る文で、よその会社のコードの在り処を教えない");
+
+  const api = read("src/app/api/admin/assign/route.ts");
+  check(/normalizeJoinCode\(b\.code\)/.test(api), "打ち方の揺れをそろえてから渡す");
+  check(/p_code: code \|\| null/.test(api), "指さなければ自動（null）");
+  check(/addNotice\(userId, "given"/.test(api), "受け取った本人に知らせる");
+  const nt = read("src/lib/noticeText.ts");
+  check(/given: \{[^}]*\/edu\/\$\{c\}/.test(nt), "知らせを押すと、その講座がそのまま開く");
+  check(!/given: \{[^}]*コードを入れ/.test(nt), "知らせで「コードを入れろ」と言っていない（打たせない）");
+
+  const oc = read("src/app/order/OrderClient.tsx");
+  check(/order-code-give-go/.test(oc) && /code: c\.code/.test(oc), "一覧の「配る」が、押したそのコードを送る");
+  /* 返す側にあっても、組み立て直す所で落とすと「配る」が1つも出ない
+     （requests で一度やった。members でもやった。2026-09-09） */
+  check(/members: Array\.isArray\(j\.members\)/.test(oc), "GET の members を、画面の組み立てで拾っている");
+  const or = read("src/app/api/order/route.ts");
+  check(/\.is\("left_at", null\)/.test(or) && /\.not\("approved_at", "is", null\)/.test(or),
+    "配る相手は、在籍している人だけ");
+}
+
+console.log("── 取得済みの資格には配れない ──");
+{
+  /* げんきさん（2026-09-09）「取得済の資格には受講コード配布不可」
+     「取得済みの資格は講座一覧にも取得済表示」。
+     取得済みの数え方は1か所（src/lib/held.ts）。画面が3つ見るので、
+     ばらばらに数えると食い違う */
+  const held = read("src/lib/held.ts");
+  check(/\.is\("revoked_at", null\)/.test(held), "取り消した修了証は取得済みに数えない");
+  check(/findQual\(/.test(held) && /held_quals/.test(held), "よそで取った資格も、講座に当たれば取得済み");
+
+  const m31 = read("supabase/migrations/0031_assign_by_code.sql");
+  check(/from public\.certificates c/.test(m31) && /取得済み/.test(m31), "SQL でも、修了証が出ている人には渡さない");
+
+  const api = read("src/app/api/admin/assign/route.ts");
+  check(/heldCourseIds\(supabase, \[userId\]\)/.test(api) && /status: 409/.test(api),
+    "画面をすり抜けても、配る口で断る");
+  const or = read("src/app/api/order/route.ts");
+  check(/heldCourseIds\(supabase, memberIds\)/.test(or) && /held: heldBy\.get/.test(or),
+    "配る相手に、取得済みの講座を付けて返す");
+  const oc = read("src/app/order/OrderClient.tsx");
+  check(/disabled=\{has\}/.test(oc) && /（取得済）/.test(oc), "取得済みの人は、名前は出すが押せない");
+  const adm = read("src/app/admin/AdminClient.tsx");
+  check(/!r\.held\.some\(\(h\) => h\.courseId === st\.course!\.id\)/.test(adm),
+    "名簿の「席を配る」も、よそで取った資格を見る");
+  const q = read("src/lib/quals.ts");
+  check(/courseId: q\?\.courseId \?\? null/.test(q), "よそで取った資格に、講座の id を付けている");
+
+  /* 講座一覧の札 */
+  const me = read("src/app/api/me/route.ts");
+  check(/heldCourseIds\(/.test(me) && /held,/.test(me), "/api/me が取得済みの講座を返す");
+  const mel = read("src/lib/me.ts");
+  check(/held: Array\.isArray\(j\.held\)/.test(mel), "端末に覚える形にも held がある");
+  const card = read("src/components/CourseCard.tsx");
+  check(/<HeldMark courseId=\{c\.id\} \/>/.test(card), "講座の札に「取得済」が付く（ホームも /edu も同じ札）");
+  const mark = read("src/components/HeldMark.tsx");
+  check(/loadMe\(\)/.test(mark) && /readMe\(\)/.test(mark), "札は /api/me に1本で聞く（枚数ぶん行かない）");
+  check(/取得済/.test(mark) && !/取得済み資格/.test(mark), "札の文字は「取得済」");
+}
+
 console.log(`\n通り ${ok} ／ だめ ${ng}`);
 process.exit(ng ? 1 : 0);

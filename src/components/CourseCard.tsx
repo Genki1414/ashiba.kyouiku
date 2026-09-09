@@ -6,6 +6,7 @@ import {
   totalNoteOf,
   type CourseMeta,
 } from "@/content/courses";
+import { HeldMark } from "./HeldMark";
 
 /* 一覧に出す講座の札。
 
@@ -24,8 +25,10 @@ export function CourseCard({ c }: { c: CourseMeta }) {
     >
       {/* 種類は講座から出す。「特別教育（学科）」で決め打ちにしていたので、
           職長教育のカードにも特別教育と出ていた */}
-      <div className="text-[11px] font-extrabold tracking-widest text-yel">
+      <div className="flex items-center text-[11px] font-extrabold tracking-widest text-yel">
         {KIND_TEXT[kindOf(c)].label}
+        {/* 持っている講座には「取得済」。誰が見ているかで変わるので、札の側で後から付く */}
+        <HeldMark courseId={c.id} />
       </div>
       <div className="mt-1 text-[16px] font-black leading-snug text-txt">{c.name}</div>
       <div className="mt-1.5 text-[11.5px] leading-relaxed text-dim">

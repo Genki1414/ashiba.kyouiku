@@ -189,11 +189,11 @@ end $$;
 
 -- ⑪ ログインした人から、直に呼べない
 select t('⑪anon は配れない',
-  has_function_privilege('anon','public.assign_seat(uuid,uuid,text,uuid)','execute')::text, 'false');
+  has_function_privilege('anon','public.assign_seat(uuid,uuid,text,uuid,text)','execute')::text, 'false');
 select t('⑪authenticated は配れない',
-  has_function_privilege('authenticated','public.assign_seat(uuid,uuid,text,uuid)','execute')::text, 'false');
+  has_function_privilege('authenticated','public.assign_seat(uuid,uuid,text,uuid,text)','execute')::text, 'false');
 select t('⑪service_role は配れる',
-  has_function_privilege('service_role','public.assign_seat(uuid,uuid,text,uuid)','execute')::text, 'true');
+  has_function_privilege('service_role','public.assign_seat(uuid,uuid,text,uuid,text)','execute')::text, 'true');
 
 -- ⑫ **受講コードの方式は残っている。** 配ったのと同じ形で使える
 select t('⑫受講コードでも入れる', (public.redeem_seat(

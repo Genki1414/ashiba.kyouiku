@@ -296,6 +296,8 @@ export type HeldQual = {
   gotOn: string | null;
   certNo: string;
   confirmedAt: string | null;
+  /** この仕組みの講座に当たるなら、その id */
+  courseId?: string | null;
 };
 
 type Part = { course: { id: string; short: string; name: string }; rows: LearnerRow[] };

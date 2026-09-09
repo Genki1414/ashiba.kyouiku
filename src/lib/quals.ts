@@ -25,6 +25,8 @@ export type Held = {
   certNo: string;
   /** 会社が現物を見て確かめた日。空なら自己申告のまま */
   confirmedAt: string | null;
+  /** この仕組みの講座に当たるなら、その id。名簿の「席を配る」を出すかどうかに使う */
+  courseId: string | null;
 };
 
 type Row = Record<string, unknown>;
@@ -50,6 +52,7 @@ const toHeld = (r: Row): Held => {
     gotOn: dateOnly(r.got_on),
     certNo: (r.cert_no as string) ?? "",
     confirmedAt: (r.confirmed_at as string) ?? null,
+    courseId: q?.courseId ?? null,
   };
 };
 

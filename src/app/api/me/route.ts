@@ -7,6 +7,7 @@ import { currentUser } from "@/lib/supabase/session";
 import { readyCourses } from "@/content/courses";
 import { getServiceClient } from "@/lib/supabase/server";
 import { unpaidInvoices } from "@/lib/invoiceAccess";
+import { heldCourseIds } from "@/lib/held";
 
 /* いまの自分の立場。ホームの出し分けに使う。
 
@@ -25,6 +26,9 @@ export async function GET() {
   /* 届いている請求書。買った側に「請求書が届いています」を出すため。
      送ってあって、まだ払っていないものだけ */
   const bills = await billsFor(me?.id ?? null, admin?.companyId ?? null);
+  /* 取得済みの講座。講座一覧の札に「取得済」を出す
+     （この仕組みの修了証と、よそで取ったと本人が入れたもの） */
+  const held = await heldOf(me?.id ?? null);
   if (admin) {
     return NextResponse.json({
       ok: true,
@@ -39,6 +43,7 @@ export async function GET() {
       courses: readyCourses().length,
       company: admin.companyName,
       bills,
+      held,
     });
   }
   const [member, co] = await Promise.all([memberState(), myCompany()]);
@@ -58,6 +63,7 @@ export async function GET() {
     courses: readyCourses().length,
     company: co?.name ?? "",
     bills,
+    held,
   });
 }
 
@@ -83,6 +89,13 @@ async function whoOf(userId?: string | null): Promise<{ name: string; birth: str
   };
 }
 
+
+/** 取得済みの講座の id。Supabase が未設定・ログインが無ければ空 */
+async function heldOf(userId: string | null): Promise<string[]> {
+  const supabase = getServiceClient();
+  if (!supabase || !userId) return [];
+  return (await heldCourseIds(supabase, [userId])).get(userId) ?? [];
+}
 
 /** 届いている請求書。Supabase が未設定・ログインが無ければ空 */
 async function billsFor(userId: string | null, companyId: string | null) {

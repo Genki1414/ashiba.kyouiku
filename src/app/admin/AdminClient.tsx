@@ -709,7 +709,7 @@ export function AdminClient() {
             /* **いま見ている講座の席を、その場で配れる（0028）。**
                出すのは3つとも満たすときだけ
                  ・在籍している（辞めた人・申し込み中の人には渡せない）
-                 ・その講座をまだ持っていない（二重に渡さない）
+                 ・その講座をまだ持っていない（二重に渡さない。取得済みにも渡さない）
                  ・その講座の席が余っている
                ここで出し分けても、渡るかどうかは assign_seat が決める。
                画面の出し分けだけを頼りにしない */
@@ -721,7 +721,9 @@ export function AdminClient() {
               !r.left &&
               !r.pending &&
               (st.freeSeats[st.course.id] ?? 0) > 0 &&
-              ![...r.doing, ...r.done].some((c) => c.courseId === st.course!.id)
+              ![...r.doing, ...r.done].some((c) => c.courseId === st.course!.id) &&
+              /* よそで取ったと入れた資格も「取得済み」。取得済みの資格には配れない */
+              !r.held.some((h) => h.courseId === st.course!.id)
                 ? {
                     courseName: st.course.short,
                     run: async () => {

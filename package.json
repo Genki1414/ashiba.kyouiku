@@ -133,6 +133,7 @@
     "test:e2e:routes": "node tests/e2e-all-routes.mjs",
     "test:e2e:links": "node tests/e2e-links.mjs",
     "test:e2e:ordermulti": "node tests/e2e-order-multi.mjs",
+    "test:e2e:held": "node tests/e2e-held.mjs",
     "test:e2e:demo23": "node tests/e2e-demo23.mjs",
     "test:ch2": "tsx tests/ch2-rules.ts",
     "test:e2e:ch2": "node tests/e2e-ch2.mjs",

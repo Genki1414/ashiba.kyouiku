@@ -16,7 +16,9 @@
    ・送る中身が「講座と人数の並び」になっているか
    ・**絞り込みで隠れている選択を、見失わせないか**
      （絞ったまま押すと、画面に出ていない講座まで買うことになる）
-   ・何も選んでいないうちは押せないか */
+   ・何も選んでいないうちは押せないか
+   ・受講コードの一覧の「配る」で、**押したそのコード**が相手に送られるか（0031）
+   ・**取得済みの人は、配る相手として押せない**か */
 import { chromium } from "playwright-core";
 
 const BASE = process.env.BASE ?? "http://localhost:3100";
@@ -45,6 +47,8 @@ page.on("pageerror", (e) => { console.error("NG: pageerror", e.message); ng++; }
 
 /** 送られてきた申込みの中身 */
 let sent = null;
+/** 「配る」で送られた中身 */
+let given = null;
 
 await page.route("**/api/order", async (route) => {
   const req = route.request();
@@ -64,13 +68,33 @@ await page.route("**/api/order", async (route) => {
       company: "まとめ工業",
       unitPrice: 4500,
       orders: [],
-      seats: { total: 0, used: 0, paid: 0 },
-      codes: [],
+      seats: { total: 2, used: 1, paid: 2 },
+      /* 受講コードの一覧。未使用が1枚、使用済みが1枚 */
+      codes: [
+        { code: "EQ37-AB12-CD34", orderId: "o0", status: "paid", courseId: "ashiba",
+          usedBy: null, usedAt: null, expiresAt: "2027-09-09T00:00:00Z", certified: false },
+        { code: "EPB7-AB12-CD34", orderId: "o0", status: "paid", courseId: "ashiba",
+          usedBy: "使った 人", usedAt: "2026-09-01T00:00:00Z", expiresAt: "2027-09-09T00:00:00Z", certified: false },
+      ],
+      /* 在籍している人。2人目は足場を**取得済み**（配れない） */
+      members: [
+        { id: "u1", name: "配る 相手", held: [] },
+        { id: "u2", name: "持ってる 人", held: ["ashiba"] },
+      ],
       /* 届いている受講リクエストの数（講座ごと）。
          **並び順の見張りのため、上に出るはずのものを下の方に置いてある** */
       requests: { ishiwata: 2, x5: 4 },
       courses: COURSES,
     }),
+  });
+});
+/* 「配る」の口。受け取った中身だけ覚えて、渡ったことにする */
+await page.route("**/api/admin/assign", async (route) => {
+  given = JSON.parse(route.request().postData() ?? "{}");
+  return route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify({ ok: true, code: given.code ?? null }),
   });
 });
 /* カード払いが使えるかを聞きに行く。使えないことにする（請求書で見る） */
@@ -186,6 +210,41 @@ check(sent?.method === "invoice", "払い方が乗る");
 await page.waitForTimeout(300);
 check((await page.getByTestId("order-quote").count()) === 0, "送ったら選択が空に戻る");
 console.log("OK: 3講座をまとめて申し込める");
+
+/* ── 受講コードの一覧から、その人に配る（0031）── */
+{
+  const cards = page.getByTestId("order-code");
+  check((await cards.count()) === 2, `受講コードが並ぶ（${await cards.count()}）`);
+  /* 「配る」は未使用の札にだけ。使用済みには出ない */
+  const gives = page.getByTestId("order-code-give");
+  check((await gives.count()) === 1, `「配る」は未使用の札にだけ出る（${await gives.count()}）`);
+  await gives.first().click();
+  await page.waitForTimeout(120);
+  check((await page.getByTestId("order-code-give-to").count()) === 1, "押すと、誰に配るかを選ぶ所が開く");
+
+  /* **取得済みの人は押せない。**名前は出す（居ないと「あの人が無い」になる） */
+  const heldOpt = page.getByTestId("order-code-give-held");
+  check((await heldOpt.count()) === 1, "取得済みの人が1人いる");
+  check(await heldOpt.first().isDisabled(), "取得済みの人は押せない");
+  const heldText = (await heldOpt.first().innerText()).replace(/\s/g, "");
+  check(heldText.includes("取得済"), `取得済みだと分かる（${heldText}）`);
+
+  /* 選ぶまでは押せない */
+  check(await page.getByTestId("order-code-give-go").isDisabled(), "相手を選ぶまで押せない");
+  await page.getByTestId("order-code-give-select").selectOption("u1");
+  await page.waitForTimeout(80);
+  await page.getByTestId("order-code-give-go").click();
+  await page.waitForTimeout(400);
+
+  check(!!given, "配るが送られた");
+  /* **押したそのコード**が渡る。自動で別の1枚を選ばせない */
+  check(given?.code === "EQ37-AB12-CD34", `押したそのコードを送る（${given?.code}）`);
+  check(given?.userId === "u1" && given?.courseId === "ashiba", "誰に・どの講座かが乗る");
+  const note = (await page.getByTestId("order-code-note").innerText()).replace(/\s/g, "");
+  check(note.includes("配りました") && note.includes("配る相手"), `配ったことと相手が出る（${note.slice(0, 40)}）`);
+  check(note.includes("知らせ"), "本人に知らせが届くと出る");
+  console.log("OK: 受講コードを指して、その人に配れる（取得済みの人には配れない）");
+}
 
 /* ── 講座を渡されたら、それを選んだ状態で開く（導線）── */
 sent = null;

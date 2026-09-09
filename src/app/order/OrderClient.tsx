@@ -46,6 +46,8 @@ type Loaded = {
   seats: { total: number; used: number; paid: number };
   /** 講座ごとの受講リクエストの数。まだ対応していないもの */
   requests?: Record<string, number>;
+  /** 在籍している人。受講コードの一覧の「配る」で選ぶ */
+  members?: { id: string; name: string; held?: string[] }[];
   /* 受講コードの文字そのもの。これが無いと担当者は配れない */
   codes: Code[];
   /* 受講コードは1講座ぶん。どの講座を買うかを選ぶ */
@@ -103,6 +105,8 @@ export function OrderClient() {
            **ここで拾い忘れると、札が1つも出ない。**
            返す側にあっても、組み立て直すここで落ちる（2026-09-09） */
         requests: j.requests ?? {},
+        /* 配る相手。同じく、ここで拾わないと「配る」が1つも出ない */
+        members: Array.isArray(j.members) ? j.members : [],
       });
       setNg("");
     } catch {
@@ -261,7 +265,7 @@ export function OrderClient() {
       {note && <div className="mt-3 rounded-lg border border-yel bg-[#1A1F14] px-3.5 py-3 text-[12.5px] leading-relaxed text-yel">{note}</div>}
 
       {/* 買った受講コード。ここに文字が出ないと受講者に配れない */}
-      <CodeList codes={st.codes} courses={st.courses} onChange={load} />
+      <CodeList codes={st.codes} courses={st.courses} members={st.members ?? []} onChange={load} />
 
       {/* 申し込む */}
       <div className="mt-5 rounded-xl border border-line bg-panel p-4">
@@ -515,10 +519,13 @@ export function OrderClient() {
 function CodeList({
   codes,
   courses,
+  members,
   onChange,
 }: {
   codes: Code[];
   courses: CourseTab[];
+  /** 在籍している人。「配る」の相手。held はその人が取得済みの講座 */
+  members: { id: string; name: string; held?: string[] }[];
   onChange: () => Promise<void>;
 }) {
   const [open, setOpen] = useState(false);
@@ -526,6 +533,42 @@ function CodeList({
   /* 取り消しは戻せないので、二度押しにする */
   const [asking, setAsking] = useState<string>("");
   const [busy, setBusy] = useState<string>("");
+  /* 「配る」を開いているコード。1枚ずつ（同時に2枚開くと、誰にどれか混ざる） */
+  const [giving, setGiving] = useState<string>("");
+  const [giveTo, setGiveTo] = useState<string>("");
+
+  /* ── コードを指して、その人に配る（0031）──
+
+     前は名簿の側にしか「席を配る」が無く、講座ごとに空いている席から
+     自動で1枚選んでいた。ここ（受講コードの一覧）から配るときは、
+     **押したそのコードが渡る。**渡ったコードは画面にも残るので、
+     口頭で「EQ37 を渡した」と確かめられる。
+     受け取った本人には知らせが届き、押すとその講座が開く（コードは打たない） */
+  const give = async (c: Code) => {
+    if (!giveTo) { setDone("誰に配るかを選んでください。"); return; }
+    setBusy(c.code);
+    setDone("");
+    try {
+      const res = await fetch("/api/admin/assign", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ userId: giveTo, courseId: c.courseId, code: c.code }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok || !j.ok) {
+        setDone(j.reason ?? "配れませんでした。");
+        return;
+      }
+      const who = members.find((m) => m.id === giveTo)?.name ?? "その人";
+      const cs = courses.find((x) => x.id === c.courseId)?.short ?? "";
+      setDone(`${who}さんに${cs ? `${cs}の` : ""}受講コード ${showSeatCode(c.code)} を配りました。本人に知らせが届き、押すとそのまま開きます。`);
+      setGiving("");
+      setGiveTo("");
+      await onChange();
+    } finally {
+      setBusy("");
+    }
+  };
 
   const free = codes.filter((c) => !c.usedAt);
   const used = codes.filter((c) => c.usedAt);
@@ -584,11 +627,43 @@ function CodeList({
         {show.map((c) => (
           <div
             key={c.code}
-            className={`flex items-center gap-2 rounded-lg border px-3 py-2.5 ${
+            className={`flex flex-wrap items-center gap-2 rounded-lg border px-3 py-2.5 ${
               c.usedAt ? "border-line bg-bg" : "border-yel bg-[#1A1F14]"
             }`}
             data-testid="order-code"
           >
+            {/* 配る相手を選ぶ。札の中の下段いっぱいに出す（flex-wrap で折り返す） */}
+            {giving === c.code && !c.usedAt && (
+              <div className="order-last flex w-full items-center gap-2 border-t border-line pt-2" data-testid="order-code-give-to">
+                <select
+                  value={giveTo}
+                  onChange={(e) => setGiveTo(e.target.value)}
+                  className="min-w-0 flex-1 rounded-lg border border-line bg-bg px-2 py-2 text-[13px] text-txt"
+                  data-testid="order-code-give-select"
+                  aria-label="誰に配るか"
+                >
+                  <option value="">誰に配るか…</option>
+                  {members.map((m) => {
+                    /* **取得済みの資格には配れない。**外して見えなくすると
+                       「あの人が居ない」になるので、名前は出して押せなくする */
+                    const has = (m.held ?? []).includes(c.courseId);
+                    return (
+                      <option key={m.id} value={m.id} disabled={has} data-testid={has ? "order-code-give-held" : undefined}>
+                        {m.name}{has ? "（取得済）" : ""}
+                      </option>
+                    );
+                  })}
+                </select>
+                <button
+                  onClick={() => void give(c)}
+                  disabled={!giveTo || busy === c.code}
+                  className="shrink-0 rounded-lg border border-grn bg-grn px-3 py-2 text-[12px] font-bold text-bg disabled:opacity-50"
+                  data-testid="order-code-give-go"
+                >
+                  {busy === c.code ? "…" : "この人に配る"}
+                </button>
+              </div>
+            )}
             <div className="min-w-0 flex-1">
               <div
                 className={`font-mono text-[16px] font-black tracking-[2px] ${
@@ -611,13 +686,27 @@ function CodeList({
               </div>
             </div>
             {!c.usedAt ? (
-              <button
-                onClick={() => void copy(showSeatCode(c.code), "コード")}
-                className="shrink-0 rounded-lg border border-line px-2.5 py-1.5 text-[11px] text-dim"
-                data-testid="order-code-copy"
-              >
-                写す
-              </button>
+              <span className="flex shrink-0 items-center gap-1.5">
+                {/* 在籍者が居なければ「配る」は出さない。押しても選ぶ相手が無い */}
+                {members.length > 0 && (
+                  <button
+                    onClick={() => { setGiving(giving === c.code ? "" : c.code); setGiveTo(""); setDone(""); }}
+                    className={`rounded-lg border px-2.5 py-1.5 text-[11px] ${
+                      giving === c.code ? "border-grn bg-[#14201A] text-grn" : "border-grn text-grn"
+                    }`}
+                    data-testid="order-code-give"
+                  >
+                    配る
+                  </button>
+                )}
+                <button
+                  onClick={() => void copy(showSeatCode(c.code), "コード")}
+                  className="rounded-lg border border-line px-2.5 py-1.5 text-[11px] text-dim"
+                  data-testid="order-code-copy"
+                >
+                  写す
+                </button>
+              </span>
             ) : c.certified ? (
               /* 修了証を出した人の席は戻さない。戻すと席の無い修了証が残る */
               <span className="shrink-0 text-[10.5px] text-dim2">修了証あり</span>

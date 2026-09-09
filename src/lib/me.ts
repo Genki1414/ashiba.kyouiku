@@ -35,6 +35,8 @@ export type Me = {
   /** 届いている請求書（送ってあって、まだ払っていないもの） */
   bills?: { id: string; amount: number; invoicedAt: string }[];
   company: string;
+  /** 取得済みの講座（修了証が出ている・よそで取ったと入れた）。一覧の札に「取得済」を出す */
+  held?: string[];
 };
 
 const shape = (j: Record<string, unknown>): Me => ({
@@ -50,6 +52,7 @@ const shape = (j: Record<string, unknown>): Me => ({
   canLearn: j.canLearn !== false,
   bills: Array.isArray(j.bills) ? j.bills : [],
   company: (j.company as string) ?? "",
+  held: Array.isArray(j.held) ? (j.held as unknown[]).filter((x): x is string => typeof x === "string") : [],
 });
 
 /** 前に聞いた答え。無ければ null */

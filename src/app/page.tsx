@@ -7,6 +7,7 @@ import { FirstSteps } from "@/components/FirstSteps";
 import { Notices } from "@/components/Notices";
 import { OtherTokubetsu } from "@/components/OtherTokubetsu";
 import { CourseDrawer } from "@/components/CourseDrawer";
+import { HeldMark } from "@/components/HeldMark";
 import { tokubetsuOfCourse } from "@/content/tokubetsu";
 import { BRAND } from "@/content/brand";
 
@@ -91,8 +92,10 @@ export default async function Home() {
           >
             {/* 札は講座の種類から出す。決め打ちにすると、
                職長教育に「特別教育」と書いた札が付く */}
-            <div className="text-[11px] font-extrabold tracking-widest text-yel">
+            <div className="flex items-center text-[11px] font-extrabold tracking-widest text-yel">
               {textOf(c).label}
+              {/* 持っている講座には「取得済」（/edu の札と同じ印） */}
+              <HeldMark courseId={c.id} />
             </div>
             <div className="mt-1 text-[17px] font-black leading-snug text-txt">{c.name}</div>
             <div className="mt-2 text-[12px] leading-relaxed text-dim">

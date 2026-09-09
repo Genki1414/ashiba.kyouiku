@@ -126,6 +126,7 @@ console.log("\n── 返事のたびに残す ──");
     { p: "src/app/api/owner/issue/route.ts", k: "room", why: "討議の入り口が決まった" },
     { p: "src/app/api/owner/issue/route.ts", k: "pass", why: "討議・実技を通した" },
     { p: "src/app/api/owner/issue/route.ts", k: "issue_ng", why: "発行申請を断った" },
+    { p: "src/app/api/admin/assign/route.ts", k: "given", why: "受講コードを配った（本人に）" },
   ];
   for (const w of want) {
     const c = code(w.p);

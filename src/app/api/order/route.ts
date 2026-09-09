@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase/server";
 import { currentAdmin } from "@/lib/admin";
 import { listSeats, seatCounts } from "@/lib/seats";
+import { heldCourseIds } from "@/lib/held";
 import { findCourse, readyCourses } from "@/content/courses";
 import { dueDate, quote } from "@/lib/pricing";
 import { unitPrice } from "@/lib/price.server";
@@ -63,6 +64,30 @@ export async function GET() {
     if (cid) requests[cid] = (requests[cid] ?? 0) + 1;
   }
 
+  /* ── 在籍している人（受講コードの一覧から「配る」相手を選ぶため）──
+     承認済みで、辞めていない人だけ。よその人・辞めた人には配れない
+     （assign_seat も同じことを見るが、そもそも選べない方がよい） */
+  const { data: mems } = await supabase
+    .from("memberships")
+    .select("user_id")
+    .eq("company_id", admin.companyId)
+    .not("approved_at", "is", null)
+    .is("left_at", null);
+  const memberIds = [...new Set((mems ?? []).map((m) => m.user_id as string).filter(Boolean))];
+  const { data: us } = memberIds.length
+    ? await supabase.from("users").select("id, name").in("id", memberIds)
+    : { data: [] as { id: string; name: string | null }[] };
+  /* 取得済みの講座。**取得済みの資格には配れない**ので、「配る」の相手から外す
+     （選べても assign が断るが、断られてから気づくより、先に分かる方がよい） */
+  const heldBy = await heldCourseIds(supabase, memberIds);
+  const members = (us ?? [])
+    .map((u) => ({
+      id: u.id as string,
+      name: ((u.name as string) ?? "").trim() || "（氏名未登録）",
+      held: heldBy.get(u.id as string) ?? [],
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name, "ja"));
+
   const ids = (orders ?? []).map((o) => o.id as string);
   const counts = await seatCounts(supabase, ids);
   const paidIds = (orders ?? []).filter((o) => o.status === "paid").map((o) => o.id as string);
@@ -91,6 +116,8 @@ export async function GET() {
     /* 講座ごとの「受けたいと送られている数」。
        0の講座は入れない（画面で 0件 と出しても意味が無い） */
     requests,
+    /* 在籍している人。受講コードの一覧の「配る」で選ぶ */
+    members,
     /* 受講コードは講座ごと。どれを買うかを選んでもらう。
        単価もここで一緒に返す（画面では計算しない） */
     courses: readyCourses().map((c) => ({
