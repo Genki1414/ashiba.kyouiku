@@ -2,25 +2,32 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 /* 受講してよい人かどうかの判断。
 
-   この教材は売り物。受講コード（席）を引き換えた人だけが、
-   学科（特別教育）を開ける。実務トレーニングは別の売り物で、
+   この教材は売り物。**その講座の受講コード（席）を引き換えた人だけ**が、
+   その講座の学科を開ける。実務トレーニングは別の売り物で、
    決まりは src/lib/trainingGate.ts にある（第1章は誰でも）。
    画面の出し分けではなく、サーバでここを通してから中身を作る。
    通さないと、登録しただけの人に教材が全部見えてしまう。
 
-   通すのは、
-   ・受講コードを引き換えた人（seats.used_by が自分）
-   ・無償利用の事業者に**在籍している**人（companies.trial）
-     … 試用・社内利用。運営が本部の画面で立てる。
-     在籍とは「申し込みが許可されていて、まだ抜けていない」こと。
-     申し込んだだけの人は通さない。通すと、無償利用の会社の名前を
-     探して申し込むだけで、誰でも教材が開けてしまう。
-     無償利用を切れば、その場で通らなくなる（「無償利用中のみ」）
+   ── 席は「講座ごと」（2026-09-09）──
+   げんきさん「有償利用に切り替えてもどんな講座でも受けれてしまう」。
+
+   前は「席が1枚でもあれば通す」だった。席に講座が書いていないので
+   （seats には order_id しかない）、そこで止めていた。
+   だから**足場の受講コードを1枚持っているだけで、73講座すべてが開いた。**
+   1講座ぶんの代金で全部見られる、ということ。
+
+   席の講座は、注文（orders.course_id）が持っている。
+   席 → 注文 とたどって、**その講座のものか**を見る。
+
+   ── 無償利用は撤廃した（2026-09-09）──
+   げんきさん「無償利用は撤廃する」。
+   companies.trial で会社ごとに無料にする仕組みがあったが、やめた。
+   下見をさせたい相手にも、受講コードを配る形にそろえる。
+   （列は残してある。過去に立てた記録を消さないため。**もう見ない**）
 
    教育担当者だからといって通さない。
    登録すれば誰でも自分の事業者を作って担当者になれるので、
    そこを通すと「登録すればタダで見られる」のと同じになる。
-   下見をさせたい相手には、運営が無償利用を立てる。
 
    参加コード（8文字）は名簿に入るだけのもの。これでは受講できない。
 
@@ -28,14 +35,23 @@ import type { SupabaseClient } from "@supabase/supabase-js";
    分けておくと、本物のスキーマに当てて確かめられる（tests/admin-db.mts）。 */
 
 export type Learn =
-  | { ok: true; by: "seat" | "trial" | "open" }
+  | { ok: true; by: "seat" | "open" }
   /* why: signin=ログインが無い／seat=受講コードを引き換えていない */
   | { ok: false; why: "signin" | "seat"; company: string };
 
-export async function learnFor(supabase: SupabaseClient, userId: string): Promise<Learn> {
-  /* いま在籍している会社。許可の下りた紐付けで見る。
-     users.company_id は控えなので、そちらは後ろに置く。
-     控えだけで見ると、紐付けの決まりを直したときに食い違う */
+/** 受講してよいか。
+
+    @param courseId その講座の席を見る。**省くと「どれか1講座でも
+                    持っているか」**になる（ホームの案内など、
+                    講座が決まっていない場所だけで使うこと）。
+                    教材そのものを出す所では、必ず講座を渡す。 */
+export async function learnFor(
+  supabase: SupabaseClient,
+  userId: string,
+  courseId?: string,
+): Promise<Learn> {
+  /* 画面に出す所属の名前。断り文に「◯◯の教育担当者に聞いてください」と
+     出すために使う。**これで受講を通してはいけない** */
   const { data: mem } = await supabase
     .from("memberships")
     .select("company_id")
@@ -45,17 +61,7 @@ export async function learnFor(supabase: SupabaseClient, userId: string): Promis
     .limit(1)
     .maybeSingle();
 
-  /* 在籍している会社。無償利用を通してよいのは、こちらだけ */
-  const memberOf = (mem?.company_id as string | null) ?? null;
-
-  /* 画面に出す所属。在籍が無くても、控え（users.company_id）で名前は出す。
-     ただし**これで無償利用を通してはいけない**。
-     新しく登録した人は、事業者が1社しかないとその会社の company_id が
-     自動で入る（0007 handle_new_user）。控えで通していたので、
-     まったく知らない人が登録しただけで、無償利用の会社の教材が
-     全部開いていた。「紐付けされたユーザーは全て無料」の紐付けとは、
-     許可の下りた在籍のこと。 */
-  let companyId = memberOf;
+  let companyId = (mem?.company_id as string | null) ?? null;
   if (!companyId) {
     const { data: me } = await supabase
       .from("users")
@@ -69,22 +75,37 @@ export async function learnFor(supabase: SupabaseClient, userId: string): Promis
   if (companyId) {
     const { data: co } = await supabase
       .from("companies")
-      .select("name, trial")
+      .select("name")
       .eq("id", companyId)
       .maybeSingle();
     company = (co?.name as string) ?? "";
-    if (co?.trial && companyId === memberOf) return { ok: true, by: "trial" };
   }
 
-  /* 引き換えた席が1枚でもあれば受講できる。
-     期限は引き換えのときに DB（redeem_seat）が見ている */
-  const { data: seat } = await supabase
+  /* 引き換えた席。**期限は引き換えのときに DB（redeem_seat）が見ている** */
+  const { data: seats } = await supabase
     .from("seats")
+    .select("id, order_id")
+    .eq("used_by", userId);
+
+  const orderIds = (seats ?? [])
+    .map((s) => (s.order_id as string | null) ?? "")
+    .filter(Boolean);
+  if (orderIds.length === 0) return { ok: false, why: "seat", company };
+
+  /* 講座を指していなければ、1枚でもあれば通す（ホームの案内など） */
+  const want = (courseId ?? "").trim();
+  if (!want) return { ok: true, by: "seat" };
+
+  /* **その講座の席か。**席には講座が書いていないので、注文まで見る。
+     ここを省いていたのが「どの講座でも開く」の正体 */
+  const { data: hit } = await supabase
+    .from("orders")
     .select("id")
-    .eq("used_by", userId)
+    .in("id", orderIds)
+    .eq("course_id", want)
     .limit(1)
     .maybeSingle();
-  if (seat?.id) return { ok: true, by: "seat" };
 
+  if (hit?.id) return { ok: true, by: "seat" };
   return { ok: false, why: "seat", company };
 }

@@ -48,8 +48,10 @@ const unsafe = () =>
 export async function GET(req: NextRequest) {
   if (UNSAFE) return unsafe();
   const courseId = req.nextUrl.searchParams.get("courseId") ?? "";
-  /* 出題も売り物のうち。受講コードの無い人には出さない */
-  const may = await canLearn();
+  /* 出題も売り物のうち。**その講座の**受講コードが無い人には出さない
+     （げんきさん 2026-09-09。渡していなかったので、よその講座の
+       修了試験まで受けられた） */
+  const may = await canLearn(courseId);
   if (!may.ok) {
     return NextResponse.json({ error: "受講コードが要ります" }, { status: 403 });
   }

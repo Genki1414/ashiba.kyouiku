@@ -2,7 +2,6 @@ import { notFound } from "next/navigation";
 import { canTrain } from "@/lib/training";
 import { BRAND } from "@/content/brand";
 import { NeedTrain } from "@/components/NeedTrain";
-import { TrialNote } from "@/components/TrialNote";
 
 /* 毎回サーバで見張る。作り置き（静的生成）にすると、
    出来上がった中身が、誰にでもそのまま返ってしまう */
@@ -28,10 +27,5 @@ export default async function TrainingLayout({ children }: { children: React.Rea
   const may = await canTrain();
   /* ログインしていない人だけ、ここで止める */
   if (!may.ok && may.why === "signin") return <NeedTrain why="signin" />;
-  return (
-    <>
-      {may.ok && may.by === "trial" && <TrialNote />}
-      {children}
-    </>
-  );
+  return <>{children}</>;
 }

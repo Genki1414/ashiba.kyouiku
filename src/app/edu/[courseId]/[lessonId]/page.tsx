@@ -15,12 +15,15 @@ export default async function LessonPage({
 }: {
   params: Promise<{ courseId: string; lessonId: string }>;
 }) {
+  const { courseId, lessonId } = await params;
+
   /* 教材の本文を作る前に、もう一度見張る。
-     上の layout でも見ているが、ここが売り物そのものなので二重にする */
-  const may = await canLearn();
+     上の layout でも見ているが、ここが売り物そのものなので二重にする。
+     **必ず講座を渡す。**渡さないと「1枚でも持っていれば通す」になり、
+     よその講座の教材が開く（げんきさん 2026-09-09） */
+  const may = await canLearn(courseId);
   if (!may.ok) return <NeedSeat why={may.why} company={may.company} />;
 
-  const { courseId, lessonId } = await params;
   const found = await getLesson(courseId, lessonId);
   if (!found) notFound();
 

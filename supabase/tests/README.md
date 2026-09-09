@@ -342,3 +342,17 @@ NOTICE で `expected: …` が5つ出れば通過。
 | ③ | 店が違えば、同じ字の番号でも別物として入る |
 | ④ | 1人につき、1店1行 |
 | ⑤ | 人を消したら、紐付けも消える |
+
+---
+
+## 無償利用の抜け道が塞がっているか（no-trial.sql）
+
+```sh
+psql -v ON_ERROR_STOP=1 \
+  -f supabase/tests/00-supabase-shim.sql \
+  -f supabase/apply-all.sql \
+  -f supabase/tests/no-trial.sql
+```
+
+`companies.trial` を立てた会社の人でも、**席が無ければ修了証は出ない**こと。
+画面側で無償利用を見なくしても、データベースに抜け道が残っていた（0035 で塞いだ）。

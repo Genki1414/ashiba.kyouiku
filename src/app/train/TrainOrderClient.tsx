@@ -107,7 +107,6 @@ export function TrainOrderClient() {
         <h1 className="mt-2 text-[18px] font-black">もう開いています</h1>
         <p className="mt-2 text-[13px] leading-relaxed text-dim" data-testid="train-already">
           第2章から先は、いま使えます。
-          {st.by === "trial" ? "（会社が無償利用の事業者のため）" : ""}
         </p>
         <Link
           href="/training"

@@ -266,7 +266,9 @@ console.log("── 実務トレーニングの関門 ──");
   const gate = read("src/lib/trainingGate.ts");
   check(/FREE_CHAPTERS = \["ch1"\]/.test(gate), "誰でも遊べるのは第1章だけ");
   check(/training_access/.test(gate), "利用権を見る");
-  check(/approved_at/.test(gate), "無償利用は在籍で見る（申し込んだだけは通さない）");
+  /* 無償利用は撤廃した（げんきさん 2026-09-09「無償利用は撤廃する」）。
+     会社ごとに無料にする道が残っていると、切り忘れに気づけない */
+  check(!/trial/.test(strip(gate)), "実務トレーニングは、無償利用で通さない");
 
   /* 学科とは別の売り物。席では開かない */
   check(!/seats/.test(gate), "学科の席では開かない（別の売り物）");
@@ -701,12 +703,6 @@ console.log("── 無償利用の切り替え ──");
      学科を開けなくなり、受講中の人もその場で止まる。
      試しに切り替えて戻し忘れると、現場が止まる */
   const led = read("src/app/owner/LedgerClient.tsx");
-  check(/owner-trial-ask/.test(led), "切り替える前に確認を出す");
-  check(/owner-trial-yes/.test(led), "確認のうえで押す所が分かれている");
-  check(/setAsk\(ask === c\.id \? null : c\.id\)/.test(led),
-    "札を押しただけでは切り替わらない");
-  check(/c\.active/.test(strip(led)) && /受講コードを引き換えていないと/.test(led),
-    "何人が影響を受けるかを出す");
 
   /* 切り替えられるのは本部だけ。担当者が自分の会社を無償にできたら
      いくらでもタダで使える */
@@ -825,8 +821,10 @@ console.log("── 担当者と無償利用の穴 ──");
      company_id が入る（0007）。控えで無償利用を通していたので、
      知らない人が登録しただけで教材が全部開いていた */
   const ent = read("src/lib/entitleQuery.ts");
-  check(/companyId === memberOf/.test(ent),
-    "無償利用は、許可の下りた在籍のときだけ通す（控えでは通さない）");
+  /* 無償利用は撤廃した。会社ごとに無料にする道は残さない
+     （げんきさん 2026-09-09） */
+  check(!/trial/.test(strip(ent)),
+    "学科は、無償利用で通さない");
 
   /* 取り消した注文を、あとから入金にできてしまっていた */
   const owner = read("src/app/api/owner/orders/route.ts");

@@ -21,7 +21,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 export type TrainMay =
   /* 第2章から先も使える。by は根拠（画面に出す言い方を変えるため） */
-  | { ok: true; by: "paid" | "trial" | "open" }
+  | { ok: true; by: "paid" | "open" }
   /* 第1章だけ。why=free は「まだ買っていない」 */
   | { ok: false; why: "free" | "signin" };
 
@@ -42,26 +42,10 @@ export async function trainFor(
     .maybeSingle();
   if (got?.user_id) return { ok: true, by: "paid" };
 
-  /* 無償利用の事業者に在籍していれば、利用権が無くても全部使える。
-     在籍で見る（申し込んだだけの人は通さない）。
-     会社の名前は誰でも探せるので、申し込むだけで通ると意味が無くなる */
-  const { data: mem } = await supabase
-    .from("memberships")
-    .select("company_id")
-    .eq("user_id", userId)
-    .not("approved_at", "is", null)
-    .is("left_at", null)
-    .limit(1)
-    .maybeSingle();
-  const companyId = (mem?.company_id as string | null) ?? null;
-  if (companyId) {
-    const { data: co } = await supabase
-      .from("companies")
-      .select("trial")
-      .eq("id", companyId)
-      .maybeSingle();
-    if (co?.trial) return { ok: true, by: "trial" };
-  }
+  /* ── 無償利用は撤廃した（げんきさん 2026-09-09「無償利用は撤廃する」）──
+     前は、無償利用の事業者に在籍していれば利用権が無くても全部使えた。
+     下見をさせたい相手にも、いまは利用権を付ける形にそろえる。
+     companies.trial の列は残してあるが、**もう見ない**。 */
 
   return { ok: false, why: "free" };
 }

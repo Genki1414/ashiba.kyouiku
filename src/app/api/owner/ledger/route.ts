@@ -43,7 +43,7 @@ async function all(supabase: NonNullable<ReturnType<typeof getServiceClient>>) {
      事業者が1社も無いのと、読めないのとを同じ見え方にしない */
   const { data: cos, error: cosErr } = await supabase
     .from("companies")
-    .select("id, name, trial, join_code, created_at")
+    .select("id, name, join_code, created_at")
     .order("created_at");
   if (cosErr) {
     return NextResponse.json(
@@ -116,7 +116,6 @@ async function all(supabase: NonNullable<ReturnType<typeof getServiceClient>>) {
   const rows = companies.map((c) => ({
     id: c.id as string,
     name: (c.name as string) ?? "",
-    trial: c.trial === true,
     joinCode: (c.join_code as string) ?? "",
     createdAt: c.created_at as string,
     ...(acc.get(c.id as string) ?? zero()),
@@ -136,7 +135,6 @@ async function all(supabase: NonNullable<ReturnType<typeof getServiceClient>>) {
       /* 登録はしたが、まだどこの事業者にも入っていない人 */
       loose: Math.max(0, (users ?? 0) - linked),
       linked,
-      trial: rows.filter((r) => r.trial).length,
       learners: rows.reduce((n, r) => n + r.learners, 0),
       certs: rows.reduce((n, r) => n + r.certs, 0),
       sales: rows.reduce((n, r) => n + r.sales, 0),
@@ -151,7 +149,7 @@ async function one(
 ) {
   const { data: co } = await supabase
     .from("companies")
-    .select("id, name, trial, join_code, created_at")
+    .select("id, name, join_code, created_at")
     .eq("id", companyId)
     .maybeSingle();
   if (!co) {
@@ -167,7 +165,6 @@ async function one(
     company: {
       id: co.id as string,
       name: (co.name as string) ?? "",
-      trial: co.trial === true,
       joinCode: (co.join_code as string) ?? "",
       createdAt: co.created_at as string,
     },

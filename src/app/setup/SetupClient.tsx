@@ -77,7 +77,6 @@ const CHECK_LABEL: Record<string, string> = {
    ここが分からないと直しようがない */
 const LEARN_BY: Record<string, string> = {
   seat: "受講コードを引き換えている",
-  trial: "無償利用の事業者",
   open: "Supabase 未設定なので素通し",
 };
 

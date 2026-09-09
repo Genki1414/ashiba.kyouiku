@@ -87,7 +87,7 @@ export async function GET() {
     /* いまの所属。空なら、どこの事業者にも紐付いていない */
     company: co?.name ?? "",
     /* 学科（特別教育）を開けるか、その根拠
-       seat=受講コードを引き換えた／trial=無償利用の事業者／
+       seat=その講座の受講コードを引き換えた／
        open=Supabase 未設定（手元で動かすとき） */
     canLearn: learn.ok,
     learnBy: learn.ok ? learn.by : `だめ（${learn.why}）`,

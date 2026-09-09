@@ -42,7 +42,7 @@ const closed = () =>
 export async function POST(req: NextRequest) {
   if (!BRAND.training) return closed();
   const supabase = getServiceClient();
-  const who = supabase ? await currentEnrollment(TRAINING_COURSE) : null;
+  const who = supabase ? await currentEnrollment(TRAINING_COURSE, { requireSeat: false }) : null;
   if (!supabase || !who) {
     return NextResponse.json({ ok: true, mode: "local" });
   }

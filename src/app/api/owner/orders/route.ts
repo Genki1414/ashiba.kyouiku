@@ -79,7 +79,7 @@ export async function GET() {
      席は注文で絞る。絞らないと、売れば売るほど全件を読むことになる */
   const [{ data: cos }, { data: seats }, { data: us }] = await Promise.all([
     ids.length
-      ? supabase.from("companies").select("id, name, trial").in("id", ids)
+      ? supabase.from("companies").select("id, name").in("id", ids)
       : Promise.resolve({ data: [] as Record<string, unknown>[] }),
     orderIds.length
       ? supabase.from("seats").select("order_id, used_by").in("order_id", orderIds)
@@ -204,7 +204,7 @@ export async function GET() {
 type Body =
   | { action: "paid"; orderId: string }
   | { action: "cancel"; orderId: string }
-  | { action: "trial"; companyId: string; trial: boolean };
+  ;
 
 export async function POST(req: NextRequest) {
   const supabase = getServiceClient();
@@ -218,14 +218,6 @@ export async function POST(req: NextRequest) {
 
   const b = (await req.json().catch(() => ({}))) as Partial<Body>;
 
-  if (b.action === "trial" && "companyId" in b && b.companyId) {
-    const { error } = await supabase
-      .from("companies")
-      .update({ trial: b.trial === true })
-      .eq("id", b.companyId);
-    if (error) return NextResponse.json({ ok: false, reason: error.message }, { status: 500 });
-    return NextResponse.json({ ok: true });
-  }
 
   const id = ("orderId" in b ? b.orderId : "") ?? "";
   if (!id) {
