@@ -127,13 +127,16 @@ console.log("── 本人への知らせ（docs/106）──");
 
   /* 本文の作りは、画面のお知らせと同じ言い方（DEFS を使い回す） */
   const t = noticeLine({ kind: "given", courseId: "ashiba" }, "https://example.com/", "特別教育ドットコム");
-  check(t.startsWith("【特別教育ドットコム】受講コードが届きました"), "店の名前と見出しが先頭に出る");
+  /* 運営あての知らせと同じトークに並ぶので、向きが分かる1行を足す
+     （げんきさん 2026-09-09「ユーザー宛の送信は『運営からのお知らせ』と
+       表示させて。こんがらがる」） */
+  check(t.startsWith("【特別教育ドットコム】運営からのお知らせ\n受講コードが届きました"), "誰からの知らせかが1行目に出る");
   check(t.includes("https://example.com/edu/ashiba"), "開く場所が入る（末尾の / は重ねない）");
   check(noticeLine({ kind: "なにこれ" }, "https://example.com", "店") === "", "知らない種類は送らない");
 
   /* **本部が書いた一言は送らない。**断った理由に名前が入りうる */
   const ng = noticeLine({ kind: "member_ng" }, "https://example.com", "店");
-  check(!/note/.test(ng) && ng.split("\n").length === 4, "本文は見出し・次にやること・行き先だけ");
+  check(!/note/.test(ng) && ng.split("\n").length === 5, "本文は向き・見出し・次にやること・行き先だけ");
 
   const server = read("src/lib/lineBot.server.ts");
   check(/AbortSignal\.timeout\(3000\)/.test(server), "3秒で諦める（元の操作を待たせない）");

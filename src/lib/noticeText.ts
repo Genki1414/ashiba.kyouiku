@@ -126,7 +126,19 @@ export function noticeView(n: { kind: string; courseId?: string | null; note?: s
    人の名前を流さない（src/lib/notifyText.ts と同じ考え）。
    理由は、開いた先の画面に出る。
 
-   ロック画面に出るのは見出しだけなので、見出しに人の名前を入れない。 */
+   ロック画面に出るのは見出しだけなので、見出しに人の名前を入れない。
+
+   ── なぜ「運営からのお知らせ」と書くか ──
+   げんきさん（2026-09-09）
+     「ユーザー宛の送信は『運営からのお知らせ』と表示させて。こんがらがる」
+
+   同じ公式アカウントから、**向きの違う2種類**が同じトークに届く。
+     ・運営あて … 「受講コードの申込が1件」（src/lib/notifyText.ts）
+     ・本人あて … 「受講コードが届きました」（ここ）
+   運営を兼ねている人には、どちらも同じ店の名前で並ぶので見分けがつかない。
+   本人あてのほうに1行足して、開く前に分かるようにする。 */
+export const NOTICE_LINE_HEAD = "運営からのお知らせ";
+
 export function noticeLine(
   n: { kind: string; courseId?: string | null },
   site: string,
@@ -135,7 +147,13 @@ export function noticeLine(
   const d = DEFS[n.kind as NoticeKind];
   if (!d) return "";
   const base = site.replace(/\/+$/, "");
-  return [`【${prefix}】${d.t}`, d.d, "", `${base}${d.href((n.courseId ?? "").trim())}`].join("\n");
+  return [
+    `【${prefix}】${NOTICE_LINE_HEAD}`,
+    d.t,
+    d.d,
+    "",
+    `${base}${d.href((n.courseId ?? "").trim())}`,
+  ].join("\n");
 }
 
 /** その字が知らせの種類か */
