@@ -65,7 +65,7 @@ console.log("\n── 道のりの中身 ──");
   const all = s.map((x) => x.t).join("／");
   check(s.length >= 6, "修了証まで並べる", all);
   check(all.includes("修了証"), "終わりが修了証だと分かる");
-  check(s.some((x) => x.t.includes("許可")), "許可を待つ段がある");
+  check(s.some((x) => x.t.includes("承認")), "承認を待つ段がある");
   /* ここを飛ばして「開かない」と詰まるのが、いちばん多い所 */
   check(
     s.some((x) => x.d.includes("名簿")),
@@ -86,9 +86,10 @@ console.log("\n── 担当者の道のり ──");
   const a = adminSteps(who({ admin: true, company: "東北三上機材株式会社" }));
   check(a[0].d.includes("東北三上機材株式会社"), "自社の名前が出る", a[0].d);
   check(a.filter((x) => x.state === "now").length === 1, "いまやることは1つだけ");
-  /* 許可を出し忘れると、受講者の教材が開かない。いちばん忘れられる所 */
-  const approve = a.find((x) => x.t.includes("許可"));
-  check(!!approve, "申し込みを許可する段がある");
+  /* 承認を忘れると、受講者の教材が開かない。いちばん忘れられる所
+     （2026-09-09 に「許可」から「承認」に言い方をそろえた） */
+  const approve = a.find((x) => x.t.includes("承認"));
+  check(!!approve, "申し込みを承認する段がある");
   check(!!approve && approve.d.includes("開きません"), "忘れるとどうなるかを書く", approve?.d);
   check(a.some((x) => x.t.includes("受講コード")), "受講コードを申し込む段がある");
   check(a.some((x) => x.d.includes("8文字")), "参加コードは8文字だと書く");

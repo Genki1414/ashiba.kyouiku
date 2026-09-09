@@ -295,7 +295,7 @@ export function LoginClient() {
           data-testid="login-forgot"
           className="mt-6 text-[12px] text-cyan underline"
         >
-          合言葉を忘れた
+          パスワードを忘れた
         </button>
       ) : (
         <button
