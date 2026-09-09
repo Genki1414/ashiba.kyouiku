@@ -1315,6 +1315,19 @@ console.log("── 下の行き先と、お知らせの出し方 ──");
      「教育担当者が1人しか居ない場合には外すが出来ないようにする」
      「外す、担当者にするをタップした場合には
        確認画面表示→完了表示 ポップアップで」 */
+  /* ── 受講コードの枚数（げんきさん 2026-09-10）──
+     「配ってないコードが3件とあるが、未使用は15件ある」
+     1講座に絞って数えていたのが原因。会社ぶん全部で数える */
+  const sum = read("src/app/api/admin/summary/route.ts");
+  check(/paidAll/.test(sum), "入金済みは、会社ぶん全部の注文で見る");
+  check(/wallet/.test(sum), "枚数は allOrders から数える");
+  check(/seats: \{ paid: wallet\.paid, used: wallet\.used, free: wallet\.free \}/.test(sum),
+    "買った・配った・残りの3つを返す");
+  const ad = read("src/app/admin/AdminClient.tsx");
+  check(/st\.seats\.free/.test(ad), "残り枚数を出す");
+  check(/admin-give/.test(ad), "残りがあれば、配る所へ飛べる");
+  check(/admin-drills-open/.test(ad), "実技の案内は畳んで出す");
+
   const card = read("src/app/admin/LearnerCard.tsx");
   check(/canDropAdmin/.test(card), "1人しか居ないときは、外す所を出さない");
   check(/admin-role-last/.test(card), "外せない理由を、その場に書く");
@@ -1346,6 +1359,18 @@ console.log("── 下の行き先と、お知らせの出し方 ──");
        システムで取得した資格はここからも修了証が出せる」
      「取得済みの資格は閉じておく。展開式にする」 */
   check(!/取得済みのため受講不要/.test(strip(me)), "「受講不要」の札は出さない");
+
+  /* ── 受講の欄には、取得済みを出さない（げんきさん 2026-09-10）──
+     「取得済みなのに『続きから受講』と表示されてる」 */
+  check(/!held\.has\(c\.courseId\)/.test(me), "外部で取得したものも、受講の欄に出さない");
+  /* ホーム画面のアプリの枠は、ログイン後のポップアップに移した */
+  check(!/me-handoff/.test(me), "マイページに、コードを作る枠は置かない");
+  /* どのLINEと繋がっているか（0037） */
+  check(/st\.lineName/.test(me), "繋がっているLINEの名前を出す");
+  const my = read("src/app/api/mypage/route.ts");
+  check(/lineName/.test(my), "表示名を返す");
+  const bot = read("src/lib/lineBot.server.ts");
+  check(/display_name/.test(bot), "結ぶときに表示名も残す");
 
   const hq = read("src/app/me/HeldQuals.tsx");
   check(/<details/.test(hq), "取得済みの資格は畳んで出す（展開式）");

@@ -54,7 +54,8 @@ type Loaded =
       kind: "ok";
       company: string;
       joinCode: string;
-      seats: { total: number; used: number; paid: number };
+      /** 会社ぶん全部の枚数。paid=買った／used=配った／free=まだ配れる */
+      seats: { paid: number; used: number; free: number };
       rows: PersonRow[];
       totals: Totals;
       /* いま見ている講座と、切り替えられる講座 */
@@ -289,8 +290,14 @@ export function AdminClient() {
           選ぶのをやめて、**買った講座の残数をそのまま並べる。**
           配る講座は、配るときに選ぶ（LearnerCard） */}
       {!!freeList.length && (
-        <div className="mx-5 mb-3 rounded-xl border border-line bg-panel p-3.5" data-testid="admin-free-list">
-          <div className="mb-1 text-[11px] tracking-[2px] text-dim">配れる受講コード</div>
+        <div
+          id="codes"
+          className="mx-5 mb-3 scroll-mt-4 rounded-xl border border-line bg-panel p-3.5"
+          data-testid="admin-free-list"
+        >
+          <div className="mb-1 text-[11px] tracking-[2px] text-dim">
+            まだ配っていない受講コード
+          </div>
           <div className="grid gap-0.5">
             {freeList.map((c) => (
               <div key={c.id} className="flex items-baseline text-[12.5px]">
@@ -300,29 +307,48 @@ export function AdminClient() {
             ))}
           </div>
           <div className="mt-1.5 text-[11.5px] leading-relaxed text-dim2">
-            名簿の各人から、コードを打たせずに配れます。
+            下の名簿で、配りたい方の
+            <span className="text-dim">「受講コードを配る」</span>
+            を押してください。コードを打たせずに渡せます。
           </div>
         </div>
       )}
 
-      {/* 実技のある講座（高所作業車）。実技は**この会社が**行う。
-          担当者がここを見ないと、学科を終えた人が止まったままになる */}
-      {drills.map(({ c, min }) => (
-        <Link
-          key={c.id}
-          href={`/edu/${c.id}/drill`}
-          data-testid="admin-go-drill"
-          className="mx-5 mb-3 block rounded-xl border border-cyan bg-panel p-3.5 no-underline"
-        >
-          <div className="text-[13px] font-extrabold text-txt">
-            「{c.short}」の実技{hoursText(min)}は、御社で行います
+      {/* ── 実技のある講座は畳む（げんきさん 2026-09-10）──
+          「実技科目が必要な講座情報は折り畳んでおく」
+
+          実技は**この会社が**行う。担当者がここを見ないと、学科を終えた人が
+          止まったままになる。ただ、買った講座が増えるほど札が積み上がり、
+          **名簿が下へ押し下げられる。**件数は畳んだままでも見える。 */}
+      {!!drills.length && (
+        <details className="mx-5 mb-3 rounded-xl border border-cyan bg-panel" data-testid="admin-drills">
+          <summary
+            className="cursor-pointer list-none p-3.5 text-[13px] font-extrabold text-txt"
+            data-testid="admin-drills-open"
+          >
+            御社で行う実技　{drills.length}件
+            <span className="ml-2 text-[11px] font-normal text-dim2">（押すと開きます）</span>
+          </summary>
+          <div className="grid gap-2 border-t border-line p-3">
+            {drills.map(({ c, min }) => (
+              <Link
+                key={c.id}
+                href={`/edu/${c.id}/drill`}
+                data-testid="admin-go-drill"
+                className="block rounded-lg border border-line p-3 no-underline"
+              >
+                <div className="text-[13px] font-extrabold text-txt">
+                  「{c.short}」の実技{hoursText(min)}
+                </div>
+                <div className="mt-1 text-[12px] leading-relaxed text-dim">
+                  何を何分やるか、誰が行うか、実施記録の様式（印刷できます）はこちら。
+                  実技が済むまで、修了証は発行できません。
+                </div>
+              </Link>
+            ))}
           </div>
-          <div className="mt-1 text-[12px] leading-relaxed text-dim">
-            学科のあとに実技があります。何を何分やるか、誰が行うか、
-            実施記録の様式（印刷できます）はこちら。実技が済むまで、修了証は発行できません。
-          </div>
-        </Link>
-      ))}
+        </details>
+      )}
 
       <div className="mx-5 grid grid-cols-4 gap-2" data-testid="admin-totals">
         {[
@@ -651,29 +677,45 @@ export function AdminClient() {
           </>
         )}
 
-        {/* 買った受講コード */}
+        {/* ── 受講コードの財布（2026-09-10）──
+            げんきさん「配ってないコードが3件とあるが、未使用は15件ある」
+            「配れる受講コード 文言変更＋タップで配れるページへ移動」
+
+            数は**会社ぶん全部**。前は「いま見ている講座」1つに絞って
+            数えていた（画面から切り替えを無くしたのに、ここだけ残っていた）。
+            残りがあるときは、そのまま配る画面へ行けるようにする。 */}
         <div className="mt-4 border-t border-line pt-3">
           <div className="mb-1 text-[11px] tracking-[2px] text-dim">受講コード</div>
           <div className="text-[12.5px] leading-[1.9]">
-            <span className="font-black text-txt">
-              {st.seats.paid} 枚
+            <span className="font-black text-txt">{st.seats.paid} 枚</span>
+            <span className="text-dim">
+              {" "}入金済み　／　配った {st.seats.used} 枚　残り {st.seats.free} 枚
             </span>
-            <span className="text-dim"> 入金済み　／　配った {st.seats.total} 枚　使用 {st.seats.used} 枚</span>
           </div>
           <div className="mt-1 text-[11.5px] leading-relaxed text-dim2">
             修了証の発行には受講コードが必要です。人数分を申し込んでください。
           </div>
-          {st.seats.total > st.seats.used && (
-            <div className="mt-1 text-[11.5px] leading-relaxed text-yel">
-              まだ配っていないコードが {st.seats.total - st.seats.used} 件あります。
-            </div>
-          )}
+
+          {st.seats.free > 0 ? (
+            <Link
+              href="#codes"
+              className="mt-2 block rounded-lg border border-yel bg-yel p-2.5 text-center text-[13px] font-extrabold text-bg no-underline"
+              data-testid="admin-give"
+            >
+              まだ配っていない受講コードが {st.seats.free} 枚あります（配る）
+            </Link>
+          ) : null}
+
           <Link
             href="/order"
-            className="mt-2 block rounded-lg border border-yel bg-yel p-2.5 text-center text-[13px] font-extrabold text-bg no-underline"
+            className={`mt-2 block rounded-lg border p-2.5 text-center text-[13px] no-underline ${
+              st.seats.free > 0
+                ? "border-line text-txt"
+                : "border-yel bg-yel font-extrabold text-bg"
+            }`}
             data-testid="admin-order"
           >
-            {st.seats.total ? "受講コードを確認・申し込む" : "受講コードを申し込む"}
+            {st.seats.paid ? "受講コードを追加で申し込む" : "受講コードを申し込む"}
           </Link>
         </div>
 

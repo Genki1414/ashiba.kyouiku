@@ -21,6 +21,26 @@ const token = () => (process.env.LINE_MENU_TOKEN ?? "").trim();
    **同じ人でも、店が違えば番号が違う。**
    だから line_links（人と店の組）で引く。 */
 
+/** この店で繋がっている LINE の表示名。繋いでいなければ空 */
+export async function lineNameOf(userId: string | null | undefined): Promise<string> {
+  const id = (userId ?? "").trim();
+  if (!id) return "";
+  const supabase = getServiceClient();
+  if (!supabase) return "";
+  try {
+    const { data, error } = await supabase
+      .from("line_links")
+      .select("display_name")
+      .eq("user_id", id)
+      .eq("brand", BRAND.id)
+      .maybeSingle();
+    if (error) return "";
+    return (data?.display_name as string | null) ?? "";
+  } catch {
+    return "";
+  }
+}
+
 /** この店での、その人の LINE 番号。結んでいなければ空 */
 export async function lineIdOf(userId: string | null | undefined): Promise<string> {
   const id = (userId ?? "").trim();
@@ -73,15 +93,28 @@ export async function userByLineId(
   }
 }
 
-/** この店と、その人を結ぶ。すでにあれば入れ替える（同じ人・同じ店） */
-export async function linkLine(userId: string, lineUserId: string): Promise<boolean> {
+/** この店と、その人を結ぶ。すでにあれば入れ替える（同じ人・同じ店）。
+
+    @param displayName LINE の表示名（0037）。
+                       **どのLINEと繋がっているかを本人に見せるためだけ。**
+                       修了証には使わない（本名とは限らない） */
+export async function linkLine(
+  userId: string,
+  lineUserId: string,
+  displayName?: string,
+): Promise<boolean> {
   const supabase = getServiceClient();
   if (!supabase) return false;
   try {
     const { error } = await supabase
       .from("line_links")
       .upsert(
-        { user_id: userId, brand: BRAND.id, line_user_id: lineUserId },
+        {
+          user_id: userId,
+          brand: BRAND.id,
+          line_user_id: lineUserId,
+          display_name: (displayName ?? "").trim() || null,
+        },
         { onConflict: "user_id,brand" },
       );
     if (error) {

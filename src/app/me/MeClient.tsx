@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { emailLabel } from "@/lib/lineEmail";
-import { HANDOFF_MIN, showHandoff } from "@/lib/handoff";
 import { BRAND } from "@/content/brand";
 import Link from "next/link";
 import { Loading } from "@/components/Loading";
@@ -56,6 +55,8 @@ type Loaded = {
   lineReady?: boolean;
   /** この店の LINE と結び付いているか。**店ごとに違う** */
   lineLinked?: boolean;
+  /** 繋がっている LINE の表示名。どれと繋がっているかを見せるため */
+  lineName?: string;
 };
 
 const day = (iso: string) => {
@@ -72,9 +73,6 @@ export function MeClient() {
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState("");
   const [asking, setAsking] = useState(false);
-  /* ホーム画面のアプリへ持ち込む引き換えコード（0036） */
-  const [handoff, setHandoff] = useState("");
-  const [handoffBusy, setHandoffBusy] = useState(false);
   const [busyReq, setBusyReq] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -163,23 +161,6 @@ export function MeClient() {
     }
   };
 
-  /* ホーム画面のアプリに持ち込むコードを作る（0036）。
-     1回きり・5分で切れる（決まりは SQL の make_handoff） */
-  const makeHandoff = async () => {
-    setHandoffBusy(true);
-    setNote("");
-    try {
-      const res = await fetch("/api/handoff", { method: "POST" });
-      const j = await res.json().catch(() => ({}));
-      if (!res.ok || !j.ok) { setNote(j.reason ?? "コードを作れませんでした。"); return; }
-      setHandoff(typeof j.code === "string" ? j.code : "");
-    } catch {
-      setNote("接続できません。");
-    } finally {
-      setHandoffBusy(false);
-    }
-  };
-
   const signOut = async () => {
     /* Supabase の道具を画面に積まないために、サーバでログアウトする */
     await fetch("/api/signout", { method: "POST" }).catch(() => {});
@@ -217,7 +198,16 @@ export function MeClient() {
      げんきさん（2026-09-10）「取得済みはマイページの受講には表示しない」。
      修了したものも、外部で取得したものも、下の「取得済みの資格」に出る
      （修了証もそこから受け取れる）。 */
-  const mine = st.learning.filter((c) => (c.hasSeat || c.started) && !c.cert);
+  /* 外部で取得したと登録した講座（自己申告） */
+  const held = new Set(st.held ?? []);
+  /* **受講の欄は、これからやることだけ。**
+     修了したもの（修了証あり）も、外部で取得したものも出さない。
+     げんきさん（2026-09-10）「取得済みなのに『続きから受講』と
+     表示されてる」「取得済みはマイページの受講には表示しない」。
+     持っていること自体は、下の「取得済みの資格」に出る */
+  const mine = st.learning.filter(
+    (c) => (c.hasSeat || c.started) && !c.cert && !held.has(c.courseId),
+  );
 
 
   /* 講座1つぶんの札。**やることのある講座と、修了した講座で同じものを出す。**
@@ -385,63 +375,6 @@ export function MeClient() {
         )}
       </div>
 
-      {/* ── ホーム画面のアプリへ持ち込む（0036）──
-
-          げんきさん（2026-09-09）
-            「ホーム画面に追加したのに、ホーム画面に追加した所から
-              ログインするとネット版になる」
-
-          LINEログインもパスワードの決め直しも、**よそのサイトへ一度出る。**
-          iPhone のホーム画面アプリは、出た時点でブラウザに切り替わり、
-          そのまま戻ってこない。ログインの記憶も別なので、
-          ブラウザで入ってもアプリは入っていないまま。
-
-          8文字のコードで持ち込む。1回きり・5分で切れる。 */}
-      <div className="mt-4 rounded-xl border border-line bg-panel p-4" data-testid="me-handoff">
-        <div className="mb-1 text-[11px] tracking-[2px] text-dim">ホーム画面のアプリ</div>
-        <p className="text-[12.5px] leading-relaxed text-dim">
-          ホーム画面に追加したアプリが
-          <span className="text-txt">ログインしていない</span>ときは、
-          ここでコードを作って、アプリの「コードで入る」に打ってください。
-        </p>
-        {handoff ? (
-          <>
-            <div
-              className="mt-3 rounded-lg border border-yel bg-bg p-3 text-center font-mono text-[24px] font-black tracking-[4px] text-yel"
-              data-testid="me-handoff-code"
-            >
-              {showHandoff(handoff)}
-            </div>
-            <button
-              onClick={() => {
-                navigator.clipboard
-                  .writeText(handoff)
-                  .then(() => setNote("コードをコピーしました。"))
-                  .catch(() => setNote("コピーできませんでした。手で打ってください。"));
-              }}
-              className="mt-2 w-full rounded-lg border border-line p-2.5 text-[13px] font-bold text-txt"
-              data-testid="me-handoff-copy"
-            >
-              コードをコピー
-            </button>
-            <div className="mt-1.5 text-center text-[11.5px] leading-relaxed text-dim2">
-              {HANDOFF_MIN}分で使えなくなります。1回だけ使えます。
-              <br />
-              打ち終わったら、この画面は閉じて構いません。
-            </div>
-          </>
-        ) : (
-          <button
-            onClick={() => void makeHandoff()}
-            disabled={handoffBusy}
-            className="mt-3 w-full rounded-lg border border-line p-2.5 text-[13px] font-bold text-txt disabled:opacity-50"
-            data-testid="me-handoff-make"
-          >
-            {handoffBusy ? "作っています…" : "アプリに入るコードを作る"}
-          </button>
-        )}
-      </div>
-
       {/* ── LINE をつなぐ（0034）──
 
           げんきさん（2026-09-09）「元々のアカウントにLINEを接続したい」。
@@ -458,7 +391,20 @@ export function MeClient() {
           <div className="mb-1 text-[11px] tracking-[2px] text-dim">LINE</div>
           {st.lineLinked ? (
             <div className="text-[12.5px] leading-relaxed text-grn" data-testid="me-line-on">
-              このアカウントとLINEがつながっています。受講コードや修了証の知らせが、LINEに届きます。
+              {/* **どのLINEと繋がっているかを出す**（げんきさん 2026-09-10）。
+                  スマホを持ち替えた人・LINEを使い分けている人は、
+                  「そもそも別のLINEに繋いでいた」を疑えない */}
+              {st.lineName ? (
+                <>
+                  LINEの
+                  <span className="font-black text-txt">「{st.lineName}」</span>
+                  とつながっています。
+                </>
+              ) : (
+                <>このアカウントとLINEがつながっています。</>
+              )}
+              <br />
+              <span className="text-dim">受講コードや修了証の知らせが、LINEに届きます。</span>
             </div>
           ) : (
             <>

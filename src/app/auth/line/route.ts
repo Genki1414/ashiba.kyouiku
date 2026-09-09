@@ -67,7 +67,7 @@ export async function GET(req: NextRequest) {
   if (!found) {
     const me = await currentUser();
     if (me?.id) {
-      if (!(await linkLine(me.id, who.sub))) return back(req, "link");
+      if (!(await linkLine(me.id, who.sub, who.name))) return back(req, "link");
       const to0 = next.startsWith("/") ? next : "/";
       const home0 = new URL(to0, req.url);
       home0.searchParams.set("app", "1");
@@ -102,7 +102,7 @@ export async function GET(req: NextRequest) {
     }
     /* 結ぶ。**ここだけがこの番号の持ち主を決める。**
        店を添えるので、よその店の紐付けは触らない */
-    if (!(await linkLine(userId, who.sub))) return back(req, "link");
+    if (!(await linkLine(userId, who.sub, who.name))) return back(req, "link");
   }
 
   /* ④ 1回きりの合図を作って、クッキーのログインに引き換える。

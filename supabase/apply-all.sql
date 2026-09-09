@@ -2,7 +2,7 @@
 -- 足場トレーニング Supabase 初期化（このファイルを SQL Editor に貼って実行）
 --
 -- 中身:
---   1. マイグレーション 0001_init / 0002_rls / 0003_rules / 0004_auth / 0005_cert / 0006_version / 0007_admin / 0008_tenant / 0009_order / 0010_verify / 0011_course / 0012_member / 0013_keep / 0014_own / 0015_qual / 0016_keep3y / 0017_train / 0018_solo / 0019_view / 0020_sent / 0021_role / 0022_live / 0023_issue / 0024_notice / 0025_course_request / 0026_cert_snapshot / 0027_drill_record / 0028_assign_seat / 0029_order_group / 0030_invoiced_group / 0031_assign_by_code / 0032_coupon / 0033_line_login / 0034_line_link_per_brand / 0035_no_trial / 0036_handoff
+--   1. マイグレーション 0001_init / 0002_rls / 0003_rules / 0004_auth / 0005_cert / 0006_version / 0007_admin / 0008_tenant / 0009_order / 0010_verify / 0011_course / 0012_member / 0013_keep / 0014_own / 0015_qual / 0016_keep3y / 0017_train / 0018_solo / 0019_view / 0020_sent / 0021_role / 0022_live / 0023_issue / 0024_notice / 0025_course_request / 0026_cert_snapshot / 0027_drill_record / 0028_assign_seat / 0029_order_group / 0030_invoiced_group / 0031_assign_by_code / 0032_coupon / 0033_line_login / 0034_line_link_per_brand / 0035_no_trial / 0036_handoff / 0037_line_name
 --   2. lessons（単元の規定時間）905件を投入
 --
 -- 何度実行しても壊れないように書いてある（作成済みなら飛ばす）。
@@ -4251,6 +4251,44 @@ grant execute on function public.use_handoff(text)  to service_role;
 create or replace function public.schema_version()
 returns text language sql stable set search_path = public as $$
   select '0036'
+$$;
+
+grant execute on function public.schema_version() to anon, authenticated, service_role;
+
+
+-- ═══════════════════════════════════════════════════════════
+-- 0037 どの LINE と繋がっているかを、画面に出せるようにする
+--
+-- げんきさんの依頼（2026-09-10）
+--   「LINE どのLINEアカウントと繋がってるか表示」
+--
+-- ── なぜ要るか ──
+-- マイページには「つながっています」としか出ていなかった。
+-- **スマホを持ち替えた人・複数のLINEを使い分けている人**には、
+-- どれと繋がっているのか分からない。知らせが届かないときに、
+-- 「そもそも別のLINEに繋いでいた」を疑えない。
+--
+-- ── 何を持つか ──
+-- LINE の表示名。**番号は画面に出さない**（本人にも要らない。
+-- 運営の画面にだけ出す。0034 で決めたとおり）。
+--
+-- ── 決めたこと ──
+-- ・**修了証には使わない。**表示名は本名とは限らない（0033 からの決まり）。
+--   氏名はマイページで入れてもらう
+-- ・繋ぎ直したら、そのときの表示名で上書きする。
+--   相手が名前を変えることもあるので、古い名前を持ち続けない
+-- ・空でもよい。LINE が名前を返さないことがある
+-- ═══════════════════════════════════════════════════════════
+
+alter table public.line_links add column if not exists display_name text;
+
+comment on column public.line_links.display_name is
+  'LINE の表示名。どのLINEと繋がっているかを本人に見せるためだけに使う。修了証には使わない';
+
+-- ── 版 ─────────────────────────────────────
+create or replace function public.schema_version()
+returns text language sql stable set search_path = public as $$
+  select '0037'
 $$;
 
 grant execute on function public.schema_version() to anon, authenticated, service_role;

@@ -93,8 +93,10 @@ console.log("\n── 渡し方（げんきさん 2026-09-09）──");
   check(/display-mode: standalone/.test(login), "アプリで開いているかを見る");
   check(/login-code-inapp/.test(login), "アプリの中では、先に案内を出す");
 
+  /* マイページの枠は消した（げんきさん 2026-09-10「ホーム画面のアプリ 不要」）。
+     入った直後のポップアップで渡すので、探しに行く所は要らない */
   const me = read("src/app/me/MeClient.tsx");
-  check(/me-handoff-copy/.test(me), "マイページにもコピーの札がある");
+  check(!/me-handoff/.test(me), "マイページに、コードを作る枠は置かない");
 }
 
 console.log("\n── マイページの並び（げんきさん 2026-09-09）──");
@@ -103,11 +105,16 @@ console.log("\n── マイページの並び（げんきさん 2026-09-09）�
      受け直す必要が無いものを並べても、やることの一覧が埋まるだけ。
      ただし**修了証が出ているものは残す**（受け取る道がここにしか無い） */
   const me = read("src/app/me/MeClient.tsx");
-  const line = me.split("\n").find((l) => l.includes("st.learning.filter")) ?? "";
+  /* しぼりは何行かにまたがるので、その先頭から3行ぶんを見る */
+  const rows = me.split("\n");
+  const at = rows.findIndex((l) => l.includes("st.learning.filter"));
+  const line = at < 0 ? "" : rows.slice(at, at + 3).join("\n");
   check(!!line, "受けられる講座をしぼっている所がある");
-  check(!/held\.has/.test(line), "外部で取得しただけの講座は、一覧に出さない");
-  check(/c\.cert/.test(line), "修了証が出ているものは残す");
-  check(/c\.hasSeat/.test(line) && /c\.started/.test(line), "受講コードがある・始めているものも残す");
+  /* 受講の欄は、これからやることだけ（げんきさん 2026-09-10）。
+     取得済みは、修了証のぶんも自己申告のぶんも出さない */
+  check(/!c\.cert/.test(line), "修了したものは出さない");
+  check(/!held\.has\(c\.courseId\)/.test(line), "外部で取得したものも出さない");
+  check(/c\.hasSeat/.test(line) && /c\.started/.test(line), "受講コードがある・始めているものを出す");
   /* 持っていること自体は、下の一覧に出る */
   check(/取得済みの資格/.test(me), "取得済みの資格は、別の枠に出ている");
 }

@@ -101,9 +101,16 @@ export async function GET(req: NextRequest) {
          席が余っているかどうか分からない */
       supabase
         .from("orders")
-        .select("id, course_id, seats(used_by, expires_at)")
+        .select("id, course_id, status, seats(used_by, expires_at)")
         .eq("company_id", admin.companyId),
     ]);
+
+  /* 入金済みの注文（会社ぶん全部）。受講コードの枚数を数えるのに使う */
+  const paidAll = new Set(
+    ((allOrders ?? []) as { id?: string; status?: string }[])
+      .filter((o) => o.status === "paid")
+      .map((o) => o.id as string),
+  );
 
   /* 講座ごとの、いま配れる席の数。使われていない、期限も切れていないもの */
   const freeSeats: Record<string, number> = {};
@@ -121,6 +128,31 @@ export async function GET(req: NextRequest) {
   const memberships = mems ?? [];
   const paidIds = new Set((myOrders ?? []).filter((o) => o.status === "paid").map((o) => o.id as string));
   const orderIds = (myOrders ?? []).map((o) => o.id as string);
+
+  /* ── 受講コードの枚数は、会社ぶん全部で数える（2026-09-10）──
+     げんきさん「配ってないコードが3件とあるが、未使用は15件ある」。
+
+     上の myOrders は、いま見ている講座1つに絞ってある。
+     **講座の切り替えは画面から無くしたのに、ここだけ残っていた**ので、
+     1講座ぶんの枚数しか出ていなかった。
+     会社が持っているコードは講座をまたぐので、allOrders で数え直す。
+
+     ・買った   … 入金済みの注文にぶら下がっているコード
+     ・配った   … もう誰かが引き換えた（used_by が入っている）
+     ・残り     … 入金済みで、まだ引き換えていない。期限切れは数えない
+                  （期限が切れたものを「配れる」と出すと、配ってから断られる） */
+  const wallet = { paid: 0, used: 0, free: 0 };
+  for (const o of (allOrders ?? []) as { id?: string; seats?: unknown }[]) {
+    const isPaid = paidAll.has(o.id as string);
+    const rows = (o.seats ?? []) as { used_by?: string | null; expires_at?: string | null }[];
+    for (const st of rows) {
+      if (st.used_by) { wallet.used++; if (isPaid) wallet.paid++; continue; }
+      if (!isPaid) continue;
+      wallet.paid++;
+      if (st.expires_at && new Date(st.expires_at).getTime() < Date.now()) continue;
+      wallet.free++;
+    }
+  }
 
   /* 名簿に出す人は2通り。
      ① いま在籍している人
@@ -250,7 +282,8 @@ export async function GET(req: NextRequest) {
     ok: true as const,
     company: admin.companyName,
     joinCode: admin.joinCode,
-    seats: { total: seats.total, used: seats.used, paid: paidSeats.total },
+    /* 会社ぶん全部の枚数。paid=買った／used=配った／free=まだ配れる */
+    seats: { paid: wallet.paid, used: wallet.used, free: wallet.free },
     lessonsTotal,
     course: { id: course.id, short: course.short, name: course.name },
     courses,

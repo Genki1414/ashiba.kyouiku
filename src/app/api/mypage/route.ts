@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { lineIdOf } from "@/lib/lineBot.server";
+import { lineIdOf, lineNameOf } from "@/lib/lineBot.server";
 import { lineLoginReady } from "@/lib/line";
 import { heldCourseIds } from "@/lib/held";
 import { getServiceClient } from "@/lib/supabase/server";
@@ -138,12 +138,16 @@ export async function GET() {
      **店ごとに違う。**足場屋革命-教育で結んでいても、
      特別教育ドットコムでは別に結ぶことになる */
   const lineLinked = !!(await lineIdOf(user.id));
+  /* どのLINEと繋がっているか（0037）。表示名だけ。番号は本人に出さない
+     （げんきさん 2026-09-10「どのLINEアカウントと繋がってるか表示」） */
+  const lineName = lineLinked ? await lineNameOf(user.id) : "";
 
   return NextResponse.json({
     ok: true,
     held: heldOutside,
     lineReady: lineLoginReady(),
     lineLinked,
+    lineName,
     name: (me?.name as string) ?? "",
     email: (me?.email as string) ?? user.email ?? "",
     birth: (me?.birth_date as string) ?? "",
