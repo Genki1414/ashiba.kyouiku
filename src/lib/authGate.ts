@@ -12,6 +12,13 @@
      こちらのログインを持っていない人が開く。名前は伏せ字にしてある
    ・Stripe からの入金の知らせ（/api/stripe/webhook）。
      向こうはログインを持たない。代わりに署名を確かめる
+   ・LINE の出入り口（/api/line/…）。**ここを閉じていたのが間違いだった。**
+       ・/api/line/login … ログインの入口。**まだ入っていない人が押す。**
+         閉じていたので、「LINEではじめる」を押した人全員が
+         「ログインが要ります」で弾かれていた（2026-09-09 に見つけた）
+       ・/api/line/webhook … LINE から届くもの。向こうはログインを持たない。
+         代わりに署名を確かめる（Stripe と同じ考え）。
+         閉じていたので、LINE Developers の「検証」が失敗していた
    ・特商法の表記・利用規約・個人情報の扱い（/legal/…）。
      買う前に、まだ登録していない人が読むもの
    ・画面を動かす部品（/_next/ と、拡張子で分かるもの） */
@@ -25,6 +32,7 @@ const OPEN = [
   "/verify",
   "/api/verify-cert",
   "/api/stripe/webhook",
+  "/api/line",
   "/legal",
   "/manifest.webmanifest",
   "/sw.js",

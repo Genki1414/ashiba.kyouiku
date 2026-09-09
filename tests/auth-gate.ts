@@ -246,6 +246,22 @@ console.log("\n── 戻り先が、いま開いている入口と同じか ─
   check(!sameSite("https://kyouiku.ashibase.jp", ""), "入口が分からなければ一致としない");
 }
 
+console.log("\n── LINE の出入り口は、ログインの手前で通す ──");
+{
+  /* **どちらも、ログインしていない人が通る道。**
+     閉じていたので「LINEではじめる」を押した人全員が弾かれ、
+     LINE Developers の「検証」も失敗していた（2026-09-09）。
+     Stripe の入金の知らせと同じ扱いにする（署名で守る） */
+  check(isOpenPath("/api/line/login"), "LINEログインの入口は、ログイン前でも通る");
+  check(isOpenPath("/api/line/webhook"), "LINEから届くものは、ログイン前でも通る");
+  check(isOpenPath("/auth/line"), "LINEからの戻り先も通る");
+  /* 開けすぎていないか。よその api まで開いたら意味が無い */
+  check(!isOpenPath("/api/me"), "ふつうの api は閉じたまま");
+  check(!isOpenPath("/api/admin/assign"), "配る所は閉じたまま");
+  check(!isOpenPath("/api/owner/line-menu"), "運営の操作は閉じたまま");
+  check(!isOpenPath("/api/linetest"), "似た名前まで開かない（/ で区切る）");
+}
+
 console.log("\n── まとめ ──");
 console.log(`${ok} 件通過 / ${ng} 件失敗`);
 if (ng) process.exit(1);
