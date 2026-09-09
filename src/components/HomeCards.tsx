@@ -73,7 +73,8 @@ export function HomeCards() {
     cards.push(
       <Link
         key="bill"
-        href={`/invoice/${bills[0].id}`}
+        /* 2件以上なら一覧へ。1件目だけ開いて、2件目に気づかないと困る */
+        href={bills.length > 1 ? "/invoices" : `/invoice/${bills[0].id}`}
         className="block rounded-xl border border-yel bg-[#1A1F14] p-4 no-underline"
         data-testid="home-bill"
       >

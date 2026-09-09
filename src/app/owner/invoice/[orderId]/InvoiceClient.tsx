@@ -64,19 +64,30 @@ export function InvoiceClient({ orderId, mine = false }: { orderId: string; mine
 
   return (
     <>
-      {/* 印刷のときだけ白地・黒字。画面のままだと紙で読めない */}
+      {/* 印刷のときだけ白地・黒字。画面のままだと紙で読めない。
+          外枠（黒地・スマホ幅）は globals.css の @media print が外す。
+          **1枚に収める。**途中で割れると、振込先が2枚目に行く */}
       <style>{`
         @media print {
-          body { background: #fff !important; }
-          .noprint { display: none !important; }
-          .paper { background: #fff !important; color: #000 !important; border: none !important; }
+          .paper { background: #fff !important; color: #000 !important; border: none !important;
+                   padding: 0 !important; margin: 0 !important; font-size: 12px !important;
+                   break-inside: avoid; page-break-inside: avoid; }
           .paper * { color: #000 !important; border-color: #999 !important; }
+          .sheet { padding: 0 !important; }
         }
       `}</style>
 
-      <main className="px-5 py-6 pb-12">
+      <main className="sheet px-5 py-6 pb-12">
         <div className="noprint">
-          <Link href={back} className="backlink text-[13px] text-dim no-underline">{backLabel}</Link>
+          <div className="flex items-center gap-3">
+            <Link href={back} className="backlink text-[13px] text-dim no-underline">{backLabel}</Link>
+            {/* 発行された請求書は、払ったあともここから開ける（一覧に残る） */}
+            {mine && (
+              <Link href="/invoices" className="text-[12px] text-cyan no-underline" data-testid="invoice-list-link">
+                請求書の一覧
+              </Link>
+            )}
+          </div>
           <div className="mt-2 flex items-center gap-2">
             <h1 className="text-[16px] font-black">請求書</h1>
             <button

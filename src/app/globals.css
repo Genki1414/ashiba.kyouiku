@@ -39,6 +39,19 @@ body {
   min-height: 100dvh;
 }
 
+/* ── 印刷 ──
+   紙に出すのは請求書。画面は黒地・スマホ幅（max-w-md）だが、
+   紙でそれをやると **黒い枠の中に細長い請求書が2枚に割れて出る**
+   （げんきさんの実機 2026-09-09）。
+   紙のときは白地・黒字、幅いっぱい、余白は @page で持つ。
+   .shell は src/app/layout.tsx の外枠。 */
+@media print {
+  @page { size: A4; margin: 14mm; }
+  html, body { background: #fff !important; color: #000 !important; min-height: 0 !important; }
+  .shell { max-width: none !important; min-height: 0 !important; background: #fff !important; }
+  .tape, .noprint { display: none !important; }
+}
+
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(4px); }
   to { opacity: 1; transform: none; }

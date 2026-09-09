@@ -476,7 +476,13 @@ export function OrderClient() {
       {/* これまでの申込み */}
       {!!st.orders.length && (
         <div className="mt-6">
-          <div className="mb-2 text-[11px] tracking-[2px] text-dim">これまでの申込み</div>
+          <div className="mb-2 flex items-baseline">
+            <span className="text-[11px] tracking-[2px] text-dim">これまでの申込み</span>
+            {/* 請求書は、払ったあともここから開ける */}
+            <Link href="/invoices" className="ml-auto text-[12px] text-cyan no-underline" data-testid="order-invoices-link">
+              請求書の一覧
+            </Link>
+          </div>
           <div className="grid gap-2">
             {st.orders.map((o) => (
               <div key={o.id} className="rounded-xl border border-line bg-panel p-3.5" data-testid="order-row">

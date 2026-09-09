@@ -1174,5 +1174,37 @@ console.log("── 取得済みの資格には配れない ──");
   check(/取得済/.test(mark) && !/取得済み資格/.test(mark), "札の文字は「取得済」");
 }
 
+console.log("── 請求書の一覧と、紙にしたときの形 ──");
+{
+  /* げんきさん（2026-09-09）「請求書が1枚になってない」
+     「請求書を発行すると過去の請求書が見れなくなるから、請求書ページ作って残して」 */
+  const css = read("src/app/globals.css");
+  check(/@media print \{[\s\S]*@page \{ size: A4/.test(css), "紙は A4。余白は @page で持つ");
+  check(/@media print \{[\s\S]*\.shell \{ max-width: none !important/.test(css), "紙のときは外枠のスマホ幅を外す");
+  check(/@media print \{[\s\S]*\.tape, \.noprint \{ display: none/.test(css), "テープと操作の行は紙に出ない");
+  const lay = read("src/app/layout.tsx");
+  check(/className="shell /.test(lay), "外枠に .shell が付いている（印刷の決まりの当て先）");
+  const inv = read("src/app/owner/invoice/[orderId]/InvoiceClient.tsx");
+  check(/page-break-inside: avoid/.test(inv), "請求書の紙は途中で割らない");
+  check(/href="\/invoices"/.test(inv) && /mine &&/.test(inv), "買った側の請求書から一覧へ戻れる");
+
+  const api = read("src/app/api/invoices/route.ts");
+  check(/currentUser\(\)/.test(api) && /status: 403/.test(api), "ログインしていなければ断る");
+  check(/companyId: admin\?\.companyId \?\? null/.test(api), "会社は、ログインしている人のものを使う");
+  check(!/searchParams/.test(api), "会社も人も画面から受け取らない");
+  check(/status: 500/.test(api) && /apply-all\.sql/.test(api), "読めなかったら「0件」ではなく、そう言う");
+  const acc = read("src/lib/invoiceAccess.ts");
+  check(/export function groupInvoices/.test(acc) && /o\.group_id \?\? o\.id/.test(acc), "申込み（group）ごとに1件にまとめる");
+  check(/\.eq\("user_id", who\.userId\)/.test(acc) && /\.eq\("company_id", who\.companyId\)/.test(acc),
+    "自分の注文と、自分の事業者の注文だけ");
+  const cl = read("src/app/invoices/InvoicesClient.tsx");
+  check(/e\.invoicedAt \? \(/.test(cl) && /invoice-row-wait/.test(cl), "発行済みだけ開ける。未発行はそう言う");
+  check(/href=\{`\/invoice\/\$\{e\.id\}`\}/.test(cl), "開く先は買った側の請求書");
+  const oc = read("src/app/order/OrderClient.tsx");
+  check(/href="\/invoices"/.test(oc), "申込みの画面から一覧へ行ける");
+  const hc = read("src/components/HomeCards.tsx");
+  check(/bills\.length > 1 \? "\/invoices"/.test(hc), "請求書が2件以上なら、ホームの札は一覧へ");
+}
+
 console.log(`\n通り ${ok} ／ だめ ${ng}`);
 process.exit(ng ? 1 : 0);
