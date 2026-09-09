@@ -39,9 +39,21 @@ const dismiss = async () => {
   if (await b.count()) { await b.click(); await page.waitForTimeout(150); }
 };
 
+/* **店によって、講座の一覧が畳んである。**
+   特別教育ドットコムは73講座を平らに並べる店なので、ホームも「受ける講座」も
+   押して開く形（CourseDrawer）。足場屋革命は足場・職長が開いたまま並ぶ。
+   どちらの店でも同じ札（CourseCard）を見たいので、畳んである所は開けてから数える */
+const openAll = async () => {
+  await page.evaluate(() => {
+    document.querySelectorAll("details").forEach((d) => { d.open = true; });
+  });
+  await page.waitForTimeout(200);
+};
+
 /* ── 講座の一覧（/edu） ── */
 await page.goto(`${BASE}/edu`);
 await dismiss();
+await openAll();
 await page.waitForSelector('[data-testid="course-card"]', { timeout: 8000 });
 await page.waitForTimeout(600);
 {
@@ -57,6 +69,7 @@ await page.waitForTimeout(600);
 /* ── ホーム ── */
 await page.goto(`${BASE}/`);
 await dismiss();
+await openAll();
 await page.waitForTimeout(800);
 {
   const n = await page.getByTestId("course-held").count();
@@ -69,6 +82,7 @@ held = null;
 await page.evaluate(() => { try { localStorage.removeItem("ashiba.me"); } catch {} });
 await page.goto(`${BASE}/edu`);
 await dismiss();
+await openAll();
 await page.waitForSelector('[data-testid="course-card"]', { timeout: 8000 });
 await page.waitForTimeout(600);
 check((await page.getByTestId("course-held").count()) === 0, "held が無ければ何も付かない");

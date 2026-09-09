@@ -1,6 +1,9 @@
 node_modules/
 .next/
-.next-auth-test/
+# 試験でもう1台立てるときの置き場所（NEXT_DIST_DIR）。
+# 名前を増やすたびに書き足していたら、.next-tokubetsu を
+# 94MB ぶん commit してしまった（2026-09-09）。まとめて見ない
+.next-*/
 out/
 *.tsbuildinfo
 next-env.d.ts
