@@ -50,7 +50,7 @@ export function TrainOrderClient() {
       const res = await fetch("/api/train-order", { cache: "no-store" });
       const j = await res.json().catch(() => ({}));
       if (!res.ok || !j.ok) {
-        setNote(j.reason ?? "開けません。");
+        setNote(j.reason ?? "画面を表示できません。");
         setSt({ name: "", unitPrice: 0, already: false, by: null, orders: [] });
         return;
       }
@@ -63,7 +63,7 @@ export function TrainOrderClient() {
       });
       if (!billTo) setBillTo(j.name ?? "");
     } catch {
-      setNote("つながりません。");
+      setNote("接続できません。");
       setSt({ name: "", unitPrice: 0, already: false, by: null, orders: [] });
     }
   }, [billTo]);
@@ -87,7 +87,7 @@ export function TrainOrderClient() {
       setMade(j.order as Order);
       await load();
     } catch {
-      setNote("つながりません。電波の届く所でもう一度。");
+      setNote("接続できません。電波の届く場所で、もう一度お試しください。");
     } finally {
       setBusy(false);
     }

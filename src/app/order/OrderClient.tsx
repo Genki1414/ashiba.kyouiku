@@ -99,7 +99,7 @@ export function OrderClient() {
       const res = await fetch("/api/order", { cache: "no-store" });
       const j = await res.json();
       if (!res.ok || !j.ok) {
-        setNg(j.reason ?? "開けません。");
+        setNg(j.reason ?? "画面を表示できません。");
         return;
       }
       setSt({
@@ -118,7 +118,7 @@ export function OrderClient() {
       });
       setNg("");
     } catch {
-      setNg("つながりません。電波の届く所でもう一度。");
+      setNg("接続できません。電波の届く場所で、もう一度お試しください。");
     }
   }, []);
 
@@ -130,8 +130,8 @@ export function OrderClient() {
   }, [load]);
 
   useEffect(() => {
-    if (params.get("paid")) setNote("お支払いを受け付けました。入金の反映まで少し待ってください。");
-    if (params.get("cancelled")) setNote("お支払いをやめました。注文は入金待ちのまま残っています。");
+    if (params.get("paid")) setNote("お支払いを受け付けました。入金の反映まで少々お待ちください。");
+    if (params.get("cancelled")) setNote("お支払いを中止しました。申込みは入金待ちのまま残っています。");
   }, [params]);
 
   /* 講座は、担当者の画面から渡されたものを既定にする。無ければ先頭。
@@ -163,7 +163,7 @@ export function OrderClient() {
     const items = Object.entries(picked)
       .filter(([, n]) => n > 0)
       .map(([courseId, seats]) => ({ courseId, seats }));
-    if (!items.length) { setCouponNg("先に講座と人数を選んでください。"); return; }
+    if (!items.length) { setCouponNg("先に講座と人数をお選びください。"); return; }
     setCouponBusy(true);
     setCouponNg("");
     try {
@@ -175,7 +175,7 @@ export function OrderClient() {
       const j = await res.json().catch(() => ({}));
       if (!res.ok || !j.ok) {
         setCoupon(null);
-        setCouponNg(j.reason ?? "そのクーポンは使えません。");
+        setCouponNg(j.reason ?? "このクーポンはご利用いただけません。");
         return;
       }
       setCoupon({
@@ -184,7 +184,7 @@ export function OrderClient() {
         amountOff: (j.amountOff as number) ?? null,
       });
     } catch {
-      setCouponNg("つながりません。電波の届く所でもう一度。");
+      setCouponNg("接続できません。電波の届く場所で、もう一度お試しください。");
     } finally {
       setCouponBusy(false);
     }
@@ -197,7 +197,7 @@ export function OrderClient() {
       .filter(([, n]) => n > 0)
       .map(([courseId, seats]) => ({ courseId, seats }));
     if (!items.length) {
-      setNote("受ける講座を選んでください。");
+      setNote("受講する講座をお選びください。");
       return;
     }
     setBusy(true);
@@ -210,7 +210,7 @@ export function OrderClient() {
       });
       const j = await res.json().catch(() => ({}));
       if (!res.ok || !j.ok) {
-        setNote(j.reason ?? "申し込めませんでした。");
+        setNote(j.reason ?? "申し込みできませんでした。");
         /* クーポンで断られたなら、見せていた値引きも下ろす。
            残すと、通らなかった額のまま申し込んだように見える */
         if (res.status === 409) { setCoupon(null); setCouponNg(j.reason ?? ""); }
@@ -222,13 +222,13 @@ export function OrderClient() {
            記号を書かない。**1枚** と書いたら、画面に ** が出た */
         setNote(
           items.length > 1
-            ? `${items.length}講座を申し込みました。請求書は1枚にまとめて運営から送ります。` +
-                "お振込みの確認後、受講コードが出ます。"
-            : "申し込みました。請求書を運営から送ります。" +
-                "お振込みの確認後、受講コードが出ます。",
+            ? `${items.length}講座を申し込みました。請求書は1通にまとめてお送りします。` +
+                "お振込みの確認後、受講コードを発行します。"
+            : "お申し込みを受け付けました。請求書をお送りします。" +
+                "お振込みの確認後、受講コードを発行します。",
         );
         if (cp?.discount) {
-          setNote((n) => `${n}（${cp.name || "クーポン"}で ${yen(cp.discount ?? 0)}引きました）`);
+          setNote((n) => `${n}（${cp.name || "クーポン"}で ${yen(cp.discount ?? 0)}を適用しました）`);
         }
         setPicked({});
         setCode("");
@@ -243,7 +243,7 @@ export function OrderClient() {
       });
       const p = await pay.json().catch(() => ({}));
       if (!pay.ok || !p.url) {
-        setNote(p.reason ?? "支払い画面を開けませんでした。");
+        setNote(p.reason ?? "お支払い画面を開けませんでした。");
         await load();
         return;
       }
@@ -314,8 +314,8 @@ export function OrderClient() {
       {/* いま持っている席 */}
       <div className="mt-4 grid grid-cols-3 gap-2" data-testid="order-seats">
         {[
-          { t: "配った数", v: st.seats.total },
-          { t: "使った数", v: st.seats.used },
+          { t: "発行済み", v: st.seats.total },
+          { t: "利用済み", v: st.seats.used },
           { t: "入金済み", v: st.seats.paid },
         ].map((x) => (
           <div key={x.t} className="rounded-xl border border-line bg-panel px-2 py-3 text-center">
@@ -365,10 +365,10 @@ export function OrderClient() {
             onChange={(e) => setQ2(e.target.value)}
             type="search"
             inputMode="search"
-            placeholder="講座を絞る（例：石綿、酸欠、フルハーネス）"
+            placeholder="講座を検索（例：石綿、酸欠、フルハーネス）"
             className="mb-2 w-full rounded-lg border border-line bg-bg px-3 py-2.5 text-[13px]"
             data-testid="order-filter"
-            aria-label="講座を絞る"
+            aria-label="講座を検索"
           />
         )}
 
@@ -495,12 +495,12 @@ export function OrderClient() {
         {/* ── クーポン ──
             紹介や業界団体から配ったもの。打って「確かめる」を押すと、
             いくら引けるかが上の見積りに出る */}
-        <label className="mb-1 mt-4 block text-[11px] tracking-[2px] text-dim">クーポン（お持ちの方）</label>
+        <label className="mb-1 mt-4 block text-[11px] tracking-[2px] text-dim">クーポンコード（お持ちの方）</label>
         <div className="flex gap-2">
           <input
             value={code}
             onChange={(e) => { setCode(e.target.value); setCoupon(null); setCouponNg(""); }}
-            placeholder="お持ちの方だけ"
+            placeholder="お持ちの方のみ"
             className="min-w-0 flex-1 rounded-lg border border-line bg-bg px-3 py-2.5 font-mono text-[14px] uppercase"
             data-testid="order-coupon"
             aria-label="クーポン"
@@ -516,19 +516,19 @@ export function OrderClient() {
             className="shrink-0 rounded-lg border border-cyan px-3 py-2.5 text-[12.5px] text-cyan disabled:opacity-50"
             data-testid="order-coupon-check"
           >
-            {couponBusy ? "…" : coupon ? "はずす" : "使用する"}
+            {couponBusy ? "…" : coupon ? "解除" : "適用する"}
           </button>
         </div>
         {coupon && (
           <div className="mt-1 text-[11.5px] leading-relaxed text-grn" data-testid="order-coupon-ok">
-            {coupon.name || "クーポン"}が使えます。{yen(off)}引きになります。
+            {coupon.name || "クーポン"}を適用しました。{yen(off)}引きになります。
           </div>
         )}
         {couponNg && (
           <div className="mt-1 text-[11.5px] leading-relaxed text-org" data-testid="order-coupon-ng">{couponNg}</div>
         )}
 
-        <label className="mb-1 mt-4 block text-[11px] tracking-[2px] text-dim">請求先（空なら事業者名）</label>
+        <label className="mb-1 mt-4 block text-[11px] tracking-[2px] text-dim">請求先（未入力の場合は事業者名）</label>
         <input
           value={billTo}
           onChange={(e) => setBillTo(e.target.value)}
@@ -548,15 +548,15 @@ export function OrderClient() {
               「申し込めませんでした」で止まるだけの一手が増える */}
           {canCard && (
             <Btn tone="y" dis={busy || !rows.length} onClick={() => order("card")} testid="order-card">
-              {busy ? "…" : "カードで払う"}
+              {busy ? "…" : "カードで支払う"}
             </Btn>
           )}
           <Btn dis={busy || !rows.length} onClick={() => order("invoice")} testid="order-invoice">
-            {busy ? "…" : "請求書で払う"}
+            {busy ? "…" : "請求書払いで申し込む"}
           </Btn>
           {!rows.length && (
             <div className="text-center text-[11.5px] text-dim2" data-testid="order-none">
-              受ける講座を選んでください。いくつでも選べます。
+              受講する講座をお選びください。複数選択できます。
             </div>
           )}
         </div>
@@ -564,7 +564,7 @@ export function OrderClient() {
           申し込むと請求書をお送りします。
           <strong className="text-dim">お振込みの確認後に、受講コードを発行します。</strong>
           <br />
-          支払期限は切っていません。確認は営業日に行うので、数日いただく場合があります。
+          支払期限は設けていません。確認は営業日に行うため、数日いただく場合があります。
         </div>
         <div className="mt-3 border-t border-line pt-3 text-[11.5px] leading-relaxed text-dim2">
           申し込むと{" "}
@@ -579,17 +579,25 @@ export function OrderClient() {
         </div>
       </div>
 
-      {/* これまでの申込み */}
+      {/* これまでの申込み。**畳んでおく。**申込みが増えるほど下に伸びて、
+          いちばん使う「申し込む」から遠ざかる（げんきさん 2026-09-09） */}
       {!!st.orders.length && (
-        <div className="mt-6">
-          <div className="mb-2 flex items-baseline">
-            <span className="text-[11px] tracking-[2px] text-dim">これまでの申込み</span>
+        <details className="group mt-6 rounded-xl border border-line bg-bg" data-testid="order-history">
+          <summary
+            className="flex cursor-pointer list-none items-center gap-2 p-4 text-[13px] font-black text-txt"
+            data-testid="order-history-open"
+          >
+            <span className="inline-block text-[11px] text-yel transition-transform group-open:rotate-90" aria-hidden>
+              ▶
+            </span>
+            これまでの申込み
+            <span className="text-[11.5px] font-normal text-dim">{st.orders.length}件</span>
             {/* 請求書は、払ったあともここから開ける */}
             <Link href="/invoices" className="ml-auto text-[12px] text-cyan no-underline" data-testid="order-invoices-link">
               請求書の一覧
             </Link>
-          </div>
-          <div className="grid gap-2">
+          </summary>
+          <div className="grid gap-2 px-4 pb-4">
             {st.orders.map((o) => (
               <div key={o.id} className="rounded-xl border border-line bg-panel p-3.5" data-testid="order-row">
                 <div className="flex items-baseline gap-2">
@@ -617,7 +625,7 @@ export function OrderClient() {
               </div>
             ))}
           </div>
-        </div>
+        </details>
       )}
     </main>
   );
@@ -657,7 +665,7 @@ function CodeList({
      口頭で「EQ37 を渡した」と確かめられる。
      受け取った本人には知らせが届き、押すとその講座が開く（コードは打たない） */
   const give = async (c: Code) => {
-    if (!giveTo) { setDone("誰に配るかを選んでください。"); return; }
+    if (!giveTo) { setDone("配布する相手をお選びください。"); return; }
     setBusy(c.code);
     setDone("");
     try {
@@ -668,12 +676,12 @@ function CodeList({
       });
       const j = await res.json().catch(() => ({}));
       if (!res.ok || !j.ok) {
-        setDone(j.reason ?? "配れませんでした。");
+        setDone(j.reason ?? "配布できませんでした。");
         return;
       }
-      const who = members.find((m) => m.id === giveTo)?.name ?? "その人";
+      const who = members.find((m) => m.id === giveTo)?.name ?? "";
       const cs = courses.find((x) => x.id === c.courseId)?.short ?? "";
-      setDone(`${who}さんに${cs ? `${cs}の` : ""}受講コード ${showSeatCode(c.code)} を配りました。本人に知らせが届き、押すとそのまま開きます。`);
+      setDone(`${who ? `${who}さんに` : "選択した方に"}${cs ? `${cs}の` : ""}受講コード ${showSeatCode(c.code)} を配布しました。ご本人に通知が届き、そのまま受講できます。`);
       setGiving("");
       setGiveTo("");
       await onChange();
@@ -692,7 +700,7 @@ function CodeList({
 
   const copy = async (text: string, label: string) => {
     const ok = await writeClipboard(text);
-    setDone(ok ? `${label}を写しました。` : "この端末では写せません。画面を見ながら書き取ってください。");
+    setDone(ok ? `${label}をコピーしました。` : "この端末ではコピーできません。画面を見ながら書き写してください。");
   };
 
   /* 引き換えを取り消して、もう一度配れるようにする。
@@ -707,10 +715,10 @@ function CodeList({
       });
       const j = await res.json().catch(() => ({}));
       if (!res.ok || !j.ok) {
-        setDone(j.reason ?? "取り消せませんでした。");
+        setDone(j.reason ?? "取り消しできませんでした。");
         return;
       }
-      setDone("引き換えを取り消しました。次に受けるときは最初からになります（受けた記録はこちらに残ります）。このコードはもう一度配れます。");
+      setDone("利用を取り消しました。次回の受講は最初からになります（受講の記録は残ります）。このコードは再度配布できます。");
       setAsking("");
       await onChange();
     } finally {
@@ -719,18 +727,27 @@ function CodeList({
   };
 
   return (
-    <div className="mt-5 rounded-xl border border-line bg-panel p-4" data-testid="order-codes">
-      <div className="flex items-baseline gap-2">
-        <div className="text-[11px] tracking-[2px] text-dim">受講コード</div>
-        <div className="ml-auto text-[12px]">
+    /* **畳んでおく。**コードは買うほど増える（100枚を超えることもある）ので、
+       開いたままだと申込みの欄がずっと下に行く（げんきさん 2026-09-09） */
+    <details className="group mt-5 rounded-xl border border-line bg-panel" data-testid="order-codes">
+      <summary
+        className="flex cursor-pointer list-none items-baseline gap-2 p-4 text-[13px] font-black text-txt"
+        data-testid="order-codes-open"
+      >
+        <span className="inline-block text-[11px] not-italic text-yel transition-transform group-open:rotate-90" aria-hidden>
+          ▶
+        </span>
+        受講コード
+        <span className="ml-auto text-[12px] font-normal">
           <span className="font-black text-yel">未使用 {free.length}</span>
           <span className="text-dim2">　／　使用済み {used.length}</span>
-        </div>
-      </div>
+        </span>
+      </summary>
+      <div className="px-4 pb-4">
       <p className="mt-1 text-[11.5px] leading-relaxed text-dim2">
-        1人に1つ渡してください。受講者は{" "}
-        <Link href="/join" className="text-cyan no-underline">コードを入れる画面</Link>{" "}
-        で入れます。1つのコードは1人しか使えません。
+        1名につき1つ配布してください。受講者は{" "}
+        <Link href="/join" className="text-cyan no-underline">受講コードの入力画面</Link>{" "}
+        から入力します。1つのコードは1名のみ利用できます。
       </p>
 
       {done && <div className="mt-2 text-[11.5px] leading-relaxed text-grn" data-testid="order-code-note">{done}</div>}
@@ -752,9 +769,9 @@ function CodeList({
                   onChange={(e) => setGiveTo(e.target.value)}
                   className="min-w-0 flex-1 rounded-lg border border-line bg-bg px-2 py-2 text-[13px] text-txt"
                   data-testid="order-code-give-select"
-                  aria-label="誰に配るか"
+                  aria-label="配布する相手"
                 >
-                  <option value="">誰に配るか…</option>
+                  <option value="">配布する相手を選択</option>
                   {members.map((m) => {
                     /* **取得済みの資格には配れない。**外して見えなくすると
                        「あの人が居ない」になるので、名前は出して押せなくする */
@@ -772,7 +789,7 @@ function CodeList({
                   className="shrink-0 rounded-lg border border-grn bg-grn px-3 py-2 text-[12px] font-bold text-bg disabled:opacity-50"
                   data-testid="order-code-give-go"
                 >
-                  {busy === c.code ? "…" : "この人に配る"}
+                  {busy === c.code ? "…" : "この相手に配布"}
                 </button>
               </div>
             )}
@@ -816,7 +833,7 @@ function CodeList({
                   className="rounded-lg border border-line px-2.5 py-1.5 text-[11px] text-dim"
                   data-testid="order-code-copy"
                 >
-                  写す
+                  コピー
                 </button>
               </span>
             ) : c.certified ? (
@@ -857,30 +874,31 @@ function CodeList({
           className="mt-2 w-full rounded-lg border border-line p-2 text-[11.5px] text-dim2"
           data-testid="order-codes-more"
         >
-          残り {all.length - show.length} 件も出す
+          残り {all.length - show.length} 件を表示
         </button>
       )}
 
       {!!free.length && (
         <button
-          onClick={() => void copy(free.map((c) => showSeatCode(c.code)).join("\n"), "未使用のコード全部")}
+          onClick={() => void copy(free.map((c) => showSeatCode(c.code)).join("\n"), "未使用の受講コード")}
           className="mt-2 w-full rounded-lg border border-line p-2.5 text-[12px] text-dim"
           data-testid="order-codes-copyall"
         >
-          未使用 {free.length} 件をまとめて写す
+          未使用 {free.length} 件をまとめてコピー
         </button>
       )}
 
       <div className="mt-2 text-[11.5px] leading-relaxed text-dim2">
-        ここに出ている受講コードは、入金の確認が済んだものです。そのまま配れます。
+        ここに表示されている受講コードは、入金の確認が済んだものです。そのまま配布できます。
         <br />
-        違う人が入れてしまったときは「取り消す」で戻せます。
-        <strong className="text-dim">取り消すと、その人の受講はそこで終わり、次は最初からになります。</strong>
-        買い直した席で法定時間を引き継げないようにするためです。
-        受けた記録そのものは消えません（特別教育を行っているのはこちらなので、記録はこちらに残します）。
-        修了証を出したあとは戻せません（先に修了証を取り消してください）。
+        誤った方が入力した場合は「取り消す」で戻せます。
+        <strong className="text-dim">取り消すと、その方の受講はそこで終了し、次回は最初からになります。</strong>
+        受講コードを買い直して法定時間を引き継ぐことを防ぐためです。
+        受講の記録そのものは削除されません（特別教育を実施しているのは当社のため、記録は当社に残ります）。
+        修了証の発行後は戻せません（先に修了証を取り消してください）。
       </div>
-    </div>
+      </div>
+    </details>
   );
 }
 

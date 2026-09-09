@@ -23,9 +23,9 @@ export function NeedSeat({ why, company }: { why: "signin" | "seat"; company: st
     return (
       <main className="px-5 py-10" data-testid="need-seat">
         <div className="tape -mx-5 mb-6" />
-        <h1 className="text-[19px] font-black">ログインが要ります</h1>
+        <h1 className="text-[19px] font-black">ログインが必要です</h1>
         <p className="mt-3 text-[13px] leading-relaxed text-dim">
-          受講の記録を、誰のものとして残すかを決めるためです。
+          受講の記録を、どなたのものとして残すかを確定するためです。
         </p>
         <Link
           href="/login"
@@ -40,16 +40,16 @@ export function NeedSeat({ why, company }: { why: "signin" | "seat"; company: st
   return (
     <main className="px-5 py-10" data-testid="need-seat">
       <div className="tape -mx-5 mb-6" />
-      <div className="text-[11px] font-extrabold tracking-[2px] text-yel">受講コードが要ります</div>
+      <div className="text-[11px] font-extrabold tracking-[2px] text-yel">受講コードが必要です</div>
       <h1 className="mt-2 text-[20px] font-black leading-snug">
-        受講コードを入れると
+        受講コードを入力すると
         <br />
-        ここから先が開きます
+        受講を開始できます
       </h1>
       <p className="mt-4 text-[13px] leading-relaxed text-dim">
-        特別教育（学科）は、受講コードを入れた人だけが受けられます。
-        コードは、会社の教育担当者が人数ぶん申し込んで配ります。
-        {company ? `（いまの所属：${company}）` : ""}
+        特別教育（学科）は、受講コードを入力した方のみ受講できます。
+        受講コードは、会社の教育担当者が人数分を申し込み、配布します。
+        {company ? `（現在の所属：${company}）` : ""}
       </p>
 
       {/* 参加コード（8文字）のことは、ここには書かない。
@@ -61,7 +61,7 @@ export function NeedSeat({ why, company }: { why: "signin" | "seat"; company: st
         <div className="mt-2">
           <span className="font-black text-txt">12文字のコード</span>（例 ABCD-2345-6789）
           <br />
-          1人に1つ。これを入れると、特別教育（学科）が開きます。
+          1名につき1つ。入力すると特別教育（学科）を受講できます。
         </div>
       </div>
 

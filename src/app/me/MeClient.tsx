@@ -70,7 +70,7 @@ export function MeClient() {
       const res = await fetch("/api/mypage", { cache: "no-store" });
       const j = await res.json();
       if (!res.ok || !j.ok) {
-        setNg(j.reason ?? "開けません。");
+        setNg(j.reason ?? "画面を表示できません。");
         return;
       }
       setSt(j as Loaded);
@@ -78,7 +78,7 @@ export function MeClient() {
       setBirth(j.birth ?? "");
       setNg("");
     } catch {
-      setNg("つながりません。電波の届く所でもう一度。");
+      setNg("接続できません。電波の届く場所で、もう一度お試しください。");
     }
   }, []);
 
@@ -95,11 +95,11 @@ export function MeClient() {
       });
       const j = await res.json().catch(() => ({}));
       if (!res.ok || !j.ok) {
-        setNote(j.reason ?? "直せませんでした。");
+        setNote(j.reason ?? "変更できませんでした。");
         return;
       }
       setEdit(false);
-      setNote("直しました。");
+      setNote("変更しました。");
       await load();
     } finally {
       setBusy(false);
@@ -117,7 +117,7 @@ export function MeClient() {
       });
       const j = await res.json().catch(() => ({}));
       if (!res.ok || !j.ok) {
-        setNote(j.reason ?? "外せませんでした。");
+        setNote(j.reason ?? "削除できませんでした。");
         return;
       }
       setAsking(false);
@@ -142,7 +142,7 @@ export function MeClient() {
       });
       const j = await res.json().catch(() => ({}));
       if (!res.ok || !j.ok) {
-        setNote(j.reason ?? "送れませんでした。");
+        setNote(j.reason ?? "送信できませんでした。");
         return;
       }
       await load();
@@ -208,13 +208,13 @@ export function MeClient() {
             />
             <div className="grid grid-cols-2 gap-2">
               <Btn tone="y" dis={busy || !name.trim()} onClick={() => void save()} testid="me-save">
-                {busy ? "…" : "直す"}
+                {busy ? "…" : "変更"}
               </Btn>
               <button
                 onClick={() => { setEdit(false); setName(st.name); setBirth(st.birth); }}
                 className="rounded-lg border border-line p-3 text-[13px] text-dim"
               >
-                やめる
+                キャンセル
               </button>
             </div>
           </>
@@ -282,13 +282,13 @@ export function MeClient() {
                     className="rounded-lg border border-red p-2.5 text-[12.5px] text-ng-tx"
                     data-testid="me-leave-yes"
                   >
-                    {busy ? "…" : "外す"}
+                    {busy ? "…" : "削除"}
                   </button>
                   <button
                     onClick={() => setAsking(false)}
                     className="rounded-lg border border-line p-2.5 text-[12.5px] text-dim"
                   >
-                    やめる
+                    キャンセル
                   </button>
                 </div>
               </div>
@@ -310,7 +310,7 @@ export function MeClient() {
 
         {st.member.state === "pending" && (
           <>
-            <div className="text-[11.5px] text-yel">許可待ち</div>
+            <div className="text-[11.5px] text-yel">承認待ち</div>
             {st.member.pending.map((c) => (
               <div key={c.id} className="mt-1 text-[15px] font-black">{c.name}</div>
             ))}
@@ -321,7 +321,7 @@ export function MeClient() {
               href="/join"
               className="mt-2 block rounded-lg border border-line p-2 text-center text-[12px] text-dim no-underline"
             >
-              申し込みを取り下げる／別の会社をさがす
+              申し込みを取り下げる／別の会社を検索
             </Link>
           </>
         )}
@@ -411,7 +411,7 @@ export function MeClient() {
                   className="rounded-lg border border-yel bg-yel p-2.5 text-center text-[12.5px] font-extrabold text-bg no-underline"
                   data-testid="me-go"
                 >
-                  {c.started ? "続きから受ける" : "受け始める"}
+                  {c.started ? "続きから受講" : "受講を開始"}
                 </Link>
                 <Link
                   href={`/edu/${c.courseId}/cert`}

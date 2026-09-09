@@ -163,7 +163,7 @@ function NextUp({ ch, locked }: { ch: ChapterId; locked: boolean }) {
           className="mt-3 block rounded-lg border border-yel bg-yel p-3 text-center text-[13px] font-extrabold text-bg no-underline"
           data-testid="result-next-buy"
         >
-          自分ひとりぶんを申し込む
+          自分ひとり分を申し込む
         </Link>
       </div>
     );

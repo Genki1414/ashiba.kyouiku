@@ -35,7 +35,7 @@ export async function GET() {
   const supabase = getServiceClient();
   const user = supabase ? await currentUser() : null;
   if (!supabase || !user) {
-    return NextResponse.json({ ok: false, reason: "ログインが要ります。" }, { status: 403 });
+    return NextResponse.json({ ok: false, reason: "ログインが必要です。" }, { status: 403 });
   }
   /* 2つとも自分のぶん。順に待つ理由がないので、まとめて聞く */
   const [held, mine] = await Promise.all([heldFor(supabase, user.id), minted(supabase, user.id)]);
@@ -82,7 +82,7 @@ export async function POST(req: NextRequest) {
   const supabase = getServiceClient();
   const user = supabase ? await currentUser() : null;
   if (!supabase || !user) {
-    return NextResponse.json({ ok: false, reason: "ログインが要ります。" }, { status: 403 });
+    return NextResponse.json({ ok: false, reason: "ログインが必要です。" }, { status: 403 });
   }
 
   const b = (await req.json().catch(() => ({}))) as Body;

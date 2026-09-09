@@ -82,7 +82,7 @@ export function OwnerClient() {
       const res = await fetch("/api/owner/orders", { cache: "no-store" });
       const j = await res.json();
       if (!res.ok || !j.ok) {
-        setNg(j.reason ?? "開けません。");
+        setNg(j.reason ?? "画面を表示できません。");
         /* 直し方が分かるように、環境変数の名前も出す */
         setHint(j.email ? "Vercel → Settings → Environment Variables → OWNER_EMAILS" : "");
         return;
@@ -91,7 +91,7 @@ export function OwnerClient() {
       setInvoiceNo(j.invoiceNo ?? "");
       setNg("");
     } catch {
-      setNg("つながりません。");
+      setNg("接続できません。");
     }
   }, []);
 
@@ -105,7 +105,7 @@ export function OwnerClient() {
       body: JSON.stringify(body),
     });
     const j = await res.json().catch(() => ({}));
-    if (!res.ok || !j.ok) setNote(j.reason ?? "できませんでした。");
+    if (!res.ok || !j.ok) setNote(j.reason ?? "処理できませんでした。");
     return !!j.ok;
   };
 
@@ -195,7 +195,7 @@ export function OwnerClient() {
       )}
 
       {!orders.length && (
-        <p className="mt-6 text-[13px] leading-relaxed text-dim">まだ申込みがありません。</p>
+        <p className="mt-6 text-[13px] leading-relaxed text-dim">申込みはまだありません。</p>
       )}
 
       <div className="mt-5 grid gap-3">
@@ -267,8 +267,8 @@ export function OwnerClient() {
               data-testid="owner-invoice"
             >
               {o.invoiced_at
-                ? `請求書を送りました（${day(o.invoiced_at)}）　もう一度開く`
-                : "請求書を出す（まだ送っていません）"}
+                ? `請求書を送信済み（${day(o.invoiced_at)}）　もう一度開く`
+                : "請求書を発行する（未送信）"}
             </Link>
 
             {o.status === "pending" && (
@@ -295,7 +295,7 @@ export function OwnerClient() {
                       setBusy(null);
                     }}
                   >
-                    {busy === o.id ? "…" : "入金を確認した"}
+                    {busy === o.id ? "…" : "入金を確認"}
                   </Btn>
                 ) : (
                   <div className="rounded-lg border border-line p-2 text-center text-[11.5px] text-dim2">

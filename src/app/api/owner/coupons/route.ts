@@ -123,7 +123,7 @@ export async function GET() {
       /* 明細。誰がいつ使ったか。**取り消したものも出す**（消えると調べられない） */
       rows: mine.slice(0, 50).map((u) => ({
         groupId: u.group_id,
-        company: u.company_id ? (coName.get(u.company_id) ?? "（消えた事業者）") : "個人",
+        company: u.company_id ? (coName.get(u.company_id) ?? "（削除された事業者）") : "個人",
         net: u.net ?? 0,
         discount: u.discount ?? 0,
         reward: u.reward ?? 0,

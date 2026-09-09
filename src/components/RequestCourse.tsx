@@ -81,7 +81,7 @@ export function RequestCourse() {
         <br />
         送るには、先に会社とつないでください。
         <Link href="/join" className="ml-1 text-cyan no-underline">
-          会社をさがす
+          会社を検索
         </Link>
       </div>
     );
@@ -93,11 +93,11 @@ export function RequestCourse() {
         className="mt-5 rounded-xl border border-grn bg-panel p-4 text-[12.5px] leading-relaxed text-grn"
         data-testid="need-seat-request-sent"
       >
-        「{course.name}」の受講リクエストを送ってあります。
+        「{course.name}」の受講リクエストを送信しました。
         <br />
         <span className="text-dim">
-          {st.company ? `${st.company}の教育担当者に届いています。` : "教育担当者に届いています。"}
-          受講コードが用意されると、この画面が開きます。
+          {st.company ? `${st.company}の教育担当者に通知されています。` : "教育担当者に通知されています。"}
+          受講コードが発行されると、受講を開始できます。
         </span>
       </div>
     );
@@ -118,10 +118,10 @@ export function RequestCourse() {
               body: JSON.stringify({ courseId: course.id, action: "request" }),
             });
             const j = await res.json().catch(() => ({}));
-            if (!res.ok || !j.ok) { setNote(j.reason ?? "送れませんでした。"); return; }
+            if (!res.ok || !j.ok) { setNote(j.reason ?? "送信できませんでした。"); return; }
             setSt({ s: "ok", company: st.company, sent: true });
           } catch {
-            setNote("つながりません。電波の届く所でもう一度。");
+            setNote("接続できません。電波の届く場所で、もう一度お試しください。");
           } finally {
             setBusy(false);
           }
@@ -129,10 +129,10 @@ export function RequestCourse() {
         className="block w-full rounded-lg border border-cyan p-3 text-center text-[13px] font-bold text-cyan disabled:opacity-50"
         data-testid="need-seat-request-send"
       >
-        {busy ? "送っています…" : "この講座の受講リクエストを送る"}
+        {busy ? "送信しています…" : "この講座の受講リクエストを送信"}
       </button>
       <div className="mt-1.5 text-[11.5px] leading-relaxed text-dim2">
-        送ると、会社の教育担当者に届きます。担当者が受講コードを用意すると、この画面が開きます。
+        送信すると、会社の教育担当者に通知されます。受講コードが発行されると、受講を開始できます。
       </div>
       {!!note && <div className="mt-1.5 text-[12px] text-yel">{note}</div>}
     </div>

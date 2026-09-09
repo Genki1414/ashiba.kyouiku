@@ -21,7 +21,7 @@ export async function GET() {
   }
   const me = await currentUser();
   if (!me) {
-    return NextResponse.json({ ok: false, reason: "ログインが要ります。" }, { status: 403 });
+    return NextResponse.json({ ok: false, reason: "ログインが必要です。" }, { status: 403 });
   }
   const admin = await currentAdmin();
   const r = await invoicesFor(supabase, { userId: me.id, companyId: admin?.companyId ?? null });

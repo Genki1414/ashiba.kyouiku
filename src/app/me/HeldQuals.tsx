@@ -98,7 +98,7 @@ export function HeldQuals() {
       clear();
       setOpen(false);
     } catch {
-      setNote("つながりません。電波の届く所でもう一度。");
+      setNote("接続できません。電波の届く場所で、もう一度お試しください。");
     } finally {
       setBusy(false);
     }
@@ -209,7 +209,7 @@ export function HeldQuals() {
             className="mt-3 w-full rounded-lg border border-line p-2.5 text-[12.5px] text-dim"
             data-testid="me-qual-open"
           >
-            資格を足す
+            資格を追加
           </button>
         ) : (
           <div className="mt-3 rounded-lg border border-yel bg-[#1A1F14] p-3" data-testid="me-qual-form">
@@ -237,7 +237,7 @@ export function HeldQuals() {
             <input
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="名前でさがす（例：足場、玉掛け、クレーン）"
+              placeholder="名称で検索（例：足場、玉掛け、クレーン）"
               className="mt-2 w-full rounded-lg border border-line bg-bg px-3 py-2 text-[13px]"
               data-testid="me-qual-find"
             />
@@ -344,14 +344,14 @@ export function HeldQuals() {
 
             <div className="mt-3">
               <Btn tone="y" dis={busy || !total} onClick={add} testid="me-qual-add">
-                {busy ? "足しています…" : total ? `${total}件を足す` : "資格を選んでください"}
+                {busy ? "追加しています…" : total ? `${total}件を追加` : "資格を選んでください"}
               </Btn>
             </div>
             <button
               onClick={() => { setOpen(false); clear(); setNote(""); }}
               className="mt-2 w-full rounded-lg border border-line p-2 text-[11.5px] text-dim2"
             >
-              やめる
+              キャンセル
             </button>
           </div>
         )}

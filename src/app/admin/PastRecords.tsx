@@ -94,14 +94,14 @@ export function PastRecords() {
       const res = await fetch("/api/admin/past", { cache: "no-store" });
       const j = await res.json().catch(() => ({}));
       if (!res.ok || !j.ok) {
-        setNote(j.reason ?? "読めませんでした。");
+        setNote(j.reason ?? "読み込めませんでした。");
         return;
       }
       setPeople(j.people ?? []);
       setCompany(j.company ?? "");
       setTotals(j.totals ?? { people: 0, active: 0, gone: 0, certs: 0 });
     } catch {
-      setNote("つながりません。電波の届く所でもう一度。");
+      setNote("接続できません。電波の届く場所で、もう一度お試しください。");
     } finally {
       setBusy(false);
     }
@@ -133,7 +133,7 @@ export function PastRecords() {
           過去の受講記録を出す（退職した人もふくむ）
         </div>
         <div className="mt-1 text-[11.5px] leading-relaxed text-dim2">
-          特別教育の記録は3年保存する決まりです。名簿から外れた人のぶんも、ここから出せます。
+          特別教育の記録は3年保存する決まりです。名簿から外れた方の分も、ここから出せます。
         </div>
       </button>
 
@@ -164,7 +164,7 @@ export function PastRecords() {
                   className="rounded-lg border border-line px-2.5 py-1.5 text-[11.5px] text-dim2"
                   data-testid="admin-past-csv"
                 >
-                  表にして保存（CSV）
+                  CSVで保存
                 </button>
               </div>
 

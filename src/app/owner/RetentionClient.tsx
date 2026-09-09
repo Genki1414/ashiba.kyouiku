@@ -42,14 +42,14 @@ export function RetentionClient({ onNote }: { onNote: (s: string) => void }) {
       const res = await fetch("/api/owner/retention", { cache: "no-store" });
       const j = await res.json().catch(() => ({}));
       if (!res.ok || !j.ok) {
-        onNote(j.reason ?? "読めませんでした。");
+        onNote(j.reason ?? "読み込めませんでした。");
         setRows([]);
         return;
       }
       setRows(j.rows ?? []);
       setYears(j.years ?? 3);
     } catch {
-      onNote("つながりません。");
+      onNote("接続できません。");
       setRows([]);
     }
   }, [onNote]);
@@ -154,7 +154,7 @@ export function RetentionClient({ onNote }: { onNote: (s: string) => void }) {
                 className="mt-3 w-full rounded-lg border border-line p-2 text-[12px] text-dim2"
                 data-testid="owner-retention-ask"
               >
-                個人の部分を消す
+                個人情報を削除する
               </button>
             )}
           </div>

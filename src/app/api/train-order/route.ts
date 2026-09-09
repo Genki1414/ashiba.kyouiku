@@ -43,7 +43,7 @@ export async function GET() {
   const supabase = getServiceClient();
   const user = supabase ? await currentUser() : null;
   if (!supabase || !user) {
-    return NextResponse.json({ ok: false, reason: "ログインが要ります。" }, { status: 403 });
+    return NextResponse.json({ ok: false, reason: "ログインが必要です。" }, { status: 403 });
   }
 
   const [{ data: me }, { data: orders }, may] = await Promise.all([
@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
   const supabase = getServiceClient();
   const user = supabase ? await currentUser() : null;
   if (!supabase || !user) {
-    return NextResponse.json({ ok: false, reason: "ログインが要ります。" }, { status: 403 });
+    return NextResponse.json({ ok: false, reason: "ログインが必要です。" }, { status: 403 });
   }
 
   /* もう使える人には売らない（二重に払わせない） */

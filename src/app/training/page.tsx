@@ -46,7 +46,7 @@ export default async function TrainingPage() {
               className="mt-2.5 block rounded-lg border border-yel p-2.5 text-center text-[12.5px] font-bold text-yel no-underline"
               data-testid="training-buy"
             >
-              自分ひとりぶんを申し込む
+              自分ひとり分を申し込む
             </Link>
           </div>
         )}

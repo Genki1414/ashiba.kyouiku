@@ -33,7 +33,7 @@ export function TrainingClient({ onNote }: { onNote: (s: string) => void }) {
       const res = await fetch(url, { cache: "no-store" });
       const j = await res.json().catch(() => ({}));
       if (!res.ok || !j.ok) {
-        onNote(j.reason ?? "読めませんでした。");
+        onNote(j.reason ?? "読み込めませんでした。");
         setRows([]);
         return;
       }
@@ -41,7 +41,7 @@ export function TrainingClient({ onNote }: { onNote: (s: string) => void }) {
       if (search !== undefined) setFound(j.found ?? []);
       if (j.hint) onNote(j.hint);
     } catch {
-      onNote("つながりません。");
+      onNote("接続できません。");
       setRows([]);
     }
   }, [onNote]);
@@ -59,7 +59,7 @@ export function TrainingClient({ onNote }: { onNote: (s: string) => void }) {
       });
       const j = await res.json().catch(() => ({}));
       if (!res.ok || !j.ok) {
-        onNote(j.reason ?? "できませんでした。");
+        onNote(j.reason ?? "処理できませんでした。");
         return;
       }
       setRows(j.rows ?? []);
@@ -106,7 +106,7 @@ export function TrainingClient({ onNote }: { onNote: (s: string) => void }) {
             className="shrink-0 rounded-lg border border-line px-3 py-2 text-[12.5px] text-dim"
             data-testid="owner-training-find"
           >
-            さがす
+            検索
           </button>
         </div>
         <input

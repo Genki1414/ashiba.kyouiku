@@ -385,7 +385,7 @@ console.log("\n── 仕組みの名前で呼んでいるか ──");
   const oc = shown(code("src/app/order/OrderClient.tsx"));
   check(oc.includes("受講リクエストが届いています"), "申込みの画面は「受講リクエストが届いています」");
   const rc = shown(code("src/components/RequestCourse.tsx"));
-  check(rc.includes("この講座の受講リクエストを送る"), "送る釦は「この講座の受講リクエストを送る」");
+  check(rc.includes("この講座の受講リクエストを送信"), "送る釦は「この講座の受講リクエストを送信」");
 
   /* **受講者には「席」と言わない。**あれは売る側の言い方で、
      受講者が知っているのは受講コード（NeedSeat が前からそうしている） */

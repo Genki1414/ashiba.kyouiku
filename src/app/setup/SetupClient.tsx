@@ -273,7 +273,7 @@ export function SetupClient() {
                 <div className="mb-2 text-[11px] tracking-[2px] text-dim">売るための設定</div>
                 {(
                   [
-                    ["修了試験の合言葉（EXAM_SECRET）", h.env?.examSecret ? "設定済み" : "未設定（本番では試験が止まります）", !!h.env?.examSecret, true],
+                    ["修了試験の署名鍵（EXAM_SECRET）", h.env?.examSecret ? "設定済み" : "未設定（本番では試験が止まります）", !!h.env?.examSecret, true],
                     ["本部のメール（OWNER_EMAILS）", h.sell.owners ? `${h.sell.owners}人` : "未設定", h.sell.owners > 0, true],
                     /* 環境変数の有無ではなく、実際に請求する金額を出す。
                        決めた値が pricing.ts に入っているので、
@@ -313,7 +313,7 @@ export function SetupClient() {
                     ],
                     ["本番のURL（SITE_URL / NEXT_PUBLIC_SITE_URL）", h.sell.siteUrl ? "設定済み" : "未設定（配信ごとの住所を使う）", h.sell.siteUrl, true],
                     /* **店ごとの住所。**決まっていない店で環境変数も入れないと、
-                       合言葉の決め直しのメールと LINE の知らせが、配信ごとに
+                       パスワード再設定のメールと LINE の知らせが、配信ごとに
                        変わる住所へ戻る（Supabase の許した住所に無いと弾かれる）。
                        前はここでよその店の住所へ飛んでいた（2026-09-08 に直した）。
                        よそへ飛ばすよりは弾かれる方がよいが、直すまでは橙で出す */
@@ -324,7 +324,7 @@ export function SetupClient() {
                         : h.sell.siteUrl
                           ? "コードには入れていない（NEXT_PUBLIC_SITE_URL が勝つので、いまは大丈夫）"
                           /* ここは太字にできない（記号がそのまま出る）ので書かない */
-                          : "決まっていません。NEXT_PUBLIC_SITE_URL を入れるまで、合言葉の決め直しのメールが配信ごとの住所へ飛びます",
+                          : "決まっていません。NEXT_PUBLIC_SITE_URL を入れるまで、パスワード再設定のメールが配信ごとの住所へ飛びます",
                       !!(h.sell.brandSite || h.sell.siteUrl),
                       true,
                     ],
@@ -344,7 +344,7 @@ export function SetupClient() {
                       true,
                     ],
                     [
-                      "合言葉の決め直しの戻り先",
+                      "パスワード再設定の戻り先",
                       h.sell.resetHere
                         ? /* 合っている。環境変数で決めていなければ、そこだけ添える */
                           h.sell.resetEnv

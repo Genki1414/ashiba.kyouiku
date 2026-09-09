@@ -1089,7 +1089,7 @@ console.log("── 1回の申込みを、1件として見せているか ──
 
   const oc = read("src/app/owner/OwnerClient.tsx");
   check(/o\.invoiced_at/.test(oc), "本部の画面が「送ったかどうか」を出す");
-  check(/まだ送っていません/.test(oc), "送っていないことを、字で出す");
+  check(/未送信/.test(oc), "送っていないことを、字で出す");
   check(/data-testid="owner-items"/.test(oc), "講座ごとの明細を並べる");
 
   const inv = read("src/lib/invoiceAccess.ts");

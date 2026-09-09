@@ -93,7 +93,7 @@ await page.waitForSelector('[data-testid="invoice-row"]', { timeout: 8000 });
   check((await rows.count()) === 3, `申込みごとに1件（${await rows.count()}）`);
   /* 並びは API が決める（新しい申込みが先。groupInvoices）。ここでは中身で探す */
   const card = (await rows.filter({ hasText: "カード払い" }).first().innerText()).replace(/\s/g, "");
-  check(card.includes("請求書はありません"), `カード払いには請求書が無いと出る（${card.slice(0, 40)}）`);
+  check(card.includes("請求書の発行はありません"), `カード払いには請求書が無いと出る（${card.slice(0, 40)}）`);
   const paid = (await rows.filter({ hasText: "42,900" }).first().innerText()).replace(/\s/g, "");
   check(paid.includes("足場3名") && paid.includes("フルハーネス3名") && paid.includes("石綿1名"), "明細が講座ごとに出る");
   check(paid.includes("42,900"), "合計が出る");

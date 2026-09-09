@@ -79,6 +79,10 @@ if (orderForm) {
   await page.goto(`${BASE}/order`);
   await dismiss();
   await page.getByTestId("order-codes").waitFor({ timeout: 8000 });
+  /* **受講コードは畳んである。**買うほど増えるので、開いたままだと
+     申込みの欄がずっと下に行く（げんきさん 2026-09-09）。開けてから見る */
+  await page.getByTestId("order-codes-open").click();
+  await page.waitForTimeout(200);
   const rows = page.getByTestId("order-code");
   check((await rows.count()) === 4, `4枚とも出る（${await rows.count()}）`);
   const first = (await rows.first().innerText()).replace(/\s+/g, "");
@@ -86,12 +90,12 @@ if (orderForm) {
   const all = (await rows.allInnerTexts()).map((t) => t.replace(/\s+/g, ""));
   check(all.some((t) => /田中が使用/.test(t)), `使った人の名前が出る（${all.join(" | ")}）`);
   check(all.some((t) => /鈴木が使用.*修了証あり/.test(t)), "修了証を出した席は、その旨が出る");
-  check((await page.getByTestId("order-code-copy").count()) === 2, "写せるのは未使用のぶんだけ");
+  check((await page.getByTestId("order-code-copy").count()) === 2, "コピーできるのは未使用の分だけ");
   /* 違う人が入れてしまったときに戻せる。ただし修了証を出した人の席は戻せない */
   check((await page.getByTestId("order-code-release").count()) === 1, "取り消せるのは、修了証を出していない使用済みのぶんだけ");
   await page.getByTestId("order-code-release").click();
   check(await page.getByTestId("order-code-release-yes").isVisible(), "取り消しは二度押しで確かめる");
-  check(await page.getByTestId("order-codes-copyall").isVisible(), "まとめて写すボタンが出る");
+  check(await page.getByTestId("order-codes-copyall").isVisible(), "まとめてコピーする所が出る");
   await page.screenshot({ path: `${SC}/order-01b-codes.png`, fullPage: true });
   await page.unroute("**/api/order");
   console.log("OK: 受講コードの文字が出る");

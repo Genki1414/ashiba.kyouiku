@@ -79,7 +79,7 @@ export async function POST(req: NextRequest) {
   const supabase = getServiceClient();
   const user = supabase ? await currentUser() : null;
   if (!supabase || !user) {
-    return NextResponse.json({ ok: false, reason: "ログインが要ります。" }, { status: 403 });
+    return NextResponse.json({ ok: false, reason: "ログインが必要です。" }, { status: 403 });
   }
   const b = (await req.json().catch(() => ({}))) as { action?: string };
   if (b.action !== "read") {

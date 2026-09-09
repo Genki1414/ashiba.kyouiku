@@ -26,7 +26,7 @@ export async function GET() {
   }
   const user = await currentUser();
   if (!user) {
-    return NextResponse.json({ ok: false, reason: "ログインが要ります。" }, { status: 403 });
+    return NextResponse.json({ ok: false, reason: "ログインが必要です。" }, { status: 403 });
   }
 
   /* いま在籍しているか。していなければ、誰宛か決まらないので送れない。
@@ -68,7 +68,7 @@ export async function POST(req: NextRequest) {
   }
   const user = await currentUser();
   if (!user) {
-    return NextResponse.json({ ok: false, reason: "ログインが要ります。" }, { status: 403 });
+    return NextResponse.json({ ok: false, reason: "ログインが必要です。" }, { status: 403 });
   }
 
   const b = (await req.json().catch(() => ({}))) as Body;

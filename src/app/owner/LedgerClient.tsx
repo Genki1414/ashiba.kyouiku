@@ -93,7 +93,7 @@ export function LedgerClient({ onNote }: { onNote: (s: string) => void }) {
       const res = await fetch("/api/owner/ledger", { cache: "no-store" });
       const j = await res.json().catch(() => ({}));
       if (!res.ok || !j.ok) {
-        onNote(j.reason ?? "読めませんでした。");
+        onNote(j.reason ?? "読み込めませんでした。");
         return;
       }
       setCos(j.companies ?? []);
@@ -101,7 +101,7 @@ export function LedgerClient({ onNote }: { onNote: (s: string) => void }) {
         j.totals ?? { companies: 0, users: 0, loose: 0, linked: 0, trial: 0, learners: 0, certs: 0, sales: 0 },
       );
     } catch {
-      onNote("つながりません。");
+      onNote("接続できません。");
     }
   }, [onNote]);
 
@@ -115,12 +115,12 @@ export function LedgerClient({ onNote }: { onNote: (s: string) => void }) {
       const res = await fetch(`/api/owner/ledger?companyId=${encodeURIComponent(id)}`, { cache: "no-store" });
       const j = await res.json().catch(() => ({}));
       if (!res.ok || !j.ok) {
-        onNote(j.reason ?? "読めませんでした。");
+        onNote(j.reason ?? "読み込めませんでした。");
         return;
       }
       setDetail(j as Detail);
     } catch {
-      onNote("つながりません。");
+      onNote("接続できません。");
     }
   };
 

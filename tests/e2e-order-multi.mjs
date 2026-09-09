@@ -213,6 +213,9 @@ console.log("OK: 3講座をまとめて申し込める");
 
 /* ── 受講コードの一覧から、その人に配る（0031）── */
 {
+  /* 受講コードは畳んである。開けてから配る */
+  await page.getByTestId("order-codes-open").click();
+  await page.waitForTimeout(200);
   const cards = page.getByTestId("order-code");
   check((await cards.count()) === 2, `受講コードが並ぶ（${await cards.count()}）`);
   /* 「配る」は未使用の札にだけ。使用済みには出ない */
@@ -241,8 +244,8 @@ console.log("OK: 3講座をまとめて申し込める");
   check(given?.code === "EQ37-AB12-CD34", `押したそのコードを送る（${given?.code}）`);
   check(given?.userId === "u1" && given?.courseId === "ashiba", "誰に・どの講座かが乗る");
   const note = (await page.getByTestId("order-code-note").innerText()).replace(/\s/g, "");
-  check(note.includes("配りました") && note.includes("配る相手"), `配ったことと相手が出る（${note.slice(0, 40)}）`);
-  check(note.includes("知らせ"), "本人に知らせが届くと出る");
+  check(note.includes("配布しました") && note.includes("配る相手"), `配ったことと相手が出る（${note.slice(0, 40)}）`);
+  check(note.includes("通知"), "本人に通知が届くと出る");
   console.log("OK: 受講コードを指して、その人に配れる（取得済みの人には配れない）");
 }
 

@@ -38,7 +38,7 @@ const unsafe = () =>
   NextResponse.json(
     {
       error:
-        "修了試験の合言葉（EXAM_SECRET）が決まっていません。" +
+        "修了試験の署名鍵（EXAM_SECRET）が未設定です。" +
         "このままでは、受けていない人でも合格の札を作れてしまいます。" +
         "Vercel の環境変数に EXAM_SECRET を入れてください。",
     },

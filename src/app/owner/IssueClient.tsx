@@ -91,13 +91,13 @@ export function IssueClient() {
       const r = await fetch("/api/owner/issue", { cache: "no-store" });
       const j = await r.json();
       if (!r.ok || !j.ok) {
-        setNg(j.reason ?? "開けません。");
+        setNg(j.reason ?? "画面を表示できません。");
         return;
       }
       setRows(j.requests ?? []);
       setNg("");
     } catch {
-      setNg("つながりません。");
+      setNg("接続できません。");
     }
   }, []);
 

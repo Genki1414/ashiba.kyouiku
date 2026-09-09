@@ -47,8 +47,8 @@ export function InvoiceClient({ orderId, mine = false }: { orderId: string; mine
   useEffect(() => {
     fetch(`/api/owner/invoice?orderId=${encodeURIComponent(orderId)}`, { cache: "no-store" })
       .then((r) => r.json())
-      .then((j) => (j?.ok ? setInv(j as Inv) : setNg(j?.reason ?? "開けません。")))
-      .catch(() => setNg("つながりません。"));
+      .then((j) => (j?.ok ? setInv(j as Inv) : setNg(j?.reason ?? "画面を表示できません。")))
+      .catch(() => setNg("接続できません。"));
   }, [orderId]);
 
   if (ng) {

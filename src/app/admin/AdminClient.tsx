@@ -60,7 +60,7 @@ type Loaded =
       courses: CourseTab[];
       /* 参加の申し込み。担当者がやることなので上に出す */
       requests: Request[];
-      /* 断った申し込み（直近30日）。押し間違いを戻せるように */
+      /* 却下した申し込み（直近30日）。押し間違いを戻せるように */
       rejected: Request[];
       /* 受講リクエスト。まだ対応していないもの */
       courseRequests: CourseReq[];
@@ -128,7 +128,7 @@ export function AdminClient() {
         setSt({ kind: "setup", reason: j.reason ?? "" });
         return;
       }
-      setSt({ kind: "ng", reason: j.reason ?? "開けません。", signIn: j.signedIn === false });
+      setSt({ kind: "ng", reason: j.reason ?? "画面を表示できません。", signIn: j.signedIn === false });
     } catch {
       /* 圏外。覚えているものがあれば、それを出したままにする
          （出しっぱなしでも「古い」と画面に書いてある） */
@@ -158,7 +158,7 @@ export function AdminClient() {
       body: JSON.stringify(body),
     });
     const j = await res.json().catch(() => ({}));
-    if (!res.ok || !j.ok) setNote(j.reason ?? "できませんでした。");
+    if (!res.ok || !j.ok) setNote(j.reason ?? "処理できませんでした。");
     return !!j.ok;
   };
 
@@ -175,7 +175,7 @@ export function AdminClient() {
           <Link href="/" className="backlink text-[13px] text-dim no-underline">
             ← ホーム
           </Link>
-          <h1 className="mt-2 text-[18px] font-black">事業者を作る</h1>
+          <h1 className="mt-2 text-[18px] font-black">事業者を登録</h1>
           <p className="mt-1 text-[12px] leading-relaxed text-dim">
             この教材は事業者ごとに使います。いまログインしている人が、
             その事業者の最初の教育担当者になります。
@@ -203,7 +203,7 @@ export function AdminClient() {
               setBusy(null);
             }}
           >
-            {busy === "setup" ? "作っています…" : "この事業者で始める"}
+            {busy === "setup" ? "登録しています…" : "この事業者で登録する"}
           </Btn>
           {note && <div className="mt-3 text-[12px] text-red">{note}</div>}
         </div>
@@ -278,7 +278,7 @@ export function AdminClient() {
       )}
       {st.course && (
         <p className="mx-5 mb-2 text-[11.5px] leading-relaxed text-dim2" data-testid="admin-course-name">
-          受講コードの残りは「{st.course.short}」のぶんです。
+          受講コードの残りは「{st.course.short}」の分です。
           名簿は、その人が受けている特別教育をまとめて出します。
         </p>
       )}
@@ -323,7 +323,7 @@ export function AdminClient() {
             参加の申し込み {st.requests.length} 件
           </div>
           <p className="mt-1 text-[11.5px] leading-relaxed text-dim">
-            自社の人か確かめてから許可してください。許可すると名簿に入り、受講できるようになります。
+            自社の方かご確認のうえ承認してください。承認すると名簿に入り、受講できるようになります。
           </p>
           <div className="mt-2.5 grid gap-2">
             {st.requests.map((q) => (
@@ -343,7 +343,7 @@ export function AdminClient() {
                       setBusy(null);
                     }}
                   >
-                    許可する
+                    承認する
                   </Btn>
                   <button
                     className="rounded-lg border border-line p-2.5 text-[12.5px] text-dim"
@@ -355,7 +355,7 @@ export function AdminClient() {
                       setBusy(null);
                     }}
                   >
-                    断る
+                    却下する
                   </button>
                 </div>
               </div>
@@ -430,7 +430,7 @@ export function AdminClient() {
                             setBusy(null);
                           }}
                         >
-                          席を配る
+                          受講コードを配る
                         </button>
                       )}
                     </div>
@@ -440,7 +440,7 @@ export function AdminClient() {
                 <div className="mt-1.5 text-[11px] text-dim2" data-testid="admin-free-seats">
                   {(st.freeSeats[g.courseId] ?? 0) > 0
                     ? `配れる席が ${st.freeSeats[g.courseId]}枚あります（受講コードを打たせずに渡せます）`
-                    : "配れる席がありません。先に申し込んでください"}
+                    : "配布できる受講コードがありません。先に申し込んでください"}
                 </div>
                 <div className="mt-2.5 grid grid-cols-2 gap-2">
                   {/* 人数のぶんだけ席を入れた状態で申し込み画面を開く。
@@ -450,7 +450,7 @@ export function AdminClient() {
                     className="rounded-lg border border-yel bg-yel p-2.5 text-center text-[12px] font-extrabold text-bg no-underline"
                     data-testid="admin-course-req-order"
                   >
-                    {g.rows.length}名ぶん申し込む
+                    {g.rows.length}名分を申し込む
                   </Link>
                   <button
                     className="rounded-lg border border-line p-2.5 text-[12px] text-dim disabled:opacity-50"
@@ -484,7 +484,7 @@ export function AdminClient() {
           </div>
           <p className="mt-1 text-[11.5px] leading-relaxed text-dim">
             受講者が「もう持っている」と入れた資格です。
-            <strong className="text-dim">同じ特別教育を受け直させる必要はありません。</strong>
+            <strong className="text-dim">同じ特別教育を再受講させる必要はありません。</strong>
             ただし、就かせる前に修了証の現物を確かめてください。
           </p>
           <div className="mt-2.5 grid gap-2">
@@ -514,7 +514,7 @@ export function AdminClient() {
                             setBusy(null);
                           }}
                         >
-                          修了証の現物を見た
+                          現物を確認した
                         </Btn>
                       </div>
                     </div>
@@ -529,7 +529,7 @@ export function AdminClient() {
       {/* 断った申し込み。押し間違いで消えたままにしない */}
       {!!st.rejected.length && (
         <div className="mx-5 mt-3 rounded-xl border border-line bg-panel p-4" data-testid="admin-rejected">
-          <div className="text-[11px] tracking-[2px] text-dim">断った申し込み（直近30日）</div>
+          <div className="text-[11px] tracking-[2px] text-dim">却下した申し込み（直近30日）</div>
           <p className="mt-1 text-[11.5px] leading-relaxed text-dim2">
             間違って断ってしまったときは、ここから許可できます。
           </p>
@@ -550,7 +550,7 @@ export function AdminClient() {
                     setBusy(null);
                   }}
                 >
-                  やっぱり許可する
+                  承認に戻す
                 </button>
               </div>
             ))}
@@ -558,7 +558,7 @@ export function AdminClient() {
         </div>
       )}
 
-      {/* 事業者の名前と、受講者に配る参加コード */}
+      {/* 事業者の名前と、受講者に配布する参加コード */}
       <div className="mx-5 mt-3 rounded-xl border border-line bg-panel p-4">
         <div className="mb-2 text-[11px] tracking-[2px] text-dim">事業者（名簿の分け方）</div>
         <div className="mb-2 text-[11.5px] text-dim2" data-testid="admin-member-count">
@@ -577,7 +577,7 @@ export function AdminClient() {
                 className="rounded-lg border border-line p-2 text-[12px] text-dim"
                 onClick={() => { setCompany(st.company); setEdit(false); }}
               >
-                やめる
+                キャンセル
               </button>
               <Btn
                 tone="y"
@@ -592,7 +592,7 @@ export function AdminClient() {
                   setBusy(null);
                 }}
               >
-                {busy === "company" ? "直しています…" : "直す"}
+                {busy === "company" ? "変更しています…" : "変更"}
               </Btn>
             </div>
           </>
@@ -604,7 +604,7 @@ export function AdminClient() {
               data-testid="admin-company-edit"
               onClick={() => setEdit(true)}
             >
-              事業者名を直す
+              事業者名を変更
             </button>
             <div className="mt-2 text-[11.5px] leading-relaxed text-dim2">
               修了証の名義は{" "}
@@ -614,9 +614,9 @@ export function AdminClient() {
           </>
         )}
 
-        {/* 買った受講コード（席） */}
+        {/* 買った受講コード */}
         <div className="mt-4 border-t border-line pt-3">
-          <div className="mb-1 text-[11px] tracking-[2px] text-dim">受講コード（席）</div>
+          <div className="mb-1 text-[11px] tracking-[2px] text-dim">受講コード</div>
           <div className="text-[12.5px] leading-[1.9]">
             <span className="font-black text-txt">
               {st.seats.paid} 枚
@@ -624,7 +624,7 @@ export function AdminClient() {
             <span className="text-dim"> 入金済み　／　配った {st.seats.total} 枚　使用 {st.seats.used} 枚</span>
           </div>
           <div className="mt-1 text-[11.5px] leading-relaxed text-dim2">
-            修了証は受講コードが要ります。人数ぶん申し込んでください。
+            修了証の発行には受講コードが必要です。人数分を申し込んでください。
           </div>
           {st.seats.total > st.seats.used && (
             <div className="mt-1 text-[11.5px] leading-relaxed text-yel">
@@ -636,7 +636,7 @@ export function AdminClient() {
             className="mt-2 block rounded-lg border border-yel bg-yel p-2.5 text-center text-[13px] font-extrabold text-bg no-underline"
             data-testid="admin-order"
           >
-            {st.seats.total ? "受講コードを見る・申し込む" : "受講コードを申し込む"}
+            {st.seats.total ? "受講コードを確認・申し込む" : "受講コードを申し込む"}
           </Link>
         </div>
 
@@ -656,13 +656,13 @@ export function AdminClient() {
         </div>
 
         <div className="mt-4 border-t border-line pt-3">
-          <div className="mb-1 text-[11px] tracking-[2px] text-dim">受講者に配る参加コード</div>
+          <div className="mb-1 text-[11px] tracking-[2px] text-dim">受講者に配布する参加コード</div>
           <div className="font-mono text-[20px] font-black tracking-[4px] text-yel" data-testid="admin-joincode">
             {st.joinCode || "—"}
           </div>
           <div className="mt-1 text-[11.5px] leading-relaxed text-dim">
             席を使わずに名簿へ入れるコードです（担当者や、見学だけの人）。
-            <strong className="text-dim">渡した相手はそのまま名簿に入ります</strong>
+            <strong className="text-dim">配布した相手はそのまま名簿に登録されます</strong>
             （コードを渡した時点で認めたことになるので、許可は要りません）。
             自分でさがして申し込んできた人は、上の「参加の申し込み」で許可してください。
             漏れたら作り直せます（前のコードは使えなくなります）。
@@ -676,7 +676,7 @@ export function AdminClient() {
               setBusy(null);
             }}
           >
-            {busy === "code" ? "作り直しています…" : "参加コードを作り直す"}
+            {busy === "code" ? "再発行しています…" : "参加コードを再発行"}
           </button>
         </div>
       </div>
@@ -693,7 +693,7 @@ export function AdminClient() {
         <p className="mx-5 mt-5 text-[13px] leading-relaxed text-dim">
           まだ受講者が居ません。
           <br />
-          <strong className="text-dim">登録しただけでは、ここには並びません。</strong>
+          <strong className="text-dim">登録しただけでは、こちらには表示されません。</strong>
           受講する人に上の<span className="text-yel">参加コード</span>を渡して、
           ホームの「参加コードを入れる」から入れてもらってください。
           受講コード（12文字）を渡した場合は、それを入れれば同じように並びます。

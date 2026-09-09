@@ -60,7 +60,7 @@ export async function GET(req: NextRequest) {
   }
   const who = supabase ? await currentEnrollment(courseId) : null;
   if (!supabase || !who) {
-    return NextResponse.json({ ok: false, reason: "ログインが要ります。" }, { status: 401 });
+    return NextResponse.json({ ok: false, reason: "ログインが必要です。" }, { status: 401 });
   }
 
   const [s, row] = await Promise.all([study(courseId, who.enrollmentId), requestOf(supabase, who.enrollmentId)]);
@@ -151,7 +151,7 @@ export async function POST(req: NextRequest) {
   }
   const who = supabase ? await currentEnrollment(course.id) : null;
   if (!supabase || !who) {
-    return NextResponse.json({ ok: false, reason: "ログインが要ります。" }, { status: 401 });
+    return NextResponse.json({ ok: false, reason: "ログインが必要です。" }, { status: 401 });
   }
 
   if (b.action === "request") {

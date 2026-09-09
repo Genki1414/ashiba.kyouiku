@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
   const supabase = getServiceClient();
   const user = supabase ? await currentUser() : null;
   if (!supabase || !user) {
-    return NextResponse.json({ ok: false, reason: "ログインが要ります。" }, { status: 401 });
+    return NextResponse.json({ ok: false, reason: "ログインが必要です。" }, { status: 401 });
   }
   const courseId = (req.nextUrl.searchParams.get("courseId") ?? "").trim();
   const course = findCourse(courseId);
@@ -91,7 +91,7 @@ export async function POST(req: NextRequest) {
   const supabase = getServiceClient();
   const user = supabase ? await currentUser() : null;
   if (!supabase || !user) {
-    return NextResponse.json({ ok: false, reason: "ログインが要ります。" }, { status: 401 });
+    return NextResponse.json({ ok: false, reason: "ログインが必要です。" }, { status: 401 });
   }
   const b = (await req.json().catch(() => ({}))) as Partial<Body>;
   const id = (b.sessionId ?? "").trim();
@@ -142,7 +142,7 @@ export async function POST(req: NextRequest) {
        受講中の照合とまったく同じ作りにしてある。 */
     const who = await currentEnrollment(ses.course_id as string);
     if (!who) {
-      return NextResponse.json({ ok: false, reason: "受講の準備が要ります。" }, { status: 403 });
+      return NextResponse.json({ ok: false, reason: "受講の準備が必要です。" }, { status: 403 });
     }
     const { data: en } = await supabase
       .from("enrollments")

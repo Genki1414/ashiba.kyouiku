@@ -49,7 +49,7 @@ export function LoginClient() {
     return (
       <main className="px-5 py-10">
         <div className="tape -mx-5 mb-6" />
-        <h1 className="text-[19px] font-black">ログインは要りません</h1>
+        <h1 className="text-[19px] font-black">ログインは不要です</h1>
         <p className="mt-3 text-[13px] leading-relaxed text-dim">
           記録の置き場所（Supabase）がまだ設定されていないので、
           記録はこの端末の中だけに残ります。そのまま使えます。
@@ -71,7 +71,7 @@ export function LoginClient() {
      出し分けると、誰が登録しているかを外から当てられる。 */
   const sendReset = async () => {
     setErr(null);
-    if (!email.trim()) { setErr("メールアドレスを入れてください。"); return; }
+    if (!email.trim()) { setErr("メールアドレスを入力してください。"); return; }
     setBusy(true);
     try {
       await supabase.auth.resetPasswordForEmail(email.trim(), {
@@ -88,7 +88,7 @@ export function LoginClient() {
   const go = async () => {
     setErr(null);
     if (!email.trim() || !pw) {
-      setErr("メールアドレスと合言葉を入れてください。");
+      setErr("メールアドレスとパスワードを入力してください。");
       return;
     }
     if (mode === "up" && !name.trim()) {
@@ -96,7 +96,7 @@ export function LoginClient() {
       return;
     }
     if (mode === "up" && pw.length < 8) {
-      setErr("合言葉は8文字以上にしてください。");
+      setErr("パスワードは8文字以上で入力してください。");
       return;
     }
     setBusy(true);
@@ -137,7 +137,7 @@ export function LoginClient() {
     return (
       <main className="px-5 py-10" data-testid="login-mailed">
         <div className="tape -mx-5 mb-6" />
-        <div className="text-[11px] font-extrabold tracking-[2px] text-yel">決め直しのメールを送りました</div>
+        <div className="text-[11px] font-extrabold tracking-[2px] text-yel">再設定メールを送信しました</div>
         <h1 className="mt-2 text-[19px] font-black leading-snug">
           メールの中のリンクを
           <br />
@@ -212,11 +212,11 @@ export function LoginClient() {
       <div className="tape -mx-5 mb-6" />
       <div className="text-[11px] font-extrabold tracking-[2px] text-yel">{SERVICE_NAME}</div>
       <h1 className="mt-1.5 text-[20px] font-black">
-        {mode === "in" ? "ログイン" : mode === "up" ? "はじめて使う" : "合言葉を忘れた"}
+        {mode === "in" ? "ログイン" : mode === "up" ? "はじめて使う" : "パスワードを忘れた"}
       </h1>
       <p className="mt-2 text-[12.5px] leading-relaxed text-dim">
         {mode === "in"
-          ? "受講の記録を残すために、ログインが要ります。"
+          ? "受講の記録を残すために、ログインが必要です。"
           : mode === "up"
             ? "氏名は修了証と受講記録に載ります。本名を入れてください。"
             : "登録したメールアドレスを入れてください。決め直しのリンクを送ります。"}
@@ -253,7 +253,7 @@ export function LoginClient() {
         />
         {mode !== "forgot" && (
           <Field
-            label="合言葉（パスワード）"
+            label="パスワード"
             value={pw}
             onChange={setPw}
             type="password"
@@ -276,7 +276,7 @@ export function LoginClient() {
           onClick={mode === "forgot" ? () => void sendReset() : go}
           testid="login-go"
         >
-          {busy ? "…" : mode === "in" ? "ログインする" : mode === "up" ? "登録して始める" : "決め直しのメールを送る"}
+          {busy ? "…" : mode === "in" ? "ログインする" : mode === "up" ? "登録して始める" : "再設定メールを送信"}
         </Btn>
         <Btn
           onClick={() => { setMode(mode === "in" ? "up" : "in"); setErr(null); }}
@@ -357,10 +357,10 @@ function Field({
 /** Supabase の英語の言い分を、現場の言葉に直す */
 function readable(e: unknown): string {
   const m = (e as { message?: string })?.message ?? String(e);
-  if (/Invalid login credentials/i.test(m)) return "メールアドレスか合言葉が違います。";
+  if (/Invalid login credentials/i.test(m)) return "メールアドレスまたはパスワードが違います。";
   if (/User already registered/i.test(m)) return "そのメールアドレスは登録済みです。「すでに登録した方はこちら」から入ってください。";
-  if (/Password should be at least/i.test(m)) return "合言葉が短すぎます。8文字以上にしてください。";
-  if (/Unable to validate email address|invalid format/i.test(m)) return "メールアドレスの形が違います。";
+  if (/Password should be at least/i.test(m)) return "パスワードが短すぎます。8文字以上で入力してください。";
+  if (/Unable to validate email address|invalid format/i.test(m)) return "メールアドレスの形式が正しくありません。";
   if (/Email not confirmed/i.test(m)) return "メールの確認がまだです。届いたメールのリンクを押してください。";
   if (/rate limit|too many/i.test(m)) return "短い間に何度も試しました。少し待ってからもう一度。";
   /* 設定がまだのとき。何を触ればよいかまで言う */

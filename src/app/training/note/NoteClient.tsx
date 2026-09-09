@@ -120,7 +120,7 @@ export function NoteClient() {
                 >
                   消す
                 </Btn>
-                <Btn onClick={() => setAsking(false)}>やめる</Btn>
+                <Btn onClick={() => setAsking(false)}>キャンセル</Btn>
               </div>
             </div>
           ) : (

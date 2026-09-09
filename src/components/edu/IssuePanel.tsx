@@ -92,7 +92,7 @@ export function IssuePanel({
       setDrillBy(j.drillBy ?? "");
       setNg("");
     } catch {
-      setNg("つながりません。電波の届く所でもう一度。");
+      setNg("接続できません。電波の届く場所で、もう一度お試しください。");
     }
   }, [courseId, onGate]);
 
@@ -276,7 +276,7 @@ export function IssuePanel({
               {/* 実施記録。**これが無いと申請できない。**
                   日付と名前だけなら、打ち込めば通ってしまう */}
               <div className="rounded-lg border border-yel bg-panel2 p-3.5">
-                <div className="text-[12.5px] font-extrabold text-yel">実技の実施記録（要ります）</div>
+                <div className="text-[12.5px] font-extrabold text-yel">実技の実施記録（必須）</div>
                 <p className="mt-1 text-[11.5px] leading-relaxed text-dim">
                   書き終えた<strong className="text-txt">実施記録の様式</strong>を撮って（かPDFにして）添えてください。
                   <strong className="text-txt">実施内容・参加者名・実施事業者名・実施事業者印</strong>が写っていることを確かめてください。

@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
             kind: r.kind as string | null,
             courseId: r.course_id as string | null,
           }),
-          description: `${r.seats}名ぶん・税込`,
+          description: `${r.seats}名分・税込`,
         },
       },
     })),

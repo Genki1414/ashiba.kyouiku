@@ -106,7 +106,7 @@ await page.waitForTimeout(400);
   check(Array.isArray(couponAsked?.items) && couponAsked.items[0]?.seats === 5, "講座と人数を送る");
 
   const okNote = (await page.getByTestId("order-coupon-ok").innerText()).replace(/\s/g, "");
-  check(okNote.includes("2,250円引き"), `いくら引けるかが出る（${okNote}）`);
+  check(okNote.includes("2,250円引き") && okNote.includes("適用"), `いくら引けるかが出る（${okNote}）`);
 
   const q = (await page.getByTestId("order-quote").innerText()).replace(/\s/g, "");
   check(q.includes("-2,250"), `見積りに値引きが出る（${q.slice(0, 90)}）`);
@@ -135,12 +135,12 @@ await page.waitForTimeout(400);
 /* ── 押し間違えたら、はずせる ── */
 {
   const b = page.getByTestId("order-coupon-check");
-  check((await b.innerText()).includes("はずす"), "使ったあとは「はずす」に変わる");
+  check((await b.innerText()).includes("解除"), "適用したあとは「解除」に変わる");
   await b.click();
   await page.waitForTimeout(200);
-  check((await page.getByTestId("order-discount").count()) === 0, "はずすと値引きが消える");
-  check((await b.innerText()).includes("使用する"), "はずしたら「使用する」に戻る");
-  console.log("OK: 押し間違えても、はずせる");
+  check((await page.getByTestId("order-discount").count()) === 0, "解除すると値引きが消える");
+  check((await b.innerText()).includes("適用する"), "解除したら「適用する」に戻る");
+  console.log("OK: 押し間違えても、解除できる");
 }
 
 /* ── 断られたら、その理由が出る ── */
@@ -221,7 +221,7 @@ await page.waitForSelector('[data-testid="owner-coupons"]', { timeout: 8000 });
   check(p.includes("入金待ち1件"), "入金待ちのぶんも分けて出す");
 
   const c = (await page.getByTestId("coupon-row").innerText()).replace(/\s/g, "");
-  check(c.includes("PLANT10") && c.includes("10%引き") && c.includes("広告費20%"),
+  check(c.includes("PLANT10") && c.includes("10%引き") && c.includes("広告費率20%"),
     `クーポンの中身が出る（${c.slice(0, 60)}）`);
 
   await page.getByTestId("coupon-open").click();

@@ -95,7 +95,7 @@ export function JoinClient() {
       });
       const j = await res.json().catch(() => ({}));
       if (!res.ok || !j.ok) {
-        setReqNote(j.reason ?? "送れませんでした。");
+        setReqNote(j.reason ?? "送信できませんでした。");
         return;
       }
       await loadReqs();
@@ -111,13 +111,13 @@ export function JoinClient() {
       const res = await fetch(`/api/companies?q=${encodeURIComponent(q)}`, { cache: "no-store" });
       const j = await res.json().catch(() => ({}));
       if (!res.ok || !j.ok) {
-        setNote(j.reason ?? "さがせませんでした。");
+        setNote(j.reason ?? "検索できませんでした。");
         return;
       }
       setFound(j.rows ?? []);
       if (j.hint) setNote(j.hint);
     } catch {
-      setNote("つながりません。電波の届く所でもう一度。");
+      setNote("接続できません。電波の届く場所で、もう一度お試しください。");
     } finally {
       setBusy(false);
     }
@@ -134,7 +134,7 @@ export function JoinClient() {
       });
       const j = await res.json().catch(() => ({}));
       if (!res.ok || !j.ok) {
-        setNote(j.reason ?? "申し込めませんでした。");
+        setNote(j.reason ?? "申し込みできませんでした。");
         return;
       }
       setFound(null);
@@ -189,7 +189,7 @@ export function JoinClient() {
       setMade(j.company ?? newName.trim());
       router.refresh();
     } catch {
-      setNote("つながりません。電波の届く所でもう一度。");
+      setNote("接続できません。電波の届く場所で、もう一度お試しください。");
     } finally {
       setBusy(false);
     }
@@ -206,7 +206,7 @@ export function JoinClient() {
       });
       const j = await res.json().catch(() => ({}));
       if (!res.ok || !j.ok) {
-        setNote(j.reason ?? "入れませんでした。");
+        setNote(j.reason ?? "登録できませんでした。");
         return;
       }
       /* 受講コードを入れたら、その時点で受講は始めからになる。
@@ -217,7 +217,7 @@ export function JoinClient() {
       setDone({ company: j.company ?? "", kind: j.kind ?? "join" });
       router.refresh();
     } catch {
-      setNote("つながりません。電波の届く所でもう一度。");
+      setNote("接続できません。電波の届く場所で、もう一度お試しください。");
     } finally {
       setBusy(false);
     }
@@ -256,8 +256,8 @@ export function JoinClient() {
         <h1 className="text-[18px] font-black">{done.company} に入りました</h1>
         <p className="mt-2 text-[13px] leading-relaxed text-dim">
           {done.kind === "seat"
-            ? "受講コードが1枚あなたのものになりました。学科を最後まで進めると修了証が出ます。"
-            : "名簿に入りました。修了証には受講コードが要ります。担当者に聞いてください。"}
+            ? "受講コードを1つ登録しました。学科を最後まで受講すると修了証を発行できます。"
+            : "名簿に登録されました。修了証の発行には受講コードが必要です。教育担当者にご確認ください。"}
         </p>
         <Link
           href="/"
@@ -299,7 +299,7 @@ export function JoinClient() {
 
       {mine?.state === "pending" && (
         <div className="mt-3 rounded-xl border border-yel bg-[#1A1F14] p-4" data-testid="join-pending">
-          <div className="text-[11px] tracking-[2px] text-yel">許可待ち</div>
+          <div className="text-[11px] tracking-[2px] text-yel">承認待ち</div>
           {mine.pending.map((x) => (
             <div key={x.id} className="mt-1.5">
               <div className="text-[14px] font-black">{x.company.name}</div>
@@ -322,7 +322,7 @@ export function JoinClient() {
       {/* ① 会社をさがして申し込む */}
       {mine?.state !== "active" && (
         <div className="mt-4 rounded-xl border border-line bg-panel p-4" data-testid="join-search">
-          <div className="mb-1 text-[11px] tracking-[2px] text-dim">① 会社をさがす</div>
+          <div className="mb-1 text-[11px] tracking-[2px] text-dim">① 会社を検索</div>
           <p className="mb-2.5 text-[11.5px] leading-relaxed text-dim2">
             自分の会社を見つけて申し込みます。会社の担当者が許可すると名簿に入ります。
           </p>
@@ -331,7 +331,7 @@ export function JoinClient() {
               value={q}
               onChange={(e) => setQ(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") void search(); }}
-              placeholder="会社名の一部"
+              placeholder="会社名（一部でも検索できます）"
               className="min-w-0 flex-1 rounded-lg border border-line bg-bg px-3 py-2.5 text-[13.5px]"
               data-testid="join-q"
             />
@@ -426,13 +426,13 @@ export function JoinClient() {
               className="mt-2.5 w-full rounded-lg border border-line p-2.5 text-[12.5px] text-dim"
               data-testid="join-new-go"
             >
-              {busy ? "確かめています…" : "この会社を登録する"}
+              {busy ? "確認しています…" : "この会社を登録する"}
             </button>
           )}
         </div>
       )}
 
-      <h2 className="mt-6 text-[13px] font-black">③ 受講コードを入れる</h2>
+      <h2 className="mt-6 text-[13px] font-black">③ 受講コードを入力する</h2>
       <p className="mt-1 text-[12.5px] leading-relaxed text-dim">
         担当者から受講コード（12文字）を渡されている場合は、こちらが早いです。
         許可は要りません。入れた時点で名簿に入り、学科が開きます。
@@ -459,7 +459,7 @@ export function JoinClient() {
           onClick={go}
           testid="join-go"
         >
-          {busy ? "確かめています…" : "この会社に入る"}
+          {busy ? "確認しています…" : "この会社に登録する"}
         </Btn>
       </div>
       {note && (
@@ -468,7 +468,7 @@ export function JoinClient() {
         </div>
       )}
 
-      {/* ④ コードをもらっていないとき、担当者に「受けたい」を送る。
+      {/* ④ 受講コードをお持ちでない場合、担当者に「受けたい」を送る。
 
           ここに置くのは、**コードを渡されていない人が開くのがこの画面**だから。
           いままでは「担当者に聞いてください」と書いてあるだけで、
@@ -478,7 +478,7 @@ export function JoinClient() {
           席（受講コード）はここでは作らない。担当者が見て、いつもどおり渡す */}
       {mine?.state === "active" && !!reqs?.length && (
         <div className="mt-8 rounded-xl border border-cyan bg-panel p-4" data-testid="join-request">
-          <div className="text-[11px] tracking-[2px] text-cyan">④ コードをもらっていないとき</div>
+          <div className="text-[11px] tracking-[2px] text-cyan">④ 受講コードをお持ちでない場合</div>
           <p className="mt-1.5 text-[12px] leading-relaxed text-dim">
             受けたい講座を選んで送ると、<span className="text-cyan">{mine.company.name}</span>の
             教育担当者の画面に出ます。担当者が席（受講コード）を用意して渡してくれます。
@@ -497,7 +497,7 @@ export function JoinClient() {
               <input
                 value={reqQ}
                 onChange={(e) => setReqQ(e.target.value)}
-                placeholder="講座名でさがす（例：足場、玉掛け）"
+                placeholder="講座名で検索（例：足場、玉掛け）"
                 className="mt-3 w-full rounded-lg border border-line bg-bg px-3 py-2.5 text-[13px]"
                 data-testid="join-request-find"
               />
@@ -547,7 +547,7 @@ export function JoinClient() {
 
       <div className="mt-8 rounded-xl border border-line bg-panel p-4 text-[12px] leading-relaxed text-dim">
         コードを持っていない場合は、会社の教育担当者に聞いてください。
-        {mine?.state === "active" && "上の「④ コードをもらっていないとき」から、受けたい講座を送ることもできます。"}
+        {mine?.state === "active" && "上の「④ 受講コードをお持ちでない場合」から、受けたい講座を送ることもできます。"}
         <br />
         自分の会社でこれから使い始める場合は、上の「② 会社を登録する」から。
       </div>

@@ -100,13 +100,13 @@ export function HomeCards() {
         className="block rounded-xl border border-yel bg-[#1A1F14] p-4 no-underline"
         data-testid="home-pending"
       >
-        <div className="text-[11px] font-extrabold tracking-widest text-yel">許可待ち</div>
-        <div className="mt-1 text-[15px] font-black text-txt">会社の返事を待っています</div>
+        <div className="text-[11px] font-extrabold tracking-widest text-yel">承認待ち</div>
+        <div className="mt-1 text-[15px] font-black text-txt">会社からの承認をお待ちください</div>
         <div className="mt-1 text-[12px] leading-relaxed text-dim">
-          申し込みは届いています。会社の教育担当者が許可すると、名簿に入って受講できるようになります。
+          お申し込みは届いています。教育担当者が承認すると、名簿に登録され受講できるようになります。
           <br />
-          急ぐときは担当者にひとこと言ってください。受講コード（12文字）を渡してもらえれば、
-          許可を待たずに始められます。
+          お急ぎの場合は担当者にご連絡ください。受講コード（12文字）を受け取れば、
+          承認を待たずに受講を始められます。
         </div>
       </Link>,
     );
@@ -123,8 +123,8 @@ export function HomeCards() {
         <div className="text-[11px] font-extrabold tracking-widest text-yel">はじめに</div>
         <div className="mt-1 text-[15px] font-black text-txt">会社とつなぐ</div>
         <div className="mt-1 text-[12px] leading-relaxed text-dim">
-          自分の会社をさがして申し込みます。まだこの仕組みを使っていない会社なら、
-          そこから登録もできます。つながっていないと、名簿に載らず、修了証も出せません。
+          自分の会社を検索して申し込みます。まだ登録のない会社は、その場で登録できます。
+          会社とつながっていないと、名簿に登録されず、修了証も発行できません。
         </div>
       </Link>,
     );
@@ -163,7 +163,7 @@ export function HomeCards() {
   }
 
   /* 受講コードの札は、在籍している人にだけ出す。
-     許可待ちの人には、先に許可が要ることを上で出してある */
+     承認待ちの人には、先に許可が要ることを上で出してある */
   if (!me.canLearn && me.member === "active") {
     cards.push(
       <Link

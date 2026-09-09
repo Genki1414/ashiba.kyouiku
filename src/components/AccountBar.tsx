@@ -92,7 +92,7 @@ export function AccountBar() {
             ログアウトする
           </button>
           <button onClick={() => setAsking(false)} className="rounded border border-line px-2 py-1 text-dim">
-            やめる
+            キャンセル
           </button>
         </span>
       ) : (

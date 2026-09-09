@@ -74,7 +74,7 @@ function Doing({
           )}
         </div>
       ) : (
-        <div className="mt-1 text-[11.5px] text-grn">全単元を終えています</div>
+        <div className="mt-1 text-[11.5px] text-grn">全単元を修了しています</div>
       )}
 
       <div className="mt-2 flex items-baseline gap-2 text-[12.5px]">
@@ -241,7 +241,7 @@ export function LearnerCard({
       {BRAND.training && tab === "training" && (
         <div className="mt-2 rounded-lg border border-line bg-bg p-3" data-testid="admin-training">
           {!played.length && !tried.length && !seen.length ? (
-            <div className="text-[12px] text-dim2">まだ何も開いていません。</div>
+            <div className="text-[12px] text-dim2">まだ受講を開始していません。</div>
           ) : (
             <div className="grid gap-1.5">
               {r.training.map((t) => {
@@ -359,7 +359,7 @@ export function LearnerCard({
                 }`}
                 data-testid="admin-held-confirm"
               >
-                {h.confirmedAt ? "確認を取り消す" : "修了証の現物を見た（確認済みにする）"}
+                {h.confirmedAt ? "確認を取り消す" : "現物を確認した（確認済みにする）"}
               </button>
             </div>
           ))}
@@ -391,7 +391,7 @@ export function LearnerCard({
           disabled={busy}
           onClick={assign.run}
         >
-          {busy ? "配っています…" : `${assign.courseName}の席を配る（コード入力なし）`}
+          {busy ? "配っています…" : `${assign.courseName}の受講コードを配る（コード入力なし）`}
         </button>
       )}
 
@@ -405,8 +405,8 @@ export function LearnerCard({
         onClick={onMember}
       >
         {r.pending
-          ? "この申し込みを許可する（名簿に入れる）"
-          : "退職にする（名簿から外れます。記録は残ります）"}
+          ? "この申し込みを承認する（名簿に追加）"
+          : "退職として登録（名簿から外れます。記録は残ります）"}
       </button>
 
       <button
@@ -414,7 +414,7 @@ export function LearnerCard({
         data-testid="admin-role"
         onClick={onRole}
       >
-        {r.admin ? "担当者をやめてもらう" : "この人を教育担当者にする"}
+        {r.admin ? "教育担当者から外す" : "この方を教育担当者にする"}
       </button>
     </div>
   );

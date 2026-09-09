@@ -37,14 +37,14 @@ export function NewPasswordClient() {
   const go = async () => {
     setErr(null);
     if (pw.length < MIN) { setErr(`合言葉は${MIN}文字以上にしてください。`); return; }
-    if (pw !== pw2) { setErr("2つの合言葉が違います。"); return; }
+    if (pw !== pw2) { setErr("2つのパスワードが一致しません。"); return; }
     setBusy(true);
     try {
       const { error } = await supabase!.auth.updateUser({ password: pw });
       if (error) throw error;
       setDone(true);
     } catch (e) {
-      setErr((e as { message?: string })?.message ?? "決め直せませんでした。");
+      setErr((e as { message?: string })?.message ?? "変更できませんでした。");
     } finally {
       setBusy(false);
     }
@@ -56,8 +56,8 @@ export function NewPasswordClient() {
     return (
       <main className="px-5 py-10">
         <div className="tape -mx-5 mb-6" />
-        <div className="text-[11px] font-extrabold tracking-[2px] text-grn">決め直しました</div>
-        <h1 className="mt-2 text-[19px] font-black leading-snug">新しい合言葉になりました</h1>
+        <div className="text-[11px] font-extrabold tracking-[2px] text-grn">変更しました</div>
+        <h1 className="mt-2 text-[19px] font-black leading-snug">パスワードを変更しました</h1>
         <p className="mt-4 text-[13px] leading-relaxed text-dim">
           このままお使いいただけます。次からは新しい合言葉で入ってください。
         </p>
@@ -92,14 +92,14 @@ export function NewPasswordClient() {
   return (
     <main className="px-5 py-8" data-testid="newpw">
       <div className="tape -mx-5 mb-6" />
-      <div className="text-[11px] font-extrabold tracking-[2px] text-yel">合言葉の決め直し</div>
-      <h1 className="mt-1.5 text-[20px] font-black">新しい合言葉</h1>
+      <div className="text-[11px] font-extrabold tracking-[2px] text-yel">パスワードの再設定</div>
+      <h1 className="mt-1.5 text-[20px] font-black">新しいパスワード</h1>
       <p className="mt-2 text-[12.5px] leading-relaxed text-dim">
         {MIN}文字以上。現場で使うものなので、覚えやすいものにしてください。
       </p>
 
       <div className="mt-5 grid gap-3">
-        <Field label="新しい合言葉" value={pw} onChange={setPw} testid="newpw-1" />
+        <Field label="新しいパスワード" value={pw} onChange={setPw} testid="newpw-1" />
         <Field label="もう一度" value={pw2} onChange={setPw2} testid="newpw-2" />
       </div>
 

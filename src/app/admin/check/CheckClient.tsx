@@ -44,7 +44,7 @@ export function CheckClient() {
       const res = await fetch(`/api/admin/verify?days=${d}`, { cache: "no-store" });
       const j = await res.json();
       if (!res.ok || !j.ok) {
-        setNg(j.reason ?? "開けません。");
+        setNg(j.reason ?? "画面を表示できません。");
         return;
       }
       setSt({
@@ -56,7 +56,7 @@ export function CheckClient() {
       });
       setNg("");
     } catch {
-      setNg("つながりません。電波の届く所でもう一度。");
+      setNg("接続できません。電波の届く場所で、もう一度お試しください。");
     }
   }, []);
 

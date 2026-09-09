@@ -42,11 +42,11 @@ export function InvoicesClient() {
     fetch("/api/invoices", { cache: "no-store" })
       .then((r) => r.json())
       .then((j) => {
-        if (!j?.ok) { setNg(j?.reason ?? "開けません。"); return; }
+        if (!j?.ok) { setNg(j?.reason ?? "画面を表示できません。"); return; }
         setList(Array.isArray(j.list) ? j.list : []);
         setAdmin(!!j.admin);
       })
-      .catch(() => setNg("つながりません。電波の届く所でもう一度。"));
+      .catch(() => setNg("接続できません。電波の届く場所で、もう一度お試しください。"));
   }, []);
 
   /* 担当者は申込みの画面へ、個人はホームへ戻る */
@@ -59,7 +59,7 @@ export function InvoicesClient() {
       <Link href={back} className="backlink text-[13px] text-dim no-underline">{backLabel}</Link>
       <h1 className="mt-2 text-[19px] font-black">請求書の一覧</h1>
       <p className="mt-1 text-[12px] leading-relaxed text-dim">
-        これまでの申込みと、その請求書です。お支払いのあとも、ここから開けます。
+        これまでの申込みと請求書の一覧です。お支払い後も、こちらから開けます。
       </p>
 
       {ng && (
@@ -70,7 +70,7 @@ export function InvoicesClient() {
 
       {list && !list.length && !ng && (
         <div className="mt-4 rounded-xl border border-line bg-panel p-4 text-[12.5px] text-dim" data-testid="invoices-empty">
-          まだ申込みがありません。
+          申込みはまだありません。
         </div>
       )}
 
@@ -104,19 +104,19 @@ export function InvoicesClient() {
 
               {e.method === "card" ? (
                 /* カードは請求書を出さない（カード会社の明細が控えになる） */
-                <div className="mt-2 text-[11.5px] text-dim2">カード払いのため、請求書はありません。</div>
+                <div className="mt-2 text-[11.5px] text-dim2">カード払いのため、請求書の発行はありません。</div>
               ) : e.invoicedAt ? (
                 <Link
                   href={`/invoice/${e.id}`}
                   className="mt-2 block rounded-lg border border-yel px-3 py-2 text-center text-[12.5px] font-bold text-yel no-underline"
                   data-testid="invoice-row-open"
                 >
-                  請求書を開く（{day(e.invoicedAt)} 発行）
+                  請求書を表示（{day(e.invoicedAt)} 発行）
                 </Link>
               ) : e.status === "cancelled" ? null : (
                 /* 出ていないものは出ていないと言う。押しても開かないリンクを置かない */
                 <div className="mt-2 rounded-lg border border-line px-3 py-2 text-[11.5px] text-dim" data-testid="invoice-row-wait">
-                  請求書はまだ発行されていません。運営が発行すると、ここから開けます。
+                  請求書は未発行です。発行されると、こちらから開けます。
                 </div>
               )}
             </div>

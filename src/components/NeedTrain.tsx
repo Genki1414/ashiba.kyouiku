@@ -12,7 +12,7 @@ export function NeedTrain({ why }: { why: "free" | "signin" }) {
     return (
       <main className="px-5 py-10" data-testid="need-train">
         <div className="tape -mx-5 mb-6" />
-        <h1 className="text-[19px] font-black">ログインが要ります</h1>
+        <h1 className="text-[19px] font-black">ログインが必要です</h1>
         <p className="mt-3 text-[13px] leading-relaxed text-dim">
           成績を、誰のものとして残すかを決めるためです。
         </p>
@@ -44,7 +44,7 @@ export function NeedTrain({ why }: { why: "free" | "signin" }) {
 
       <div className="mt-5 rounded-xl border border-line bg-panel p-4 text-[12.5px] leading-relaxed text-dim">
         <div className="mb-1 text-[11px] tracking-[2px] text-dim2">先を開くには</div>
-        自分ひとりぶんなら、下から申し込めます。会社を通さなくて構いません。
+        自分ひとり分なら、下から申し込めます。会社を通さなくて構いません。
         会社でまとめて申し込む場合は、教育担当者に聞いてください。
         <br />
         <span className="text-dim2">
@@ -58,7 +58,7 @@ export function NeedTrain({ why }: { why: "free" | "signin" }) {
         className="mt-5 block rounded-lg border border-yel bg-yel p-3.5 text-center text-[14px] font-extrabold text-bg no-underline"
         data-testid="need-train-buy"
       >
-        自分ひとりぶんを申し込む
+        自分ひとり分を申し込む
       </Link>
 
       <Link
