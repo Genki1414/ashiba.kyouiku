@@ -351,7 +351,7 @@ export function LearnerCard({
                 </span>
               </div>
               <div className="mt-0.5 text-[11px] leading-relaxed text-dim2">
-                {h.kind}（よそで取得）
+                {h.kind}（外部で取得・自己申告）
                 {h.issuer ? `　${h.issuer}` : ""}
                 {h.gotOn ? `　${day(h.gotOn)} 取得` : ""}
                 {h.certNo ? <><br />修了証番号 {h.certNo}</> : null}
@@ -371,9 +371,9 @@ export function LearnerCard({
 
           {!!r.held.length && (
             <div className="text-[10.5px] leading-relaxed text-dim2">
-              「よそで取得」は本人がマイページから入れたものです。この仕組みの記録ではありません。
-              同じ特別教育を受け直させる必要はありませんが、
-              就かせる前に修了証の現物を確かめてください。
+              「外部で取得」は、ご本人がマイページから登録したものです。当社の記録ではありません。
+              同じ特別教育を再受講させる必要はありませんが、
+              業務に就かせる前に修了証の現物をご確認ください。
             </div>
           )}
         </div>

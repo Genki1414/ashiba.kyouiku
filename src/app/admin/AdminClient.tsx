@@ -496,12 +496,12 @@ export function AdminClient() {
       {!!st.quals.length && (
         <div className="mx-5 mt-3 rounded-xl border border-yel bg-[#1A1F14] p-4" data-testid="admin-qual-reqs">
           <div className="text-[11px] font-extrabold tracking-[2px] text-yel">
-            資格の申請 {st.quals.reduce((n, q) => n + q.items.length, 0)} 件
+            外部で取得した資格の確認 {st.quals.reduce((n, q) => n + q.items.length, 0)} 件
           </div>
           <p className="mt-1 text-[11.5px] leading-relaxed text-dim">
-            受講者が「もう持っている」と入れた資格です。
+            受講者が「すでに取得済み」として登録した資格です。
             <strong className="text-dim">同じ特別教育を再受講させる必要はありません。</strong>
-            ただし、就かせる前に修了証の現物を確かめてください。
+            ただし、業務に就かせる前に修了証の現物をご確認ください。
           </p>
           <div className="mt-2.5 grid gap-2">
             {st.quals.map((q) => (
@@ -542,12 +542,24 @@ export function AdminClient() {
         </div>
       )}
 
-      {/* 断った申し込み。押し間違いで消えたままにしない */}
+      {/* 却下した申し込み。**畳んでおく**（げんきさん 2026-09-09）。
+          押し間違いを戻す道は要るが、ふだん見るものではない。
+          開いたままだと、やることの並びに割り込んでくる */}
       {!!st.rejected.length && (
-        <div className="mx-5 mt-3 rounded-xl border border-line bg-panel p-4" data-testid="admin-rejected">
-          <div className="text-[11px] tracking-[2px] text-dim">却下した申し込み（直近30日）</div>
-          <p className="mt-1 text-[11.5px] leading-relaxed text-dim2">
-            間違って断ってしまったときは、ここから許可できます。
+        <details className="group mx-5 mt-3 rounded-xl border border-line bg-panel" data-testid="admin-rejected">
+          <summary
+            className="flex cursor-pointer list-none items-center gap-2 p-4 text-[12.5px] text-dim"
+            data-testid="admin-rejected-open"
+          >
+            <span className="inline-block text-[11px] text-dim2 transition-transform group-open:rotate-90" aria-hidden>
+              ▶
+            </span>
+            却下した申し込み
+            <span className="text-[11.5px] text-dim2">{st.rejected.length}件（直近30日）</span>
+          </summary>
+          <div className="px-4 pb-4">
+          <p className="text-[11.5px] leading-relaxed text-dim2">
+            間違って却下してしまったときは、ここから承認に戻せます。
           </p>
           <div className="mt-2 grid gap-1.5">
             {st.rejected.map((q) => (
@@ -571,7 +583,8 @@ export function AdminClient() {
               </div>
             ))}
           </div>
-        </div>
+          </div>
+        </details>
       )}
 
       {/* 事業者の名前と、受講者に配布する参加コード */}
