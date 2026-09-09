@@ -121,13 +121,18 @@ export function LearnerCard({
   onRole: () => void;
   /** よそで取った資格。現物を見たら確認済みにする */
   onConfirm: (heldId: string, on: boolean) => void;
-  /** いま見ている講座の席を、この人に直接配る（0028）。
-      配れないとき（在籍していない・もう持っている・席が無い）は null */
-  assign: { courseName: string; run: () => void } | null;
+  /** この人に配れる受講コード（0028）。残数のある講座のうち、
+      その人がまだ持っていないものだけが入る。1つも無ければ null */
+  assign: {
+    courses: { id: string; short: string; free: number }[];
+    run: (courseId: string) => void;
+  } | null;
 }) {
   /* はじめは畳んでおく。ただし修了証を出せる人だけ「受講中」を開いておく。
      担当者がやることは、開かないと見つからないと意味がない */
   const [tab, setTab] = useState<Tab | null>(r.canIssue ? "doing" : null);
+  /* 配る受講コードの講座。残数のある講座が2つ以上あるときだけ使う */
+  const [pick, setPick] = useState("");
 
   const played = r.training.filter((t) => t.times > 0);
   /* 練習（チュートリアル）だけ通した人。点は付かないが、
@@ -384,16 +389,42 @@ export function LearnerCard({
           **受講コードの方式は残してある。**その場に居ない人、
           まだ名簿に入っていない人には、コードを渡すしかない。
           出すのは、在籍していて・まだ持っていなくて・席が余っているときだけ */}
-      {assign && (
+      {assign && (assign.courses.length === 1 ? (
         <button
           className="mt-3 w-full rounded-lg border border-grn p-2 text-[11.5px] font-extrabold text-grn disabled:opacity-50"
           data-testid="admin-assign-row"
           disabled={busy}
-          onClick={assign.run}
+          onClick={() => assign.run(assign.courses[0].id)}
         >
-          {busy ? "配っています…" : `${assign.courseName}の受講コードを配る（コード入力なし）`}
+          {busy ? "配っています…" : `${assign.courses[0].short}の受講コードを配る（コード入力なし）`}
         </button>
-      )}
+      ) : (
+        /* 残数のある講座が2つ以上あるときは、どれを配るかを選ぶ。
+           前は画面の上で「いま見ている講座」を選ばせていたが、
+           選んでも名簿は変わらないので、何が起きたのか分からなかった
+           （げんきさん 2026-09-09） */
+        <div className="mt-3 flex gap-2" data-testid="admin-assign-row">
+          <select
+            value={pick || assign.courses[0].id}
+            onChange={(e) => setPick(e.target.value)}
+            className="min-w-0 flex-1 rounded-lg border border-line bg-bg px-2 py-2 text-[12px] text-txt"
+            data-testid="admin-assign-course"
+            aria-label="配る受講コードの講座"
+          >
+            {assign.courses.map((c) => (
+              <option key={c.id} value={c.id}>{c.short}（残り{c.free}）</option>
+            ))}
+          </select>
+          <button
+            className="shrink-0 rounded-lg border border-grn px-3 py-2 text-[11.5px] font-extrabold text-grn disabled:opacity-50"
+            disabled={busy}
+            onClick={() => assign.run(pick || assign.courses[0].id)}
+            data-testid="admin-assign-go"
+          >
+            {busy ? "配っています…" : "受講コードを配る"}
+          </button>
+        </div>
+      ))}
 
       {/* 在籍の出し入れ。退職しても記録は消さない。
           申し込み中の人は、ここからも許可できる */}

@@ -90,8 +90,6 @@ export function AdminClient() {
   const [note, setNote] = useState<string>("");
   const [company, setCompany] = useState("");
   const [edit, setEdit] = useState(false);
-  /* 名簿も受講コードも講座ごと。どの講座を見ているか */
-  const [courseId, setCourseId] = useState<string>("");
 
   const load = useCallback(async (course?: string) => {
     try {
@@ -120,7 +118,6 @@ export function AdminClient() {
         /* 次に開いたとき、待たずに出せるように覚えておく */
         keep("admin", fresh);
         setCompany(j.company ?? "");
-        if (j.course?.id) setCourseId(j.course.id as string);
         return;
       }
       setStale(false);
@@ -145,7 +142,6 @@ export function AdminClient() {
       setSt(seen);
       setStale(true);
       setCompany(seen.company);
-      if (seen.course?.id) setCourseId(seen.course.id);
     }
     void load();
   }, [load]);
@@ -199,7 +195,7 @@ export function AdminClient() {
             testid="admin-setup"
             onClick={async () => {
               setBusy("setup");
-              if (await post("/api/admin/setup", { company: company.trim() })) await load(courseId);
+              if (await post("/api/admin/setup", { company: company.trim() })) await load();
               setBusy(null);
             }}
           >
@@ -243,9 +239,26 @@ export function AdminClient() {
      上に来るのは、担当者がやること（修了証を出す）が残っている人 */
   const rows = st.rows;
 
-  /* 実技のある講座（高所作業車）か。実技はこの会社が行う */
-  const drillCourse = st?.course ? findCourse(st.course.id) : null;
-  const drillMin = drillCourse ? drillMinOf(drillCourse) : 0;
+  /* ── この会社が関わっている講座 ──
+     買った受講コードが残っているか、誰かが受けている（受け終えた）講座。
+     73講座あるので、**関わっていないものは出さない。**
+     前は「いま見ている講座」1つだけを出していたので、
+     2つ目の講座の実技の案内が、切り替えるまで出なかった */
+  const touched = new Map<string, { id: string; short: string; free: number }>();
+  for (const c of st.courses) {
+    const free = st.freeSeats[c.id] ?? 0;
+    const learning = st.rows.some((r) => [...r.doing, ...r.done].some((x) => x.courseId === c.id));
+    if (free > 0 || learning) touched.set(c.id, { id: c.id, short: c.short, free });
+  }
+  /* 残りのあるものだけ、多い順に。残っていない講座を並べても配れない */
+  const freeList = [...touched.values()].filter((c) => c.free > 0).sort((a, b) => b.free - a.free);
+  /* 実技のある講座。実技はこの会社が行う */
+  const drills = [...touched.values()]
+    .map((c) => {
+      const meta = findCourse(c.id);
+      return { c, min: meta ? drillMinOf(meta) : 0 };
+    })
+    .filter((x) => x.min > 0);
 
   return (
     <main className="pb-10">
@@ -258,59 +271,50 @@ export function AdminClient() {
         <p className="mt-1 text-[12px] text-dim">{st.company}</p>
       </div>
 
-      {/* 講座の切り替え。
+      {/* ── 受講コードの残り（講座ごと）──
 
-          **何のための場所か分かるように、見出しを付ける**
-          （げんきさん 2026-09-09「この部分は何用？」）。
-          札を横に並べていたが、講座が73件あるので画面の上半分が
-          札の壁になっていた。選ぶ形にして1行に収める。
+          前はここに「いま見ている講座」を選ぶ所があった。選んでも名簿は
+          変わらず（名簿は講座に関係なく全員が並ぶ）、変わるのは残数の表示と
+          実技の案内と、配る講座だけ。**それが分からないまま、73件の札が
+          画面の上半分を埋めていた**（げんきさん 2026-09-09「これ必要？」）。
 
-          切り替えると変わるのは、受講コードの残りと、実技の案内と、
-          名簿から配る受講コードの講座。名簿そのものは、その人が受けている
-          特別教育をまとめて出すので、どれを選んでも同じ人が並ぶ。
-          1つしか無いあいだは、選ぶ物が無いので出さない */}
-      {st.courses.length > 1 && (
-        <div className="mx-5 mb-3" data-testid="admin-courses">
-          <label className="mb-1 block text-[11px] tracking-[2px] text-dim">
-            受講コードと実技を見る講座
-          </label>
-          <select
-            value={st.course?.id ?? ""}
-            onChange={(e) => { setCourseId(e.target.value); void load(e.target.value); }}
-            className="w-full rounded-lg border border-line bg-bg px-3 py-2.5 text-[13.5px] text-txt"
-            data-testid="admin-course-select"
-            aria-label="受講コードと実技を見る講座"
-          >
-            {st.courses.map((c) => (
-              <option key={c.id} value={c.id}>{c.short}</option>
+          選ぶのをやめて、**買った講座の残数をそのまま並べる。**
+          配る講座は、配るときに選ぶ（LearnerCard） */}
+      {!!freeList.length && (
+        <div className="mx-5 mb-3 rounded-xl border border-line bg-panel p-3.5" data-testid="admin-free-list">
+          <div className="mb-1 text-[11px] tracking-[2px] text-dim">配れる受講コード</div>
+          <div className="grid gap-0.5">
+            {freeList.map((c) => (
+              <div key={c.id} className="flex items-baseline text-[12.5px]">
+                <span className="min-w-0 flex-1 truncate">{c.short}</span>
+                <span className="ml-2 shrink-0 font-black text-yel">{c.free} 枚</span>
+              </div>
             ))}
-          </select>
+          </div>
+          <div className="mt-1.5 text-[11.5px] leading-relaxed text-dim2">
+            名簿の各人から、コードを打たせずに配れます。
+          </div>
         </div>
       )}
-      {st.course && (
-        <p className="mx-5 mb-2 text-[11.5px] leading-relaxed text-dim2" data-testid="admin-course-name">
-          {st.courses.length > 1 ? "選んだ講座「" : "「"}{st.course.short}
-          」の受講コードの残りと、実技の案内を表示しています。
-          下の名簿は、講座に関係なく在籍する全員を表示します。
-        </p>
-      )}
+
       {/* 実技のある講座（高所作業車）。実技は**この会社が**行う。
           担当者がここを見ないと、学科を終えた人が止まったままになる */}
-      {st.course && drillMin > 0 && (
+      {drills.map(({ c, min }) => (
         <Link
-          href={`/edu/${st.course.id}/drill`}
+          key={c.id}
+          href={`/edu/${c.id}/drill`}
           data-testid="admin-go-drill"
           className="mx-5 mb-3 block rounded-xl border border-cyan bg-panel p-3.5 no-underline"
         >
           <div className="text-[13px] font-extrabold text-txt">
-            実技{hoursText(drillMin)}は、御社で行います
+            「{c.short}」の実技{hoursText(min)}は、御社で行います
           </div>
           <div className="mt-1 text-[12px] leading-relaxed text-dim">
-            「{st.course.short}」は学科のあとに実技があります。何を何分やるか、誰が行うか、
-            実施記録の様式（印刷できる）はこちら。実技が済むまで、修了証は出ません。
+            学科のあとに実技があります。何を何分やるか、誰が行うか、
+            実施記録の様式（印刷できます）はこちら。実技が済むまで、修了証は発行できません。
           </div>
         </Link>
-      )}
+      ))}
 
       <div className="mx-5 grid grid-cols-4 gap-2" data-testid="admin-totals">
         {[
@@ -351,7 +355,7 @@ export function AdminClient() {
                     onClick={async () => {
                       setBusy(q.userId);
                       if (await post("/api/admin/member", { userId: q.userId, action: "approve" }))
-                        await load(courseId);
+                        await load();
                       setBusy(null);
                     }}
                   >
@@ -363,7 +367,7 @@ export function AdminClient() {
                     onClick={async () => {
                       setBusy(q.userId);
                       if (await post("/api/admin/member", { userId: q.userId, action: "reject" }))
-                        await load(courseId);
+                        await load();
                       setBusy(null);
                     }}
                   >
@@ -437,7 +441,7 @@ export function AdminClient() {
                           onClick={async () => {
                             setBusy(q.id);
                             if (await post("/api/admin/assign", { userId: q.userId, courseId: g.courseId })) {
-                              await load(courseId);
+                              await load();
                             }
                             setBusy(null);
                           }}
@@ -474,7 +478,7 @@ export function AdminClient() {
                       for (const q of g.rows) {
                         await post("/api/admin/course-request", { id: q.id, on: true });
                       }
-                      await load(courseId);
+                      await load();
                       setBusy(null);
                     }}
                   >
@@ -522,7 +526,7 @@ export function AdminClient() {
                           onClick={async () => {
                             setBusy(it.id);
                             if (await post("/api/admin/qual", { heldId: it.id, on: true }))
-                              await load(courseId);
+                              await load();
                             setBusy(null);
                           }}
                         >
@@ -558,7 +562,7 @@ export function AdminClient() {
                   onClick={async () => {
                     setBusy(q.userId);
                     if (await post("/api/admin/member", { userId: q.userId, action: "approve" }))
-                      await load(courseId);
+                      await load();
                     setBusy(null);
                   }}
                 >
@@ -599,7 +603,7 @@ export function AdminClient() {
                   setBusy("company");
                   if (await post("/api/admin/company", { name: company.trim() })) {
                     setEdit(false);
-                    await load(courseId);
+                    await load();
                   }
                   setBusy(null);
                 }}
@@ -644,7 +648,7 @@ export function AdminClient() {
             </div>
           )}
           <Link
-            href={st.course ? `/order?courseId=${st.course.id}` : "/order"}
+            href="/order"
             className="mt-2 block rounded-lg border border-yel bg-yel p-2.5 text-center text-[13px] font-extrabold text-bg no-underline"
             data-testid="admin-order"
           >
@@ -684,7 +688,7 @@ export function AdminClient() {
             data-testid="admin-newcode"
             onClick={async () => {
               setBusy("code");
-              if (await post("/api/admin/company", { newCode: true })) await load(courseId);
+              if (await post("/api/admin/company", { newCode: true })) await load();
               setBusy(null);
             }}
           >
@@ -718,46 +722,43 @@ export function AdminClient() {
             key={r.userId}
             r={r}
             busy={busy === r.userId}
-            /* **いま見ている講座の席を、その場で配れる（0028）。**
-               出すのは3つとも満たすときだけ
+            /* **受講コードを、その場で配れる（0028）。**
+               出すのは3つとも満たす講座だけ
                  ・在籍している（辞めた人・申し込み中の人には渡せない）
                  ・その講座をまだ持っていない（二重に渡さない。取得済みにも渡さない）
-                 ・その講座の席が余っている
+                 ・その講座の受講コードが残っている
                ここで出し分けても、渡るかどうかは assign_seat が決める。
                画面の出し分けだけを頼りにしない */
-            assign={
-              /* 見ている講座は、サーバが決めたもの（st.course）を使う。
-                 画面の courseId は、タブを押すまで空。講座が1つの会社では
-                 タブそのものが出ないので、そちらを見ると永久に空になる */
-              st.course &&
-              !r.left &&
-              !r.pending &&
-              (st.freeSeats[st.course.id] ?? 0) > 0 &&
-              ![...r.doing, ...r.done].some((c) => c.courseId === st.course!.id) &&
-              /* よそで取ったと入れた資格も「取得済み」。取得済みの資格には配れない */
-              !r.held.some((h) => h.courseId === st.course!.id)
-                ? {
-                    courseName: st.course.short,
-                    run: async () => {
-                      setBusy(r.userId);
-                      if (await post("/api/admin/assign", { userId: r.userId, courseId: st.course!.id })) {
-                        await load(courseId);
-                      }
-                      setBusy(null);
-                    },
+            assign={(() => {
+              if (r.left || r.pending) return null;
+              const can = freeList.filter(
+                (c) =>
+                  ![...r.doing, ...r.done].some((x) => x.courseId === c.id) &&
+                  /* よそで取ったと入れた資格も「取得済み」。取得済みの資格には配れない */
+                  !r.held.some((h) => h.courseId === c.id),
+              );
+              if (!can.length) return null;
+              return {
+                courses: can,
+                run: async (cid: string) => {
+                  setBusy(r.userId);
+                  if (await post("/api/admin/assign", { userId: r.userId, courseId: cid })) {
+                    await load();
                   }
-                : null
-            }
+                  setBusy(null);
+                },
+              };
+            })()}
             onIssue={async (enrollmentId) => {
               setBusy(r.userId);
               if (await post("/api/admin/cert", { enrollmentId, action: "issue" }))
-                await load(courseId);
+                await load();
               setBusy(null);
             }}
             onRevoke={async (enrollmentId) => {
               setBusy(r.userId);
               if (await post("/api/admin/cert", { enrollmentId, action: "revoke" }))
-                await load(courseId);
+                await load();
               setBusy(null);
             }}
             onMember={async () => {
@@ -768,18 +769,18 @@ export function AdminClient() {
                   action: r.pending ? "approve" : "leave",
                 })
               )
-                await load(courseId);
+                await load();
               setBusy(null);
             }}
             onConfirm={async (heldId, on) => {
               setBusy(r.userId);
-              if (await post("/api/admin/qual", { heldId, on })) await load(courseId);
+              if (await post("/api/admin/qual", { heldId, on })) await load();
               setBusy(null);
             }}
             onRole={async () => {
               setBusy(r.userId);
               if (await post("/api/admin/role", { userId: r.userId, admin: !r.admin }))
-                await load(courseId);
+                await load();
               setBusy(null);
             }}
           />

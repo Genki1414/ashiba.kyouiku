@@ -633,14 +633,17 @@ console.log("── 席を直接配るときの形 ──");
   const adm = read("src/app/admin/AdminClient.tsx");
   check(/"\/api\/admin\/assign"/.test(adm), "担当者の画面から呼んでいる");
   check(/freeSeats\[/.test(adm), "空きがあるときだけ出している");
-  check(/!r\.left &&/.test(adm) && /!r\.pending &&/.test(adm),
+  check(/r\.left \|\| r\.pending/.test(adm),
     "辞めた人・申し込み中の人には出していない");
   check(/\[\.\.\.r\.doing, \.\.\.r\.done\]\.some/.test(adm),
     "もう持っている人には出していない（受講中も取得済みも見る）");
-  /* 見ている講座は、サーバが決めたもの（st.course）を使う。
-     画面の courseId はタブを押すまで空で、講座が1つの会社では
-     タブそのものが出ない。そちらを見ると、名簿の押しどころが永久に出ない */
-  check(/st\.course &&/.test(adm), "見ている講座は、サーバが決めたものを使う");
+  /* **「いま見ている講座」という状態を持たない。**
+     前は画面の上で講座を選ばせていたが、選んでも名簿は変わらず
+     （名簿は講座に関係なく全員が並ぶ）、73件の札で画面が埋まっていた
+     （げんきさん 2026-09-09「これ必要？」）。
+     配る講座は、配るその場で選ぶ */
+  check(/const freeList = /.test(adm), "残数のある講座から配る（画面に選択の状態を持たない）");
+  check(!/st\.course\b(?!s|Requests)/.test(adm), "「いま見ている講座」を持っていない");
 
   /* **受講コードの方式を消していない。** 残す約束 */
   const join = read("src/app/join/JoinClient.tsx");
@@ -1157,8 +1160,8 @@ console.log("── 取得済みの資格には配れない ──");
   const oc = read("src/app/order/OrderClient.tsx");
   check(/disabled=\{has\}/.test(oc) && /（取得済）/.test(oc), "取得済みの人は、名前は出すが押せない");
   const adm = read("src/app/admin/AdminClient.tsx");
-  check(/!r\.held\.some\(\(h\) => h\.courseId === st\.course!\.id\)/.test(adm),
-    "名簿の「席を配る」も、よそで取った資格を見る");
+  check(/!r\.held\.some\(\(h\) => h\.courseId === c\.id\)/.test(adm),
+    "名簿の「受講コードを配る」も、よそで取った資格を見る");
   const q = read("src/lib/quals.ts");
   check(/courseId: q\?\.courseId \?\? null/.test(q), "よそで取った資格に、講座の id を付けている");
 
