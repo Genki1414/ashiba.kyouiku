@@ -8,6 +8,7 @@ import { keep, recall } from "@/lib/remember";
 import { Btn } from "@/components/ui/Btn";
 import type { PersonRow } from "@/training/roster";
 import { LearnerCard } from "./LearnerCard";
+import { AskDone, type Ask } from "@/components/AskDone";
 import { PastRecords } from "./PastRecords";
 import { drillMinOf, findCourse, hoursText } from "@/content/courses";
 
@@ -88,6 +89,9 @@ export function AdminClient() {
   /* 古いものを出しているあいだ。黙って古いものを見せない */
   const [stale, setStale] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
+  /* 確かめてから変える（教育担当者の付け外し）。
+     押した瞬間に効くと、押し間違いで会社が止まる */
+  const [ask, setAsk] = useState<Ask | null>(null);
   const [note, setNote] = useState<string>("");
   const [company, setCompany] = useState("");
   const [edit, setEdit] = useState(false);
@@ -239,6 +243,9 @@ export function AdminClient() {
      記録は消していない。退職者ぶんも含めた元帳は本部が持つ。
      上に来るのは、担当者がやること（修了証を出す）が残っている人 */
   const rows = st.rows;
+  /* この会社の教育担当者の数。1人しか居なければ、外せない
+     （げんきさん 2026-09-09）。サーバも同じことを断る */
+  const admins = rows.filter((x) => x.admin).length;
 
   /* ── この会社が関わっている講座 ──
      買った受講コードが残っているか、誰かが受けている（受け終えた）講座。
@@ -791,15 +798,58 @@ export function AdminClient() {
               if (await post("/api/admin/qual", { heldId, on })) await load();
               setBusy(null);
             }}
-            onRole={async () => {
-              setBusy(r.userId);
-              if (await post("/api/admin/role", { userId: r.userId, admin: !r.admin }))
-                await load();
-              setBusy(null);
-            }}
+            canDropAdmin={admins > 1}
+            /* **押した瞬間には変えない。**確かめてから変え、
+               終わったことも出す（げんきさん 2026-09-09） */
+            onRole={() =>
+              setAsk({
+                title: r.admin
+                  ? `${r.name || "この方"}を教育担当者から外しますか`
+                  : `${r.name || "この方"}を教育担当者にしますか`,
+                body: r.admin ? (
+                  <>
+                    名簿・受講コードの配布・修了証の発行が
+                    <span className="text-txt">できなくなります。</span>
+                    <br />
+                    受講の記録は残ります。あとで戻すこともできます。
+                  </>
+                ) : (
+                  <>
+                    名簿を開いて、
+                    <span className="text-txt">
+                      受講コードを配ったり、修了証を出したりできる
+                    </span>
+                    ようになります。
+                    <br />
+                    ほかの方の受講記録も見えるようになります。
+                  </>
+                ),
+                yes: r.admin ? "外す" : "担当者にする",
+                danger: r.admin,
+                done: r.admin
+                  ? `${r.name || "この方"}を教育担当者から外しました`
+                  : `${r.name || "この方"}を教育担当者にしました`,
+                run: async () => {
+                  setBusy(r.userId);
+                  try {
+                    const ok = await post("/api/admin/role", {
+                      userId: r.userId,
+                      admin: !r.admin,
+                    });
+                    if (ok) await load();
+                    return ok;
+                  } finally {
+                    setBusy(null);
+                  }
+                },
+              })
+            }
           />
         ))}
       </div>
+
+      {/* 確かめる → 終わったと出す（教育担当者の付け外し） */}
+      <AskDone ask={ask} onClose={() => setAsk(null)} />
 
       {/* 名簿から外した人のぶんは、ここから出す */}
       <PastRecords />

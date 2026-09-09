@@ -97,6 +97,21 @@ console.log("\n── 渡し方（げんきさん 2026-09-09）──");
   check(/me-handoff-copy/.test(me), "マイページにもコピーの札がある");
 }
 
+console.log("\n── マイページの並び（げんきさん 2026-09-09）──");
+{
+  /* 「マイページに取得済みの受講不要な講座は表示しない」。
+     受け直す必要が無いものを並べても、やることの一覧が埋まるだけ。
+     ただし**修了証が出ているものは残す**（受け取る道がここにしか無い） */
+  const me = read("src/app/me/MeClient.tsx");
+  const line = me.split("\n").find((l) => l.includes("st.learning.filter")) ?? "";
+  check(!!line, "受けられる講座をしぼっている所がある");
+  check(!/held\.has/.test(line), "外部で取得しただけの講座は、一覧に出さない");
+  check(/c\.cert/.test(line), "修了証が出ているものは残す");
+  check(/c\.hasSeat/.test(line) && /c\.started/.test(line), "受講コードがある・始めているものも残す");
+  /* 持っていること自体は、下の一覧に出る */
+  check(/取得済みの資格/.test(me), "取得済みの資格は、別の枠に出ている");
+}
+
 console.log("\n── 講座の札（げんきさん 2026-09-09）──");
 {
   /* 「講座一覧にも受講可能、受講中表示。

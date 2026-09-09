@@ -205,11 +205,17 @@ export function MeClient() {
 
   /* 外部で取得した資格（本人が登録したもの）に当たる講座 */
   const held = new Set(st.held ?? []);
-  /* **受けられる講座だけ。**受講コードがある・受け始めている・
-     修了証が出ている・外部で取得している、のどれか */
-  const mine = st.learning.filter(
-    (c) => c.hasSeat || c.started || c.cert || held.has(c.courseId),
-  );
+  /* **いま自分に関わりのある講座だけ。**
+     受講コードがある・受け始めている・修了証が出ている、のどれか。
+
+     ── 外部で取得した資格だけの講座は出さない（げんきさん 2026-09-09）──
+     「マイページに取得済みの受講不要な講座は表示しない」。
+     受け直す必要が無いものを並べても、**やることの一覧が埋まるだけ。**
+     持っていること自体は、下の「取得済みの資格」に出ている。
+
+     修了証が出ているものは残す。**受け取る道がここにしか無い。**
+     受け始めたあとに自己申告した場合も残る（記録があるので）。 */
+  const mine = st.learning.filter((c) => c.hasSeat || c.started || c.cert);
 
   return (
     <main className="px-5 py-8 pb-12" data-testid="me">

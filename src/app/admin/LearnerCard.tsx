@@ -111,6 +111,7 @@ export function LearnerCard({
   onRevoke,
   onMember,
   onRole,
+  canDropAdmin,
   onConfirm,
   assign,
 }: {
@@ -120,6 +121,13 @@ export function LearnerCard({
   onRevoke: (enrollmentId: string) => void;
   onMember: () => void;
   onRole: () => void;
+  /** この会社の教育担当者が、この人のほかにも居るか。
+
+      **1人しか居ないときは外せない。**外すと、その会社は
+      誰も名簿を開けなくなる（げんきさん 2026-09-09）。
+      サーバも同じことを断るが、押せてしまうと
+      「押したのに断られた」になるので、はじめから押させない */
+  canDropAdmin: boolean;
   /** よそで取った資格。現物を見たら確認済みにする */
   onConfirm: (heldId: string, on: boolean) => void;
   /** この人に配れる受講コード（0028）。残数のある講座のうち、
@@ -441,13 +449,26 @@ export function LearnerCard({
           : "退職として登録（名簿から外れます。記録は残ります）"}
       </button>
 
-      <button
-        className="mt-2 w-full rounded-lg border border-line p-1.5 text-[11px] text-dim2"
-        data-testid="admin-role"
-        onClick={onRole}
-      >
-        {r.admin ? "教育担当者から外す" : "この方を教育担当者にする"}
-      </button>
+      {/* 教育担当者の付け外し。**1人しか居ないときは外せない。**
+          外すと、その会社は誰も名簿を開けなくなる */}
+      {r.admin && !canDropAdmin ? (
+        <div
+          className="mt-2 w-full rounded-lg border border-line p-1.5 text-center text-[11px] leading-relaxed text-dim2"
+          data-testid="admin-role-last"
+        >
+          この会社で唯一の教育担当者です
+          <br />
+          <span className="text-dim">外すには、先にもう1人決めてください</span>
+        </div>
+      ) : (
+        <button
+          className="mt-2 w-full rounded-lg border border-line p-1.5 text-[11px] text-dim2"
+          data-testid="admin-role"
+          onClick={onRole}
+        >
+          {r.admin ? "教育担当者から外す" : "この方を教育担当者にする"}
+        </button>
+      )}
     </div>
   );
 }
