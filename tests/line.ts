@@ -90,6 +90,13 @@ console.log("── リッチメニュー ──");
      押す前に、どちらの店に配るのかが出ていないと、よその友だちに配ってしまう */
   check(/BRAND\.shortName/.test(ui), "配る先の店の名前を出す");
   check(/owner-line-brand/.test(ui), "配る先の案内が、目印付きで出ている");
+  /* 鍵を入れて Redeploy したのに効いていない、が押すまで分からないと困る。
+     /setup で先に分かるようにしてある */
+  const health = read("src/app/api/health/route.ts");
+  check(/lineMenu: lineMenuReady\(\)/.test(health), "/setup が、鍵が入っているかを見られる");
+  check(!/process\.env\.LINE_MENU_TOKEN/.test(health), "鍵そのものは読まない（入っているかだけ）");
+  const setup = read("src/app/setup/SetupClient.tsx");
+  check(/LINE_MENU_TOKEN/.test(setup) && /lineMenu/.test(setup), "/setup にリッチメニューの行がある");
 }
 
 console.log(`\n${ok} 件通過 / ${ng} 件失敗`);

@@ -103,5 +103,5 @@ LINE_MENU_TOKEN=… NEXT_PUBLIC_SITE_URL=https://www.tokubetsu-kyouiku.com   npx
 
 ## 見張り
 
-- `npx tsx tests/line.ts` 36件（URLの組み立て・仮のメール・危ない所）
+- `npx tsx tests/line.ts` 39件（URLの組み立て・仮のメール・危ない所）
 - `supabase/apply-all.sql` は 0033

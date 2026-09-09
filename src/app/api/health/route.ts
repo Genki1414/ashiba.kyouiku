@@ -11,7 +11,7 @@ import { BRAND } from "@/content/brand";
 import { allPrices, missingPrice, priceOverrides } from "@/lib/price.server";
 import { AUTH_MAIL_FROM, AUTH_MAIL_OWN } from "@/content/authMail";
 import { notifyReady } from "@/lib/notify.server";
-import { lineLoginReady } from "@/lib/line";
+import { lineLoginReady, lineMenuReady } from "@/lib/line";
 import { siteUrl as paySiteUrl } from "@/lib/stripe";
 import { currentAdmin } from "@/lib/admin";
 import { myCompany } from "@/lib/tenant";
@@ -189,6 +189,12 @@ export async function GET() {
     notify: notifyReady(),
     /* LINE でログインできるか（0033）。無くてもメールで入れる */
     lineLogin: lineLoginReady(),
+    /* リッチメニューを配れるか（LINE_MENU_TOKEN）。
+
+       入れて Redeploy したのに効いていない、というのがいちばん困る出方をする。
+       運営管理で押すまで分からないと、現場に出ている間に確かめられない。
+       **鍵そのものは返さない。**入っているかどうかだけ */
+    lineMenu: lineMenuReady(),
     /* 特商法の表記で、まだ空の項目 */
     sellerMissing: missingSeller(),
     /* 振込先。空だと請求書に「別途ご案内」としか出ず、そのぶん入金が遅れる */
