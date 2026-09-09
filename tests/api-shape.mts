@@ -1281,6 +1281,14 @@ console.log("── 下の行き先と、お知らせの出し方 ──");
        「画面下部にメニュー表示して固定する」
        「マイページ…実際に受講可能な講座のみを表示する」
        「取得済みの資格講座をたっぷすると『取得済みのため受講不要』と表示させる」 */
+  /* ホームの「おしらせ」は、読んでいないものがあるときだけ。
+     読んだものはマイページに残す（げんきさん 2026-09-09） */
+  const no = read("src/components/Notices.tsx");
+  check(/mode === "unread" && unread === 0\) return null;/.test(no),
+    "読んだあとは、ホームから消える");
+  const mec = read("src/app/me/MeClient.tsx");
+  check(/<Notices mode="all" \/>/.test(mec), "読んだ知らせは、マイページで読み返せる");
+
   /* 知らせで画面をふさがない。読みたいときに /updates を開く */
   const un = read("src/components/UpdateNotice.tsx");
   check(/return null;/.test(un) && !/fixed inset-0/.test(un), "知らせは自分からは出さない");

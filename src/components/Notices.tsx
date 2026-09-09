@@ -18,8 +18,10 @@ import Link from "next/link";
      開いた形で出すので、消してしまうと「2件」も黄色い点も一瞬で消えて、
      **届いた回に限って、どれが新しいのか分からない**。
      覚えるのはサーバだけにして、画面は次に開いたときに変わる
-   ・読んだ知らせも、しばらく残す。消すと「さっき何て書いてあった？」に
-     答えられない。薄く出す
+   ・**ホームは、読んでいない知らせがあるときだけ出す**
+     （げんきさん 2026-09-09「まだおしらせが消えない」）。
+     読んだものまで残すと、用が済んだ枠が毎日いちばん上に居座る。
+     読んだ知らせはマイページに残す（「さっき何て書いてあった？」に答えられる）
    ・**押せるのは行き先のある知らせだけ**ではなく、全部押せる。
      行き先は種類から決まっていて、必ず1つある（src/lib/noticeText.ts）
    ・1件も無ければ、枠ごと出さない */
@@ -49,7 +51,7 @@ function ago(iso: string): string {
   return new Date(t).toLocaleDateString("ja-JP");
 }
 
-export function Notices() {
+export function Notices({ mode = "unread" }: { mode?: "unread" | "all" } = {}) {
   const [rows, setRows] = useState<Notice[]>([]);
   const [unread, setUnread] = useState(0);
   const [open, setOpen] = useState(false);
@@ -63,11 +65,11 @@ export function Notices() {
       setUnread(j.unread ?? 0);
       /* 未読があれば、開いた形で出す。読んだものだけなら畳んでおく。
          畳んだままだと、届いたことに気づかない */
-      setOpen((j.unread ?? 0) > 0);
+      setOpen((j.unread ?? 0) > 0 && mode === "unread");
     } catch {
       /* 読めなくても、ホームのほかは出る。ここで止めない */
     }
-  }, []);
+  }, [mode]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -91,6 +93,10 @@ export function Notices() {
   useEffect(() => { if (open) void markRead(); }, [open, markRead]);
 
   if (!rows.length) return null;
+  /* **ホームは、読んでいない知らせがあるときだけ。**
+     読んだあとも残すと、用の済んだ枠がいちばん上に居座る。
+     読んだ知らせはマイページ（mode="all"）に残る */
+  if (mode === "unread" && unread === 0) return null;
   return (
     <details
       open={open}
@@ -100,7 +106,9 @@ export function Notices() {
     >
       <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
         <span className="flex min-w-0 items-center gap-2">
-          <span className="text-[11px] font-extrabold tracking-widest text-dim2">おしらせ</span>
+          <span className="text-[11px] font-extrabold tracking-widest text-dim2">
+            {mode === "all" ? "これまでのおしらせ" : "おしらせ"}
+          </span>
           {unread > 0 && (
             <span
               className="rounded-full bg-yel px-2 py-0.5 text-[11px] font-black text-bg"

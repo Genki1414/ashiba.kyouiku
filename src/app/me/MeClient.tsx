@@ -10,6 +10,7 @@ import { dur } from "@/components/ui/format";
 import { claimDevice, wipeDevice } from "@/lib/device";
 
 import { HeldQuals } from "./HeldQuals";
+import { Notices } from "@/components/Notices";
 
 /* マイページ。受講者が自分のことを見る所。
 
@@ -479,6 +480,12 @@ export function MeClient() {
             </div>
           ))}
         </div>
+      </div>
+
+      {/* これまでのおしらせ。ホームは未読のときだけ出すので、
+          読んだあとに読み返す場所がここに要る（げんきさん 2026-09-09） */}
+      <div className="mt-3">
+        <Notices mode="all" />
       </div>
 
       {/* 取得済みの資格。この仕組みで取ったものと、よそで取ったもの */}

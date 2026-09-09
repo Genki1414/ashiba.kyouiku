@@ -179,11 +179,17 @@ webhook は注文の行を Supabase で「入金済み」に直すだけで、
 
 | 所 | 値 |
 | --- | --- |
-| `src/content/brand.ts` の `TOKUBETSU.site` | `https://tokubetsu-kyouiku.com`（記入済み） |
+| `src/content/brand.ts` の `TOKUBETSU.site` | `https://www.tokubetsu-kyouiku.com`（記入済み） |
 | Vercel の `NEXT_PUBLIC_SITE_URL` と `SITE_URL` | 同じ（Production） |
-| Supabase の Redirect URLs と Site URL | `https://tokubetsu-kyouiku.com/**` |
+| Supabase の Redirect URLs と Site URL | `https://www.tokubetsu-kyouiku.com/**` |
 
-DNS は Vercel の画面に出る値をそのまま入れる（apex は A、www は CNAME）。
+**www が本番。**apex（tokubetsu-kyouiku.com）は www へ 308 で転送する形で
+登録してある。だから住所は www を書く。apex を書くと、パスワード再設定の
+リンクが1回転送されてから届く。
+
+DNS は Vercel の「View DNS configuration」に出る値をそのまま入れる。
+ふつうは apex が A（76.76.21.21）、www が CNAME（cname.vercel-dns.com）。
+入るまで Vercel は Invalid Configuration と出す（数分〜数時間）。
 環境変数を入れたら **Redeploy**（`NEXT_PUBLIC_` は組み立てるときに焼き付く）。
 
 ### 5-5　出したあとの確かめ方

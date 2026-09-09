@@ -125,9 +125,13 @@ const TOKUBETSU: Brand = {
      どれかが欠けると、パスワード再設定のメールから戻ってきた人が弾かれる。
      入れたあとは Redeploy が要る（NEXT_PUBLIC_ は組み立てるときに焼き付く）。
 
-     末尾に / は付けない（つなぐと // になる）。www は付けない
-     （apex に当てる。www で入った人は Vercel が apex へ寄せる）。 */
-  site: "https://tokubetsu-kyouiku.com",
+     **www を付ける。**Vercel では www.tokubetsu-kyouiku.com が本番で、
+     tokubetsu-kyouiku.com（apex）は www へ 308 で転送する形にしてある
+     （げんきさんの登録。2026-09-09）。ここを apex にすると、
+     パスワード再設定のリンクが1回転送されてから届くことになる。
+     **実際に人が開く住所と、同じものを書く。**
+     末尾に / は付けない（つなぐと // になる）。 */
+  site: "https://www.tokubetsu-kyouiku.com",
 };
 
 const ALL: Record<BrandId, Brand> = { ashibaya: ASHIBAYA, tokubetsu: TOKUBETSU };
