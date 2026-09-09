@@ -7,12 +7,15 @@ export default function UpdatesPage() {
   return (
     <main className="px-5 py-6">
       <div className="tape -mx-5 mb-5" />
-      <div className="text-[11px] font-extrabold tracking-[2px] text-yel">更新の一覧</div>
-      <h1 className="mt-1.5 text-[20px] font-black">直したところ・足したところ</h1>
+      <div className="text-[11px] font-extrabold tracking-[2px] text-yel">更新のお知らせ</div>
+      <h1 className="mt-1.5 text-[20px] font-black">追加したこと・修正したこと</h1>
+      <p className="mt-1 text-[12px] leading-relaxed text-dim">
+        新しい順に並んでいます。画面に割り込む知らせは出しません。
+      </p>
 
       <div className="mt-5">
         {RELEASES.map((r) => (
-          <div key={r.v} className="mb-4 rounded-xl border border-line bg-panel p-4">
+          <div key={r.v} className="mb-4 rounded-xl border border-line bg-panel p-4" data-testid="update-row">
             <div className="flex items-baseline gap-2">
               <span className="font-mono text-[11px] text-dim">{r.d}</span>
               <span className="text-[13px] font-bold">{r.title}</span>
@@ -24,6 +27,7 @@ export default function UpdatesPage() {
                     className={`mt-0.5 flex-none rounded px-1.5 py-0.5 text-[11px] font-extrabold ${
                       c.k === "追加" ? "bg-grn text-bg" : "bg-cyan text-bg"
                     }`}
+                    data-testid="update-kind"
                   >
                     {c.k}
                   </span>

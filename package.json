@@ -120,7 +120,7 @@
     "test:e2e:auth": "node tests/e2e-auth.mjs",
     "test:e2e:cert": "node tests/e2e-cert.mjs",
     "test:e2e:tap": "node tests/e2e-tap.mjs",
-    "test:e2e:update": "node tests/e2e-update-notice.mjs",
+    "test:e2e:updates": "node tests/e2e-updates.mjs",
     "test:e2e:record": "node tests/e2e-record.mjs",
     "test:e2e:admin": "node tests/e2e-admin.mjs",
     "test:e2e:homefast": "node tests/e2e-home-fast.mjs",

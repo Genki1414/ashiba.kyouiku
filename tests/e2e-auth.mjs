@@ -105,7 +105,7 @@ await page.screenshot({ path: `${SC}/auth-01-login.png` });
 await page.getByTestId("login-go").click();
 await page.waitForTimeout(300);
 check(
-  (await page.getByTestId("login-error").textContent()).includes("入れてください"),
+  (await page.getByTestId("login-error").textContent()).includes("入力してください"),
   "空のまま押すと知らせる",
 );
 
