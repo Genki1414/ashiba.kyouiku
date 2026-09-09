@@ -131,13 +131,7 @@ const TOKUBETSU: Brand = {
      パスワード再設定のリンクが1回転送されてから届くことになる。
      **実際に人が開く住所と、同じものを書く。**
      末尾に / は付けない（つなぐと // になる）。 */
-  /* **ドメインが行き渡るまでは空にしておく。**（2026-09-09 夜）
-     ここに新しい住所を入れると、パスワード再設定のメールが
-     まだ引けない住所へ飛ぶ。Supabase の許した戻り先にも入っていないので、
-     二重に弾かれる。空なら「いま開いている住所」へ戻る（前と同じ動き）。
-     Vercel が Valid Configuration になったら、この行を
-     site: "https://www.tokubetsu-kyouiku.com" に戻す。 */
-  site: "",
+  site: "https://www.tokubetsu-kyouiku.com",
 };
 
 const ALL: Record<BrandId, Brand> = { ashibaya: ASHIBAYA, tokubetsu: TOKUBETSU };
