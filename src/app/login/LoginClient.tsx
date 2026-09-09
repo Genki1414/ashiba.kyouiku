@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { HANDOFF_LEN, isHandoff, normalizeHandoff } from "@/lib/handoff";
+import { FLAG as APP_CODE_FLAG } from "@/components/AppCode";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getBrowserClient } from "@/lib/supabase/browser";
 import { claimDevice } from "@/lib/device";
@@ -42,7 +43,21 @@ export function LoginClient() {
      ログインの記憶も別なので、こうしないと持ち込めない */
   const [code, setCode] = useState("");
   const [codeOpen, setCodeOpen] = useState(false);
+  /* いまホーム画面のアプリとして開いているか。
+     アプリの中では LINE を押しても必ずブラウザに切り替わってしまうので、
+     **コードで入る道を先に開いておく**（げんきさん 2026-09-09） */
+  const [inApp, setInApp] = useState(false);
   const [codeBusy, setCodeBusy] = useState(false);
+
+  useEffect(() => {
+    try {
+      const nav = window.navigator as Navigator & { standalone?: boolean };
+      const app =
+        window.matchMedia?.("(display-mode: standalone)").matches === true ||
+        nav.standalone === true;
+      if (app) { setInApp(true); setCodeOpen(true); }
+    } catch { /* 見られなくても、ふだんの形で出す */ }
+  }, []);
   useEffect(() => {
     fetch("/api/health", { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
@@ -142,6 +157,9 @@ export function LoginClient() {
       const { data: me } = await supabase.auth.getUser();
       claimDevice(me.user?.id ?? null);
       /* サーバ側のクッキーを確実に見せるため、まるごと読み直す */
+      /* 入れたら、ホーム画面のアプリに入るコードを勧める印を置く。
+         **アプリの中で入った人には出ない**（AppCode が見て決める） */
+      try { sessionStorage.setItem(APP_CODE_FLAG, "1"); } catch { /* 記憶を断っていても進む */ }
       window.location.href = next;
     } catch (e) {
       setErr(readable(e));
@@ -387,10 +405,21 @@ export function LoginClient() {
           </button>
         ) : (
           <div data-testid="login-code">
+            {inApp && (
+              <p
+                className="mb-2 rounded-lg border border-yel bg-panel p-2.5 text-[12px] leading-relaxed text-dim"
+                data-testid="login-code-inapp"
+              >
+                <span className="font-bold text-yel">アプリで開いています。</span>
+                <br />
+                LINEで入ると、ブラウザに切り替わってこの画面に戻れません。
+                <span className="text-txt">ブラウザで入ってから、コードを持ってきてください。</span>
+              </p>
+            )}
             <p className="text-[12px] leading-relaxed text-dim">
-              ブラウザでログインしたあと、
-              <span className="text-txt">マイページ → ホーム画面のアプリ</span>
-              で作った8文字を打ってください。
+              ブラウザでログインすると、
+              <span className="text-txt">8文字のコードが出ます。</span>
+              （出なかったときは、マイページ → ホーム画面のアプリ）
             </p>
             <input
               value={code}

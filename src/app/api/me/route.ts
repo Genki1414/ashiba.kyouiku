@@ -7,7 +7,7 @@ import { currentUser } from "@/lib/supabase/session";
 import { readyCourses } from "@/content/courses";
 import { getServiceClient } from "@/lib/supabase/server";
 import { unpaidInvoices } from "@/lib/invoiceAccess";
-import { heldCourseIds } from "@/lib/held";
+import { courseMarks, heldCourseIds } from "@/lib/held";
 
 /* いまの自分の立場。ホームの出し分けに使う。
 
@@ -29,6 +29,11 @@ export async function GET() {
   /* 取得済みの講座。講座一覧の札に「取得済」を出す
      （この仕組みの修了証と、よそで取ったと本人が入れたもの） */
   const held = await heldOf(me?.id ?? null);
+  /* 講座の札に出す様子（げんきさん 2026-09-09
+     「講座一覧にも受講可能、受講中表示」）。
+       受講可能 … 受講コードを持っているが、まだ開いていない
+       受講中   … 持っていて、もう開いている */
+  const marks = await marksOf(me?.id ?? null);
   if (admin) {
     return NextResponse.json({
       ok: true,
@@ -44,6 +49,7 @@ export async function GET() {
       company: admin.companyName,
       bills,
       held,
+      ...marks,
     });
   }
   const [member, co] = await Promise.all([memberState(), myCompany()]);
@@ -64,7 +70,15 @@ export async function GET() {
     company: co?.name ?? "",
     bills,
     held,
+    ...marks,
   });
+}
+
+/** 受講コードを持っている講座と、もう開いている講座 */
+async function marksOf(userId: string | null): Promise<{ owned: string[]; learning: string[] }> {
+  const supabase = getServiceClient();
+  if (!supabase || !userId) return { owned: [], learning: [] };
+  return courseMarks(supabase, userId);
 }
 
 /** 画面の上に出す氏名。登録のときの仮の名前のままなら、それが出る */

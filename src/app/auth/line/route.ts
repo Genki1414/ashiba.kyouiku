@@ -69,7 +69,9 @@ export async function GET(req: NextRequest) {
     if (me?.id) {
       if (!(await linkLine(me.id, who.sub))) return back(req, "link");
       const to0 = next.startsWith("/") ? next : "/";
-      const res0 = NextResponse.redirect(new URL(to0, req.url));
+      const home0 = new URL(to0, req.url);
+      home0.searchParams.set("app", "1");
+      const res0 = NextResponse.redirect(home0);
       for (const k of ["line_state", "line_nonce", "line_next"]) res0.cookies.delete(k);
       return res0;
     }
@@ -119,7 +121,13 @@ export async function GET(req: NextRequest) {
   if (otpErr) return back(req, "session");
 
   const to = next.startsWith("/") ? next : "/";
-  const res = NextResponse.redirect(new URL(to, req.url));
+  /* **ホーム画面のアプリに入るコードを勧める印。**
+     LINE で入った人は、必ずブラウザ側に立っている（よそのサイトを
+     通るので、アプリは切り替わってしまう）。だからここで渡す。
+     アプリとして開いている人には出ない（画面側で見て決める） */
+  const home = new URL(to, req.url);
+  home.searchParams.set("app", "1");
+  const res = NextResponse.redirect(home);
   for (const k of ["line_state", "line_nonce", "line_next"]) res.cookies.delete(k);
   return res;
 }

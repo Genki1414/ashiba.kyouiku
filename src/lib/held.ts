@@ -64,3 +64,59 @@ export async function heldCourseIds(
 
   return new Map([...out].map(([u, set]) => [u, [...set].sort()]));
 }
+
+/* ── 講座の札に出す、その人の様子（2026-09-09）──
+
+   げんきさん「講座一覧にも受講可能、受講中表示。
+   受講可能 受講コード保有中だが開いて無い場合」
+
+   3つを見分ける。
+     取得済   … 修了証が出ている／外部で取得したと入れてある（heldCourseIds）
+     受講中   … 受講コードを持っていて、もう開いている
+     受講可能 … 受講コードを持っているが、まだ開いていない
+
+   **受講可能を出す意味。**配られたことに気づかず、そのままの人が出る。
+   一覧に「受講可能」と出ていれば、押せばよいと分かる。 */
+export type CourseMarks = { owned: string[]; learning: string[] };
+
+/** その人が受講コードを持っている講座と、もう開いている講座 */
+export async function courseMarks(
+  supabase: SupabaseClient,
+  userId: string | null | undefined,
+): Promise<CourseMarks> {
+  const id = (userId ?? "").trim();
+  if (!id) return { owned: [], learning: [] };
+
+  /* 引き換えた席 → その注文 → 講座。席には講座が書いていない */
+  const { data: seats } = await supabase
+    .from("seats")
+    .select("order_id")
+    .eq("used_by", id);
+  const orderIds = [...new Set(
+    (seats ?? []).map((s) => (s.order_id as string | null) ?? "").filter(Boolean),
+  )];
+  if (orderIds.length === 0) return { owned: [], learning: [] };
+
+  const { data: orders } = await supabase
+    .from("orders")
+    .select("course_id")
+    .in("id", orderIds);
+  const owned = [...new Set(
+    (orders ?? []).map((o) => (o.course_id as string | null) ?? "").filter(Boolean),
+  )];
+  if (owned.length === 0) return { owned: [], learning: [] };
+
+  /* もう開いているか。**始めた日で見る。**
+     受講の行があるだけでは、押しただけかもしれない */
+  const { data: ens } = await supabase
+    .from("enrollments")
+    .select("course_id, started_at")
+    .eq("user_id", id)
+    .in("course_id", owned)
+    .not("started_at", "is", null);
+  const learning = [...new Set(
+    (ens ?? []).map((e) => (e.course_id as string | null) ?? "").filter(Boolean),
+  )];
+
+  return { owned, learning };
+}

@@ -32,6 +32,10 @@ export type Me = {
   /** 会社との紐付け。none=まだ／pending=許可待ち／active=在籍 */
   member: "none" | "pending" | "active";
   canLearn: boolean;
+  /** 受講コードを持っている講座（まだ開いていないものも含む） */
+  owned?: string[];
+  /** もう開いている講座 */
+  learning?: string[];
   /** 届いている請求書（送ってあって、まだ払っていないもの） */
   bills?: { id: string; amount: number; invoicedAt: string }[];
   company: string;
@@ -50,6 +54,8 @@ const shape = (j: Record<string, unknown>): Me => ({
   member: (j.member as "none" | "pending" | "active") ?? (j.needsJoin ? "none" : "active"),
   /* 古い応答（canLearn が無い）は、止めずに通す */
   canLearn: j.canLearn !== false,
+  owned: Array.isArray(j.owned) ? j.owned : [],
+  learning: Array.isArray(j.learning) ? j.learning : [],
   bills: Array.isArray(j.bills) ? j.bills : [],
   company: (j.company as string) ?? "",
   held: Array.isArray(j.held) ? (j.held as unknown[]).filter((x): x is string => typeof x === "string") : [],

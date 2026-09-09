@@ -323,6 +323,18 @@ export function MeClient() {
             >
               {showHandoff(handoff)}
             </div>
+            <button
+              onClick={() => {
+                navigator.clipboard
+                  .writeText(handoff)
+                  .then(() => setNote("コードをコピーしました。"))
+                  .catch(() => setNote("コピーできませんでした。手で打ってください。"));
+              }}
+              className="mt-2 w-full rounded-lg border border-line p-2.5 text-[13px] font-bold text-txt"
+              data-testid="me-handoff-copy"
+            >
+              コードをコピー
+            </button>
             <div className="mt-1.5 text-center text-[11.5px] leading-relaxed text-dim2">
               {HANDOFF_MIN}分で使えなくなります。1回だけ使えます。
               <br />

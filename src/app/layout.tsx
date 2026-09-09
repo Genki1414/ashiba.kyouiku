@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { UpdateNotice } from "@/components/UpdateNotice";
 import { BottomNav } from "@/components/BottomNav";
+import { AppCode } from "@/components/AppCode";
 import { ServiceWorker } from "@/components/ServiceWorker";
 import { LATEST } from "@/content/changelog";
 import { BRAND } from "@/content/brand";
@@ -42,6 +43,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           {children}
           {/* いつも下に出ている行き先。受講の邪魔になる画面では出ない */}
           <BottomNav />
+          <AppCode />
         </div>
         {/* 直したところ・足したところを、開いたときに知らせる */}
         <UpdateNotice />

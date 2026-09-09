@@ -70,5 +70,48 @@ console.log("\n── 危ない所 ──");
   check(/revoke all on function public\.use_handoff/.test(sql), "サーバ以外は呼べない");
 }
 
+console.log("\n── 渡し方（げんきさん 2026-09-09）──");
+{
+  /* 「マイページだと誰も分からないし面倒くさい。
+     ログイン後にポップアップ表示して。コードもコピーボタン設置」 */
+  const pop = read("src/components/AppCode.tsx");
+  check(/api\/handoff/.test(pop), "開いたらすぐコードを出す（押させない）");
+  check(/clipboard\.writeText/.test(pop), "コピーの札がある");
+  check(/display-mode: standalone/.test(pop), "アプリの中では出さない（もう入っている）");
+  check(/app-code-off/.test(pop), "「今後出さない」を覚える");
+
+  /* 入った直後に出す。メールで入った人・LINE で入った人の両方 */
+  const login = read("src/app/login/LoginClient.tsx");
+  check(/APP_CODE_FLAG/.test(login), "メールで入ったら、印を置く");
+  const line = read("src/app/auth/line/route.ts");
+  check(/searchParams\.set\("app", "1"\)/.test(line), "LINE で入ったら、住所に印を付ける");
+  check((line.match(/searchParams\.set\("app", "1"\)/g) ?? []).length === 2,
+    "結び足しただけのときも出す");
+
+  /* アプリの中で開いたら、コードの道を先に開けておく。
+     LINE を押すとブラウザに切り替わって戻れないため */
+  check(/display-mode: standalone/.test(login), "アプリで開いているかを見る");
+  check(/login-code-inapp/.test(login), "アプリの中では、先に案内を出す");
+
+  const me = read("src/app/me/MeClient.tsx");
+  check(/me-handoff-copy/.test(me), "マイページにもコピーの札がある");
+}
+
+console.log("\n── 講座の札（げんきさん 2026-09-09）──");
+{
+  /* 「講座一覧にも受講可能、受講中表示。
+     受講可能 受講コード保有中だが開いて無い場合」 */
+  const mark = read("src/components/HeldMark.tsx");
+  check(/course-held/.test(mark) && /course-learning/.test(mark) && /course-owned/.test(mark),
+    "取得済・受講中・受講可能の3つを出し分ける");
+  /* 出すのは1つだけ。強い順に決める */
+  const order = ["held", "learning", "owned"].map((k) => mark.indexOf(`me.${k}?.includes`));
+  check(order[0] < order[1] && order[1] < order[2], "強い順に決める（取得済 → 受講中 → 受講可能）");
+
+  const held = read("src/lib/held.ts");
+  check(/started_at/.test(held), "受講中は「始めた日」で見る（押しただけは数えない）");
+  check(/from\("orders"\)/.test(held), "席の講座は、注文まで辿って見る");
+}
+
 console.log(`\n${ok} 件通過 / ${ng} 件失敗`);
 process.exit(ng ? 1 : 0);
