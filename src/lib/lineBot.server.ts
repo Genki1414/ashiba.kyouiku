@@ -48,7 +48,7 @@ export async function lineIdOf(userId: string | null | undefined): Promise<strin
     たまたま同じ字になることがある） */
 export async function userByLineId(
   lineUserId: string | null | undefined,
-): Promise<{ id: string; email: string } | null> {
+): Promise<{ id: string; email: string; name: string } | null> {
   const line = (lineUserId ?? "").trim();
   if (!line) return null;
   const supabase = getServiceClient();
@@ -63,11 +63,11 @@ export async function userByLineId(
     if (error || !data) return null;
     const { data: u, error: e2 } = await supabase
       .from("users")
-      .select("id, email")
+      .select("id, email, name")
       .eq("id", String(data.user_id))
       .maybeSingle();
     if (e2 || !u) return null;
-    return { id: String(u.id), email: String(u.email ?? "") };
+    return { id: String(u.id), email: String(u.email ?? ""), name: String(u.name ?? "") };
   } catch {
     return null;
   }

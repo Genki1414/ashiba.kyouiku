@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { replyLine, userByLineId } from "@/lib/lineBot.server";
 import { isOpsWord, verifyLineSignature } from "@/lib/lineBot";
 import { isOwnerEmail } from "@/lib/owner";
-import { opsStatusText } from "@/lib/opsStatus.server";
+import { opsNotLinkedText, opsNotOwnerText, opsStatusText } from "@/lib/opsStatus.server";
 
 /* LINE から届くもの（Webhook）。
 
@@ -16,9 +16,11 @@ import { opsStatusText } from "@/lib/opsStatus.server";
    ・**署名を必ず確かめる。**確かめないと、この住所を知った人が
      偽の「運営からの指示」を投げ込める。鍵が入っていなければ、
      何も受け付けない（開けっぱなしにしない）
-   ・**運営にしか返さない。**ほかの人が同じ字を送っても黙っている。
-     返すと、公式アカウントの応答メッセージや手動チャットと二重になるし、
-     設定の様子はよそに見せるものではない
+   ・**設定の様子は運営にしか返さない。**ただし、合言葉に当たったのに
+     黙るのはやめた（げんきさん 2026-09-09「特別教育ドットコムでは応答ない」）。
+     返らない理由が3つあり、外から切り分けられなかった。
+     結び付いていない人・運営でない人には、**その人自身のことだけ**返す。
+     鍵も、設定の中身も、よその人のことも出さない
    ・運営かどうかは、**LINE の番号 → 利用者 → メール → OWNER_EMAILS**
      の順で見る。LINE の表示名では見ない（名前は誰でも真似できる）
    ・**必ず 200 を返す。**LINE は 200 以外だと何度も送り直してくる。
@@ -73,7 +75,18 @@ export async function POST(req: NextRequest) {
     /* 運営か。LINE でログインしたことのある運営だけが通る。
        一度もログインしていないと結び付きが無いので、ここで止まる */
     const who = await userByLineId(lineUserId);
-    if (!who || !isOwnerEmail(who.email)) continue;
+    if (!who) {
+      /* まだつないでいない。**番号を返す。**
+         運営管理 → LINE に出る番号と食い違っていたら、
+         ログインチャネルと公式アカウントのプロバイダーが分かれている */
+      await replyLine(replyToken, opsNotLinkedText(lineUserId));
+      continue;
+    }
+    if (!isOwnerEmail(who.email)) {
+      /* つないでいる相手が違う。どのアカウントかを返す */
+      await replyLine(replyToken, opsNotOwnerText(who));
+      continue;
+    }
 
     await replyLine(replyToken, await opsStatusText());
   }

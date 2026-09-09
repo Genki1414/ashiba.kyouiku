@@ -167,6 +167,13 @@ console.log("── LINE から受ける（docs/106）──");
   check(/runtime = "nodejs"/.test(hook), "署名を作るので node で動かす");
   check(!/follow/.test(hook.replace(/\/\*[\s\S]*?\*\//g, "")), "あいさつはここで出さない（公式アカウント側）");
 
+  /* 合言葉に当たったのに黙るのはやめた（げんきさん 2026-09-09
+     「特別教育ドットコムでは応答ない」）。返らない理由が3つあり、
+     外から切り分けられなかった */
+  check(/opsNotLinkedText/.test(hook), "つないでいない人には、その理由を返す");
+  check(/opsNotOwnerText/.test(hook), "つなぐ相手を間違えている人には、どのアカウントかを返す");
+  check(hook.indexOf("opsNotLinkedText") < hook.indexOf("opsStatusText("), "運営かどうかを見る前に、結び付きを見る");
+
   const ops = read("src/lib/opsStatus.server.ts");
   /* 鍵の値そのものを本文に混ぜない。入っているかどうか（mark）だけ。
      値段の上書きも出さない（商売の中身。トークは残る） */
