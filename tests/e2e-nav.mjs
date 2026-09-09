@@ -47,6 +47,22 @@ await page.goto(`${BASE}/`);
   console.log("OK: お知らせは、一度閉じたら自分からは出ない");
 }
 
+/* ── 前の版で一度閉じた人にも、もう出ない ── */
+{
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 900 } });
+  const p2 = await ctx.newPage();
+  await p2.route("**/api/me", (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(who) }));
+  /* 印（update-ack）が付く前の版で閉じた人。閉じた版だけを覚えている */
+  await p2.goto(`${BASE}/`);
+  await p2.evaluate(() => localStorage.setItem("ashiba.seen-update", "2026-01-01-1"));
+  await p2.goto(`${BASE}/`);
+  await p2.waitForTimeout(800);
+  check((await p2.getByTestId("update-notice").count()) === 0, "前の版で閉じた人にも出ない");
+  await ctx.close();
+  console.log("OK: 前に閉じたことがある人には、もう出ない");
+}
+
 /* ── 下の行き先 ── */
 {
   const nav = page.getByTestId("bottom-nav");
@@ -55,6 +71,9 @@ await page.goto(`${BASE}/`);
   check(labels.length === 3, `受講者には3つ（${labels.join("・")}）`);
   check(labels.some((t) => t.includes("ホーム")) && labels.some((t) => t.includes("講座")) &&
         labels.some((t) => t.includes("マイページ")), `行き先の名前（${labels.join("・")}）`);
+  /* **受講者に本部と担当者は出さない。**立場は /api/me がサーバで決める */
+  check(!labels.some((t) => t.includes("本部")) && !labels.some((t) => t.includes("担当者")),
+    `受講者には本部も担当者も出ない（${labels.join("・")}）`);
   await page.goto(`${BASE}/edu`);
   await page.waitForTimeout(300);
   check((await page.getByTestId("bottom-nav").count()) === 1, "講座の一覧にも出る");

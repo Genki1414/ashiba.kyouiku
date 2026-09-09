@@ -1281,7 +1281,8 @@ console.log("── 下の行き先と、お知らせの出し方 ──");
        「取得済みの資格講座をたっぷすると『取得済みのため受講不要』と表示させる」 */
   const un = read("src/components/UpdateNotice.tsx");
   check(/ACK = "ashiba\.update-ack"/.test(un), "一度閉じたことを覚える");
-  check(/if \(ack\) return;/.test(un), "閉じたあとは、自分からは出ない");
+  check(/if \(ack \|\| seen\) return;/.test(un),
+    "閉じたあとは、自分からは出ない（印が付く前に閉じた人にも効く）");
 
   const nav = read("src/components/BottomNav.tsx");
   check(/fixed inset-x-0 bottom-0/.test(nav), "下に固定する");
@@ -1292,6 +1293,10 @@ console.log("── 下の行き先と、お知らせの出し方 ──");
   check(/me\?\.owner/.test(nav) && /me\?\.admin/.test(nav), "立場によって行き先が変わる");
   const lay = read("src/app/layout.tsx");
   check(/<BottomNav \/>/.test(lay), "どの画面にも出る（layout に置く）");
+  /* 立場はサーバが決める（OWNER_EMAILS）。画面で作らない */
+  check(!/owner: true/.test(nav) && /loadMe\(\)/.test(nav), "立場は /api/me が返すものを使う");
+  const hc = read("src/components/HomeCards.tsx");
+  check(/!me\.admin && !me\.owner/.test(hc), "配る側には「受講するには」を出さない");
 
   const me = read("src/app/me/MeClient.tsx");
   check(/c\.hasSeat \|\| c\.started \|\| c\.cert \|\| held\.has\(c\.courseId\)/.test(me),

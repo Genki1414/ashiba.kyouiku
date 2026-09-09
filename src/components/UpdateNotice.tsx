@@ -47,8 +47,10 @@ export function UpdateNotice() {
     } catch {
       /* 読めない端末では、いちばん新しい1件だけ出す */
     }
-    /* **一度閉じた人には、もう出さない。**新しい更新は /updates に並ぶ */
-    if (ack) return;
+    /* **一度でも閉じた人には、もう出さない。**新しい更新は /updates に並ぶ。
+       印（ACK）は 2026-09-09 から付けている。それより前に閉じた人にも
+       効くように、**閉じた版を覚えているかどうか（KEY）でも見る** */
+    if (ack || seen) return;
     const rest = unseen(seen);
     if (rest.length) setList(rest);
   }, []);
