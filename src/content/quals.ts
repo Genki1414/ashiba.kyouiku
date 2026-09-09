@@ -43,6 +43,17 @@ export type Qual = {
   courseId?: string;
   /** 根拠。ほとんど同じなので、違うものだけ書く */
   basis?: string;
+  /** 選ぶ一覧に出さない。**過去に登録された行を表示するためだけ**に残す。
+
+      げんきさん（2026-09-09）
+        「講座と保有資格選択を一致させなければならない。
+          そうしないと除染のような現象が起きる」
+
+      うちの講座が業務区分・装置・施設ごとに分かれているのに、
+      資格の側が1つにまとまっていると、**どれを受けたのかが分からない。**
+      分からないものは講座に結べないので、取得済みにできない。
+      だから細かいほうを足して、まとめていたほうは選べなくする。 */
+  legacy?: true;
 };
 
 /* 特別教育の根拠。ほぼ全部これ */
@@ -117,12 +128,51 @@ const SE: [string, string, string, number, number, string | null][] = [
   ["SE-063", "scaffolding-assembly", "足場の組立て・解体・変更", 6, 0, "2015-07-01"],
   ["SE-064", "rope-access-work", "ロープ高所作業", 4, 3, "2016-07-01"],
   ["SE-065", "full-body-harness-work", "フルハーネス型墜落制止用器具使用作業", 4.5, 1.5, "2019-02-01"],
+
+  /* ── 講座に合わせて割ったもの（2026-09-09）──
+
+     げんきさん「講座と保有資格選択を一致させなければならない。
+     そうしないと除染のような現象が起きる」。
+
+     まとめていた SE-047 / 048 / 050 / 061 は、うちの講座が
+     装置・施設・業務区分ごとに分かれているので結べなかった。
+     **選ぶときに、講座と同じ細かさで選べるようにする。**
+
+     学科の時間は、うちの教材に入っている法定時間（規程どおり）。
+     実技は、まとめていたほうの値をそのまま持たせている
+     （区分ごとの内訳までは規程に無いため）。 */
+  ["SE-047a", "xray-equipment-operation", "エックス線装置取扱", 4.5, 0, "2026-04-01"],
+  ["SE-047b", "gamma-equipment-operation", "ガンマ線照射装置取扱", 4.5, 0, "2026-04-01"],
+  ["SE-047c", "xray-gamma-both-operation", "エックス線装置・ガンマ線照射装置取扱（両方）", 6, 0, "2026-04-01"],
+  ["SE-048a", "nuclear-processing-facility", "加工施設で核燃料物質等を取り扱う業務", 5.5, 6, null],
+  ["SE-048b", "nuclear-reprocessing-facility", "再処理施設で核燃料物質等を取り扱う業務", 5.5, 6, null],
+  ["SE-048c", "nuclear-use-facility", "使用施設等で核燃料物質等を取り扱う業務", 5.5, 6, null],
+  ["SE-050a", "accident-waste-crushing", "事故由来廃棄物等の処分（破砕等）", 5, 6, null],
+  ["SE-050b", "accident-waste-incineration", "事故由来廃棄物等の処分（焼却）", 5, 6, null],
+  ["SE-050c", "accident-waste-landfill", "事故由来廃棄物等の処分（埋立て）", 5, 6, null],
+  ["SE-061a", "decontamination-soil", "除染等業務（土壌等の除染等）", 4, 6.5, null],
+  ["SE-061b", "decontamination-soil-collection", "除染等業務（除去土壌の収集等）", 4, 6.5, null],
+  ["SE-061c", "decontamination-waste-collection", "除染等業務（汚染廃棄物の収集等）", 4, 6.5, null],
+  ["SE-061d", "decontamination-specified-soil", "除染等業務（特定汚染土壌等取扱業務）", 3.5, 6.5, null],
+  ["SE-061e", "decontamination-specified-soil-unmanaged", "除染等業務（特定汚染土壌等取扱業務（線量管理外））", 3.5, 6.5, null],
+  /* 資格の一覧に無かったもの。講座はあるので足す */
+  ["SE-042b", "recompression-chamber-operation", "再圧室の操作", 9, 0, null],
 ];
 
+/* まとめていたほうは、**選ばせない。**
+   過去に登録された行の名前を出すためだけに残す（消すと空欄になる） */
+const LEGACY = new Set(["SE-047", "SE-048", "SE-050", "SE-061"]);
+
 /* 根拠が違うもの */
+const XRAY_BASIS =
+  "労働安全衛生法第59条第3項、労働安全衛生規則第36条、電離放射線障害防止規則第52条の5、エックス線装置及びガンマ線照射装置取扱業務特別教育規程（令和8年4月1日適用）";
+
 const BASIS_OVERRIDE: Record<string, string> = {
-  "SE-047":
-    "労働安全衛生法第59条第3項、労働安全衛生規則第36条、電離放射線障害防止規則第52条の5、エックス線装置及びガンマ線照射装置取扱業務特別教育規程（令和8年4月1日適用）",
+  "SE-047": XRAY_BASIS,
+  /* 講座に合わせて割った分も、根拠は同じ */
+  "SE-047a": XRAY_BASIS,
+  "SE-047b": XRAY_BASIS,
+  "SE-047c": XRAY_BASIS,
 };
 
 /* ── 資格と、この仕組みの講座の対応 ──────────
@@ -202,30 +252,38 @@ const OURS: Record<string, string> = {
   "SE-060": "ishiwata",      // 石綿使用建築物等解体等
   "SE-062": "senryouka",     // 特定線量下業務
   "SE-063": "ashiba",        // 足場の組立て・解体・変更
+  /* 講座に合わせて割った分（2026-09-09）。ここでようやく1対1になる */
+  "SE-042b": "saiatsushitsu",
+  "SE-047a": "xrayki",
+  "SE-047b": "gammaki",
+  "SE-047c": "xraygammaki",
+  "SE-048a": "kakunenkakou",
+  "SE-048b": "kakunensaishori",
+  "SE-048c": "kakunenshiyou",
+  "SE-050a": "haikihasai",
+  "SE-050b": "haikishokyaku",
+  "SE-050c": "haikiumetate",
+  "SE-061a": "josendojo",
+  "SE-061b": "josenshushu",
+  "SE-061c": "josenhaiki",
+  "SE-061d": "josentokutei",
+  "SE-061e": "josentokuteigai",
   "SE-064": "rope",          // ロープ高所作業
   "SE-065": "harness",       // フルハーネス型墜落制止用器具使用作業
 };
 
-/* ── わざと入れていないもの ────────────────
+/* ── わざと結んでいないもの ────────────────
 
    ・SE-044 第一種酸素欠乏危険作業
        うちの講座は「酸素欠乏・硫化水素危険作業」＝**第二種**。
        第一種を持っていても、第二種は受けることになる。
        ここを結ぶと、硫化水素の教育を受けないまま通してしまう。
 
-   ・SE-047 エックス線装置・ガンマ線照射装置取扱
-       うちは装置ごとに3本（エックス線／ガンマ線／両方）に分けてある。
-       資格の側は1つなので、**どれを受けたのかが分からない。**
-
-   ・SE-048 加工施設等で核燃料物質等を取り扱う業務
-       うちは施設ごとに3本（加工／再処理／使用施設等）。同上。
-
-   ・SE-050 事故由来放射性物質汚染物処分業務
-       うちは処分の仕方ごとに3本（破砕等／焼却／埋立て）。同上。
-
-   ・SE-061 除染等業務
-       うちは業務区分ごとに5本（土壌等／除去土壌／汚染廃棄物／
-       特定汚染土壌等／同（線量管理外））。同上。
+   ・SE-047 / SE-048 / SE-050 / SE-061（まとめていたほう）
+       うちの講座が装置・施設・業務区分ごとに分かれているので、
+       **どれを受けたのかが分からない。**
+       選ぶ一覧からは外し（legacy）、割ったほうを選んでもらう。
+       過去に登録された行は、名前だけ出す。
 
    分からないまま結ぶより、**講座を出しておくほうが安全。**
    受け直しは手間で済むが、受けそこないは法令違反になる。 */
@@ -242,6 +300,7 @@ const SPECIAL: Qual[] = SE.map(([id, slug, name, theoryH, practicalH, from]) => 
   from,
   courseId: OURS[id],
   basis: BASIS_OVERRIDE[id] ?? SE_BASIS,
+  ...(LEGACY.has(id) ? { legacy: true as const } : {}),
 }));
 
 /* ── その他 ──
@@ -279,10 +338,16 @@ export const totalH = (q: Qual): number => (q.theoryH ?? 0) + (q.practicalH ?? 0
 
 export const KINDS: QualKind[] = ["特別教育", "その他"];
 
-/** 種類ごとに分ける（画面はこの順で並べる） */
-export const byKind = (kind: QualKind) => QUALS.filter((q) => q.kind === kind);
+/** 種類ごとに分ける（画面はこの順で並べる）。
 
-/** 名前でしぼる。65件あるので、探せないと選んでもらえない */
+    **まとめていたほう（legacy）は出さない。**
+    出すと、また「除染等業務」とだけ選ばれて、どの講座か分からなくなる
+    （げんきさん 2026-09-09「講座と保有資格選択を一致させなければならない」）。
+    過去に登録された行の名前は findQual で引けるので、表示は崩れない。 */
+export const byKind = (kind: QualKind) =>
+  QUALS.filter((q) => q.kind === kind && !q.legacy);
+
+/** 名前でしぼる。数が多いので、探せないと選んでもらえない */
 export const search = (kind: QualKind, q: string): Qual[] => {
   const s = q.trim();
   const list = byKind(kind);

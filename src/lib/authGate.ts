@@ -19,6 +19,11 @@
        ・/api/line/webhook … LINE から届くもの。向こうはログインを持たない。
          代わりに署名を確かめる（Stripe と同じ考え）。
          閉じていたので、LINE Developers の「検証」が失敗していた
+   ・ログインの引き継ぎ（/api/handoff/use）。**入っていない人が叩く。**
+     ホーム画面のアプリに、ブラウザで作ったコードでログインを立てる道
+     （0036）。ここを閉じると、アプリにログインを持ち込めない。
+     見張りはコードそのもの（1回きり・5分）。
+     **コードを作るほう（/api/handoff）は閉じたまま**（本人だけ）
    ・特商法の表記・利用規約・個人情報の扱い（/legal/…）。
      買う前に、まだ登録していない人が読むもの
    ・画面を動かす部品（/_next/ と、拡張子で分かるもの） */
@@ -33,6 +38,7 @@ const OPEN = [
   "/api/verify-cert",
   "/api/stripe/webhook",
   "/api/line",
+  "/api/handoff/use",
   "/legal",
   "/manifest.webmanifest",
   "/sw.js",

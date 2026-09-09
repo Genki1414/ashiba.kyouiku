@@ -20,6 +20,14 @@ export function getServiceClient(): SupabaseClient | null {
 
 /** ログインが無いときに使う開発用の受講。手元で画面を確かめるときのため。
     本番では設定しない（設定すると、ログインしていない人の記録が1か所に混ざる）。 */
+/** 手元で画面を確かめるときの、仮の受講。
+
+    **本番（Vercel）では、入っていても無視する。**
+    入れっぱなしにすると、ログインしていない人の記録が
+    その受講に書き込まれる。設定の消し忘れで、
+    受講コードの無い人に教材が開く道になる
+    （げんきさん 2026-09-09「受講コードが無いのに開けてはダメ」）。 */
 export function getDevEnrollmentId(): string | null {
+  if (process.env.VERCEL) return null;
   return process.env.DEV_ENROLLMENT_ID ?? null;
 }

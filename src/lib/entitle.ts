@@ -11,9 +11,18 @@ export type { Learn };
                     「どれか1講座でも持っているか」になる */
 export async function canLearn(courseId?: string): Promise<Learn> {
   const supabase = getServiceClient();
-  /* Supabase を繋いでいないあいだは、ログインも求めていない（手元で動かすとき）。
-     ここで止めると何も開けなくなるので、そのまま通す */
-  if (!supabase) return { ok: true, by: "open" };
+  if (!supabase) {
+    /* **本番では、設定が欠けていても開けない。**
+       げんきさん（2026-09-09）「受講コードが無いのに開けてはダメだよ」。
+
+       Supabase の設定を1つ間違えただけで、73講座が誰にでも開く、
+       という壊れ方をしていた（実際に、独自ドメインへ移した直後の
+       ashiba-kyouiku がその状態だった）。
+       止まっているほうが、タダで配られるよりましなので、閉じる。 */
+    if (process.env.VERCEL) return { ok: false, why: "seat", company: "" };
+    /* 手元で動かすときだけ、そのまま通す（Supabase を立てずに画面を見る） */
+    return { ok: true, by: "open" };
+  }
 
   const user = await currentUser();
   if (!user) return { ok: false, why: "signin", company: "" };

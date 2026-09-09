@@ -12,7 +12,12 @@ export async function canTrain(): Promise<TrainMay> {
   const supabase = getServiceClient();
   /* Supabase を繋いでいないあいだは、ログインも求めていない（手元で動かすとき）。
      ここで止めると何も開けなくなるので、そのまま通す */
-  if (!supabase) return { ok: true, by: "open" };
+  if (!supabase) {
+    /* 本番では、設定が欠けていても開けない（src/lib/entitle.ts と同じ考え）。
+       第1章は誰でも遊べるが、第2章から先は売り物 */
+    if (process.env.VERCEL) return { ok: false, why: "free" };
+    return { ok: true, by: "open" };
+  }
 
   const user = await currentUser();
   if (!user) return { ok: false, why: "signin" };

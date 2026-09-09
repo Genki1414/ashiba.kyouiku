@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { HANDOFF_LEN, isHandoff, normalizeHandoff } from "@/lib/handoff";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getBrowserClient } from "@/lib/supabase/browser";
 import { claimDevice } from "@/lib/device";
@@ -36,6 +37,12 @@ export function LoginClient() {
   const next = useSearchParams().get("next") ?? "/";
   /* LINE で入れる店かどうか。設定していない店では出さない */
   const [line, setLine] = useState(false);
+  /* ブラウザで作ったコードで、この端末にログインを立てる（0036）。
+     ホーム画面のアプリは、よそのサイトへ出るとブラウザに切り替わり、
+     ログインの記憶も別なので、こうしないと持ち込めない */
+  const [code, setCode] = useState("");
+  const [codeOpen, setCodeOpen] = useState(false);
+  const [codeBusy, setCodeBusy] = useState(false);
   useEffect(() => {
     fetch("/api/health", { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
@@ -217,6 +224,30 @@ export function LoginClient() {
     );
   }
 
+  /* 引き換えコードで入る（0036）。**ここは入っていない人が叩く。**
+     断り方は分けない（当てずっぽうに手がかりを与えない） */
+  const useCode = async () => {
+    setCodeBusy(true);
+    setErr(null);
+    try {
+      const res = await fetch("/api/handoff/use", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ code: normalizeHandoff(code) }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok || !j.ok) {
+        setErr(j.reason ?? "そのコードは使えません。ブラウザで作り直してください。");
+        return;
+      }
+      window.location.href = next.startsWith("/") ? next : "/";
+    } catch {
+      setErr("接続できません。");
+    } finally {
+      setCodeBusy(false);
+    }
+  };
+
   return (
     <main className="px-5 py-8" data-testid="login">
       <div className="tape -mx-5 mb-6" />
@@ -335,6 +366,62 @@ export function LoginClient() {
 
       {/* 唯一の教育担当者が忘れたときに、頼む相手が居ない。
           自分で決め直せる道が要る */}
+      {/* ── コードで入る（0036）──
+
+          げんきさん（2026-09-09）
+            「ホーム画面に追加したのに、ホーム画面に追加した所から
+              ログインするとネット版になる」
+
+          ホーム画面のアプリは、よそのサイトへ出た時点でブラウザに
+          切り替わり、ログインの記憶も別。だからブラウザで作った
+          コードを、ここで打ってもらう。**畳んでおく。**
+          ふだんの人には要らないものなので、上に置くと迷う */}
+      <div className="mt-6 border-t border-line pt-4">
+        {!codeOpen ? (
+          <button
+            onClick={() => { setCodeOpen(true); setErr(null); }}
+            className="text-[12px] text-cyan underline"
+            data-testid="login-code-open"
+          >
+            コードで入る（ホーム画面のアプリ用）
+          </button>
+        ) : (
+          <div data-testid="login-code">
+            <p className="text-[12px] leading-relaxed text-dim">
+              ブラウザでログインしたあと、
+              <span className="text-txt">マイページ → ホーム画面のアプリ</span>
+              で作った8文字を打ってください。
+            </p>
+            <input
+              value={code}
+              onChange={(e) => setCode(normalizeHandoff(e.target.value))}
+              inputMode="text"
+              autoCapitalize="characters"
+              autoCorrect="off"
+              spellCheck={false}
+              maxLength={HANDOFF_LEN}
+              placeholder="8文字"
+              className="mt-2 w-full rounded-lg border border-line bg-panel2 px-3.5 py-3 text-center font-mono text-[20px] tracking-[4px] text-txt placeholder:text-dim2 placeholder:tracking-normal placeholder:text-[14px]"
+              data-testid="login-code-input"
+            />
+            <button
+              onClick={() => void useCode()}
+              disabled={codeBusy || !isHandoff(code)}
+              className="mt-2 w-full rounded-lg border border-yel bg-yel p-3 text-[14px] font-extrabold text-bg disabled:opacity-40"
+              data-testid="login-code-go"
+            >
+              {codeBusy ? "確かめています…" : "このコードで入る"}
+            </button>
+            <button
+              onClick={() => { setCodeOpen(false); setCode(""); setErr(null); }}
+              className="mt-2 text-[11.5px] text-dim underline"
+            >
+              やめる
+            </button>
+          </div>
+        )}
+      </div>
+
       {mode !== "forgot" ? (
         <button
           onClick={() => { setMode("forgot"); setErr(null); }}

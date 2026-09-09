@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { emailLabel } from "@/lib/lineEmail";
+import { HANDOFF_MIN, showHandoff } from "@/lib/handoff";
 import { BRAND } from "@/content/brand";
 import Link from "next/link";
 import { Loading } from "@/components/Loading";
@@ -71,6 +72,9 @@ export function MeClient() {
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState("");
   const [asking, setAsking] = useState(false);
+  /* ホーム画面のアプリへ持ち込む引き換えコード（0036） */
+  const [handoff, setHandoff] = useState("");
+  const [handoffBusy, setHandoffBusy] = useState(false);
   const [busyReq, setBusyReq] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -156,6 +160,23 @@ export function MeClient() {
       await load();
     } finally {
       setBusyReq(null);
+    }
+  };
+
+  /* ホーム画面のアプリに持ち込むコードを作る（0036）。
+     1回きり・5分で切れる（決まりは SQL の make_handoff） */
+  const makeHandoff = async () => {
+    setHandoffBusy(true);
+    setNote("");
+    try {
+      const res = await fetch("/api/handoff", { method: "POST" });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok || !j.ok) { setNote(j.reason ?? "コードを作れませんでした。"); return; }
+      setHandoff(typeof j.code === "string" ? j.code : "");
+    } catch {
+      setNote("接続できません。");
+    } finally {
+      setHandoffBusy(false);
     }
   };
 
@@ -272,6 +293,51 @@ export function MeClient() {
               )}
             </div>
           </>
+        )}
+      </div>
+
+      {/* ── ホーム画面のアプリへ持ち込む（0036）──
+
+          げんきさん（2026-09-09）
+            「ホーム画面に追加したのに、ホーム画面に追加した所から
+              ログインするとネット版になる」
+
+          LINEログインもパスワードの決め直しも、**よそのサイトへ一度出る。**
+          iPhone のホーム画面アプリは、出た時点でブラウザに切り替わり、
+          そのまま戻ってこない。ログインの記憶も別なので、
+          ブラウザで入ってもアプリは入っていないまま。
+
+          8文字のコードで持ち込む。1回きり・5分で切れる。 */}
+      <div className="mt-4 rounded-xl border border-line bg-panel p-4" data-testid="me-handoff">
+        <div className="mb-1 text-[11px] tracking-[2px] text-dim">ホーム画面のアプリ</div>
+        <p className="text-[12.5px] leading-relaxed text-dim">
+          ホーム画面に追加したアプリが
+          <span className="text-txt">ログインしていない</span>ときは、
+          ここでコードを作って、アプリの「コードで入る」に打ってください。
+        </p>
+        {handoff ? (
+          <>
+            <div
+              className="mt-3 rounded-lg border border-yel bg-bg p-3 text-center font-mono text-[24px] font-black tracking-[4px] text-yel"
+              data-testid="me-handoff-code"
+            >
+              {showHandoff(handoff)}
+            </div>
+            <div className="mt-1.5 text-center text-[11.5px] leading-relaxed text-dim2">
+              {HANDOFF_MIN}分で使えなくなります。1回だけ使えます。
+              <br />
+              打ち終わったら、この画面は閉じて構いません。
+            </div>
+          </>
+        ) : (
+          <button
+            onClick={() => void makeHandoff()}
+            disabled={handoffBusy}
+            className="mt-3 w-full rounded-lg border border-line p-2.5 text-[13px] font-bold text-txt disabled:opacity-50"
+            data-testid="me-handoff-make"
+          >
+            {handoffBusy ? "作っています…" : "アプリに入るコードを作る"}
+          </button>
         )}
       </div>
 

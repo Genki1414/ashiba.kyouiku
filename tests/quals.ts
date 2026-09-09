@@ -44,12 +44,32 @@ check(
 console.log("── 特別教育（安衛則 第36条）──");
 {
   const se = byKind("特別教育");
-  check(se.length === 65, `65件ある（いま ${se.length}件）`);
+
+  /* ── 数え方（2026-09-09）──
+     もとの一覧は SE-001〜SE-065 の65件。そこへ、
+     **うちの講座に合わせて割ったもの**（SE-047a のように字を足した番号）が
+     加わり、まとめていた4件は選ばせない（legacy）ようにした。
+     げんきさん「講座と保有資格選択を一致させなければならない」。
+
+     番号そのものは変えない。変えると、登録済みの行がどれか分からなくなる。 */
+  const base = se.filter((q) => /^SE-\d{3}$/.test(q.id));
+  const split = se.filter((q) => /^SE-\d{3}[a-z]$/.test(q.id));
+  const legacy = QUALS.filter((q) => q.legacy);
+
+  check(base.length + legacy.length === 65, `もとの一覧は65件（いま ${base.length + legacy.length}件）`);
+  check(split.length > 0, `講座に合わせて割った分がある（${split.length}件）`);
+  check(legacy.length === 4, `まとめていたのは4件（いま ${legacy.length}件）`);
+  check(se.every((q) => !q.legacy), "選ぶ一覧に、まとめていたほうは出さない");
 
   /* 番号は SE-001 から抜けなく並ぶ。抜けると、あとで足すときに迷う */
-  const ids = se.map((q) => q.id);
+  const ids = [...base.map((q) => q.id), ...legacy.map((q) => q.id)].sort();
   const want = Array.from({ length: 65 }, (_, i) => `SE-${String(i + 1).padStart(3, "0")}`);
-  check(JSON.stringify(ids) === JSON.stringify(want), "SE-001 から SE-065 まで、順に抜けなく並ぶ");
+  check(JSON.stringify(ids) === JSON.stringify(want), "SE-001 から SE-065 まで、抜けなく揃っている");
+  /* 割ったほうは、もとの番号に字を足す。どこから割ったのかが分かる */
+  for (const q of split) {
+    const parent = q.id.slice(0, -1);
+    check(!!findQual(parent), `${q.id} は ${parent} から割ったもの`);
+  }
 
   check(se.every((q) => typeof q.theoryH === "number" && q.theoryH > 0), "学科の時間が全部に入っている");
   check(se.every((q) => typeof q.practicalH === "number"), "実技の時間も全部に入っている");
@@ -67,13 +87,15 @@ console.log("── 特別教育（安衛則 第36条）──");
   const xray = findQual("SE-047")!;
   check(xray.basis !== SE_BASIS, "エックス線・ガンマ線は別の根拠");
   check(xray.basis!.includes("電離放射線障害防止規則"), `根拠に電離則が入る（${xray.basis?.slice(0, 20)}…）`);
+  /* エックス線・ガンマ線は、割ったほうにも同じ根拠を持たせる */
   check(
-    se.filter((q) => q.basis !== SE_BASIS).length === 1,
-    "根拠が違うのは1件だけ",
+    QUALS.filter((q) => q.kind === "特別教育" && q.basis !== SE_BASIS)
+      .every((q) => q.id.startsWith("SE-047")),
+    "根拠が違うのは、エックス線・ガンマ線の分だけ",
   );
 
   /* いつから要るようになったか。分かっているものだけ入れる */
-  const dated = se.filter((q) => q.from);
+  const dated = [...base, ...legacy].filter((q) => q.from);
   check(dated.length === 6, `適用日の分かっているものが6件（いま ${dated.length}件）`);
   check(
     dated.every((q) => /^\d{4}-\d{2}-\d{2}$/.test(q.from!)),
@@ -109,12 +131,16 @@ for (const k of KINDS) {
   check(byKind(k).every((q) => q.kind === k), `${k} には ${k} だけが入る`);
 }
 check(
-  KINDS.reduce((n, k) => n + byKind(k).length, 0) === QUALS.length,
-  "どの種類にも入らない資格が無い",
+  KINDS.reduce((n, k) => n + byKind(k).length, 0)
+    === QUALS.filter((q) => !q.legacy).length,
+  "どの種類にも入らない資格が無い（まとめていたほかは全部どこかに入る）",
 );
 
 console.log("── さがす ──");
-check(search("特別教育", "").length === 65, "空なら全部出る");
+check(
+  search("特別教育", "").length === byKind("特別教育").length,
+  "空なら、選べるものが全部出る",
+);
 check(search("特別教育", "足場").some((q) => q.id === "SE-063"), "名前の一部で当たる");
 check(search("特別教育", "ハーネス").some((q) => q.id === "SE-065"), "途中の言葉でも当たる");
 check(search("特別教育", "se-063").some((q) => q.id === "SE-063"), "見出し（英字）でも当たる");

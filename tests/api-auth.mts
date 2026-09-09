@@ -18,6 +18,8 @@ const ROOT = new URL("../src/app/api/", import.meta.url).pathname;
 let ok = 0;
 let ng = 0;
 const check = (c: boolean, m: string) => { if (c) ok++; else { ng++; console.error("NG:", m); } };
+/** 書いてある理由（コメント）は、検査の対象から外す */
+const strip = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[^\n]*/g, "");
 
 /* ── 誰でも叩いてよい入口 ──
    足すときは、**なぜ開けてよいのか**をここに書くこと。
@@ -31,6 +33,7 @@ const PUBLIC: Record<string, string> = {
   "signout/route.ts":      "ログアウト。入っていない人が叩いても何も起きない",
   "line/webhook/route.ts": "LINE から届く。向こうはログインを持たない。代わりに署名を確かめる",
   "stripe/webhook/route.ts": "Stripe から届く。同上。署名を確かめる",
+  "handoff/use/route.ts":  "ログインの引き継ぎ。**入っていない人が叩く**ので閉じられない。見張りはコードそのもの（1回きり・5分）",
 };
 
 /* 見張りと認められる呼び出し */
@@ -107,6 +110,37 @@ console.log("\n── 学科の画面 ──");
     new URL("../src/app/edu/[courseId]/[lessonId]/page.tsx", import.meta.url), "utf8",
   );
   check(/canLearn\(courseId\)/.test(lesson), "単元の本文でも、講座ごとに見張っている");
+}
+
+console.log("\n── ログインの引き継ぎ（0036）──");
+{
+  const use = readFileSync(path.join(ROOT, "handoff/use/route.ts"), "utf8");
+  check(/use_handoff/.test(use), "コードは SQL 側で消す（1回きり）");
+  check(!/そんなコード|切れて/.test(strip(use)), "断り方を書き分けない（当てずっぽうの手がかりを与えない）");
+  const make = readFileSync(path.join(ROOT, "handoff/route.ts"), "utf8");
+  check(/currentUser\(/.test(make), "コードを作れるのは、入っている本人だけ");
+
+  /* 見張りの手前で止まっていないか。LINE で同じ轍を踏んだ */
+  const gate = readFileSync(new URL("../src/lib/authGate.ts", import.meta.url), "utf8");
+  check(/"\/api\/handoff\/use"/.test(gate), "引き継ぎの入口は、ログインの手前で通す");
+  check(!/"\/api\/handoff"[,\s]/.test(gate), "コードを作るほうは閉じたまま");
+}
+
+console.log("\n── 設定が欠けても、本番では開けない ──");
+{
+  /* げんきさん（2026-09-09）「受講コードが無いのに開けてはダメだよ」。
+     設定を1つ間違えただけで73講座が誰にでも開く、という壊れ方をしていた。
+     止まっているほうが、タダで配られるよりまし */
+  const ent = readFileSync(new URL("../src/lib/entitle.ts", import.meta.url), "utf8");
+  check(/process\.env\.VERCEL/.test(ent), "学科は、本番で設定が欠けたら閉じる");
+  check(
+    ent.indexOf("process.env.VERCEL") < ent.indexOf('by: "open"'),
+    "閉じる判断が、通す判断より先に来る",
+  );
+  const tr = readFileSync(new URL("../src/lib/training.ts", import.meta.url), "utf8");
+  check(/process\.env\.VERCEL/.test(tr), "実務トレーニングも、本番で設定が欠けたら閉じる");
+  const srv = readFileSync(new URL("../src/lib/supabase/server.ts", import.meta.url), "utf8");
+  check(/VERCEL[\s\S]{0,60}DEV_ENROLLMENT_ID/.test(srv), "手元用の仮受講は、本番では無視する");
 }
 
 console.log("\n── 無償利用は撤廃されているか ──");

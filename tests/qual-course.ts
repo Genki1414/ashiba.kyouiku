@@ -17,7 +17,7 @@
         （資格に結ぶ／結ばない理由を書く）
    を機械に見張らせる。 */
 
-import { QUALS, NOT_MAPPED, findQual } from "../src/content/quals";
+import { QUALS, NOT_MAPPED, byKind, findQual } from "../src/content/quals";
 import { readyCourses, findCourse } from "../src/content/courses";
 
 let ok = 0;
@@ -38,16 +38,11 @@ console.log("\n── 講座の側から見て、抜けが無いか ──");
   /* 講座に資格が結ばれていなければ、その講座は**永久に「取得済」にならない。**
      わざとそうしているものだけを、ここに並べておく。
      並べていない講座が出てきたら、そのとき決める（結ぶ／理由を書く）。 */
-  const KNOWN_NO_QUAL = new Set([
-    /* 資格の側が1つで、うちが装置・施設・業務区分ごとに分けている講座。
-       どれを受けたのかが分からないので結べない（quals.ts の NOT_MAPPED） */
-    "xrayki", "gammaki", "xraygammaki",
-    "kakunenkakou", "kakunensaishori", "kakunenshiyou",
-    "haikihasai", "haikishokyaku", "haikiumetate",
-    "josendojo", "josenshushu", "josenhaiki", "josentokutei", "josentokuteigai",
-    /* 資格の一覧に、対応する特別教育が無いもの */
-    "saiatsushitsu",
-  ]);
+  /* いまは**全部の講座に資格がある。**
+     講座を足したのに資格を足さなければ、ここで落ちる。
+     どうしても結べない講座が出たら、理由を書いてここに並べること */
+  const KNOWN_NO_QUAL = new Set<string>([]);
+
   const used = new Set(QUALS.map((q) => q.courseId).filter(Boolean) as string[]);
   for (const c of readyCourses()) {
     if (used.has(c.id)) { ok++; continue; }
@@ -57,6 +52,37 @@ console.log("\n── 講座の側から見て、抜けが無いか ──");
   for (const id of KNOWN_NO_QUAL) {
     check(!!findCourse(id), `${id} は実在する講座（消えた講座が残っていないか）`);
   }
+}
+
+console.log("\n── 講座と、選べる資格が1対1か ──");
+{
+  /* げんきさん（2026-09-09）
+       「講座と保有資格選択を一致させなければならない。
+         そうしないと除染のような現象が起きる」 */
+  const pick = [...byKind("特別教育"), ...byKind("その他")];
+  check(pick.every((q) => !q.legacy), "まとめていたほうは、選ぶ一覧に出さない");
+
+  /* 1つの講座に、選べる資格が2つ以上ぶら下がっていないか。
+     ぶら下がっていてよいのは、うちが1本にまとめている講座だけ */
+  const MERGED: Record<string, number> = {
+    crane: 2,   // 5t未満クレーンと5t以上跨線テルハを1本に
+    dioxin: 3,  // ダイオキシン類の3業務は同じ特別教育
+  };
+  const count = new Map<string, number>();
+  for (const q of pick) {
+    if (!q.courseId) continue;
+    count.set(q.courseId, (count.get(q.courseId) ?? 0) + 1);
+  }
+  for (const [courseId, n] of count) {
+    check(n === (MERGED[courseId] ?? 1), `${courseId} に結ぶ資格は ${MERGED[courseId] ?? 1} 件（いま ${n} 件）`);
+  }
+
+  /* 割った資格が、ちゃんと選べること（除染の5本） */
+  for (const id of ["SE-061a", "SE-061b", "SE-061c", "SE-061d", "SE-061e"]) {
+    check(pick.some((q) => q.id === id), `${id} を選べる`);
+  }
+  check(!pick.some((q) => q.id === "SE-061"), "まとめていた「除染等業務」は選べない");
+  check(!!findQual("SE-061"), "ただし、過去に登録された行の名前は出せる");
 }
 
 console.log("\n── わざと結んでいないもの ──");
