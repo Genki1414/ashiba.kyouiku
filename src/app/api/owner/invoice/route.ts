@@ -28,13 +28,28 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: false, reason: "注文が分かりません。" }, { status: 400 });
   }
 
-  const { data: o } = await supabase
+  const { data: o, error: oErr } = await supabase
     .from("orders")
     .select(
       "id, company_id, user_id, kind, course_id, group_id, seats, unit_price, amount, method, status, due_date, paid_at, invoiced_at, bill_to, bill_addr, note, created_at",
     )
     .eq("id", id)
     .maybeSingle();
+  /* 読めなかったことを「ありません」に化けさせない。
+     版が古いだけなのに「その注文がありません」と出ると、
+     消えたのかと思う（2026-09-09） */
+  if (oErr) {
+    return NextResponse.json(
+      {
+        ok: false,
+        reason:
+          `注文を読めませんでした（${oErr.message}）。` +
+          "データベースの版が古いときは、Supabase の SQL Editor に " +
+          "supabase/apply-all.sql を貼って実行してください。",
+      },
+      { status: 500 },
+    );
+  }
   if (!o) {
     return NextResponse.json({ ok: false, reason: "その注文がありません。" }, { status: 404 });
   }

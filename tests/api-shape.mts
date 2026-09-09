@@ -979,5 +979,65 @@ console.log("── 照合の控えが、記録として残るか ──");
   check(/currentEnrollment\(courseId\)/.test(log), "受講は講座の目印から割り出す");
 }
 
+console.log("── 読めなかったことを、0件に化けさせていないか ──");
+{
+  /* **2026-09-09 に実際に起きた。**
+
+     版を上げる SQL（0029）を流す前に新しい画面を出したので、
+     本部の一覧が `select` に無い列を読みに行き、データベースが断った。
+     ところが `const { data } = await ...` で `error` を捨てていたので、
+     `data` は null → `orders ?? []` → **画面には「0件」。**
+
+     売った注文が1件も無いのと、読めないのとが同じ見え方になり、
+     「請求書が消えた」ようにしか見えなかった。
+
+     お金の画面（本部の一覧・請求書・元帳）だけは、断られたら
+     **そう言う。**直し方（apply-all.sql）まで出す。 */
+  for (const f of [
+    "src/app/api/owner/orders/route.ts",
+    "src/app/api/owner/invoice/route.ts",
+    "src/app/api/owner/ledger/route.ts",
+  ]) {
+    const src = read(f);
+    check(/error:\s*\w+Err\b/.test(src), `${f}：読み出しのエラーを受け取っている`);
+    check(/apply-all\.sql/.test(src), `${f}：直し方（apply-all.sql）まで出す`);
+    check(/status: 500/.test(src), `${f}：断られたら 500 を返す（0件で返さない）`);
+  }
+
+  /* 申込みも、版が古いときは直し方まで出す。
+     生の「column group_id does not exist」だけでは、担当者に何もできない */
+  const ord = read("src/app/api/order/route.ts");
+  check(/apply-all\.sql/.test(ord), "申込み：版が古いときの直し方を出す");
+}
+
+console.log("── 受けたいと送られている数が、申込みの画面まで届くか ──");
+{
+  /* 受講リクエストは担当者の画面に出るが、**申込みの画面には出ていなかった。**
+     担当者がここへ来る理由の多くは「送られてきたぶんを買う」のに、
+     何人ぶん要るのかを別の画面で数えて覚えてから来ることになっていた
+     （げんきさん 2026-09-09）。
+
+     **返す側にあっても、画面が組み立て直すところで落ちる。**
+     実際に落ちて、札が1つも出なかった。だから両側を見る。 */
+  const api = read("src/app/api/order/route.ts");
+  check(/from\("course_requests"\)/.test(api), "申込みの口が、送られている数を数える");
+  check(/\.is\("handled_at", null\)/.test(api), "**まだ対応していないものだけ**数える");
+  check(/\.eq\("company_id", admin\.companyId\)/.test(api),
+    "自社宛だけ数える（会社は画面から受け取らない）");
+  check(/\brequests,/.test(api), "講座ごとの数を画面へ返す");
+
+  const oc = read("src/app/order/OrderClient.tsx");
+  check(/requests: j\.requests/.test(oc),
+    "**画面が組み立て直すときに拾っている**（ここで落とすと札が1つも出ない）");
+  check(/data-testid="order-requests"/.test(oc), "「受けたいと送られています」を出す");
+  check(/data-testid="order-course-req"/.test(oc), "講座ごとの件数を出す");
+  /* 合計だけだと、どの講座に何人ぶん要るのか分からない */
+  check(/リクエスト\{req\[c\.id\]\}件/.test(oc), "講座ごとに「リクエスト◯件」と出す");
+  /* 73本あるので、送られている講座を上に出さないと札が埋もれる */
+  check(/req\[b\.id\] - req\[a\.id\]/.test(oc), "送られている講座を、多い順に上へ出す");
+  /* 押したら、その人数が入る。1から数え直させない */
+  check(/set\(on \? 0 : \(req\[c\.id\] \|\| 1\)\)/.test(oc), "押すと、送られている人数が入る");
+}
+
 console.log(`\n通り ${ok} ／ だめ ${ng}`);
 process.exit(ng ? 1 : 0);

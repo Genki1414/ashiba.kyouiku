@@ -44,6 +44,8 @@ type Loaded = {
   unitPrice: number;
   orders: Order[];
   seats: { total: number; used: number; paid: number };
+  /** 講座ごとの「受けたいと送られている数」。まだ対応していないもの */
+  requests?: Record<string, number>;
   /* 受講コードの文字そのもの。これが無いと担当者は配れない */
   codes: Code[];
   /* 受講コードは1講座ぶん。どの講座を買うかを選ぶ */
@@ -97,6 +99,10 @@ export function OrderClient() {
         seats: j.seats,
         codes: j.codes ?? [],
         courses: j.courses ?? [],
+        /* 受けたいと送られている数（講座ごと）。
+           **ここで拾い忘れると、札が1つも出ない。**
+           返す側にあっても、組み立て直すここで落ちる（2026-09-09） */
+        requests: j.requests ?? {},
       });
       setNg("");
     } catch {
@@ -210,11 +216,21 @@ export function OrderClient() {
     tax: rows.reduce((n, r) => n + r.q!.tax, 0),
     total: rows.reduce((n, r) => n + r.q!.total, 0),
   };
+  /* 受けたいと送られている数。講座ごと */
+  const req = st.requests ?? {};
+  const reqTotal = Object.values(req).reduce((n, v) => n + v, 0);
+
   /* 絞り込み。名前でも、正式名称でも当たるようにする */
   const key = q2.trim().toLowerCase();
-  const list = key
+  const hit = key
     ? st.courses.filter((c) => `${c.name}${c.short}`.toLowerCase().includes(key))
     : st.courses;
+  /* **送られている講座を上に出す。**73本あるので、下に埋もれると
+     札を付けても見えない。多い順（要る人数が多い講座から片づく） */
+  const list = [
+    ...hit.filter((c) => req[c.id] > 0).sort((a, b) => req[b.id] - req[a.id]),
+    ...hit.filter((c) => !req[c.id]),
+  ];
 
   return (
     <main className="px-5 py-8 pb-12">
@@ -254,6 +270,22 @@ export function OrderClient() {
             申込みは1回・請求書は1枚・振込も1回にする（0029）。 */}
         <label className="mb-1 block text-[11px] tracking-[2px] text-dim">受ける講座と人数</label>
 
+        {/* **受けたいと送られていることを、ここで知らせる。**
+            担当者がこの画面へ来る理由の多くは「送られてきたぶんを買う」。
+            出ていないと、担当者の画面で数えて覚えてから来ることになる
+            （げんきさん 2026-09-09） */}
+        {reqTotal > 0 && (
+          <div
+            className="mb-2 rounded-lg border border-cyan bg-[#0F1A1D] px-3.5 py-3 text-[12.5px] leading-relaxed text-cyan"
+            data-testid="order-requests"
+          >
+            <span className="font-black">受けたいと送られています（{reqTotal}件）</span>
+            <span className="mt-0.5 block text-[11.5px] text-dim">
+              送られている講座を上に出しています。押すと、その人数が入ります。
+            </span>
+          </div>
+        )}
+
         {/* 講座が73本ある。絞れないと目当ての1本まで指が届かない */}
         {st.courses.length > 8 && (
           <input
@@ -288,7 +320,9 @@ export function OrderClient() {
                 data-testid="order-course"
               >
                 <button
-                  onClick={() => set(on ? 0 : 1)}
+                  /* 送られている講座は、**その人数を入れる。**
+                     1から数え直させない。あとから直せるので押さえつけにはならない */
+                  onClick={() => set(on ? 0 : (req[c.id] || 1))}
                   className={`block w-full px-3 py-2.5 text-left text-[13px] ${on ? "text-yel" : "text-dim"}`}
                   data-testid="order-course-pick"
                   aria-pressed={on}
@@ -297,6 +331,16 @@ export function OrderClient() {
                   <span className="mr-1.5 font-black">{on ? "✓" : "＋"}</span>
                   {c.name}
                   <span className="ml-1.5 text-[11.5px] text-dim2">{yen(c.unitPrice)}／人</span>
+                  {/* **講座ごとの件数。**上の合計だけだと、どの講座に
+                      何人ぶん要るのかが分からない */}
+                  {req[c.id] > 0 && (
+                    <span
+                      className="ml-1.5 rounded border border-cyan px-1.5 py-0.5 text-[10.5px] text-cyan"
+                      data-testid="order-course-req"
+                    >
+                      リクエスト{req[c.id]}件
+                    </span>
+                  )}
                 </button>
                 {on && (
                   <div className="flex items-center gap-2 border-t border-line px-3 py-2">

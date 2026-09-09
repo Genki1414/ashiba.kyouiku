@@ -38,13 +38,34 @@ export async function GET() {
     );
   }
 
-  const { data: orders } = await supabase
+  const { data: orders, error: ordersErr } = await supabase
     .from("orders")
     .select(
       "id, company_id, user_id, kind, course_id, group_id, seats, unit_price, amount, method, status, due_date, paid_at, bill_to, bill_addr, note, created_at",
     )
     .order("created_at", { ascending: false })
     .limit(200);
+  /* **読めなかったら、そう言う。**
+
+     ここは `data` だけ受け取って `orders ?? []` と流していた。
+     すると、データベースが断っても**画面には「0件」と出る。**
+     売った注文が1件も無いのと、読めないのとが同じ見え方になる。
+
+     2026-09-09 に実際に起きた。版を上げる SQL（0029）を流す前に
+     新しい画面を出したので、**本部の請求書が丸ごと消えたように見えた。**
+     直し方が分かるように、断られた理由をそのまま出す。 */
+  if (ordersErr) {
+    return NextResponse.json(
+      {
+        ok: false,
+        reason:
+          `注文を読めませんでした（${ordersErr.message}）。` +
+          "データベースの版が古いときは、Supabase の SQL Editor に " +
+          "supabase/apply-all.sql を貼って実行してください。",
+      },
+      { status: 500 },
+    );
+  }
 
   const ids = [...new Set((orders ?? []).map((o) => o.company_id as string).filter(Boolean))];
   /* 個人の注文。買った人の名前を出さないと、誰に請求するのか分からない */

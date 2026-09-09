@@ -39,10 +39,24 @@ export async function GET(req: NextRequest) {
 async function all(supabase: NonNullable<ReturnType<typeof getServiceClient>>) {
   /* 注文の無い事業者も出す。前は注文から会社を引いていたので、
      まだ買っていない事業者を無償利用に立てられなかった */
-  const { data: cos } = await supabase
+  /* 読めなかったことを「0件」に化けさせない（2026-09-09、docs/100）。
+     事業者が1社も無いのと、読めないのとを同じ見え方にしない */
+  const { data: cos, error: cosErr } = await supabase
     .from("companies")
     .select("id, name, trial, join_code, created_at")
     .order("created_at");
+  if (cosErr) {
+    return NextResponse.json(
+      {
+        ok: false,
+        reason:
+          `事業者を読めませんでした（${cosErr.message}）。` +
+          "データベースの版が古いときは、Supabase の SQL Editor に " +
+          "supabase/apply-all.sql を貼って実行してください。",
+      },
+      { status: 500 },
+    );
+  }
   const companies = cos ?? [];
 
   const [{ data: mems }, { data: ens }, { data: ords }, { count: users }] = await Promise.all([

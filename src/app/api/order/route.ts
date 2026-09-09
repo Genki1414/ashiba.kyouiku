@@ -42,6 +42,27 @@ export async function GET() {
     .eq("company_id", admin.companyId)
     .order("created_at", { ascending: false });
 
+  /* ── 受けたいと送られている数（講座ごと）──
+
+     受講リクエスト（0025）は担当者の画面に出るが、**申込みの画面には
+     出ていなかった。**担当者がここへ来る理由の多くは
+     「送られてきたぶんを買う」なのに、何人ぶん要るのかを
+     別の画面で数えて、覚えてから来ることになっていた
+     （げんきさん 2026-09-09）。
+
+     自社宛の、まだ対応していないものだけ。会社は画面から受け取らない
+     （ログインしている担当者の会社を使う）。 */
+  const { data: reqs } = await supabase
+    .from("course_requests")
+    .select("course_id")
+    .eq("company_id", admin.companyId)
+    .is("handled_at", null);
+  const requests: Record<string, number> = {};
+  for (const r of reqs ?? []) {
+    const cid = r.course_id as string;
+    if (cid) requests[cid] = (requests[cid] ?? 0) + 1;
+  }
+
   const ids = (orders ?? []).map((o) => o.id as string);
   const counts = await seatCounts(supabase, ids);
   const paidIds = (orders ?? []).filter((o) => o.status === "paid").map((o) => o.id as string);
@@ -67,6 +88,9 @@ export async function GET() {
     orders: orders ?? [],
     seats: { total: counts.total, used: counts.used, paid: paid.total },
     codes,
+    /* 講座ごとの「受けたいと送られている数」。
+       0の講座は入れない（画面で 0件 と出しても意味が無い） */
+    requests,
     /* 受講コードは講座ごと。どれを買うかを選んでもらう。
        単価もここで一緒に返す（画面では計算しない） */
     courses: readyCourses().map((c) => ({
@@ -149,7 +173,21 @@ export async function POST(req: NextRequest) {
     )
     .select("id, course_id, amount");
   if (error || !made?.length) {
-    return NextResponse.json({ ok: false, reason: error?.message ?? "作れません" }, { status: 500 });
+    /* データベースの版が古いと、ここで断られる（group_id の列が無い）。
+       生の文言だけ出しても直し方が分からないので、足す。
+       /setup の「データベースの版」でも同じことが分かる */
+    const stale = /group_id/.test(error?.message ?? "");
+    return NextResponse.json(
+      {
+        ok: false,
+        reason:
+          (error?.message ?? "作れません") +
+          (stale
+            ? "（データベースの版が古いようです。Supabase の SQL Editor に supabase/apply-all.sql を貼って実行してください）"
+            : ""),
+      },
+      { status: 500 },
+    );
   }
 
   /* 運営に知らせる。**申込み1件につき1回。**講座の数だけ鳴らすと、
