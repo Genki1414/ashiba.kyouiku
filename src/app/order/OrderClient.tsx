@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Btn } from "@/components/ui/Btn";
 import { MAX_SEATS, TAX_RATE, quote, yen } from "@/lib/pricing";
+import { discountOf } from "@/lib/coupon";
 import { showSeatCode } from "@/training/joinCode";
 
 /* 申込みの画面。教育担当者だけ。
@@ -85,7 +86,9 @@ export function OrderClient() {
   const [memo, setMemo] = useState("");
   /* クーポン（0032）。打った文字と、確かめた結果 */
   const [code, setCode] = useState("");
-  const [coupon, setCoupon] = useState<{ name: string; discount: number } | null>(null);
+  const [coupon, setCoupon] = useState<
+    { name: string; percentOff: number | null; amountOff: number | null } | null
+  >(null);
   const [couponNg, setCouponNg] = useState("");
   const [couponBusy, setCouponBusy] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -175,7 +178,11 @@ export function OrderClient() {
         setCouponNg(j.reason ?? "そのクーポンは使えません。");
         return;
       }
-      setCoupon({ name: j.name ?? "", discount: Number(j.discount) || 0 });
+      setCoupon({
+        name: j.name ?? "",
+        percentOff: (j.percentOff as number) ?? null,
+        amountOff: (j.amountOff as number) ?? null,
+      });
     } catch {
       setCouponNg("つながりません。電波の届く所でもう一度。");
     } finally {
@@ -274,7 +281,10 @@ export function OrderClient() {
   /* クーポンの値引き（0032）。**税は値引きしたあとにかかる。**
      値引きを講座ごとの行に配るのはサーバ（src/lib/coupon.ts の spreadDiscount）。
      ここは見積りに出すだけなので、合計だけで足りる */
-  const off = Math.min(coupon?.discount ?? 0, sum.subtotal);
+  /* **人数を変えたら、値引きもその場で変わる。**押したときの額を
+     そのまま持っていると、5名で見た値引きが10名でも残る。
+     式は SQL（use_coupon）と同じもの（src/lib/coupon.ts） */
+  const off = coupon ? discountOf(coupon, sum.subtotal) : 0;
   const net2 = sum.subtotal - off;
   const tax2 = Math.floor(net2 * TAX_RATE);
 
@@ -496,17 +506,22 @@ export function OrderClient() {
             aria-label="クーポン"
           />
           <button
-            onClick={() => void checkCoupon()}
+            /* 使ったあとは「はずす」。押し間違えたときに戻せないと、
+               打ち直すしかなくなる */
+            onClick={() => {
+              if (coupon) { setCoupon(null); setCouponNg(""); return; }
+              void checkCoupon();
+            }}
             disabled={!code.trim() || couponBusy}
             className="shrink-0 rounded-lg border border-cyan px-3 py-2.5 text-[12.5px] text-cyan disabled:opacity-50"
             data-testid="order-coupon-check"
           >
-            {couponBusy ? "…" : "確かめる"}
+            {couponBusy ? "…" : coupon ? "はずす" : "使用する"}
           </button>
         </div>
         {coupon && (
           <div className="mt-1 text-[11.5px] leading-relaxed text-grn" data-testid="order-coupon-ok">
-            {coupon.name || "クーポン"}が使えます。{yen(coupon.discount)}引きになります。
+            {coupon.name || "クーポン"}が使えます。{yen(off)}引きになります。
           </div>
         )}
         {couponNg && (

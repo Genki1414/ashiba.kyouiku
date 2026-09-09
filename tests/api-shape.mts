@@ -1249,6 +1249,8 @@ console.log("── クーポンと広告費（0032）──");
   check(/order-coupon-check/.test(oc) && /code: coupon \? code : ""/.test(oc),
     "確かめたクーポンだけを送る");
   check(/Math\.floor\(net2 \* TAX_RATE\)/.test(oc), "税は値引きしたあとにかかる");
+  /* 押したときの額を持ち回ると、人数を変えたときに古い値引きが残る */
+  check(/discountOf\(coupon, sum\.subtotal\)/.test(oc), "人数を変えたら、値引きもその場で計算し直す");
   check(!/discount:/.test(oc.split("const order = async")[1] ?? ""), "値引きの額は送らない");
 
   const inv = read("src/app/api/owner/invoice/route.ts");

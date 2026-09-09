@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
     );
   }
   const row = (Array.isArray(data) ? data[0] : data) as
-    | { ok: boolean; reason: string | null; name: string | null; discount: number }
+    | { ok: boolean; reason: string | null; coupon_id: string | null; name: string | null; discount: number }
     | undefined;
   if (!row?.ok) {
     /* 断る理由は、そのまま画面に出す。次にやることが分かる文になっている */
@@ -76,10 +76,24 @@ export async function POST(req: NextRequest) {
   }
 
   const discount = Number(row.discount) || 0;
+
+  /* ── 値引きの決まりも返す ──
+     人数を変えたときに、画面がその場で計算し直せるようにする。
+     返さないと、5名で見た値引きが10名に変えても そのまま残り、
+     **申し込むまで違う額を見せることになる**（本当に引く額はサーバが決める）。
+     率（10%）を見せて困ることは無い。値引きの額はもともと見せている */
+  const { data: c } = await supabase
+    .from("coupons")
+    .select("percent_off, amount_off")
+    .eq("id", row.coupon_id ?? "")
+    .maybeSingle();
+
   return NextResponse.json({
     ok: true,
     code,
     name: row.name ?? "",
+    percentOff: (c?.percent_off as number) ?? null,
+    amountOff: (c?.amount_off as number) ?? null,
     gross,
     discount,
     /* 広告費（reward_rate）は返さない。**買う側に見せる話ではない** */

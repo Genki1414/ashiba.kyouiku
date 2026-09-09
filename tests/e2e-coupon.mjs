@@ -34,7 +34,7 @@ page.on("pageerror", (e) => { console.error("NG: pageerror", e.message); ng++; }
 let sent = null;
 let couponAsked = null;
 /** クーポンの口が返す中身。試験の途中で入れ替える */
-let couponReply = { status: 200, body: { ok: true, name: "プラント紹介 10%", gross: 22500, discount: 2250, net: 20250 } };
+let couponReply = { status: 200, body: { ok: true, name: "プラント紹介 10%", percentOff: 10, amountOff: null, gross: 22500, discount: 2250, net: 20250 } };
 
 await page.route("**/api/coupon", async (route) => {
   couponAsked = JSON.parse(route.request().postData() ?? "{}");
@@ -116,6 +116,33 @@ await page.waitForTimeout(400);
   console.log("OK: クーポンを打つと、値引きと税が正しく出る");
 }
 
+/* ── 人数を変えたら、値引きもその場で変わる ──
+   押したときの額をそのまま持っていると、5名で見た値引きが10名でも残り、
+   **申し込むまで違う額を見せる**ことになる */
+{
+  const row = page.locator('[data-testid="order-course"]', { hasText: "足場の組立て等" });
+  await row.getByTestId("order-seats-input").fill("10");
+  await page.waitForTimeout(200);
+  const q = (await page.getByTestId("order-quote").innerText()).replace(/\s/g, "");
+  /* 45,000 の 10% = 4,500。税 4,050、合計 44,550 */
+  check(q.includes("-4,500"), `人数を変えると値引きも変わる（${q.slice(0, 90)}）`);
+  check(q.includes("44,550"), "合計も付いてくる");
+  await row.getByTestId("order-seats-input").fill("5");
+  await page.waitForTimeout(200);
+  console.log("OK: 人数を変えると、値引きもその場で変わる");
+}
+
+/* ── 押し間違えたら、はずせる ── */
+{
+  const b = page.getByTestId("order-coupon-check");
+  check((await b.innerText()).includes("はずす"), "使ったあとは「はずす」に変わる");
+  await b.click();
+  await page.waitForTimeout(200);
+  check((await page.getByTestId("order-discount").count()) === 0, "はずすと値引きが消える");
+  check((await b.innerText()).includes("使用する"), "はずしたら「使用する」に戻る");
+  console.log("OK: 押し間違えても、はずせる");
+}
+
 /* ── 断られたら、その理由が出る ── */
 couponReply = { status: 409, body: { ok: false, reason: "そのクーポンは期限が切れています。" } };
 await page.getByTestId("order-coupon").fill("furui");
@@ -131,7 +158,7 @@ await page.waitForTimeout(400);
 }
 
 /* ── 使えるものに戻して申し込む ── */
-couponReply = { status: 200, body: { ok: true, name: "プラント紹介 10%", gross: 22500, discount: 2250, net: 20250 } };
+couponReply = { status: 200, body: { ok: true, name: "プラント紹介 10%", percentOff: 10, amountOff: null, gross: 22500, discount: 2250, net: 20250 } };
 await page.getByTestId("order-coupon").fill("PLANT10");
 await page.getByTestId("order-coupon-check").click();
 await page.waitForTimeout(400);
