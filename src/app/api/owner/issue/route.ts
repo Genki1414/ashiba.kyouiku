@@ -21,7 +21,7 @@ import { addNotice } from "@/lib/notice.server";
 async function guard(): Promise<{ email: string } | NextResponse> {
   const email = await currentOwner();
   if (!email) {
-    return NextResponse.json({ ok: false, reason: "本部だけの画面です。" }, { status: 403 });
+    return NextResponse.json({ ok: false, reason: "運営のみが利用できます。" }, { status: 403 });
   }
   return { email };
 }

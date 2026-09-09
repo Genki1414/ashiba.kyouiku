@@ -16,7 +16,7 @@ import { currentOwner } from "@/lib/owner";
 export async function GET(req: NextRequest) {
   const email = await currentOwner();
   if (!email) {
-    return NextResponse.json({ ok: false, reason: "本部だけの画面です。" }, { status: 403 });
+    return NextResponse.json({ ok: false, reason: "運営のみが利用できます。" }, { status: 403 });
   }
   const supabase = getServiceClient();
   if (!supabase) {

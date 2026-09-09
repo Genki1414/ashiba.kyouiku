@@ -1,4 +1,4 @@
-/* 教育担当者の画面と、事業者への参加のE2E。
+/* 受講管理の画面と、事業者への参加のE2E。
 
    この仕組みは外販する（いくつもの会社が同じ画面を使う）ので、
    ・担当者でない人に中身が出ないか
@@ -25,7 +25,8 @@ const dismiss = async () => {
 /* ── 画面が開いて、状態を正しく言う ── */
 await page.goto(`${BASE}/admin`);
 await dismiss();
-await page.waitForSelector("text=教育担当者", { timeout: 8000 });
+/* 画面の名前は「受講管理」（2026-09-09 に「教育担当者の画面」から変えた） */
+await page.waitForSelector("text=受講管理", { timeout: 8000 });
 
 /* 読んでいるあいだは枠だけ出す（真っ暗にしない）。
    状態を言い切るのは読み終わってから */

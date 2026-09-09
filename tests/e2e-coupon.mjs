@@ -2,7 +2,7 @@
    実行: npm run dev -- -p 3100 のあと node tests/e2e-coupon.mjs
 
    ── なぜ差し替えるか ──
-   申込みの画面も本部の画面も、ログインと Supabase が要る。手元では
+   申込みの画面も運営管理の画面も、ログインと Supabase が要る。手元では
    つないでいないので、口の返事だけ差し替えて画面の作りを見る。
    本当に引けるか・数えられるかは supabase/tests/coupon.sql（SQL）と
    tests/coupon.ts（計算）が見ている。
@@ -12,7 +12,7 @@
    ・**税が値引きしたあとにかかるか**（値引き前に掛けると、こちらが損をする）
    ・断られたら、その理由がそのまま出るか
    ・申し込むときに、クーポンの文字が送られるか
-   ・本部の画面で、**入金済みと入金待ちが分かれて**出るか
+   ・運営管理の画面で、**入金済みと入金待ちが分かれて**出るか
    ・支払い先ごとの広告費が出るか */
 import { chromium } from "playwright-core";
 
@@ -173,7 +173,7 @@ await page.waitForTimeout(500);
   console.log("OK: 申し込むときに、クーポンの文字が送られる");
 }
 
-/* ── 本部の画面 ── */
+/* ── 運営管理の画面 ── */
 await page.route("**/api/owner/orders", (route) =>
   route.fulfill({
     status: 200, contentType: "application/json",
@@ -229,7 +229,7 @@ await page.waitForSelector('[data-testid="owner-coupons"]', { timeout: 8000 });
   const rows = (await page.getByTestId("coupon-rows").innerText()).replace(/\s/g, "");
   check(rows.includes("クーポン工業") && rows.includes("入金済み") && rows.includes("入金待ち"),
     `明細に、どこがいつ使ったかが出る（${rows.slice(0, 60)}）`);
-  console.log("OK: 本部の画面で、クーポンごとの売上と広告費が分かる");
+  console.log("OK: 運営管理の画面で、クーポンごとの売上と広告費が分かる");
 }
 
 await browser.close();

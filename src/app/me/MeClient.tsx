@@ -496,7 +496,7 @@ export function MeClient() {
           href="/admin"
           className="mt-3 block rounded-xl border border-line bg-panel p-3.5 text-center text-[13px] text-txt no-underline"
         >
-          教育担当者の画面へ
+          受講管理へ
         </Link>
       )}
 

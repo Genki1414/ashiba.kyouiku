@@ -160,7 +160,7 @@ export function AdminClient() {
 
   /* 読み終わるまで真っ暗にしない。押したのに何も出ないと、
      同じ待ち時間でもずっと遅く感じる */
-  if (!st) return <Loading title="教育担当者の画面" back="/" rows={4} />;
+  if (!st) return <Loading title="受講管理" back="/" rows={4} />;
 
   /* ── まだ担当者が決まっていない ── */
   if (st.kind === "setup") {
@@ -216,7 +216,7 @@ export function AdminClient() {
           <Link href="/" className="backlink text-[13px] text-dim no-underline">
             ← ホーム
           </Link>
-          <h1 className="mt-2 text-[18px] font-black">教育担当者の画面</h1>
+          <h1 className="mt-2 text-[18px] font-black">受講管理</h1>
           <p className="mt-3 text-[13px] leading-relaxed text-dim" data-testid="admin-ng">
             {st.reason}
           </p>
@@ -267,7 +267,7 @@ export function AdminClient() {
         <Link href="/" className="backlink text-[13px] text-dim no-underline">
           ← ホーム
         </Link>
-        <h1 className="mt-2 text-[18px] font-black">教育担当者の画面</h1>
+        <h1 className="mt-2 text-[18px] font-black">受講管理</h1>
         <p className="mt-1 text-[12px] text-dim">{st.company}</p>
       </div>
 
@@ -587,9 +587,9 @@ export function AdminClient() {
         </details>
       )}
 
-      {/* 事業者の名前と、受講者に配布する参加コード */}
+      {/* 事業者の名前と、参加コード（社員の登録用） */}
       <div className="mx-5 mt-3 rounded-xl border border-line bg-panel p-4">
-        <div className="mb-2 text-[11px] tracking-[2px] text-dim">事業者（名簿の分け方）</div>
+        <div className="mb-2 text-[11px] tracking-[2px] text-dim">事業者情報</div>
         <div className="mb-2 text-[11.5px] text-dim2" data-testid="admin-member-count">
           在籍 {st.member.active}人　／　申し込み {st.member.waiting}件　／　抜けた {st.member.gone}人
         </div>
@@ -670,7 +670,7 @@ export function AdminClient() {
         </div>
 
         <div className="mt-4 border-t border-line pt-3">
-          <div className="mb-1 text-[11px] tracking-[2px] text-dim">本人が受けた証拠</div>
+          <div className="mb-1 text-[11px] tracking-[2px] text-dim">本人確認の記録</div>
           <div className="text-[11.5px] leading-relaxed text-dim2">
             受講中に「画面の前に本人が居たか」を確かめた記録です。
             監督署や元請に聞かれたときは、これを出してください。
@@ -680,12 +680,12 @@ export function AdminClient() {
             className="mt-2 block rounded-lg border border-line p-2.5 text-center text-[13px] text-txt no-underline"
             data-testid="admin-check"
           >
-            照合の記録を見る
+            記録を確認する
           </Link>
         </div>
 
         <div className="mt-4 border-t border-line pt-3">
-          <div className="mb-1 text-[11px] tracking-[2px] text-dim">受講者に配布する参加コード</div>
+          <div className="mb-1 text-[11px] tracking-[2px] text-dim">参加コード（社員の登録用）</div>
           <div className="font-mono text-[20px] font-black tracking-[4px] text-yel" data-testid="admin-joincode">
             {st.joinCode || "—"}
           </div>

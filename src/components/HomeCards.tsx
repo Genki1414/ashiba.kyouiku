@@ -180,7 +180,7 @@ export function HomeCards() {
         className="block rounded-xl border border-line bg-panel p-5 no-underline"
         data-testid="home-admin"
       >
-        <div className="text-[11px] font-extrabold tracking-widest text-grn">教育担当者</div>
+        <div className="text-[11px] font-extrabold tracking-widest text-grn">受講管理</div>
         <div className="mt-1 text-[17px] font-black text-txt">受講の進み具合と修了証</div>
         <div className="mt-2 text-[12px] leading-relaxed text-dim">
           誰がどこまで進んだかを見て、修了証を出す。
@@ -199,7 +199,7 @@ export function HomeCards() {
         className="block rounded-xl border border-line bg-panel p-5 no-underline"
         data-testid="home-owner"
       >
-        <div className="text-[11px] font-extrabold tracking-widest text-cyan">本部</div>
+        <div className="text-[11px] font-extrabold tracking-widest text-cyan">運営管理</div>
         <div className="mt-1 text-[17px] font-black text-txt">申込みと入金／事業者と記録</div>
         <div className="mt-2 text-[12px] leading-relaxed text-dim">
           売った先の注文と入金。事業者ごとの受講記録（辞めた人もふくむ）。

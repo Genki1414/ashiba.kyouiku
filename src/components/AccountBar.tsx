@@ -59,7 +59,7 @@ export function AccountBar() {
        同じ作りのものを、字だけ見えなくして置く */
     return ready ? null : (
       <div className={BAR} data-testid="account-bar-hold" aria-hidden>
-        <span className="invisible">受講者</span>
+        <span className="invisible">ログイン中</span>
         <span className="ml-auto invisible rounded border border-line px-2 py-1">ログアウト</span>
       </div>
     );
@@ -77,7 +77,7 @@ export function AccountBar() {
 
   return (
     <div className={BAR} data-testid="account-bar">
-      <span className="text-dim">受講者</span>
+      <span className="text-dim">ログイン中</span>
       {/* 名前を押すとマイページ。所属を外すのも、氏名を直すのもそこから */}
       <Link
         href="/me"

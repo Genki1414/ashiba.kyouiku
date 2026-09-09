@@ -39,8 +39,8 @@ function itemsFor(me: Me | null): Item[] {
   ];
   /* 立場のある人だけ、4つ目が出る。本部と担当者を兼ねる人には本部を出す
      （本部の画面から担当者の画面へは、そのまま行ける） */
-  if (me?.owner) out.push({ href: "/owner", label: "本部", icon: "▦" });
-  else if (me?.admin) out.push({ href: "/admin", label: "担当者", icon: "▦" });
+  if (me?.owner) out.push({ href: "/owner", label: "運営", icon: "▦" });
+  else if (me?.admin) out.push({ href: "/admin", label: "受講管理", icon: "▦" });
   return out;
 }
 

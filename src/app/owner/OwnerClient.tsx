@@ -114,7 +114,7 @@ export function OwnerClient() {
       <main className="px-5 py-8">
         <div className="tape -mx-5 mb-6" />
         <Link href="/" className="backlink text-[13px] text-dim no-underline">← ホーム</Link>
-        <h1 className="mt-2 text-[18px] font-black">本部の画面</h1>
+        <h1 className="mt-2 text-[18px] font-black">運営管理</h1>
         <p className="mt-3 text-[13px] leading-relaxed text-dim" data-testid="owner-ng">{ng}</p>
         {hint && (
           <p className="mt-3 rounded-lg border border-line bg-panel px-3.5 py-3 font-mono text-[11.5px] leading-relaxed text-dim2">
@@ -126,7 +126,7 @@ export function OwnerClient() {
   }
   /* 読み終わるまで真っ暗にしない。押したのに何も出ないと、
      同じ待ち時間でもずっと遅く感じる */
-  if (!orders) return <Loading title="本部の画面" back="/" rows={4} />;
+  if (!orders) return <Loading title="運営管理" back="/" rows={4} />;
 
   const waiting = orders.filter((o) => o.status === "pending" && o.method === "invoice");
   const sold = orders.filter((o) => o.status === "paid");
@@ -136,7 +136,7 @@ export function OwnerClient() {
     <main className="px-5 py-8 pb-12">
       <div className="tape -mx-5 mb-6" />
       <Link href="/" className="backlink text-[13px] text-dim no-underline">← ホーム</Link>
-      <h1 className="mt-2 text-[18px] font-black">本部の画面</h1>
+      <h1 className="mt-2 text-[18px] font-black">運営管理</h1>
 
       {/* 申込みと入金／事業者と記録 */}
       <div className="mt-3 flex flex-wrap gap-2" data-testid="owner-tabs">
@@ -144,7 +144,7 @@ export function OwnerClient() {
           ["orders", "申込みと入金"],
           ["issue", "発行申請"],
           ["ledger", "事業者と記録"],
-          ["train", "実務"],
+          ["train", "実務トレーニング"],
           ["coupon", "クーポンと広告費"],
           ["keep", "保存期間"],
           ["catalog", "特別教育の目録"],

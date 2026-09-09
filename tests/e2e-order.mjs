@@ -101,15 +101,16 @@ if (orderForm) {
   console.log("OK: 受講コードの文字が出る");
 }
 
-/* ── 本部の画面 ── */
+/* ── 運営管理の画面 ── */
 await page.goto(`${BASE}/owner`);
 await dismiss();
-await page.waitForSelector("text=本部の画面", { timeout: 8000 });
+/* 画面の名前は「運営管理」（2026-09-09 に「本部の画面」から変えた） */
+await page.waitForSelector("text=運営管理", { timeout: 8000 });
 /* 読んでいるあいだは枠だけ。状態を言い切るのは読み終わってから */
 await page.getByTestId("loading").waitFor({ state: "detached", timeout: 15000 }).catch(() => {});
 const ownerNg = await page.getByTestId("owner-ng").count();
 const ownerList = await page.getByTestId("owner-totals").count();
-check(ownerNg + ownerList === 1, `本部の画面も、どちらか片方（${ownerNg}/${ownerList}）`);
+check(ownerNg + ownerList === 1, `運営管理の画面も、どちらか片方（${ownerNg}/${ownerList}）`);
 await page.screenshot({ path: `${SC}/order-02-owner.png` });
 
 /* ── API の断り方 ── */

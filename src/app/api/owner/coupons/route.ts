@@ -38,7 +38,7 @@ export async function GET() {
     return NextResponse.json({ ok: false, reason: "Supabase が未設定です。" }, { status: 503 });
   }
   if (!(await currentOwner())) {
-    return NextResponse.json({ ok: false, reason: "本部だけの画面です。" }, { status: 403 });
+    return NextResponse.json({ ok: false, reason: "運営のみが利用できます。" }, { status: 403 });
   }
 
   const [cs, ps, us] = await Promise.all([

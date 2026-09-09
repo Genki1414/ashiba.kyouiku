@@ -56,8 +56,8 @@ await page.waitForTimeout(800);
   check(labels.some((t) => t.includes("ホーム")) && labels.some((t) => t.includes("講座")) &&
         labels.some((t) => t.includes("マイページ")), `行き先の名前（${labels.join("・")}）`);
   /* **受講者に本部と担当者は出さない。**立場は /api/me がサーバで決める */
-  check(!labels.some((t) => t.includes("本部")) && !labels.some((t) => t.includes("担当者")),
-    `受講者には本部も担当者も出ない（${labels.join("・")}）`);
+  check(!labels.some((t) => t.includes("運営")) && !labels.some((t) => t.includes("受講管理")),
+    `受講者には運営も受講管理も出ない（${labels.join("・")}）`);
   await page.goto(`${BASE}/edu`);
   await page.waitForTimeout(300);
   check((await page.getByTestId("bottom-nav").count()) === 1, "講座の一覧にも出る");
@@ -70,13 +70,13 @@ await page.waitForTimeout(800);
   await page.goto(`${BASE}/`);
   await page.waitForTimeout(500);
   let labels = (await page.getByTestId("bottom-nav-item").allInnerTexts()).map((t) => t.replace(/\s/g, ""));
-  check(labels.some((t) => t.includes("担当者")), `担当者には「担当者」が出る（${labels.join("・")}）`);
+  check(labels.some((t) => t.includes("受講管理")), `担当者には「受講管理」が出る（${labels.join("・")}）`);
   who = { ...who, owner: true };
   await page.goto(`${BASE}/`);
   await page.waitForTimeout(500);
   labels = (await page.getByTestId("bottom-nav-item").allInnerTexts()).map((t) => t.replace(/\s/g, ""));
-  check(labels.some((t) => t.includes("本部")) && !labels.some((t) => t.includes("担当者")),
-    `本部を兼ねる人には「本部」だけ（${labels.join("・")}）`);
+  check(labels.some((t) => t.includes("運営")) && !labels.some((t) => t.includes("受講管理")),
+    `運営を兼ねる人には「運営」だけ（${labels.join("・")}）`);
   who = { ...who, admin: false, owner: false };
   console.log("OK: 立場によって行き先が変わる");
 }

@@ -237,7 +237,7 @@ export function JoinClient() {
           className="mt-6 block rounded-lg border border-yel bg-yel p-3.5 text-center text-[14px] font-extrabold text-bg no-underline"
           data-testid="join-new-done"
         >
-          教育担当者の画面へ
+          受講管理へ
         </Link>
         <Link
           href="/"
@@ -481,7 +481,7 @@ export function JoinClient() {
           <div className="text-[11px] tracking-[2px] text-cyan">④ 受講コードをお持ちでない場合</div>
           <p className="mt-1.5 text-[12px] leading-relaxed text-dim">
             受けたい講座を選んで送ると、<span className="text-cyan">{mine.company.name}</span>の
-            教育担当者の画面に出ます。担当者が席（受講コード）を用意して渡してくれます。
+            受講管理の画面に出ます。担当者が席（受講コード）を用意して渡してくれます。
           </p>
 
           {!reqOpen ? (

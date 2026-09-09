@@ -307,7 +307,7 @@ export function OrderClient() {
   return (
     <main className="px-5 py-8 pb-12">
       <div className="tape -mx-5 mb-6" />
-      <Link href="/admin" className="backlink text-[13px] text-dim no-underline">← 教育担当者の画面</Link>
+      <Link href="/admin" className="backlink text-[13px] text-dim no-underline">← 受講管理</Link>
       <h1 className="mt-2 text-[18px] font-black">受講コードを申し込む</h1>
       <p className="mt-1 text-[12px] text-dim">{st.company}</p>
 

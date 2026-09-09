@@ -68,8 +68,8 @@ export function CheckClient() {
     return (
       <main className="px-5 py-8">
         <div className="tape -mx-5 mb-6" />
-        <Link href="/admin" className="backlink text-[13px] text-dim no-underline">← 教育担当者の画面</Link>
-        <h1 className="mt-2 text-[18px] font-black">照合の記録</h1>
+        <Link href="/admin" className="backlink text-[13px] text-dim no-underline">← 受講管理</Link>
+        <h1 className="mt-2 text-[18px] font-black">本人確認の記録</h1>
         <p className="mt-3 text-[13px] leading-relaxed text-dim" data-testid="check-ng">{ng}</p>
       </main>
     );
@@ -80,9 +80,9 @@ export function CheckClient() {
     <main className="px-5 py-8 pb-12" data-testid="check">
       <div className="tape -mx-5 mb-6 print:hidden" />
       <Link href="/admin" className="backlink text-[13px] text-dim no-underline print:hidden">
-        ← 教育担当者の画面
+        ← 受講管理
       </Link>
-      <h1 className="mt-2 text-[18px] font-black">照合の記録</h1>
+      <h1 className="mt-2 text-[18px] font-black">本人確認の記録</h1>
       <p className="mt-1 text-[12px] text-dim">{st.company}　直近{st.days}日</p>
       <p className="mt-2 text-[11.5px] leading-relaxed text-dim2">
         受講中に「画面の前に本人が居たか」を3秒ごとに確かめた記録です。

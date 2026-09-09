@@ -107,7 +107,7 @@ export function Notices({ mode = "unread" }: { mode?: "unread" | "all" } = {}) {
       <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
         <span className="flex min-w-0 items-center gap-2">
           <span className="text-[11px] font-extrabold tracking-widest text-dim2">
-            {mode === "all" ? "これまでのおしらせ" : "おしらせ"}
+            {mode === "all" ? "これまでのお知らせ" : "おしらせ"}
           </span>
           {unread > 0 && (
             <span
