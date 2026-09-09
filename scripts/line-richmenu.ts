@@ -27,9 +27,10 @@ import { BRAND } from "../src/content/brand";
 const TOKEN = (process.env.LINE_MENU_TOKEN ?? "").trim();
 const DRY = process.argv.includes("--dry");
 const SITE = (process.env.NEXT_PUBLIC_SITE_URL ?? BRAND.site ?? "").replace(/\/+$/, "");
-/* 置き場所は作業場所の直下。**public には置かない**
-   （公開の場所に置く必要が無いし、.gitignore が /*.png を見ている） */
-const OUT = path.join(process.cwd(), "richmenu.png");
+/* 置き場所は public。**運営管理の画面から配るときに、ここを読む。**
+   Vercel では絵を描く道具（Chromium）が動かないので、
+   画像は手元で作って置いておき、配るのは画面から押すだけにする */
+const OUT = path.join(process.cwd(), "public", "richmenu.png");
 
 /** 押す所。左から順に並ぶ */
 const AREAS = [

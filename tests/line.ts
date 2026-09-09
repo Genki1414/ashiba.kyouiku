@@ -74,5 +74,19 @@ console.log("── 危ない所 ──");
   check(/LINE の紐付けは変更できません/.test(mig), "本人には紐付けを触らせない");
 }
 
+console.log("── リッチメニュー ──");
+{
+  const lib = read("src/lib/line.ts");
+  check(/MENU_AREAS/.test(lib), "札の一覧が1か所にある");
+  check((lib.match(/href: "\/(edu|join|me)"/g) ?? []).length === 3, "押す所は3つ（手袋でも押せる大きさ）");
+  const api = read("src/app/api/owner/line-menu/route.ts");
+  check(/currentOwner\(\)/.test(api), "運営でなければ配れない");
+  check(/LINE_MENU_TOKEN/.test(api) && !/NEXT_PUBLIC_LINE/.test(api), "鍵は環境変数（画面に埋めない）");
+  check(/user\/all\/richmenu/.test(api), "友だち全員の既定にする");
+  check(/richMenuBody\(site, BRAND\.shortName\)/.test(api), "行き先は、この店の住所");
+  const ui = read("src/app/owner/LineClient.tsx");
+  check(/richmenu\.png/.test(ui), "押す前に、出来上がりを見せる");
+}
+
 console.log(`\n${ok} 件通過 / ${ng} 件失敗`);
 process.exit(ng ? 1 : 0);

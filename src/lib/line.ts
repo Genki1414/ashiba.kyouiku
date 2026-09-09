@@ -67,3 +67,40 @@ export const lineEmail = (sub: string): string => `line-${sub}@line.invalid`;
 /** 仮の住所か。画面に出さないための見分け */
 export const isLineEmail = (email: string | null | undefined): boolean =>
   !!email && email.endsWith("@line.invalid");
+
+/* ── リッチメニュー（0033）──
+
+   LINE のトーク画面の下に出る、大きな札。現場の方は「アプリを開く」で
+   止まるので、押すだけで受講に入れる道を作る（げんきさん 2026-09-09）。
+
+   **押す所は3つまで。**6つに割ると1つが小さくなり、手袋をした指では押せない。
+   画像は public/richmenu.png（手元で scripts/line-richmenu.ts が描いたもの）。 */
+
+/** メニューの札。左から順に並ぶ */
+export const MENU_AREAS = [
+  { t: "受講する", href: "/edu" },
+  { t: "受講コード", href: "/join" },
+  { t: "マイページ", href: "/me" },
+];
+
+export const MENU_SIZE = { width: 2500, height: 843 };
+export const MENU_IMAGE_PATH = "/richmenu.png";
+
+/** LINE に渡すメニューの中身。行き先は店の住所に付ける */
+export function richMenuBody(site: string, name: string) {
+  const base = site.replace(/\/+$/, "");
+  const w = Math.floor(MENU_SIZE.width / MENU_AREAS.length);
+  return {
+    size: MENU_SIZE,
+    selected: true,
+    name: `${name} メニュー`,
+    chatBarText: "メニュー",
+    areas: MENU_AREAS.map((a, i) => ({
+      bounds: { x: i * w, y: 0, width: w, height: MENU_SIZE.height },
+      action: { type: "uri" as const, label: a.t, uri: `${base}${a.href}` },
+    })),
+  };
+}
+
+/** リッチメニューを配れるか（Messaging API のトークンが入っているか） */
+export const lineMenuReady = (): boolean => !!(process.env.LINE_MENU_TOKEN ?? "").trim();

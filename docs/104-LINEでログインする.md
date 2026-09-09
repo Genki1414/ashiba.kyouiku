@@ -56,8 +56,14 @@ Supabase のログインに LINE は入っていない。だから橋を自分�
 
 ## リッチメニュー
 
-`npx tsx scripts/line-richmenu.ts` で作る。画像も自動で描く（Chromium で
-描いて撮るので、絵の道具は足していない）。
+**配るのは運営管理の画面から。**「LINE」のタブに見本が出るので、押すだけ。
+Vercel では絵を描く道具（Chromium）が動かないので、画像は手元で作って
+`public/richmenu.png` に置いてある。画面はそれを LINE に送るだけ。
+
+先に、LINE公式アカウントの Messaging API でチャネルアクセストークン（長期）を
+発行し、Vercel の環境変数 `LINE_MENU_TOKEN` に入れて Redeploy する。
+
+絵を作り直したいとき（札の名前や行き先を変えたとき）だけ、手元で流す。
 
 ```sh
 # 画像だけ見る（LINE には送らない）
