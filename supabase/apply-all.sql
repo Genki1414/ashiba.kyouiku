@@ -2,7 +2,7 @@
 -- 足場トレーニング Supabase 初期化（このファイルを SQL Editor に貼って実行）
 --
 -- 中身:
---   1. マイグレーション 0001_init / 0002_rls / 0003_rules / 0004_auth / 0005_cert / 0006_version / 0007_admin / 0008_tenant / 0009_order / 0010_verify / 0011_course / 0012_member / 0013_keep / 0014_own / 0015_qual / 0016_keep3y / 0017_train / 0018_solo / 0019_view / 0020_sent / 0021_role / 0022_live / 0023_issue / 0024_notice / 0025_course_request / 0026_cert_snapshot / 0027_drill_record / 0028_assign_seat / 0029_order_group
+--   1. マイグレーション 0001_init / 0002_rls / 0003_rules / 0004_auth / 0005_cert / 0006_version / 0007_admin / 0008_tenant / 0009_order / 0010_verify / 0011_course / 0012_member / 0013_keep / 0014_own / 0015_qual / 0016_keep3y / 0017_train / 0018_solo / 0019_view / 0020_sent / 0021_role / 0022_live / 0023_issue / 0024_notice / 0025_course_request / 0026_cert_snapshot / 0027_drill_record / 0028_assign_seat / 0029_order_group / 0030_invoiced_group
 --   2. lessons（単元の規定時間）905件を投入
 --
 -- 何度実行しても壊れないように書いてある（作成済みなら飛ばす）。
@@ -3472,6 +3472,63 @@ create index if not exists orders_group_id_idx on public.orders (group_id);
 create or replace function public.schema_version()
 returns text language sql stable set search_path = public as $$
   select '0029'
+$$;
+
+grant execute on function public.schema_version() to anon, authenticated, service_role;
+
+
+-- ═══════════════════════════════════════════════════════════
+-- 0030 「請求書を出した」も、申込みまるごと
+--
+-- 0029 で、複数の講座を一度にまとめて申し込めるようにした。
+-- 請求書は group ごとに1枚、入金の確認も group まるごと。
+--
+-- **ところが「送ったことにする」印（invoiced_at）だけ、行ごとのままだった。**
+--
+-- 何が起きたか（2026-09-09、げんきさんの実機）。
+--   ・本部の画面に、1回の申込みが3枚のカードで並ぶ
+--   ・そのうち1枚で「請求書を出す」を押した
+--   ・請求書そのものは group で1枚なので、42,900円で出る
+--   ・**ところが買った側のホームには「4,950円」と出た。**
+--     押した1行だけに印が付き、知らせはその行だけを数えていた
+--
+-- 請求書は1枚なのだから、出したかどうかも1つ。
+-- 同じ group の行に、まとめて印を付ける。
+--
+-- **日付は動かさない。**すでに送ってある行の invoiced_at は、
+-- そのまま（coalesce）。送り直しで日付が動くと、
+-- 「いつ送ったか」が変わってしまう。
+-- ═══════════════════════════════════════════════════════════
+
+create or replace function public.mark_invoiced(p_order uuid)
+returns timestamptz language plpgsql security definer set search_path = public as $$
+declare
+  v_group uuid;
+  v_at    timestamptz;
+begin
+  select group_id into v_group from public.orders where id = p_order;
+  if v_group is null then
+    raise exception 'その注文がありません';
+  end if;
+
+  /* 申込みまるごとに印を付ける。すでに付いている行の日付は動かさない */
+  update public.orders
+     set invoiced_at = coalesce(invoiced_at, now())
+   where group_id = v_group;
+
+  /* 返すのは、その申込みでいちばん古い日付。
+     画面には「いつ送ったか」を1つだけ出す */
+  select min(invoiced_at) into v_at from public.orders where group_id = v_group;
+  return v_at;
+end $$;
+
+revoke all on function public.mark_invoiced(uuid) from public, anon, authenticated;
+grant execute on function public.mark_invoiced(uuid) to service_role;
+
+-- ── 版 ─────────────────────────────────────
+create or replace function public.schema_version()
+returns text language sql stable set search_path = public as $$
+  select '0030'
 $$;
 
 grant execute on function public.schema_version() to anon, authenticated, service_role;

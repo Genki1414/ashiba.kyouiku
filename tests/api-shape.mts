@@ -1071,5 +1071,38 @@ console.log("── 画面に出る字に、飾りの記号が混じっていな
   check(bad.length === 0, `画面に出る字に ** を書いていない（${bad.join(" ／ ") || "無し"}）`);
 }
 
+console.log("── 1回の申込みを、1件として見せているか ──");
+{
+  /* **請求書だけ1枚にして、ほかを行ごとのままにしていた**（2026-09-09）。
+     げんきさんの実機で3つ出た。
+
+       ・請求書は 42,900円 なのに、ホームの知らせは 4,950円
+       ・本部の画面に、1回の申込みが3枚のカードで並び、
+         「入金を確認した」が3つ出た
+       ・請求書を出したかどうかが、画面から分からない
+
+     まとめたなら、**数える所・見せる所・印を付ける所を全部そろえる。** */
+  const own = read("src/app/api/owner/orders/route.ts");
+  check(/byGroup/.test(own), "本部の一覧は、申込みごとにまとめて返す");
+  check(/invoiced_at/.test(own), "請求書を送った日も読む（送ったかどうかを出せるように）");
+  check(/items: \[it\]/.test(own), "講座ごとの明細を中に入れる");
+
+  const oc = read("src/app/owner/OwnerClient.tsx");
+  check(/o\.invoiced_at/.test(oc), "本部の画面が「送ったかどうか」を出す");
+  check(/まだ送っていません/.test(oc), "送っていないことを、字で出す");
+  check(/data-testid="owner-items"/.test(oc), "講座ごとの明細を並べる");
+
+  const inv = read("src/lib/invoiceAccess.ts");
+  check(/byGroup/.test(inv), "届いている請求書も、申込みごとにまとめる");
+  check(/g\.amount \+= o\.amount/.test(inv),
+    "**金額は足す**（行ごとに数えると、知らせと請求書が食い違う）");
+
+  /* 「請求書を出した」印も申込みまるごと（0030）。
+     SQL の中身は supabase/tests/order-group.sql が見ている */
+  const m30 = read("supabase/migrations/0030_invoiced_group.sql");
+  check(/where group_id = v_group/.test(m30), "印は申込みまるごとに付ける");
+  check(/coalesce\(invoiced_at, now\(\)\)/.test(m30), "送り直しで日付を動かさない");
+}
+
 console.log(`\n通り ${ok} ／ だめ ${ng}`);
 process.exit(ng ? 1 : 0);

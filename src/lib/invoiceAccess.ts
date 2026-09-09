@@ -46,15 +46,16 @@ export function maySeeInvoice(
 export async function unpaidInvoices(
   supabase: SupabaseClient,
   who: { companyId: string | null; userId: string },
-): Promise<{ id: string; amount: number; invoicedAt: string }[]> {
+): Promise<{ id: string; amount: number; invoicedAt: string; courses: number }[]> {
   const pick = (rows: Record<string, unknown>[] | null) =>
     (rows ?? []).map((o) => ({
       id: o.id as string,
+      group: ((o.group_id as string) ?? (o.id as string)),
       amount: (o.amount as number) ?? 0,
       invoicedAt: (o.invoiced_at as string) ?? "",
     }));
 
-  const cols = "id, amount, invoiced_at";
+  const cols = "id, group_id, amount, invoiced_at";
   const [mine, ours] = await Promise.all([
     supabase
       .from("orders")
@@ -76,5 +77,27 @@ export async function unpaidInvoices(
      念のため番号でまとめる */
   const all = [...pick(mine.data), ...pick(ours.data as Record<string, unknown>[] | null)];
   const seen = new Set<string>();
-  return all.filter((o) => (seen.has(o.id) ? false : (seen.add(o.id), true)));
+  const rows = all.filter((o) => (seen.has(o.id) ? false : (seen.add(o.id), true)));
+
+  /* ── 申込みごとにまとめる（0029・0030）──
+
+     複数の講座を一度に申し込めるので、1回の申込みが講座ごとの行に
+     分かれている。**請求書は1枚。**行ごとに数えると、
+     知らせの金額が請求書と食い違う。
+
+     実際に食い違った（2026-09-09）。請求書は42,900円なのに、
+     ホームには「4,950円」と出た。行ごとに数えていたため。 */
+  const byGroup = new Map<string, { id: string; amount: number; invoicedAt: string; courses: number }>();
+  for (const o of rows) {
+    const g = byGroup.get(o.group);
+    if (!g) {
+      byGroup.set(o.group, { id: o.id, amount: o.amount, invoicedAt: o.invoicedAt, courses: 1 });
+      continue;
+    }
+    g.amount += o.amount;
+    g.courses += 1;
+    /* いつ送ったかは、いちばん古い日付（請求書は1枚なので1つ） */
+    if (o.invoicedAt && (!g.invoicedAt || o.invoicedAt < g.invoicedAt)) g.invoicedAt = o.invoicedAt;
+  }
+  return [...byGroup.values()];
 }

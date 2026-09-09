@@ -41,7 +41,10 @@ export async function GET() {
   const { data: orders, error: ordersErr } = await supabase
     .from("orders")
     .select(
-      "id, company_id, user_id, kind, course_id, group_id, seats, unit_price, amount, method, status, due_date, paid_at, bill_to, bill_addr, note, created_at",
+      /* invoiced_at（請求書を送った日）も読む。**読んでいなかったので、
+         本部の画面に「送ったかどうか」を出しようが無かった**
+         （げんきさん 2026-09-09「請求書を作成したかどうかが分かりにくい」） */
+      "id, company_id, user_id, kind, course_id, group_id, seats, unit_price, amount, method, status, due_date, paid_at, invoiced_at, bill_to, bill_addr, note, created_at",
     )
     .order("created_at", { ascending: false })
     .limit(200);
@@ -96,24 +99,105 @@ export async function GET() {
     used.set(k, v);
   }
 
+  /* ── 1回の申込みを、1枚として返す（0029・0030）──
+
+     講座ごとに行が立つので、そのまま返すと**1回の申込みが
+     3枚のカードで並ぶ。**請求書は1枚、入金の確認も1回なのに、
+     「入金を確認した」が3つ出て、どれを押せばよいのか分からない
+     （げんきさん 2026-09-09）。
+
+     行は明細（items）として中に入れる。金額・人数は足す。
+     状態は、どれか1行でも入金待ちなら「入金待ち」。 */
+  const row = (o: Record<string, unknown>) => ({
+    courseId: (o.course_id as string) ?? null,
+    kind: (o.kind as string) ?? null,
+    seats: (o.seats as number) ?? 0,
+    unitPrice: (o.unit_price as number) ?? 0,
+    amount: (o.amount as number) ?? 0,
+    seatsIssued: used.get(o.id as string)?.total ?? 0,
+    seatsUsed: used.get(o.id as string)?.used ?? 0,
+  });
+
+  type Group = {
+    id: string;
+    groupId: string;
+    company_id: string | null;
+    user_id: string | null;
+    company: string;
+    buyerEmail: string | null;
+    solo: boolean;
+    method: string;
+    status: string;
+    due_date: string | null;
+    paid_at: string | null;
+    invoiced_at: string | null;
+    bill_to: string | null;
+    bill_addr: string | null;
+    note: string | null;
+    created_at: string;
+    items: ReturnType<typeof row>[];
+    seats: number;
+    amount: number;
+    seatsIssued: number;
+    seatsUsed: number;
+  };
+
+  const byGroup = new Map<string, Group>();
+  for (const o of orders ?? []) {
+    const g = ((o.group_id as string) ?? (o.id as string));
+    const it = row(o);
+    const cur = byGroup.get(g);
+    if (!cur) {
+      byGroup.set(g, {
+        /* 請求書はどの行から開いても同じ1枚。先頭の行の番号を使う */
+        id: o.id as string,
+        groupId: g,
+        company_id: (o.company_id as string) ?? null,
+        user_id: (o.user_id as string) ?? null,
+        company:
+          nameOf.get(o.company_id as string) ??
+          (person.get(o.user_id as string)?.name as string) ??
+          "",
+        buyerEmail: (person.get(o.user_id as string)?.email as string) ?? null,
+        solo: !!o.user_id,
+        method: o.method as string,
+        status: o.status as string,
+        due_date: (o.due_date as string) ?? null,
+        paid_at: (o.paid_at as string) ?? null,
+        invoiced_at: (o.invoiced_at as string) ?? null,
+        bill_to: (o.bill_to as string) ?? null,
+        bill_addr: (o.bill_addr as string) ?? null,
+        note: (o.note as string) ?? null,
+        created_at: o.created_at as string,
+        items: [it],
+        seats: it.seats,
+        amount: it.amount,
+        seatsIssued: it.seatsIssued,
+        seatsUsed: it.seatsUsed,
+      });
+      continue;
+    }
+    cur.items.push(it);
+    cur.seats += it.seats;
+    cur.amount += it.amount;
+    cur.seatsIssued += it.seatsIssued;
+    cur.seatsUsed += it.seatsUsed;
+    /* **1行でも入金待ちなら、申込みは入金待ち。**
+       半分だけ入金済みに見せると、押し忘れたのかどうか分からない */
+    if (cur.status !== "pending" && o.status === "pending") cur.status = "pending";
+    /* 送った日は、いちばん古いもの（請求書は1枚） */
+    const at = (o.invoiced_at as string) ?? null;
+    if (at && (!cur.invoiced_at || at < cur.invoiced_at)) cur.invoiced_at = at;
+    if (!at) cur.invoiced_at = cur.invoiced_at;
+  }
+
   return NextResponse.json({
     ok: true,
     owner,
     /* 請求書を書くときに要る。画面から写せるように、ここで返す */
     invoiceNo: seller().invoiceNo,
     companies: cos ?? [],
-    orders: (orders ?? []).map((o) => ({
-      ...o,
-      /* 会社の注文なら会社名、個人の注文なら買った人の名前 */
-      company:
-        nameOf.get(o.company_id as string) ??
-        (person.get(o.user_id as string)?.name as string) ??
-        "",
-      buyerEmail: (person.get(o.user_id as string)?.email as string) ?? null,
-      solo: !!o.user_id,
-      seatsIssued: used.get(o.id as string)?.total ?? 0,
-      seatsUsed: used.get(o.id as string)?.used ?? 0,
-    })),
+    orders: [...byGroup.values()],
   });
 }
 

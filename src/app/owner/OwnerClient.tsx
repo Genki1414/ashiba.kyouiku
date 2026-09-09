@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { findCourse } from "@/content/courses";
 import Link from "next/link";
 import { Loading } from "@/components/Loading";
 import { Btn } from "@/components/ui/Btn";
@@ -34,17 +35,28 @@ type Order = {
   solo?: boolean;
   buyerEmail?: string | null;
   kind?: string;
+  /** 1回の申込みの中身。講座ごとに1件（0029） */
+  items?: { courseId: string | null; kind: string | null; seats: number; amount: number }[];
   seats: number;
   amount: number;
   method: "card" | "invoice";
   status: "pending" | "paid" | "cancelled";
   due_date: string | null;
   paid_at: string | null;
+  /** 請求書を送った日。送っていなければ null（0030） */
+  invoiced_at?: string | null;
   bill_to: string | null;
   note: string | null;
   created_at: string;
   seatsIssued: number;
   seatsUsed: number;
+};
+
+/** 明細に出す講座の短い名前。引けなければ広い言い方にする
+    （消えた講座の古い注文に、嘘の名前を出さない） */
+const shortName = (courseId: string | null, kind: string | null) => {
+  if ((kind ?? "seat") === "training") return "実務トレーニング";
+  return findCourse(courseId)?.short ?? "教育";
 };
 
 const day = (s: string | null) => {
@@ -208,9 +220,26 @@ export function OwnerClient() {
               </span>
             </div>
             <div className="mt-1 text-[12.5px]">
-              {o.kind === "training" ? "実務トレーニング" : `${o.seats}名`}　{yen(o.amount)}　
+              {o.kind === "training"
+                ? "実務トレーニング"
+                : `${(o.items?.length ?? 1) > 1 ? `${o.items!.length}講座 ` : ""}${o.seats}名`}
+              　{yen(o.amount)}　
               <span className="text-dim">{o.method === "card" ? "カード" : "請求書"}</span>
             </div>
+            {/* 講座ごとの明細。**1回の申込みは1枚のカード**にしたので（0029）、
+                中身はここで出す。出さないと、何を売ったのか分からない */}
+            {(o.items?.length ?? 0) > 1 && (
+              <div className="mt-1 grid gap-0.5 text-[11.5px] text-dim" data-testid="owner-items">
+                {o.items!.map((it, i) => (
+                  <div key={`${it.courseId ?? it.kind}-${i}`} className="flex justify-between gap-2">
+                    <span className="min-w-0 truncate">
+                      {shortName(it.courseId, it.kind)}　{it.seats}名
+                    </span>
+                    <span className="shrink-0">{yen(it.amount)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
             <div className="mt-0.5 text-[11.5px] text-dim2">
               {day(o.created_at)} 申込
               {o.due_date && o.status === "pending" ? `　支払期限 ${day(o.due_date)}` : ""}
@@ -221,13 +250,22 @@ export function OwnerClient() {
               {o.note ? <><br />連絡 {o.note}</> : null}
             </div>
 
-            {/* 請求書。開いて印刷するか PDF にして送る */}
+            {/* 請求書。開いて印刷するか PDF にして送る。
+
+                **送ったかどうかを、札の字と色で出す。**前は「請求書を出す」と
+                しか書いておらず、送ったのかどうかが画面から分からなかった
+                （げんきさん 2026-09-09）。送った日は買った側にも効く
+                （送るまで、ホームに「請求書が届いています」が出ない）。 */}
             <Link
               href={`/owner/invoice/${o.id}`}
-              className="mt-2 block rounded-lg border border-line p-2 text-center text-[11.5px] text-dim no-underline"
+              className={`mt-2 block rounded-lg border p-2 text-center text-[11.5px] no-underline ${
+                o.invoiced_at ? "border-grn text-grn" : "border-yel text-yel"
+              }`}
               data-testid="owner-invoice"
             >
-              請求書を出す
+              {o.invoiced_at
+                ? `請求書を送りました（${day(o.invoiced_at)}）　もう一度開く`
+                : "請求書を出す（まだ送っていません）"}
             </Link>
 
             {o.status === "pending" && (

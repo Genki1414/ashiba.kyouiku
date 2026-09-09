@@ -102,4 +102,48 @@ begin
   if n <> 0 then raise exception 'NG: 印の無い注文がある（%）', n; end if;
 end $$;
 
-select 'OK: まとめ申込み（0029）';
+
+-- ⑨ 「請求書を出した」も申込みまるごと（0030）
+--
+--    げんきさんの実機で食い違った（2026-09-09）。
+--    請求書は42,900円で出るのに、買った側のホームには「4,950円」。
+--    本部の画面が1回の申込みを3枚のカードで並べていて、
+--    そのうち1枚だけ「請求書を出す」を押した状態だったため。
+--    印は行ごとに付き、知らせはその行だけを数えていた。
+do $$
+declare
+  co  uuid := 'cccccccc-0000-0000-0000-000000000001';
+  who uuid := 'aaaaaaaa-0000-0000-0000-000000000001';
+  g   uuid := gen_random_uuid();
+  one uuid;
+  n   int;
+  at1 timestamptz;
+  at2 timestamptz;
+begin
+  insert into orders (company_id, group_id, course_id, seats, unit_price, amount, method, status, ordered_by)
+  values
+    (co, g, 'ashiba',   3, 7000, 23100, 'invoice', 'pending', who),
+    (co, g, 'harness',  3, 4500, 14850, 'invoice', 'pending', who),
+    (co, g, 'ishiwata', 1, 4500,  4950, 'invoice', 'pending', who);
+  select id into one from orders where group_id = g order by created_at limit 1;
+
+  -- **1行だけ指しても、申込みまるごとに印が付く**
+  at1 := public.mark_invoiced(one);
+  select count(*) into n from orders where group_id = g and invoiced_at is not null;
+  raise notice 'expected: 3行とも印が付く（%）', n;
+  if n <> 3 then raise exception 'NG: 行ごとにしか付かない（%）', n; end if;
+
+  -- **知らせの金額が、請求書と合う**
+  select sum(amount) into n
+    from orders where group_id = g and status = 'pending' and invoiced_at is not null;
+  raise notice 'expected: 届く請求書は 42900 円（%）', n;
+  if n <> 42900 then raise exception 'NG: 金額が合わない（%）', n; end if;
+
+  -- 送り直しても日付は動かない（いつ送ったかが変わってしまう）
+  perform pg_sleep(0.05);
+  at2 := public.mark_invoiced(one);
+  raise notice 'expected: 送り直しても日付は動かない（%）', (at1 = at2);
+  if at1 <> at2 then raise exception 'NG: 日付が動いた'; end if;
+end $$;
+
+select 'OK: まとめ申込み（0029・0030）';
