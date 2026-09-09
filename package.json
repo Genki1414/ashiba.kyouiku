@@ -137,6 +137,7 @@
     "test:e2e:held": "node tests/e2e-held.mjs",
     "test:e2e:invoices": "node tests/e2e-invoices.mjs",
     "test:e2e:coupon": "node tests/e2e-coupon.mjs",
+    "test:e2e:nav": "node tests/e2e-nav.mjs",
     "test:e2e:demo23": "node tests/e2e-demo23.mjs",
     "test:ch2": "tsx tests/ch2-rules.ts",
     "test:e2e:ch2": "node tests/e2e-ch2.mjs",

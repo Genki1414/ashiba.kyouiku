@@ -1272,5 +1272,37 @@ console.log("── クーポンと広告費（0032）──");
   check(/入金済み/.test(ownc) && /入金待ち/.test(ownc), "入金済みと入金待ちを分けて出す");
 }
 
+console.log("── 下の行き先と、お知らせの出し方 ──");
+{
+  /* げんきさん（2026-09-09）
+       「おしらせは確認したら表示しない」
+       「画面下部にメニュー表示して固定する」
+       「マイページ…実際に受講可能な講座のみを表示する」
+       「取得済みの資格講座をたっぷすると『取得済みのため受講不要』と表示させる」 */
+  const un = read("src/components/UpdateNotice.tsx");
+  check(/ACK = "ashiba\.update-ack"/.test(un), "一度閉じたことを覚える");
+  check(/if \(ack\) return;/.test(un), "閉じたあとは、自分からは出ない");
+
+  const nav = read("src/components/BottomNav.tsx");
+  check(/fixed inset-x-0 bottom-0/.test(nav), "下に固定する");
+  check(/print:hidden/.test(nav), "紙には出さない（請求書）");
+  check(/path\.startsWith\("\/training"\)/.test(nav), "実務トレーニングでは出さない");
+  check(/\/\^\\\/edu\\\/\[\^\/\]\+\\\/\.\+\//.test(nav) || /edu\\\//.test(nav),
+    "単元や修了試験の途中では出さない");
+  check(/me\?\.owner/.test(nav) && /me\?\.admin/.test(nav), "立場によって行き先が変わる");
+  const lay = read("src/app/layout.tsx");
+  check(/<BottomNav \/>/.test(lay), "どの画面にも出る（layout に置く）");
+
+  const me = read("src/app/me/MeClient.tsx");
+  check(/c\.hasSeat \|\| c\.started \|\| c\.cert \|\| held\.has\(c\.courseId\)/.test(me),
+    "マイページは、受けられる講座だけ出す");
+  check(/取得済みのため受講不要/.test(me), "取得済みの講座は「受講不要」と出す");
+  check(/data-testid="me-find-course"/.test(me), "ほかの講座を探す道は残す");
+  const mp = read("src/app/api/mypage/route.ts");
+  check(/heldCourseIds\(supabase, \[user\.id\]\)/.test(mp), "外部で取得した講座も返す");
+  const ll = read("src/app/edu/[courseId]/LessonList.tsx");
+  check(/<HeldNotice courseId=\{course\.id\} \/>/.test(ll), "講座を開いた所にも「受講不要」と出す");
+}
+
 console.log(`\n通り ${ok} ／ だめ ${ng}`);
 process.exit(ng ? 1 : 0);

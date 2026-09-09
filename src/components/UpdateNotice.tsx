@@ -18,9 +18,18 @@ function bold(t: string): React.ReactNode[] {
 
 
 /* 開いたときに、前に見たときから何が変わったかを知らせる。
-   一度閉じれば、次の更新まで出ない。 */
+
+   ── 一度確かめたら、もう自分からは出ない（げんきさん 2026-09-09）──
+   前は**更新のたびに**画面いっぱいに出ていた。直しを何度も出す日は、
+   開くたびに知らせが被さって、やることに手が届かない。
+
+   閉じた時点で「この人は知らせの場所を知った」ことにする。
+   そのあと新しい更新が出ても、画面をふさがない。
+   読みたいときは /updates にいつでも並んでいる（ホームの下に入口がある）。 */
 
 const KEY = "ashiba.seen-update";
+/** 一度でも閉じたか。閉じたあとは、もう自分からは出ない */
+const ACK = "ashiba.update-ack";
 
 export function UpdateNotice() {
   const [list, setList] = useState<Release[] | null>(null);
@@ -31,11 +40,15 @@ export function UpdateNotice() {
 
   useEffect(() => {
     let seen: string | null = null;
+    let ack = false;
     try {
       seen = window.localStorage.getItem(KEY);
+      ack = window.localStorage.getItem(ACK) === "1";
     } catch {
       /* 読めない端末では、いちばん新しい1件だけ出す */
     }
+    /* **一度閉じた人には、もう出さない。**新しい更新は /updates に並ぶ */
+    if (ack) return;
     const rest = unseen(seen);
     if (rest.length) setList(rest);
   }, []);
@@ -44,6 +57,7 @@ export function UpdateNotice() {
     setList(null);
     try {
       window.localStorage.setItem(KEY, LATEST);
+      window.localStorage.setItem(ACK, "1");
     } catch {
       /* 覚えられなくても、この回は閉じる */
     }

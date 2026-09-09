@@ -47,6 +47,8 @@ type Loaded = {
   admin: boolean;
   member: Member;
   learning: Learn[];
+  /** 外部で取得した資格のうち、この仕組みの講座に当たるもの */
+  held?: string[];
 };
 
 const day = (iso: string) => {
@@ -173,6 +175,14 @@ export function MeClient() {
   /* 読み終わるまで真っ暗にしない。押したのに何も出ないと、
      同じ待ち時間でもずっと遅く感じる */
   if (!st) return <Loading title="マイページ" back="/" rows={4} />;
+
+  /* 外部で取得した資格（本人が登録したもの）に当たる講座 */
+  const held = new Set(st.held ?? []);
+  /* **受けられる講座だけ。**受講コードがある・受け始めている・
+     修了証が出ている・外部で取得している、のどれか */
+  const mine = st.learning.filter(
+    (c) => c.hasSeat || c.started || c.cert || held.has(c.courseId),
+  );
 
   return (
     <main className="px-5 py-8 pb-12" data-testid="me">
@@ -344,11 +354,29 @@ export function MeClient() {
         )}
       </div>
 
-      {/* 受講 */}
+      {/* ── 受講 ──
+
+          **受けられる講座だけを出す**（げんきさん 2026-09-09）。
+          前は73講座すべてが並び、受講コードを持っていない講座にも
+          「受講を開始」が出ていた。押しても中で断られるだけだった。
+
+          出すのは、受講コードがある・受け始めている・修了証が出ている・
+          外部で取得している、のどれか。ほかの講座は「講座を探す」から */}
       <div className="mt-3">
-        <div className="mb-2 text-[11px] tracking-[2px] text-dim">受講</div>
+        <div className="mb-2 flex items-baseline">
+          <span className="text-[11px] tracking-[2px] text-dim">受講</span>
+          <Link href="/edu" className="ml-auto text-[12px] text-cyan no-underline" data-testid="me-find-course">
+            ほかの講座を探す
+          </Link>
+        </div>
+        {!mine.length && (
+          <div className="rounded-xl border border-line bg-panel p-4 text-[12.5px] leading-relaxed text-dim" data-testid="me-course-none">
+            受講できる講座がまだありません。
+            受講コードを受け取るか、教育担当者に受講リクエストを送ってください。
+          </div>
+        )}
         <div className="grid gap-2">
-          {st.learning.map((c) => (
+          {mine.map((c) => (
             <div key={c.courseId} className="rounded-xl border border-line bg-panel p-4" data-testid="me-course">
               <div className="text-[14px] font-black leading-snug">{c.name}</div>
               <div className="mt-2 flex items-baseline gap-2 text-[12.5px]">
@@ -405,21 +433,49 @@ export function MeClient() {
                 </div>
               )}
 
-              <div className="mt-2.5 grid grid-cols-2 gap-2">
-                <Link
-                  href={`/edu/${c.courseId}`}
-                  className="rounded-lg border border-yel bg-yel p-2.5 text-center text-[12.5px] font-extrabold text-bg no-underline"
-                  data-testid="me-go"
-                >
-                  {c.started ? "続きから受講" : "受講を開始"}
-                </Link>
-                <Link
-                  href={`/edu/${c.courseId}/cert`}
-                  className="rounded-lg border border-line p-2.5 text-center text-[12.5px] text-dim no-underline"
-                >
-                  修了証
-                </Link>
-              </div>
+              {/* **取得済みの講座は、受講の入口を出さない。**
+                  同じ特別教育を受け直す必要はないので、押せると迷わせる
+                  （げんきさん 2026-09-09） */}
+              {c.cert || held.has(c.courseId) ? (
+                <div className="mt-2.5 grid grid-cols-2 gap-2">
+                  <div
+                    className="rounded-lg border border-grn bg-[#14201A] p-2.5 text-center text-[12.5px] font-extrabold text-grn"
+                    data-testid="me-done"
+                  >
+                    取得済みのため受講不要
+                  </div>
+                  {c.cert ? (
+                    <Link
+                      href={`/edu/${c.courseId}/cert`}
+                      className="rounded-lg border border-line p-2.5 text-center text-[12.5px] text-dim no-underline"
+                    >
+                      修了証
+                    </Link>
+                  ) : (
+                    <div className="rounded-lg border border-line p-2.5 text-center text-[11.5px] leading-tight text-dim2">
+                      外部で取得
+                      <br />
+                      （自己申告）
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="mt-2.5 grid grid-cols-2 gap-2">
+                  <Link
+                    href={`/edu/${c.courseId}`}
+                    className="rounded-lg border border-yel bg-yel p-2.5 text-center text-[12.5px] font-extrabold text-bg no-underline"
+                    data-testid="me-go"
+                  >
+                    {c.started ? "続きから受講" : "受講を開始"}
+                  </Link>
+                  <Link
+                    href={`/edu/${c.courseId}/cert`}
+                    className="rounded-lg border border-line p-2.5 text-center text-[12.5px] text-dim no-underline"
+                  >
+                    修了証
+                  </Link>
+                </div>
+              )}
             </div>
           ))}
         </div>

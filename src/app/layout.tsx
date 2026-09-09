@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { UpdateNotice } from "@/components/UpdateNotice";
+import { BottomNav } from "@/components/BottomNav";
 import { ServiceWorker } from "@/components/ServiceWorker";
 import { LATEST } from "@/content/changelog";
 import { BRAND } from "@/content/brand";
@@ -37,7 +38,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       {/* いま出ているのがどの更新かが分かるように印を付けておく */}
       <body data-app-version={LATEST}>
         {/* スマホ基準の1カラム。広い画面でも中央に絞る */}
-        <div className="shell mx-auto min-h-dvh max-w-md bg-bg">{children}</div>
+        <div className="shell mx-auto min-h-dvh max-w-md bg-bg">
+          {children}
+          {/* いつも下に出ている行き先。受講の邪魔になる画面では出ない */}
+          <BottomNav />
+        </div>
         {/* 直したところ・足したところを、開いたときに知らせる */}
         <UpdateNotice />
         {/* 圏外でも、一度開いた画面は開けるようにする */}

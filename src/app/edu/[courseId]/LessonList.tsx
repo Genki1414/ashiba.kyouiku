@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { HeldNotice } from "@/components/HeldMark";
 import Link from "next/link";
 import { loadProgress, type ProgressState } from "@/lib/progressClient";
 import { canStart, loadPrep, type PrepState } from "@/lib/prep";
@@ -71,6 +72,8 @@ export function LessonList({
         </Link>
         <h1 className="mt-2 text-[18px] font-black leading-snug">{course.name}</h1>
         <p className="mt-1 text-[11px] leading-relaxed text-dim">{course.basis}</p>
+        {/* 取得済みの人には、開いた所ではっきり書く */}
+        <HeldNotice courseId={course.id} />
         {mode === "local" && (
           <p className="mt-2 inline-block rounded border border-org px-1.5 py-0.5 text-[11px] text-org">
             端末内記録（Supabase 未設定のため、視聴記録はこの端末にだけ保存されます）

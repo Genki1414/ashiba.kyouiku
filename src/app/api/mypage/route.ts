@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { heldCourseIds } from "@/lib/held";
 import { getServiceClient } from "@/lib/supabase/server";
 import { currentUser } from "@/lib/supabase/session";
 import { readyCourses, lessonKey } from "@/content/courses";
@@ -126,8 +127,14 @@ export async function GET() {
     });
   }
 
+  /* 外部で取得した資格（本人がマイページから登録したもの）のうち、
+     この仕組みの講座に当たるもの。**受講の一覧で「取得済み」と出す**
+     （げんきさん 2026-09-09）。修了証はこの上の cert が持っている */
+  const heldOutside = (await heldCourseIds(supabase, [user.id])).get(user.id) ?? [];
+
   return NextResponse.json({
     ok: true,
+    held: heldOutside,
     name: (me?.name as string) ?? "",
     email: (me?.email as string) ?? user.email ?? "",
     birth: (me?.birth_date as string) ?? "",

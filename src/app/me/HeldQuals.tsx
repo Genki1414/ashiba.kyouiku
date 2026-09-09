@@ -209,12 +209,12 @@ export function HeldQuals() {
             className="mt-3 w-full rounded-lg border border-line p-2.5 text-[12.5px] text-dim"
             data-testid="me-qual-open"
           >
-            資格を追加
+            取得済みの資格を登録
           </button>
         ) : (
           <div className="mt-3 rounded-lg border border-yel bg-[#1A1F14] p-3" data-testid="me-qual-form">
             <div className="mb-2 text-[11.5px] leading-relaxed text-dim">
-              いくつでも選べます。選んだものは種類を変えても消えません。
+              複数選択できます。種類を切り替えても、選んだものは残ります。
             </div>
 
             {/* 種類でしぼる。全部いっぺんに並べると、探すのに時間がかかる */}
@@ -245,7 +245,7 @@ export function HeldQuals() {
             <div className="mt-2 max-h-[52vh] overflow-y-auto grid gap-1">
               {!list.length && (
                 <div className="py-3 text-center text-[12px] text-dim2">
-                  見つかりません。短い言葉で入れてみてください。
+                  該当がありません。短い言葉でお試しください。
                 </div>
               )}
               {list.map((x) => {
@@ -292,7 +292,7 @@ export function HeldQuals() {
                 >
                   {picked.includes(OTHER) ? "✓" : ""}
                 </span>
-                <span>この一覧にない（自分で書く）</span>
+                <span>一覧にない資格を自分で入力する</span>
               </button>
             </div>
 
@@ -300,24 +300,24 @@ export function HeldQuals() {
               <input
                 value={label}
                 onChange={(e) => setLabel(e.target.value)}
-                placeholder="資格の名前"
+                placeholder="資格の名称"
                 className="mt-2 w-full rounded-lg border border-line bg-bg px-3 py-2 text-[13px]"
                 data-testid="me-qual-label"
               />
             )}
 
-            <label className="mt-2.5 block text-[11px] text-dim2">どこで受けたか</label>
+            <label className="mt-2.5 block text-[11px] text-dim2">取得先</label>
             <input
               value={issuer}
               onChange={(e) => setIssuer(e.target.value)}
-              placeholder="前の会社名・教習機関の名前"
+              placeholder="前職の会社名・教習機関名など"
               className="mt-1 w-full rounded-lg border border-line bg-bg px-3 py-2 text-[13px]"
               data-testid="me-qual-issuer"
             />
 
             <div className="mt-2.5 grid grid-cols-2 gap-2">
               <div>
-                <label className="block text-[11px] text-dim2">取った日</label>
+                <label className="block text-[11px] text-dim2">取得日</label>
                 <input
                   type="date"
                   value={gotOn}
@@ -331,20 +331,20 @@ export function HeldQuals() {
                 <input
                   value={certNo}
                   onChange={(e) => setCertNo(e.target.value)}
-                  placeholder="分かれば"
+                  placeholder="お分かりになる場合"
                   className="mt-1 w-full rounded-lg border border-line bg-bg px-2.5 py-2 text-[13px]"
                   data-testid="me-qual-no"
                 />
               </div>
             </div>
             <div className="mt-1 text-[10.5px] leading-relaxed text-dim2">
-              受けた所・取った日・番号は、選んだものすべてに入ります。
-              違うものは、分けて足してください。
+              取得先・取得日・修了証番号は、選んだ資格すべてに登録されます。
+              内容が異なる資格は、分けて登録してください。
             </div>
 
             <div className="mt-3">
               <Btn tone="y" dis={busy || !total} onClick={add} testid="me-qual-add">
-                {busy ? "追加しています…" : total ? `${total}件を追加` : "資格を選んでください"}
+                {busy ? "登録しています…" : total ? `${total}件を登録する` : "資格を選択してください"}
               </Btn>
             </div>
             <button
