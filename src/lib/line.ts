@@ -54,19 +54,10 @@ export function authorizeUrl(opts: { redirectUri: string; state: string; nonce: 
   return u.toString();
 }
 
-/* ── この仕組みの中で使う、仮のメール ──
-
-   Supabase の利用者はメールで見分ける作りになっている。
-   LINE から来た人はメールを持っていないことがあるので、
-   **その人だけの、届かない住所**を作って結ぶ。
-
-   届かない住所にしてあるのは、間違って送らないため。
-   （招待や決め直しのメールは、この住所には出さない） */
-export const lineEmail = (sub: string): string => `line-${sub}@line.invalid`;
-
-/** 仮の住所か。画面に出さないための見分け */
-export const isLineEmail = (email: string | null | undefined): boolean =>
-  !!email && email.endsWith("@line.invalid");
+/* 仮のメールと、その見せ方は src/lib/lineEmail.ts に置いてある。
+   **画面からも読む所**なので、鍵を読むこのファイルとは分けてある。
+   これまでどおり line.ts から読めるように、そのまま出し直す */
+export { emailLabel, isLineEmail, lineEmail } from "./lineEmail";
 
 /* ── リッチメニュー（0033）──
 

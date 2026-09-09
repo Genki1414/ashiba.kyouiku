@@ -12,6 +12,7 @@ import { allPrices, missingPrice, priceOverrides } from "@/lib/price.server";
 import { AUTH_MAIL_FROM, AUTH_MAIL_OWN } from "@/content/authMail";
 import { notifyReady } from "@/lib/notify.server";
 import { lineLoginReady, lineMenuReady } from "@/lib/line";
+import { lineHookReady } from "@/lib/lineBot";
 import { siteUrl as paySiteUrl } from "@/lib/stripe";
 import { currentAdmin } from "@/lib/admin";
 import { myCompany } from "@/lib/tenant";
@@ -195,6 +196,9 @@ export async function GET() {
        運営管理で押すまで分からないと、現場に出ている間に確かめられない。
        **鍵そのものは返さない。**入っているかどうかだけ */
     lineMenu: lineMenuReady(),
+    /* 届いたものを確かめる鍵（LINE_BOT_SECRET）。docs/106。
+       入っていないと、LINE から「設定」と送っても何も返らない */
+    lineHook: lineHookReady(),
     /* 特商法の表記で、まだ空の項目 */
     sellerMissing: missingSeller(),
     /* 振込先。空だと請求書に「別途ご案内」としか出ず、そのぶん入金が遅れる */

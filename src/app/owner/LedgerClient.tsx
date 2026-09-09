@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { emailLabel } from "@/lib/lineEmail";
 import { yen } from "@/lib/pricing";
 
 /* 本部の元帳。事業者の一覧と、事業者ごとの受講記録。
@@ -322,7 +323,7 @@ export function LedgerClient({ onNote }: { onNote: (s: string) => void }) {
                             </span>
                           </div>
                           <div className="mt-0.5 truncate text-[11px] text-dim2">
-                            {p.email}
+                            {emailLabel(p.email)}
                             {p.approvedAt ? `　${day(p.approvedAt)} 在籍` : ""}
                             {p.leftAt ? `　${day(p.leftAt)} 退職` : ""}
                           </div>

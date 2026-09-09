@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { emailLabel } from "@/lib/lineEmail";
 import { BRAND } from "@/content/brand";
 import Link from "next/link";
 import { Loading } from "@/components/Loading";
@@ -237,7 +238,7 @@ export function MeClient() {
             >
               {st.name || "（氏名未登録）"}
             </div>
-            <div className="mt-0.5 truncate text-[12px] text-dim2">{st.email}</div>
+            <div className="mt-0.5 truncate text-[12px] text-dim2">{emailLabel(st.email)}</div>
             <div className={`mt-0.5 text-[12px] ${st.birth ? "text-dim2" : "text-org"}`}>
               生年月日　{st.birth ? day(st.birth) : "未登録"}
             </div>

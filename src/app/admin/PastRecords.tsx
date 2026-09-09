@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { emailLabel } from "@/lib/lineEmail";
 
 /* その事業者の受講記録ぜんぶ（辞めた人もふくむ）。
 
@@ -190,7 +191,7 @@ export function PastRecords() {
                       </span>
                     </div>
                     <div className="mt-0.5 truncate text-[11px] text-dim2">
-                      {p.email}
+                      {emailLabel(p.email)}
                       {p.approvedAt ? `　${day(p.approvedAt)} 在籍` : ""}
                       {p.leftAt ? `　${day(p.leftAt)} 退職` : ""}
                     </div>

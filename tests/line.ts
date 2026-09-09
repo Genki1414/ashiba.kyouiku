@@ -5,7 +5,11 @@
    通らないので、**組み立てる URL と、危ない所の作り**を見る。 */
 
 import { readFileSync } from "node:fs";
-import { authorizeUrl, isLineEmail, lineEmail, LINE_CALLBACK_PATH } from "../src/lib/line";
+import { authorizeUrl, LINE_CALLBACK_PATH } from "../src/lib/line";
+import { emailLabel, isLineEmail, lineEmail } from "../src/lib/lineEmail";
+import { checkLine, isOpsWord, verifyLineSignature } from "../src/lib/lineBot";
+import { createHmac } from "node:crypto";
+import { noticeLine } from "../src/lib/noticeText";
 
 let ok = 0;
 let ng = 0;
@@ -97,6 +101,100 @@ console.log("── リッチメニュー ──");
   check(!/process\.env\.LINE_MENU_TOKEN/.test(health), "鍵そのものは読まない（入っているかだけ）");
   const setup = read("src/app/setup/SetupClient.tsx");
   check(/LINE_MENU_TOKEN/.test(setup) && /lineMenu/.test(setup), "/setup にリッチメニューの行がある");
+}
+
+console.log("── 本人への知らせ（docs/106）──");
+{
+  const bot = read("src/lib/lineBot.ts");
+  check(/message\/push/.test(bot) && /message\/reply/.test(bot), "送る口と返す口が1か所にある");
+  check(!/NEXT_PUBLIC_LINE/.test(bot), "鍵に NEXT_PUBLIC_ を付けない");
+
+  /* 合言葉は「ちょうどその字」だけ。前方一致にすると、
+     ふつうの相談に機械の返事をかぶせる */
+  check(isOpsWord("設定"), "設定 で通る");
+  check(isOpsWord(" セットアップ "), "前後の空白は無視する");
+  check(isOpsWord("ＳＥＴＵＰ".toLowerCase()) || isOpsWord("setup"), "setup で通る");
+  check(isOpsWord("Setup"), "大文字小文字は問わない");
+  check(!isOpsWord("設定を変えたいのですが"), "ふつうの相談は拾わない");
+  check(!isOpsWord(""), "空は通さない");
+  check(!isOpsWord("受講コード"), "よその言葉は通さない");
+
+  check(checkLine("").ok === false, "空は送らない");
+  check(checkLine("あ".repeat(5000)).ok === false, "長すぎるものは送らない");
+  check(checkLine("設定の様子").ok === true, "ふつうの本文は送れる");
+
+  /* 本文の作りは、画面のお知らせと同じ言い方（DEFS を使い回す） */
+  const t = noticeLine({ kind: "given", courseId: "ashiba" }, "https://example.com/", "特別教育ドットコム");
+  check(t.startsWith("【特別教育ドットコム】受講コードが届きました"), "店の名前と見出しが先頭に出る");
+  check(t.includes("https://example.com/edu/ashiba"), "開く場所が入る（末尾の / は重ねない）");
+  check(noticeLine({ kind: "なにこれ" }, "https://example.com", "店") === "", "知らない種類は送らない");
+
+  /* **本部が書いた一言は送らない。**断った理由に名前が入りうる */
+  const ng = noticeLine({ kind: "member_ng" }, "https://example.com", "店");
+  check(!/note/.test(ng) && ng.split("\n").length === 4, "本文は見出し・次にやること・行き先だけ");
+
+  const server = read("src/lib/lineBot.server.ts");
+  check(/AbortSignal\.timeout\(3000\)/.test(server), "3秒で諦める（元の操作を待たせない）");
+
+  /* ── 署名を、本物の作り方で通してみる ──
+     LINE と同じ手順（本文を HMAC-SHA256 して base64）で作った署名だけが通る */
+  const secret = "test-channel-secret";
+  const body = '{"events":[{"type":"message"}]}';
+  const sign = (b: string, k: string) => createHmac("sha256", k).update(b, "utf8").digest("base64");
+  check(verifyLineSignature(body, sign(body, secret), secret), "正しい署名は通る");
+  check(!verifyLineSignature(body + " ", sign(body, secret), secret), "本文が1文字違えば通さない");
+  check(!verifyLineSignature(body, sign(body, "よその鍵"), secret), "よその鍵で作った署名は通さない");
+  check(!verifyLineSignature(body, "", secret), "署名が無ければ通さない");
+  check(!verifyLineSignature(body, sign(body, secret), ""), "鍵が入っていなければ通さない");
+  check(!verifyLineSignature(body, "abc", secret), "長さが違っても落ちない");
+  check(/timingSafeEqual/.test(read("src/lib/lineBot.ts")), "署名は1文字ずつ比べない（時間で漏らさない）");
+
+  const notice = read("src/lib/notice.server.ts");
+  check(/pushToUser/.test(notice), "お知らせを残したら、LINE にも送る");
+  check(notice.indexOf("add_notice") < notice.indexOf("await pushNotice"), "残してから送る");
+  check(!/opts\.note/.test(notice.slice(notice.indexOf("async function pushNotice"))), "LINE には一言を渡さない");
+}
+
+console.log("── LINE から受ける（docs/106）──");
+{
+  const hook = read("src/app/api/line/webhook/route.ts");
+  check(/verifyLineSignature/.test(hook), "署名を確かめる");
+  check(hook.indexOf("verifyLineSignature") < hook.indexOf("JSON.parse"), "確かめてから中身を読む");
+  check(/status: 401/.test(hook), "偽物には 200 を返さない");
+  check(/isOwnerEmail/.test(hook), "運営にしか返さない");
+  check(/runtime = "nodejs"/.test(hook), "署名を作るので node で動かす");
+  check(!/follow/.test(hook.replace(/\/\*[\s\S]*?\*\//g, "")), "あいさつはここで出さない（公式アカウント側）");
+
+  const ops = read("src/lib/opsStatus.server.ts");
+  /* 鍵の値そのものを本文に混ぜない。入っているかどうか（mark）だけ。
+     値段の上書きも出さない（商売の中身。トークは残る） */
+  check(!/\$\{\s*process\.env\./.test(ops), "鍵の値を本文に混ぜない");
+  check(!/priceOverrides/.test(ops), "値段の上書きは返さない");
+  check(/NEED_SCHEMA/.test(ops), "版が足りているかを出す");
+}
+
+console.log("── 仮のメールを画面に出さない（docs/106）──");
+{
+  check(emailLabel("a@b.jp") === "a@b.jp", "ふつうのメールはそのまま");
+  check(emailLabel("line-U123@line.invalid") === "LINEで登録（メールなし）", "仮の住所は出さない");
+  check(emailLabel("") === "" && emailLabel(null) === "", "無ければ空");
+  for (const f of [
+    "src/components/AccountBar.tsx",
+    "src/app/me/MeClient.tsx",
+    "src/app/admin/LearnerCard.tsx",
+    "src/app/admin/AdminClient.tsx",
+    "src/app/owner/LedgerClient.tsx",
+  ]) {
+    check(/emailLabel\(/.test(read(f)), `${f} が仮の住所を出さない`);
+    /* 画面は lineEmail.ts から読む。line.ts は鍵を読むので、
+       画面から辿れる所に混ぜない（tests/env-usage.mts） */
+    check(/from "@\/lib\/lineEmail"/.test(read(f)), `${f} は鍵を読むファイルを引き込まない`);
+  }
+
+  /* LINE で入った人はパスワードが無い。決め直しの画面で
+     行き止まりにしない（げんきさん 2026-09-09） */
+  const login = read("src/app/login/LoginClient.tsx");
+  check(/login-forgot-line/.test(login), "決め直しの画面にも LINE の道がある");
 }
 
 console.log(`\n${ok} 件通過 / ${ng} 件失敗`);

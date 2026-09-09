@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { emailLabel } from "@/lib/lineEmail";
 import { Btn } from "@/components/ui/Btn";
 import { Bar } from "@/components/ui/Bar";
 import { dur, hm } from "@/components/ui/format";
@@ -198,7 +199,7 @@ export function LearnerCard({
           <span className="rounded border border-cyan px-1.5 py-0.5 text-[10px] text-cyan">担当者</span>
         )}
       </div>
-      {r.email && <div className="mt-0.5 truncate text-[11px] text-dim2">{r.email}</div>}
+      {r.email && <div className="mt-0.5 truncate text-[11px] text-dim2">{emailLabel(r.email)}</div>}
 
       {/* 札は押した1つだけ開く */}
       {/* 札の数だけ横に並べる。決め打ちで3にすると、

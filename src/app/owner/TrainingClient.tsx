@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { emailLabel } from "@/lib/lineEmail";
 
 /* 実務トレーニングの利用権。
 
@@ -130,7 +131,7 @@ export function TrainingClient({ onNote }: { onNote: (s: string) => void }) {
               >
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-[13px] font-bold">{f.name || "（名前なし）"}</div>
-                  <div className="truncate text-[11px] text-dim2">{f.email}</div>
+                  <div className="truncate text-[11px] text-dim2">{emailLabel(f.email)}</div>
                 </div>
                 {f.has ? (
                   <span className="shrink-0 rounded border border-grn px-1.5 py-0.5 text-[10px] text-grn">
@@ -166,7 +167,7 @@ export function TrainingClient({ onNote }: { onNote: (s: string) => void }) {
             data-testid="owner-training-row"
           >
             <div className="text-[13.5px] font-black">{r.name || "（名前なし）"}</div>
-            <div className="mt-0.5 truncate text-[11px] text-dim2">{r.email}</div>
+            <div className="mt-0.5 truncate text-[11px] text-dim2">{emailLabel(r.email)}</div>
             <div className="mt-0.5 text-[11px] text-dim2">
               {day(r.at)}　{how(r.source)}
               {r.note ? `　${r.note}` : ""}

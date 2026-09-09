@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { emailLabel } from "@/lib/lineEmail";
 import Link from "next/link";
 import { claimDevice, wipeDevice } from "@/lib/device";
 import { loadMe, readMe, sameMe, type Me } from "@/lib/me";
@@ -84,7 +85,7 @@ export function AccountBar() {
         className="min-w-0 truncate font-bold text-txt no-underline"
         data-testid="account-name"
       >
-        {who.name || who.email}
+        {who.name || emailLabel(who.email)}
       </Link>
       {asking ? (
         <span className="ml-auto flex items-center gap-2">

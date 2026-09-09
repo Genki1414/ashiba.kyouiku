@@ -1,6 +1,9 @@
 import "server-only";
 import { getServiceClient } from "@/lib/supabase/server";
-import { isNoticeKind, noteOf, type NoticeKind } from "./noticeText";
+import { isNoticeKind, noticeLine, noteOf, type NoticeKind } from "./noticeText";
+import { pushToUser } from "./lineBot.server";
+import { siteUrl } from "./siteUrl";
+import { BRAND } from "@/content/brand";
 
 /* こちらが返事をしたことを、待っていた本人に残す。
 
@@ -15,7 +18,11 @@ import { isNoticeKind, noteOf, type NoticeKind } from "./noticeText";
    ・宛先は「待っていた本人」。その操作をした人ではない。
      入れ違えると、押した本人に「許可されました」が出る
    ・断るときは理由を入れる。理由の無い「断られました」は、
-     受け取った人がどうすればいいか分からない */
+     受け取った人がどうすればいいか分からない
+   ・**LINE にも同じ知らせを送る**（docs/106。げんきさん 2026-09-09）。
+     ホームのお知らせは、開いた人にしか届かない。開くのをやめた人には
+     永久に届かない。現場の方はメールを見ないが、LINE は見る。
+     LINE を結んでいない人には何も起きない。送れなくても返事は通す */
 
 /** 知らせを1件残す。**失敗しても投げない。**
 
@@ -45,10 +52,30 @@ export async function addNotice(
       console.error("お知らせを残せません:", error.message);
       return false;
     }
+    /* **残せてから送る。**先に送ると、残せなかったときに
+       「知らせは来たのに画面に無い」という、いちばん困る出方をする。
+       送るのに失敗しても、残っている方が本体なので true を返す */
+    await pushNotice(to, kind, opts.courseId);
     return true;
   } catch (e) {
     console.error("お知らせを残せません:", e instanceof Error ? e.message : e);
     return false;
+  }
+}
+
+/** 同じ知らせを LINE にも送る。**失敗しても投げない。**
+
+    本部が書いた一言は送らない（noticeLine に理由）。 */
+async function pushNotice(
+  userId: string,
+  kind: NoticeKind,
+  courseId?: string | null,
+): Promise<void> {
+  try {
+    const text = noticeLine({ kind, courseId }, siteUrl(), BRAND.notifyPrefix);
+    if (text) await pushToUser(userId, text);
+  } catch (e) {
+    console.error("LINE への知らせが失敗:", e instanceof Error ? e.message : e);
   }
 }
 

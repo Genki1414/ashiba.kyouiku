@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { emailLabel } from "@/lib/lineEmail";
 import { Btn } from "@/components/ui/Btn";
 import { SLOT_MAX, SLOT_LEAD_DAYS, type IssueStatus, type Slot } from "@/lib/issue";
 import { TALK_MIN } from "@/content/shokucho";
@@ -197,7 +198,7 @@ export function IssueClient() {
             </div>
             <div className="mt-1 text-[11.5px] text-dim">
               {r.course}・{r.kind === "talk" ? "討議" : "実技"}／申請 {day(r.requestedAt)}
-              {r.email ? `／${r.email}` : ""}
+              {r.email ? `／${emailLabel(r.email)}` : ""}
             </div>
 
             {r.note && (

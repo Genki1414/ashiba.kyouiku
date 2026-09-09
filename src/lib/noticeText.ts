@@ -116,6 +116,28 @@ export function noticeView(n: { kind: string; courseId?: string | null; note?: s
   return { t: d.t, d: d.d, href: d.href((n.courseId ?? "").trim()) };
 }
 
+/* ── LINE に送るときの本文（docs/106）──────────────
+
+   ホームのお知らせと**同じ言い方**にする。片方だけ直すと、
+   LINE には古い言い方が残る。だから DEFS を使い回す。
+
+   **本部が書いた一言（note）は入れない。**断った理由には
+   氏名や会社名が入りうる。LINE はよその会社の仕組みなので、
+   人の名前を流さない（src/lib/notifyText.ts と同じ考え）。
+   理由は、開いた先の画面に出る。
+
+   ロック画面に出るのは見出しだけなので、見出しに人の名前を入れない。 */
+export function noticeLine(
+  n: { kind: string; courseId?: string | null },
+  site: string,
+  prefix: string,
+): string {
+  const d = DEFS[n.kind as NoticeKind];
+  if (!d) return "";
+  const base = site.replace(/\/+$/, "");
+  return [`【${prefix}】${d.t}`, d.d, "", `${base}${d.href((n.courseId ?? "").trim())}`].join("\n");
+}
+
 /** その字が知らせの種類か */
 export const isNoticeKind = (k: string): k is NoticeKind =>
   Object.prototype.hasOwnProperty.call(DEFS, k);

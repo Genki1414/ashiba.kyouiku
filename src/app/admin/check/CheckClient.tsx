@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { emailLabel } from "@/lib/lineEmail";
 import Link from "next/link";
 import type { CheckRow } from "@/training/verifyLog";
 
@@ -154,7 +155,7 @@ export function CheckClient() {
                 <span className="text-[10.5px] text-dim2">記録なし</span>
               )}
             </div>
-            {r.email && <div className="mt-0.5 truncate text-[10.5px] text-dim2">{r.email}</div>}
+            {r.email && <div className="mt-0.5 truncate text-[10.5px] text-dim2">{emailLabel(r.email)}</div>}
 
             <div className="mt-2 text-[11.5px] leading-[1.8] text-dim">
               <div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { emailLabel } from "@/lib/lineEmail";
 import Link from "next/link";
 import { Loading } from "@/components/Loading";
 import { keep, recall } from "@/lib/remember";
@@ -345,7 +346,7 @@ export function AdminClient() {
             {st.requests.map((q) => (
               <div key={q.userId} className="rounded-lg border border-line bg-panel p-3" data-testid="admin-request">
                 <div className="text-[14px] font-black">{q.name}</div>
-                {q.email && <div className="mt-0.5 truncate text-[11px] text-dim2">{q.email}</div>}
+                {q.email && <div className="mt-0.5 truncate text-[11px] text-dim2">{emailLabel(q.email)}</div>}
                 {q.at && <div className="mt-0.5 text-[10.5px] text-dim2">{day(q.at)} 申し込み</div>}
                 <div className="mt-2 grid grid-cols-2 gap-2">
                   <Btn
@@ -430,7 +431,7 @@ export function AdminClient() {
                     <div key={q.id} className="flex items-center gap-2">
                       <div className="min-w-0 flex-1 truncate text-[11.5px] text-dim">
                         {q.name}
-                        {q.email ? `　${q.email}` : ""}
+                        {q.email ? `　${emailLabel(q.email)}` : ""}
                         {q.at && <span className="ml-1 text-[10.5px] text-dim2">{day(q.at)}</span>}
                       </div>
                       {(st.freeSeats[g.courseId] ?? 0) > 0 && (
@@ -507,7 +508,7 @@ export function AdminClient() {
             {st.quals.map((q) => (
               <div key={q.userId} className="rounded-lg border border-line bg-panel p-3" data-testid="admin-qual-req">
                 <div className="text-[14px] font-black">{q.name}</div>
-                {q.email && <div className="mt-0.5 truncate text-[11px] text-dim2">{q.email}</div>}
+                {q.email && <div className="mt-0.5 truncate text-[11px] text-dim2">{emailLabel(q.email)}</div>}
                 <div className="mt-2 grid gap-2">
                   {q.items.map((it) => (
                     <div key={it.id} className="rounded border border-line bg-bg p-2.5">
@@ -566,7 +567,7 @@ export function AdminClient() {
               <div key={q.userId} className="flex items-center gap-2 rounded-lg border border-line bg-bg p-2.5">
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-[13px] font-bold">{q.name}</div>
-                  {q.email && <div className="truncate text-[10.5px] text-dim2">{q.email}</div>}
+                  {q.email && <div className="truncate text-[10.5px] text-dim2">{emailLabel(q.email)}</div>}
                 </div>
                 <button
                   className="shrink-0 rounded border border-line px-2.5 py-1.5 text-[11px] text-dim"

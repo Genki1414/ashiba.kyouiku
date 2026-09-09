@@ -42,6 +42,7 @@ type Health = {
     /** LINE でログインできるか */
     lineLogin?: boolean;
     lineMenu?: boolean;
+    lineHook?: boolean;
     resetEnv: boolean;
     resetDefault: string;
     here: string;
@@ -404,8 +405,16 @@ export function SetupClient() {
                        断られる。押す前にここで分かるようにする */
                     [
                       "リッチメニュー（LINE_MENU_TOKEN）",
-                      h.sell.lineMenu ? "設定済み（運営管理のLINEから配れます）" : "未設定（メニューを配れません）",
+                      h.sell.lineMenu ? "設定済み（運営管理のLINEから配れます。知らせもこの鍵で送ります）" : "未設定（メニューを配れません）",
                       !!h.sell.lineMenu,
+                      false,
+                    ],
+                    /* LINE から受け取る鍵。運営が「設定」と送ると
+                       設定の様子が返る（docs/106） */
+                    [
+                      "LINEから受ける（LINE_BOT_SECRET）",
+                      h.sell.lineHook ? "設定済み（LINEに「設定」と送ると返します）" : "未設定（LINEから聞けません）",
+                      !!h.sell.lineHook,
                       false,
                     ],
                     ["カード払い（STRIPE_SECRET_KEY）", h.sell.stripeKey ? "設定済み" : "未設定（請求書払いのみ）", h.sell.stripeKey, false],

@@ -282,9 +282,24 @@ export function LoginClient() {
       {/* ── LINE で入る（0033）──
           現場の方はメールを持っていない・使わないことが多い。
           設定してある店にだけ出す（/api/health の lineLogin）。
-          ここが本命なので、**メールの欄より上**に置く */}
-      {line && mode !== "forgot" && (
+          ここが本命なので、**メールの欄より上**に置く。
+
+          **「パスワードを忘れた」でも出す**（docs/106。げんきさん
+          2026-09-09「パスワードリセットとかはどうするの？」）。
+          LINE で入った人にはパスワードが無く、メールも持っていない。
+          ここで隠すと、**決め直しの画面で行き止まりになる。**
+          押せばそのまま入れるので、隠す理由が無い */}
+      {line && (
         <div className="mt-5">
+          {mode === "forgot" && (
+            <p
+              className="mb-2.5 rounded-lg border border-line bg-panel p-3 text-[12px] leading-relaxed text-dim"
+              data-testid="login-forgot-line"
+            >
+              LINEではじめた方は、パスワードがありません。
+              下の「LINEではじめる」を押せば、そのまま入れます。
+            </p>
+          )}
           <a
             href={`/api/line/login?next=${encodeURIComponent(next)}`}
             className="block rounded-lg bg-[#06C755] p-3.5 text-center text-[15px] font-extrabold text-white no-underline"

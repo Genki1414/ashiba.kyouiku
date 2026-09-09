@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { emailLabel } from "@/lib/lineEmail";
 
 /* 3年たった記録の、個人の部分を消す。
 
@@ -118,7 +119,7 @@ export function RetentionClient({ onNote }: { onNote: (s: string) => void }) {
             data-testid="owner-retention-row"
           >
             <div className="text-[14px] font-black">{r.name || "（名前なし）"}</div>
-            {r.email && <div className="mt-0.5 truncate text-[11px] text-dim2">{r.email}</div>}
+            {r.email && <div className="mt-0.5 truncate text-[11px] text-dim2">{emailLabel(r.email)}</div>}
             <div className="mt-1 text-[11.5px] leading-relaxed text-dim2">
               最後の記録 {day(r.lastAt)}　／　保存期間は {day(r.until)} まで
               <br />
