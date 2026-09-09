@@ -171,8 +171,20 @@ webhook は注文の行を Supabase で「入金済み」に直すだけで、
 
 ### 5-4　ドメイン
 
-取ったドメインを `tokubetsu-kyouiku` に当てる。
-`ashiba-kyouiku-nkdr`（kyouiku.ashibase.jp）は**触らない**。
+**`tokubetsu-kyouiku.com`**（げんきさんが取得。2026-09-09）を
+`tokubetsu-kyouiku` に当てる。`ashiba-kyouiku-nkdr`（kyouiku.ashibase.jp）は**触らない**。
+
+当てるときに、3か所を同じ値にそろえる。1つでも欠けると、
+パスワード再設定のメールから戻ってきた人が弾かれる。
+
+| 所 | 値 |
+| --- | --- |
+| `src/content/brand.ts` の `TOKUBETSU.site` | `https://tokubetsu-kyouiku.com`（記入済み） |
+| Vercel の `NEXT_PUBLIC_SITE_URL` と `SITE_URL` | 同じ（Production） |
+| Supabase の Redirect URLs と Site URL | `https://tokubetsu-kyouiku.com/**` |
+
+DNS は Vercel の画面に出る値をそのまま入れる（apex は A、www は CNAME）。
+環境変数を入れたら **Redeploy**（`NEXT_PUBLIC_` は組み立てるときに焼き付く）。
 
 ### 5-5　出したあとの確かめ方
 

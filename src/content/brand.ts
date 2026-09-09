@@ -117,11 +117,17 @@ const TOKUBETSU: Brand = {
   notifyPrefix: "特別教育ドットコム",
   training: false,
   flatList: true,
-  /* **まだドメインを当てていない。**（げんきさんが取得済み、当てるのはこれから）
-     空のあいだは、いま開いている住所へ戻す。足場屋革命の住所は入れない。
-     ドメインを当てたら、ここと NEXT_PUBLIC_SITE_URL と
-     Supabase の許した住所の3つを合わせる。 */
-  site: "",
+  /* この店の本番の住所（げんきさんが取得。2026-09-09）。
+
+     **ここと合わせる所が2つある。**
+       ・Vercel（tokubetsu-kyouiku）の NEXT_PUBLIC_SITE_URL と SITE_URL
+       ・Supabase の許した戻り先（Redirect URLs）に https://…/**
+     どれかが欠けると、パスワード再設定のメールから戻ってきた人が弾かれる。
+     入れたあとは Redeploy が要る（NEXT_PUBLIC_ は組み立てるときに焼き付く）。
+
+     末尾に / は付けない（つなぐと // になる）。www は付けない
+     （apex に当てる。www で入った人は Vercel が apex へ寄せる）。 */
+  site: "https://tokubetsu-kyouiku.com",
 };
 
 const ALL: Record<BrandId, Brand> = { ashibaya: ASHIBAYA, tokubetsu: TOKUBETSU };

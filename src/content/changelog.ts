@@ -21,6 +21,14 @@ export type Release = {
 
 export const RELEASES: Release[] = [
   {
+    v: "2026-09-09-195",
+    d: "2026年9月9日",
+    title: "特別教育ドットコムのドメインを入れました",
+    items: [
+      { k: "追加", t: "**特別教育ドットコムの住所を tokubetsu-kyouiku.com にしました。**パスワード再設定のメールも、この住所へ戻ります。Vercel の環境変数（NEXT_PUBLIC_SITE_URL・SITE_URL）と、Supabase の戻り先に同じ住所を入れて、Redeploy してください" },
+    ],
+  },
+  {
     v: "2026-09-09-194",
     d: "2026年9月9日",
     title: "画面の下にメニューを付けました",
