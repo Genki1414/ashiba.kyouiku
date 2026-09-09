@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { BRAND } from "@/content/brand";
 
@@ -18,9 +18,34 @@ import { BRAND } from "@/content/brand";
    別のアカウント（げんきさん 2026-09-09）。押した先を間違えると、よその店の
    友だちに配ってしまうので、**どの店の画面かを先に出す。** */
 
+type St = {
+  linked: boolean;
+  lineUserId: string;
+  menuReady: boolean;
+  hookReady: boolean;
+};
+
 export function LineClient({ onNote }: { onNote: (s: string) => void }) {
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState("");
+  const [st, setSt] = useState<St | null>(null);
+  const [shown, setShown] = useState(false);
+
+  /* いまの様子。押す前に、結び付いているかが分かるように */
+  useEffect(() => {
+    fetch("/api/owner/line-menu")
+      .then((r) => r.json())
+      .then((j) => {
+        if (!j?.ok) return;
+        setSt({
+          linked: !!j.linked,
+          lineUserId: typeof j.lineUserId === "string" ? j.lineUserId : "",
+          menuReady: !!j.menuReady,
+          hookReady: !!j.hookReady,
+        });
+      })
+      .catch(() => {});
+  }, []);
 
   const send = async () => {
     setBusy(true);
@@ -73,6 +98,60 @@ export function LineClient({ onNote }: { onNote: (s: string) => void }) {
         >
           {busy ? "配っています…" : "このメニューを配る"}
         </button>
+
+        {/* ── LINE と結び付いているか（0034）──
+            「設定」と送っても返らないとき、理由がここで分かる。
+            番号は知らせの宛先（LINE_TO）に入れる値でもある */}
+        {st && (
+          <div className="mt-3 rounded-lg border border-line bg-bg p-2.5" data-testid="owner-line-link">
+            <div className="text-[12px] leading-relaxed text-dim">
+              このトークで「設定」と送ると、設定の様子が返ります。
+            </div>
+            {st.linked ? (
+              <>
+                <div className="mt-1.5 text-[12px] font-bold text-grn">
+                  この店のLINEと結び付いています
+                </div>
+                <button
+                  onClick={() => setShown((v) => !v)}
+                  className="mt-1.5 text-[11.5px] text-cyan underline"
+                  data-testid="owner-line-id-toggle"
+                >
+                  {shown ? "番号を隠す" : "自分のLINE番号を表示"}
+                </button>
+                {shown && (
+                  <div
+                    className="mt-1 break-all rounded border border-line bg-panel2 p-2 font-mono text-[11.5px] text-txt"
+                    data-testid="owner-line-id"
+                  >
+                    {st.lineUserId}
+                  </div>
+                )}
+                {shown && (
+                  <div className="mt-1 text-[11px] leading-relaxed text-dim2">
+                    知らせの宛先を店ごとに分けるときは、この番号を
+                    <span className="font-mono text-dim">LINE_TO</span>
+                    に入れてください。
+                    <span className="text-dim">番号は店ごとに違います。</span>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="mt-1.5 text-[12px] leading-relaxed text-org" data-testid="owner-line-unlinked">
+                この店のLINEと、まだ結び付いていません。
+                <br />
+                一度ログアウトして、ログイン画面の「LINEではじめる」で入り直すと結び付きます。
+                結び付くまでは、「設定」と送っても返りません。
+              </div>
+            )}
+            {!st.hookReady && (
+              <div className="mt-2 text-[11.5px] leading-relaxed text-org">
+                <span className="font-mono">LINE_BOT_SECRET</span>
+                が未設定です。Vercel に入れて Redeploy してください。
+              </div>
+            )}
+          </div>
+        )}
 
         {done && (
           <div className="mt-2 text-[12px] leading-relaxed text-grn" data-testid="owner-line-done">{done}</div>

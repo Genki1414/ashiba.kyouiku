@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { currentOwner } from "@/lib/owner";
+import { currentUser } from "@/lib/supabase/session";
+import { lineIdOf } from "@/lib/lineBot.server";
 import { MENU_IMAGE_PATH, lineMenuReady, richMenuBody } from "@/lib/line";
 import { siteUrl } from "@/lib/siteUrl";
 import { BRAND } from "@/content/brand";
@@ -20,6 +22,36 @@ import { BRAND } from "@/content/brand";
    LINE_MENU_TOKEN（Messaging API のチャネルアクセストークン・長期）。
    **NEXT_PUBLIC_ を付けない。**付けると画面に埋まって、誰でも
    その公式アカウントから送れるようになる。 */
+
+/* ── いまの様子（GET）──
+
+   げんきさん（2026-09-09）「設定が帰ってこない」。
+
+   LINE のトークに「設定」と送っても返らないとき、**理由が画面に出ない。**
+   運営として結び付いていないのか、鍵が入っていないのかが分からない。
+   ここで出す。
+
+   **この店での自分の LINE 番号**も返す（運営だけ）。
+   知らせの宛先（LINE_TO）に入れる値がこれなので、
+   店を分けるときに、ここから写せる。 */
+export async function GET() {
+  if (!(await currentOwner())) {
+    return NextResponse.json({ ok: false, reason: "運営のみが利用できます。" }, { status: 403 });
+  }
+  const user = await currentUser();
+  const lineUserId = user?.id ? await lineIdOf(user.id) : "";
+  return NextResponse.json({
+    ok: true,
+    brand: BRAND.id,
+    brandName: BRAND.shortName,
+    /* 送る鍵・受ける鍵。入っているかどうかだけ */
+    menuReady: lineMenuReady(),
+    hookReady: !!(process.env.LINE_BOT_SECRET ?? "").trim(),
+    /* この店で、自分の LINE が結び付いているか */
+    linked: !!lineUserId,
+    lineUserId,
+  });
+}
 
 const API = "https://api.line.me/v2/bot/richmenu";
 const DATA = "https://api-data.line.me/v2/bot/richmenu";

@@ -66,7 +66,9 @@ console.log("── 危ない所 ──");
 
   const cb = strip(read("src/app/auth/line/route.ts"));
   check(/state !== saved/.test(cb), "戻ってきた state を必ず確かめる");
-  check(/line_user_id/.test(cb), "LINE 番号で利用者を探す");
+  /* 0034 で、番号は line_links（人と店の組）に移した。
+     ここでは userByLineId が店を添えて引く */
+  check(/userByLineId\(who\.sub\)/.test(cb), "LINE 番号で利用者を探す（店を添えて）");
   check(/generateLink/.test(cb) && /verifyOtp/.test(cb), "1回きりの合図をログインに引き換える");
   check(!/console\.log/.test(cb), "途中の中身を書き出していない");
   /* 氏名は修了証に載る。LINE の表示名は本名とは限らない */
@@ -171,6 +173,38 @@ console.log("── LINE から受ける（docs/106）──");
   check(!/\$\{\s*process\.env\./.test(ops), "鍵の値を本文に混ぜない");
   check(!/priceOverrides/.test(ops), "値段の上書きは返さない");
   check(/NEED_SCHEMA/.test(ops), "版が足りているかを出す");
+}
+
+console.log("── 紐付けは店ごと（0034）──");
+{
+  /* げんきさん（2026-09-09）
+       「足場屋革命でLINE登録したあとに、特別教育ドットコムでも
+         LINE登録したら重複してしまってる」
+     番号はプロバイダーごとなので、店が違えば同じ人でも番号が違う。
+     1つの欄に入れていたので、二つの店で入ると人が二人になっていた */
+  const bot = read("src/lib/lineBot.server.ts");
+  check(/from\("line_links"\)/.test(bot), "紐付けは line_links から引く");
+  check(!/eq\("line_user_id"[\s\S]{0,80}from\("users"\)/.test(bot), "users の欄はもう見ない");
+  check((bot.match(/\.eq\("brand", BRAND\.id\)/g) ?? []).length >= 2, "引くときは必ず店を添える");
+  check(/onConflict: "user_id,brand"/.test(bot), "同じ人・同じ店は入れ替える（二重に作らない）");
+
+  const cb = read("src/app/auth/line/route.ts");
+  check(/currentUser\(\)/.test(cb), "すでに入っている人には、その人に結び足す");
+  check(cb.indexOf("currentUser()") < cb.indexOf("createUser"), "作る前に、いまの人を見る");
+  check(!/line_user_id: who\.sub/.test(cb), "users の欄を書き換えない");
+
+  /* 入っている人がつなぐ入り口。ログイン画面は入っている人が開けないので、
+     マイページに置く（げんきさん「元々のアカウントにLINEを接続したい」） */
+  const me = read("src/app/me/MeClient.tsx");
+  check(/me-line-link/.test(me), "マイページに「LINEをつなぐ」がある");
+  check(/api\/line\/login\?next=%2Fme/.test(me), "つないだらマイページへ戻る");
+  check(/me-line-on/.test(me), "つながっているときは、そう出す");
+  const my = read("src/app/api/mypage/route.ts");
+  check(/lineLinked/.test(my), "つながっているかを返す");
+
+  const owner = read("src/app/owner/LineClient.tsx");
+  check(/owner-line-unlinked/.test(owner), "運営の画面に、結び付いていないときの理由が出る");
+  check(/owner-line-id/.test(owner), "自分の番号を出せる（LINE_TO に写すため）");
 }
 
 console.log("── 仮のメールを画面に出さない（docs/106）──");

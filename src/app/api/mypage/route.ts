@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { lineIdOf } from "@/lib/lineBot.server";
+import { lineLoginReady } from "@/lib/line";
 import { heldCourseIds } from "@/lib/held";
 import { getServiceClient } from "@/lib/supabase/server";
 import { currentUser } from "@/lib/supabase/session";
@@ -132,9 +134,16 @@ export async function GET() {
      （げんきさん 2026-09-09）。修了証はこの上の cert が持っている */
   const heldOutside = (await heldCourseIds(supabase, [user.id])).get(user.id) ?? [];
 
+  /* この店の LINE と結び付いているか（0034）。
+     **店ごとに違う。**足場屋革命-教育で結んでいても、
+     特別教育ドットコムでは別に結ぶことになる */
+  const lineLinked = !!(await lineIdOf(user.id));
+
   return NextResponse.json({
     ok: true,
     held: heldOutside,
+    lineReady: lineLoginReady(),
+    lineLinked,
     name: (me?.name as string) ?? "",
     email: (me?.email as string) ?? user.email ?? "",
     birth: (me?.birth_date as string) ?? "",

@@ -1,5 +1,6 @@
 import "server-only";
 import { getServiceClient } from "@/lib/supabase/server";
+import { BRAND } from "@/content/brand";
 import { LINE_PUSH_URL, LINE_REPLY_URL, checkLine } from "./lineBot";
 
 /* 公式アカウントから送る・届いたものを確かめる。鍵を使うのでサーバだけ。
@@ -13,7 +14,14 @@ import { LINE_PUSH_URL, LINE_REPLY_URL, checkLine } from "./lineBot";
 
 const token = () => (process.env.LINE_MENU_TOKEN ?? "").trim();
 
-/** その人の LINE 番号。結んでいなければ空 */
+/* ── 番号は店ごと（0034）───────────────────
+
+   足場屋革命-教育と特別教育ドットコムは、別のプロバイダーにある。
+   LINE の利用者番号はプロバイダーごとに決まるので、
+   **同じ人でも、店が違えば番号が違う。**
+   だから line_links（人と店の組）で引く。 */
+
+/** この店での、その人の LINE 番号。結んでいなければ空 */
 export async function lineIdOf(userId: string | null | undefined): Promise<string> {
   const id = (userId ?? "").trim();
   if (!id) return "";
@@ -21,9 +29,10 @@ export async function lineIdOf(userId: string | null | undefined): Promise<strin
   if (!supabase) return "";
   try {
     const { data, error } = await supabase
-      .from("users")
+      .from("line_links")
       .select("line_user_id")
-      .eq("id", id)
+      .eq("user_id", id)
+      .eq("brand", BRAND.id)
       .maybeSingle();
     if (error) return "";
     return (data?.line_user_id as string | null) ?? "";
@@ -32,7 +41,11 @@ export async function lineIdOf(userId: string | null | undefined): Promise<strin
   }
 }
 
-/** LINE 番号から、この仕組みの利用者を引く。運営かどうかを見るのに使う */
+/** この店の LINE 番号から、利用者を引く。運営かどうかを見るのに使う。
+
+    **店を必ず添える。**添えないと、よその店で同じ番号を使っている
+    別人に当たりうる（番号はプロバイダーごとなので、
+    たまたま同じ字になることがある） */
 export async function userByLineId(
   lineUserId: string | null | undefined,
 ): Promise<{ id: string; email: string } | null> {
@@ -42,14 +55,43 @@ export async function userByLineId(
   if (!supabase) return null;
   try {
     const { data, error } = await supabase
-      .from("users")
-      .select("id, email")
+      .from("line_links")
+      .select("user_id")
+      .eq("brand", BRAND.id)
       .eq("line_user_id", line)
       .maybeSingle();
     if (error || !data) return null;
-    return { id: String(data.id), email: String(data.email ?? "") };
+    const { data: u, error: e2 } = await supabase
+      .from("users")
+      .select("id, email")
+      .eq("id", String(data.user_id))
+      .maybeSingle();
+    if (e2 || !u) return null;
+    return { id: String(u.id), email: String(u.email ?? "") };
   } catch {
     return null;
+  }
+}
+
+/** この店と、その人を結ぶ。すでにあれば入れ替える（同じ人・同じ店） */
+export async function linkLine(userId: string, lineUserId: string): Promise<boolean> {
+  const supabase = getServiceClient();
+  if (!supabase) return false;
+  try {
+    const { error } = await supabase
+      .from("line_links")
+      .upsert(
+        { user_id: userId, brand: BRAND.id, line_user_id: lineUserId },
+        { onConflict: "user_id,brand" },
+      );
+    if (error) {
+      console.error("LINE の紐付けに失敗:", error.message);
+      return false;
+    }
+    return true;
+  } catch (e) {
+    console.error("LINE の紐付けに失敗:", e instanceof Error ? e.message : e);
+    return false;
   }
 }
 

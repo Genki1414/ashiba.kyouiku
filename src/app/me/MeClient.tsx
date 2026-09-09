@@ -51,6 +51,10 @@ type Loaded = {
   learning: Learn[];
   /** 外部で取得した資格のうち、この仕組みの講座に当たるもの */
   held?: string[];
+  /** この店で LINE を使えるか（設定してあるか） */
+  lineReady?: boolean;
+  /** この店の LINE と結び付いているか。**店ごとに違う** */
+  lineLinked?: boolean;
 };
 
 const day = (iso: string) => {
@@ -270,6 +274,46 @@ export function MeClient() {
           </>
         )}
       </div>
+
+      {/* ── LINE をつなぐ（0034）──
+
+          げんきさん（2026-09-09）「元々のアカウントにLINEを接続したい」。
+
+          **入り口はここしか無い。**ログイン画面の「LINEではじめる」は
+          入っていない人のためのもので、入っている人は開けない
+          （見張りがログイン画面から追い返す）。
+          先にメールで作ったアカウントに LINE を足す道が無かった。
+
+          番号は**店ごとに違う**ので、二つの店を使う人は両方でつなぐ。
+          つないでおくと、受講コードや修了証の知らせが LINE に届く */}
+      {st.lineReady && (
+        <div className="mt-4 rounded-xl border border-line bg-panel p-4" data-testid="me-line">
+          <div className="mb-1 text-[11px] tracking-[2px] text-dim">LINE</div>
+          {st.lineLinked ? (
+            <div className="text-[12.5px] leading-relaxed text-grn" data-testid="me-line-on">
+              このアカウントとLINEがつながっています。受講コードや修了証の知らせが、LINEに届きます。
+            </div>
+          ) : (
+            <>
+              <p className="text-[12.5px] leading-relaxed text-dim">
+                つないでおくと、受講コードが配られたときや修了証が出たときに、
+                <span className="text-txt">LINEに知らせが届きます。</span>
+                次からはLINEだけで入れます。
+              </p>
+              <a
+                href="/api/line/login?next=%2Fme"
+                className="mt-3 block rounded-lg bg-[#06C755] p-3 text-center text-[14px] font-extrabold text-white no-underline"
+                data-testid="me-line-link"
+              >
+                LINEをつなぐ
+              </a>
+              <div className="mt-1.5 text-[11px] leading-relaxed text-dim2">
+                いまのアカウントに足すだけです。新しく作り直しません。
+              </div>
+            </>
+          )}
+        </div>
+      )}
 
       {/* 所属 */}
       <div className="mt-3 rounded-xl border border-line bg-panel p-4" data-testid="me-member">
