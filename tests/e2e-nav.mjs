@@ -29,38 +29,22 @@ const dismiss = async () => {
   if (await b.count()) { await b.click(); await page.waitForTimeout(200); }
 };
 
-/* ── お知らせは、閉じたら二度と出ない ── */
+/* ── お知らせは、自分からは出ない ── */
 await page.goto(`${BASE}/`);
+await page.waitForTimeout(800);
 {
-  const notice = page.getByTestId("update-notice");
-  await notice.waitFor({ timeout: 4000 }).catch(() => {});
-  check((await notice.count()) === 1, "はじめて開いた人には、お知らせが出る");
-  await dismiss();
-  check((await page.getByTestId("update-notice").count()) === 0, "閉じたら消える");
-  /* 別の画面へ行っても、開き直しても出ない */
-  await page.goto(`${BASE}/me`);
+  /* **画面をふさぐ知らせは出さない**（げんきさん 2026-09-09）。
+     読みたいときは、ホームの下の入口から /updates を開く */
+  check((await page.getByTestId("update-notice").count()) === 0, "知らせが画面をふさがない");
+  const link = page.locator('a[href="/updates"]');
+  check((await link.count()) >= 1, "ホームに「更新のお知らせ」の入口がある");
+  await page.goto(`${BASE}/updates`);
   await page.waitForTimeout(400);
-  check((await page.getByTestId("update-notice").count()) === 0, "別の画面でも出ない");
+  const t = (await page.locator("body").innerText()).replace(/\s/g, "");
+  check(t.includes("更新のお知らせ") || t.includes("更新"), "入口の先に、更新が並んでいる");
   await page.goto(`${BASE}/`);
-  await page.waitForTimeout(400);
-  check((await page.getByTestId("update-notice").count()) === 0, "開き直しても出ない");
-  console.log("OK: お知らせは、一度閉じたら自分からは出ない");
-}
-
-/* ── 前の版で一度閉じた人にも、もう出ない ── */
-{
-  const ctx = await browser.newContext({ viewport: { width: 390, height: 900 } });
-  const p2 = await ctx.newPage();
-  await p2.route("**/api/me", (route) =>
-    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(who) }));
-  /* 印（update-ack）が付く前の版で閉じた人。閉じた版だけを覚えている */
-  await p2.goto(`${BASE}/`);
-  await p2.evaluate(() => localStorage.setItem("ashiba.seen-update", "2026-01-01-1"));
-  await p2.goto(`${BASE}/`);
-  await p2.waitForTimeout(800);
-  check((await p2.getByTestId("update-notice").count()) === 0, "前の版で閉じた人にも出ない");
-  await ctx.close();
-  console.log("OK: 前に閉じたことがある人には、もう出ない");
+  await page.waitForTimeout(500);
+  console.log("OK: 知らせは押しに行く形（画面をふさがない）");
 }
 
 /* ── 下の行き先 ── */

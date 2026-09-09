@@ -65,32 +65,9 @@ export function HomeCards() {
   /* 申し込んだが、まだ許可が下りていない。
      ここを「会社とつなぐ」と出すと、押しても同じ画面に戻るだけで、
      自分が進んだのかどうか分からない */
-  /* 届いている請求書。払ってもらわないと受講コードが出ないので、
-     やることの中でいちばん上に置く */
-  const bills = me.bills ?? [];
-  if (bills.length) {
-    const total = bills.reduce((n, b) => n + (b.amount ?? 0), 0);
-    cards.push(
-      <Link
-        key="bill"
-        /* 2件以上なら一覧へ。1件目だけ開いて、2件目に気づかないと困る */
-        href={bills.length > 1 ? "/invoices" : `/invoice/${bills[0].id}`}
-        className="block rounded-xl border border-yel bg-[#1A1F14] p-4 no-underline"
-        data-testid="home-bill"
-      >
-        <div className="text-[11px] font-extrabold tracking-widest text-yel">請求書</div>
-        <div className="mt-1 text-[15px] font-black text-txt">
-          請求書が届いています
-          {bills.length > 1 ? `（${bills.length}件）` : ""}
-        </div>
-        <div className="mt-1 text-[12px] leading-relaxed text-dim">
-          お振込みの金額は {total.toLocaleString("ja-JP")}円（税込）です。
-          <br />
-          お振込みの確認後、受講コードが出ます。
-        </div>
-      </Link>,
-    );
-  }
+  /* 届いている請求書は、**「はじめかた」のすぐ下**に出す（BillCard）。
+     いちばん急ぐ用なので、ここ（画面の下のほう）では遅い
+     （げんきさん 2026-09-09） */
 
   if (me.member === "pending") {
     cards.push(

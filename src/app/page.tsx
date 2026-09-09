@@ -4,6 +4,7 @@ import { loadedCourses } from "@/lib/curriculum";
 import { AccountBar } from "@/components/AccountBar";
 import { HomeCards } from "@/components/HomeCards";
 import { FirstSteps } from "@/components/FirstSteps";
+import { BillCard } from "@/components/BillCard";
 import { Notices } from "@/components/Notices";
 import { OtherTokubetsu } from "@/components/OtherTokubetsu";
 import { CourseDrawer } from "@/components/CourseDrawer";
@@ -65,6 +66,10 @@ export default async function Home() {
         <Notices />
 
         <FirstSteps />
+
+        {/* 届いている請求書。**はじめかたのすぐ下。**
+            払ってもらわないと受講コードが出ないので、いちばん急ぐ */}
+        <BillCard />
 
         {/* 講座の並べ方は店で変わる（src/content/brand.ts）。
 

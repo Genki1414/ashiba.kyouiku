@@ -804,7 +804,9 @@ console.log("── 請求書を相手にも見せる ──");
   check(/invoice-send/.test(inv), "本部の画面に「相手に知らせる」がある");
   check(/!mine &&/.test(inv), "買った側の画面には出さない");
 
-  const home = read("src/components/HomeCards.tsx");
+  /* 請求書の札は BillCard（ホームの「はじめかた」のすぐ下）。
+     いちばん急ぐ用なので、ほかの札の並びから外してある（2026-09-09） */
+  const home = read("src/components/BillCard.tsx");
   check(/home-bill/.test(home), "買った側のホームに「請求書が届いています」を出す");
   check(/\/invoice\/\$\{bills\[0\]\.id\}/.test(home), "押すと、その請求書が開く");
 }
@@ -1205,7 +1207,7 @@ console.log("── 請求書の一覧と、紙にしたときの形 ──");
   check(/href=\{`\/invoice\/\$\{e\.id\}`\}/.test(cl), "開く先は買った側の請求書");
   const oc = read("src/app/order/OrderClient.tsx");
   check(/href="\/invoices"/.test(oc), "申込みの画面から一覧へ行ける");
-  const hc = read("src/components/HomeCards.tsx");
+  const hc = read("src/components/BillCard.tsx");
   check(/bills\.length > 1 \? "\/invoices"/.test(hc), "請求書が2件以上なら、ホームの札は一覧へ");
 }
 
@@ -1279,10 +1281,11 @@ console.log("── 下の行き先と、お知らせの出し方 ──");
        「画面下部にメニュー表示して固定する」
        「マイページ…実際に受講可能な講座のみを表示する」
        「取得済みの資格講座をたっぷすると『取得済みのため受講不要』と表示させる」 */
+  /* 知らせで画面をふさがない。読みたいときに /updates を開く */
   const un = read("src/components/UpdateNotice.tsx");
-  check(/ACK = "ashiba\.update-ack"/.test(un), "一度閉じたことを覚える");
-  check(/if \(ack \|\| seen\) return;/.test(un),
-    "閉じたあとは、自分からは出ない（印が付く前に閉じた人にも効く）");
+  check(/return null;/.test(un) && !/fixed inset-0/.test(un), "知らせは自分からは出さない");
+  const home = read("src/app/page.tsx");
+  check(/href="\/updates"/.test(home), "ホームに「更新のお知らせ」の入口がある");
 
   const nav = read("src/components/BottomNav.tsx");
   check(/fixed inset-x-0 bottom-0/.test(nav), "下に固定する");
@@ -1297,6 +1300,10 @@ console.log("── 下の行き先と、お知らせの出し方 ──");
   check(!/owner: true/.test(nav) && /loadMe\(\)/.test(nav), "立場は /api/me が返すものを使う");
   const hc = read("src/components/HomeCards.tsx");
   check(/!me\.admin && !me\.owner/.test(hc), "配る側には「受講するには」を出さない");
+  /* 請求書は、いちばん急ぐ用。**はじめかたのすぐ下**に出す */
+  check(!/data-testid="home-bill"/.test(hc), "請求書の札は、下のほうの並びから外してある");
+  check(/<BillCard \/>/.test(home) && home.indexOf("<BillCard") > home.indexOf("<FirstSteps"),
+    "請求書は、はじめかたのすぐ下に出る");
 
   const me = read("src/app/me/MeClient.tsx");
   check(/c\.hasSeat \|\| c\.started \|\| c\.cert \|\| held\.has\(c\.courseId\)/.test(me),
