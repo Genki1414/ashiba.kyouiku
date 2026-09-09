@@ -54,9 +54,35 @@ Supabase のログインに LINE は入っていない。だから橋を自分�
 **チャネルは店ごとに分ける。**同じチャネルを使い回すと、特別教育ドットコムで
 入った人が足場屋革命の公式アカウントの友だちになる。
 
+## リッチメニュー
+
+`npx tsx scripts/line-richmenu.ts` で作る。画像も自動で描く（Chromium で
+描いて撮るので、絵の道具は足していない）。
+
+```sh
+# 画像だけ見る（LINE には送らない）
+NEXT_PUBLIC_SITE_URL=https://www.tokubetsu-kyouiku.com npx tsx scripts/line-richmenu.ts --dry
+
+# 作って、友だち全員の既定にする
+LINE_MENU_TOKEN=… NEXT_PUBLIC_SITE_URL=https://www.tokubetsu-kyouiku.com   npx tsx scripts/line-richmenu.ts
+```
+
+`LINE_MENU_TOKEN` は、その店の LINE 公式アカウントの **Messaging API の
+チャネルアクセストークン（長期）**。1回流せば反映される。
+
+押す所は3つ。**小さい札を6つ並べても、手袋をした指では押せない。**
+
+| 札 | 行き先 |
+| --- | --- |
+| 受講する | `/edu` |
+| 受講コード | `/join` |
+| マイページ | `/me` |
+
+教育担当者だけに別のメニューを出すこともできる（LINE は人ごとにメニューを
+差し替えられる）。使う人が増えてからでよい。
+
 ## まだやっていない
 
-- リッチメニュー（Messaging API で作る。画像と、押した所の行き先を決める）
 - LINE への通知（受講リクエスト・請求書・受講コード・修了証）。
   いまの通知は運営宛の1本だけ（`src/lib/notify.server.ts`）
 - LIFF（LINE の中でアプリを開く）。**本人確認のカメラが動くか要検証。**
