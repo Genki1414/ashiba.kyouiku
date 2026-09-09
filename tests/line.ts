@@ -86,6 +86,10 @@ console.log("── リッチメニュー ──");
   check(/richMenuBody\(site, BRAND\.shortName\)/.test(api), "行き先は、この店の住所");
   const ui = read("src/app/owner/LineClient.tsx");
   check(/richmenu\.png/.test(ui), "押す前に、出来上がりを見せる");
+  /* 公式アカウントは店ごとに別（げんきさん 2026-09-09）。
+     押す前に、どちらの店に配るのかが出ていないと、よその友だちに配ってしまう */
+  check(/BRAND\.shortName/.test(ui), "配る先の店の名前を出す");
+  check(/owner-line-brand/.test(ui), "配る先の案内が、目印付きで出ている");
 }
 
 console.log(`\n${ok} 件通過 / ${ng} 件失敗`);

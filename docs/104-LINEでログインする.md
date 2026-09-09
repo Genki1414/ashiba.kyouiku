@@ -63,6 +63,13 @@ Vercel では絵を描く道具（Chromium）が動かないので、画像は�
 先に、LINE公式アカウントの Messaging API でチャネルアクセストークン（長期）を
 発行し、Vercel の環境変数 `LINE_MENU_TOKEN` に入れて Redeploy する。
 
+**公式アカウントも店ごとに別。**足場屋革命-教育と特別教育ドットコムは、別の
+LINE公式アカウント（げんきさん 2026-09-09）。だから `LINE_MENU_TOKEN` は
+Vercel のプロジェクトごとに違う値が入る。運営管理の「LINE」で押したときは、
+その画面を開いている店の公式アカウントにだけメニューが配られる。行き先も
+その店の住所になる（`richMenuBody(site, …)`）。**片方で押しても、もう片方には
+配られない。**両方に出したいときは、両方の運営管理で押す。
+
 絵を作り直したいとき（札の名前や行き先を変えたとき）だけ、手元で流す。
 
 ```sh
@@ -96,5 +103,5 @@ LINE_MENU_TOKEN=… NEXT_PUBLIC_SITE_URL=https://www.tokubetsu-kyouiku.com   npx
 
 ## 見張り
 
-- `npx tsx tests/line.ts` 27件（URLの組み立て・仮のメール・危ない所）
+- `npx tsx tests/line.ts` 36件（URLの組み立て・仮のメール・危ない所）
 - `supabase/apply-all.sql` は 0033

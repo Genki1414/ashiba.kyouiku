@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 
+import { BRAND } from "@/content/brand";
+
 /* LINE の設定。運営だけ。
 
    いまここで押せるのは1つ。**リッチメニューを配る**。
@@ -10,7 +12,11 @@ import { useState } from "react";
 
    絵は手元で作って public/richmenu.png に置いてある。
    ここは、それを LINE に送って「友だち全員の既定」にするだけ
-   （げんきさん 2026-09-09。パソコンでコマンドを流さずに済むように）。 */
+   （げんきさん 2026-09-09。パソコンでコマンドを流さずに済むように）。
+
+   **公式アカウントは店ごとに別。**足場屋革命-教育と特別教育ドットコムは
+   別のアカウント（げんきさん 2026-09-09）。押した先を間違えると、よその店の
+   友だちに配ってしまうので、**どの店の画面かを先に出す。** */
 
 export function LineClient({ onNote }: { onNote: (s: string) => void }) {
   const [busy, setBusy] = useState(false);
@@ -41,6 +47,15 @@ export function LineClient({ onNote }: { onNote: (s: string) => void }) {
           <span className="text-txt">受講する／受講コード／マイページ</span>の3つで、
           押すとこの仕組みが開きます。現場の方が「どこから入るか」で迷わなくなります。
         </p>
+
+        {/* 店ごとに公式アカウントが違う。どこへ配るのかを先に出す */}
+        <div
+          className="mt-3 rounded-lg border border-line bg-bg p-2.5 text-[12px] leading-relaxed text-dim"
+          data-testid="owner-line-brand"
+        >
+          配る先は<span className="text-txt">{BRAND.shortName}</span>のLINE公式アカウントです。
+          もう一方の店には配られません。両方に出すときは、それぞれの運営管理で押してください。
+        </div>
 
         {/* 出来上がりを先に見せる。押す前に中身が分かる */}
         <img
