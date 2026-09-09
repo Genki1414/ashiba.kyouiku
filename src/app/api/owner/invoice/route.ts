@@ -97,7 +97,7 @@ export async function GET(req: NextRequest) {
      **どの請求書の入金か分からなくなる。** */
   const { data: rows } = await supabase
     .from("orders")
-    .select("id, course_id, kind, seats, unit_price, amount, created_at")
+    .select("id, course_id, kind, seats, unit_price, amount, discount, coupon_id, created_at")
     .eq("group_id", (o.group_id as string) ?? (o.id as string))
     .order("created_at", { ascending: true });
   /* 版が古くて group_id がまだ無いときは、開いた1行だけで出す。
@@ -109,25 +109,51 @@ export async function GET(req: NextRequest) {
       ? "実務トレーニング 利用権（第2章以降）"
       : `${findCourse((r.course_id as string) ?? "")?.short ?? "特別教育"} 受講コード`;
 
-  const items = group.map((r) => {
+  const items = group.map((row) => {
+    /* 開いた1行だけで出すとき（版が古い）と、group で引いたときで
+       形が違う。読むときにそろえる */
+    const r = row as Record<string, unknown>;
     const a = (r.amount as number) ?? 0;
-    const n = Math.round(a / (1 + TAX_RATE));
+    /* 税込から割り戻す。注文を作ったときの計算と食い違わせない */
+    const after = Math.round(a / (1 + TAX_RATE));
+    /* 値引き（0032）。明細に出すのは**値引き前**の額。
+       値引きは1行にまとめて下に出す。行ごとに引いた額を並べると、
+       「単価×数量」と行の金額が合わない請求書になる */
+    const off = (r.discount as number) ?? 0;
     return {
-      what: nameOf(r as Record<string, unknown>),
+      what: nameOf(r),
       qty: (r.seats as number) ?? 1,
       unit: (r.unit_price as number) ?? 0,
-      net: n,
-      tax: a - n,
+      net: after + off,
+      tax: a - after,
       amount: a,
+      discount: off,
     };
   });
 
   const amount = items.reduce((n, i) => n + i.amount, 0);
-  /* 税込から割り戻す。注文を作ったときの計算と食い違わせない。
+  /* 小計は値引き前（明細を足したもの）。
      **行ごとに割り戻してから足す。**合計から割り戻すと、
      行の税額を足したものと1円ずれることがある */
-  const net = items.reduce((n, i) => n + i.net, 0);
+  const gross = items.reduce((n, i) => n + i.net, 0);
+  const discount = items.reduce((n, i) => n + i.discount, 0);
+  const net = gross - discount;
   const tax = amount - net;
+
+  /* 使ったクーポンの名前。請求書に「値引き（◯◯協会）」と出す。
+     **広告費は出さない。**買った側に見せる話ではない */
+  let couponName = "";
+  const couponId = (group as Record<string, unknown>[]).find((r) => r.coupon_id)?.coupon_id as
+    | string
+    | undefined;
+  if (couponId) {
+    const { data: cp } = await supabase
+      .from("coupons")
+      .select("name")
+      .eq("id", couponId)
+      .maybeSingle();
+    couponName = (cp?.name as string) ?? "";
+  }
 
   const what = items.length === 1
     ? items[0].what
@@ -147,6 +173,10 @@ export async function GET(req: NextRequest) {
       items,
       qty: (o.seats as number) ?? 1,
       unit: (o.unit_price as number) ?? 0,
+      /* 値引き前の小計と、値引き（0032）。値引きが無ければ 0 */
+      gross,
+      discount,
+      couponName,
       net,
       tax,
       amount,

@@ -1206,5 +1206,66 @@ console.log("── 請求書の一覧と、紙にしたときの形 ──");
   check(/bills\.length > 1 \? "\/invoices"/.test(hc), "請求書が2件以上なら、ホームの札は一覧へ");
 }
 
+console.log("── クーポンと広告費（0032）──");
+{
+  /* げんきさん（2026-09-09）
+       「紹介クーポンや業界団体向けクーポンを出すことになる」
+       「どのクーポンが利用されて、どのくらいの売上になってるかも把握したい」
+       「広告費としてクーポン利用売上の何%かを支払いしようと思ってる」
+     決めたこと：値引きは率と定額の両方、広告費は**割引後の税抜 ×％**。
+     計算の中身は tests/coupon.ts と supabase/tests/coupon.sql が見ている */
+  const m32 = read("supabase/migrations/0032_coupon.sql");
+  check(/create table if not exists public\.coupon_uses/.test(m32), "使われた記録を残している");
+  check(/group_id\s+uuid not null unique/.test(m32), "申込みまるごとに1枚（同じ申込みに2枚使えない）");
+  /* 使った時の率を焼き付ける。あとで率を変えても、過去の約束は動かない */
+  check(/reward_rate int not null check/.test(m32), "使った時の率を記録に焼き付けている");
+  check(/\(p_gross - chk\.discount\) \* chk\.reward_rate\) \/ 100/.test(m32),
+    "広告費は割引後の税抜に率を掛ける");
+  check(/o\.status <> 'cancelled'/.test(m32), "取り消した申込みは、使った回数に数えない");
+  check(/constraint coupons_one_kind/.test(m32), "率と定額は、どちらか一方だけ");
+
+  /* 値引きの式は SQL と画面の両方にある。**片方だけ直すと、
+     見せた金額と請求する金額が食い違う** */
+  const lib = read("src/lib/coupon.ts");
+  check(/Math\.floor\(\(g \* pct\) \/ 100\)/.test(lib), "率の端数は切り捨て（SQL と同じ）");
+  check(/Math\.min\(d, g\)/.test(lib), "値引きは割引前を超えない（SQL と同じ）");
+  check(/export function spreadDiscount/.test(lib), "値引きを講座ごとの行に配る");
+
+  const api = read("src/app/api/order/route.ts");
+  check(/rpc\("use_coupon"/.test(api), "引くかどうかは SQL が決める（画面の額を信じない）");
+  check(/spreadDiscount\(lines\.map/.test(api), "値引きを行に配ってから入れている");
+  check(/release_coupon_use/.test(api), "注文を作れなかったら、クーポンを使ったことにしない");
+  check(/\.\.\.\(couponId \? \{ coupon_id: couponId/.test(api),
+    "クーポンを使ったときだけ列を足す（版が古くても今までどおり通る）");
+
+  const pre = read("src/app/api/coupon/route.ts");
+  check(/currentAdmin\(\)/.test(pre), "教育担当者でなければ断る");
+  check(/unitPrice\(course\.id\)/.test(pre), "単価はサーバが持っているものを使う");
+  check(!/b\.gross|b\.amount|b\.total/.test(pre), "金額を画面から受け取らない");
+  /* 広告費の率は買う側に見せる話ではない */
+  check(!/reward/.test(strip(pre)), "買う側に広告費を返していない");
+
+  const oc = read("src/app/order/OrderClient.tsx");
+  check(/order-coupon-check/.test(oc) && /code: coupon \? code : ""/.test(oc),
+    "確かめたクーポンだけを送る");
+  check(/Math\.floor\(net2 \* TAX_RATE\)/.test(oc), "税は値引きしたあとにかかる");
+  check(!/discount:/.test(oc.split("const order = async")[1] ?? ""), "値引きの額は送らない");
+
+  const inv = read("src/app/api/owner/invoice/route.ts");
+  check(/const gross = items\.reduce/.test(inv) && /const net = gross - discount/.test(inv),
+    "請求書は、値引き前の小計と値引きを分けて出す");
+  const invc = read("src/app/owner/invoice/[orderId]/InvoiceClient.tsx");
+  check(/invoice-discount/.test(invc), "請求書に値引きの行がある");
+  check(!/reward/.test(invc), "請求書に広告費は出さない");
+
+  const own = read("src/app/api/owner/coupons/route.ts");
+  check(/currentOwner\(\)/.test(own), "本部でなければ断る");
+  check(/status: 500/.test(own) && /apply-all\.sql/.test(own), "読めなかったら「0件」ではなく、そう言う");
+  check(/if \(st === "cancelled"\) continue/.test(own), "取り消した申込みは数えない");
+  check(/rewardRate > 0 && !partnerId/.test(own), "広告費を出すなら、支払い先を決めさせる");
+  const ownc = read("src/app/owner/CouponClient.tsx");
+  check(/入金済み/.test(ownc) && /入金待ち/.test(ownc), "入金済みと入金待ちを分けて出す");
+}
+
 console.log(`\n通り ${ok} ／ だめ ${ng}`);
 process.exit(ng ? 1 : 0);

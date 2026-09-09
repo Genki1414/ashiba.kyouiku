@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Btn } from "@/components/ui/Btn";
-import { MAX_SEATS, quote, yen } from "@/lib/pricing";
+import { MAX_SEATS, TAX_RATE, quote, yen } from "@/lib/pricing";
 import { showSeatCode } from "@/training/joinCode";
 
 /* 申込みの画面。教育担当者だけ。
@@ -83,6 +83,11 @@ export function OrderClient() {
   const [ready, setReady] = useState(false);
   const [billTo, setBillTo] = useState("");
   const [memo, setMemo] = useState("");
+  /* クーポン（0032）。打った文字と、確かめた結果 */
+  const [code, setCode] = useState("");
+  const [coupon, setCoupon] = useState<{ name: string; discount: number } | null>(null);
+  const [couponNg, setCouponNg] = useState("");
+  const [couponBusy, setCouponBusy] = useState(false);
   const [busy, setBusy] = useState(false);
   const [canCard, setCanCard] = useState(false);
 
@@ -146,6 +151,38 @@ export function OrderClient() {
   }, [st, params, ready]);
 
 
+  /* ── クーポン（0032）──
+     打ってすぐ「2,250円引き」と出ないと、押してみるまで分からない。
+     ただし**ここで見せた額は、そのまま請求に使わない。**
+     本当に引くのは申し込むとき（サーバが use_coupon を呼ぶ）。
+     見てから申し込むまでの間に、上限に達することがある */
+  const checkCoupon = async () => {
+    const items = Object.entries(picked)
+      .filter(([, n]) => n > 0)
+      .map(([courseId, seats]) => ({ courseId, seats }));
+    if (!items.length) { setCouponNg("先に講座と人数を選んでください。"); return; }
+    setCouponBusy(true);
+    setCouponNg("");
+    try {
+      const res = await fetch("/api/coupon", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ code, items }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok || !j.ok) {
+        setCoupon(null);
+        setCouponNg(j.reason ?? "そのクーポンは使えません。");
+        return;
+      }
+      setCoupon({ name: j.name ?? "", discount: Number(j.discount) || 0 });
+    } catch {
+      setCouponNg("つながりません。電波の届く所でもう一度。");
+    } finally {
+      setCouponBusy(false);
+    }
+  };
+
   const order = async (method: "card" | "invoice") => {
     /* 送るのは「講座と人数」の並び。**画面で金額は作らない**
        （サーバがもう一度計算する。見せる額と請求する額を食い違わせない） */
@@ -162,13 +199,17 @@ export function OrderClient() {
       const res = await fetch("/api/order", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ items, method, billTo, note: memo }),
+        body: JSON.stringify({ items, method, billTo, note: memo, code: coupon ? code : "" }),
       });
       const j = await res.json().catch(() => ({}));
       if (!res.ok || !j.ok) {
         setNote(j.reason ?? "申し込めませんでした。");
+        /* クーポンで断られたなら、見せていた値引きも下ろす。
+           残すと、通らなかった額のまま申し込んだように見える */
+        if (res.status === 409) { setCoupon(null); setCouponNg(j.reason ?? ""); }
         return;
       }
+      const cp = j.coupon as { name?: string; discount?: number } | null;
       if (method === "invoice") {
         /* ここは太字にできない（そのまま文字として出る）ので、
            記号を書かない。**1枚** と書いたら、画面に ** が出た */
@@ -179,7 +220,12 @@ export function OrderClient() {
             : "申し込みました。請求書を運営から送ります。" +
                 "お振込みの確認後、受講コードが出ます。",
         );
+        if (cp?.discount) {
+          setNote((n) => `${n}（${cp.name || "クーポン"}で ${yen(cp.discount ?? 0)}引きました）`);
+        }
         setPicked({});
+        setCode("");
+        setCoupon(null);
         await load();
         return;
       }
@@ -225,6 +271,13 @@ export function OrderClient() {
     tax: rows.reduce((n, r) => n + r.q!.tax, 0),
     total: rows.reduce((n, r) => n + r.q!.total, 0),
   };
+  /* クーポンの値引き（0032）。**税は値引きしたあとにかかる。**
+     値引きを講座ごとの行に配るのはサーバ（src/lib/coupon.ts の spreadDiscount）。
+     ここは見積りに出すだけなので、合計だけで足りる */
+  const off = Math.min(coupon?.discount ?? 0, sum.subtotal);
+  const net2 = sum.subtotal - off;
+  const tax2 = Math.floor(net2 * TAX_RATE);
+
   /* 届いている受講リクエストの数。講座ごと */
   const req = st.requests ?? {};
   const reqTotal = Object.values(req).reduce((n, v) => n + v, 0);
@@ -414,12 +467,50 @@ export function OrderClient() {
             <div className="mt-1 flex justify-between border-t border-line pt-1">
               <span className="text-dim">小計</span><span>{yen(sum.subtotal)}</span>
             </div>
-            <div className="flex justify-between"><span className="text-dim">消費税</span><span>{yen(sum.tax)}</span></div>
+            {/* クーポンの値引き。**税は値引きしたあとにかかる** */}
+            {!!off && (
+              <div className="flex justify-between text-grn" data-testid="order-discount">
+                <span>値引き{coupon?.name ? `（${coupon.name}）` : ""}</span>
+                <span>-{yen(off)}</span>
+              </div>
+            )}
+            <div className="flex justify-between"><span className="text-dim">消費税</span><span>{yen(tax2)}</span></div>
             <div className="mt-1 flex justify-between border-t border-line pt-1 font-black">
               <span>合計（税込）{rows.length > 1 ? `　${rows.length}講座・${sum.seats}名` : ""}</span>
-              <span className="text-yel">{yen(sum.total)}</span>
+              <span className="text-yel">{yen(net2 + tax2)}</span>
             </div>
           </div>
+        )}
+
+        {/* ── クーポン ──
+            紹介や業界団体から配ったもの。打って「確かめる」を押すと、
+            いくら引けるかが上の見積りに出る */}
+        <label className="mb-1 mt-4 block text-[11px] tracking-[2px] text-dim">クーポン（お持ちの方）</label>
+        <div className="flex gap-2">
+          <input
+            value={code}
+            onChange={(e) => { setCode(e.target.value); setCoupon(null); setCouponNg(""); }}
+            placeholder="お持ちの方だけ"
+            className="min-w-0 flex-1 rounded-lg border border-line bg-bg px-3 py-2.5 font-mono text-[14px] uppercase"
+            data-testid="order-coupon"
+            aria-label="クーポン"
+          />
+          <button
+            onClick={() => void checkCoupon()}
+            disabled={!code.trim() || couponBusy}
+            className="shrink-0 rounded-lg border border-cyan px-3 py-2.5 text-[12.5px] text-cyan disabled:opacity-50"
+            data-testid="order-coupon-check"
+          >
+            {couponBusy ? "…" : "確かめる"}
+          </button>
+        </div>
+        {coupon && (
+          <div className="mt-1 text-[11.5px] leading-relaxed text-grn" data-testid="order-coupon-ok">
+            {coupon.name || "クーポン"}が使えます。{yen(coupon.discount)}引きになります。
+          </div>
+        )}
+        {couponNg && (
+          <div className="mt-1 text-[11.5px] leading-relaxed text-org" data-testid="order-coupon-ng">{couponNg}</div>
         )}
 
         <label className="mb-1 mt-4 block text-[11px] tracking-[2px] text-dim">請求先（空なら事業者名）</label>

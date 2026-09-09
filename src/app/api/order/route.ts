@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { lineAmount, normalizeCouponCode, spreadDiscount } from "@/lib/coupon";
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase/server";
 import { currentAdmin } from "@/lib/admin";
@@ -28,6 +29,8 @@ type Body = {
   method?: "card" | "invoice";
   billTo?: string;
   note?: string;
+  /** クーポン。無ければ、いつもどおりの値段 */
+  code?: unknown;
 };
 
 export async function GET() {
@@ -147,7 +150,7 @@ export async function POST(req: NextRequest) {
      **同じ講座を2行に分けない。**分けると受講コードの束が2つに割れ、
      担当者が「足場の10枚」を数えるのに2か所を足すことになる */
   const seen = new Set<string>();
-  const lines: { courseId: string; short: string; seats: number; unitPrice: number; total: number }[] = [];
+  const lines: { courseId: string; short: string; seats: number; unitPrice: number; subtotal: number; total: number }[] = [];
   for (const it of raw) {
     const course = findCourse(it?.courseId) ?? (raw.length === 1 ? readyCourses()[0] : null);
     if (!course) {
@@ -167,7 +170,7 @@ export async function POST(req: NextRequest) {
         { status: 400 },
       );
     }
-    lines.push({ courseId: course.id, short: course.short, seats: q.seats, unitPrice: q.unitPrice, total: q.total });
+    lines.push({ courseId: course.id, short: course.short, seats: q.seats, unitPrice: q.unitPrice, subtotal: q.subtotal, total: q.total });
   }
   if (!lines.length) {
     return NextResponse.json({ ok: false, reason: "講座がありません。" }, { status: 400 });
@@ -180,30 +183,74 @@ export async function POST(req: NextRequest) {
      1講座だけでも group を作る。**例外を作らない**（0029） */
   const groupId = randomUUID();
 
+  /* ── クーポン（0032）──
+
+     **引くかどうかを決めるのは、ここではなく SQL（use_coupon）。**
+     画面で見せた額をそのまま使うと、見てから申し込むまでの間に
+     上限に達したクーポンが通ってしまう。使えるかを見て、記録するまでを
+     ひとつの関数の中でやる。
+
+     申込みまるごとに1枚。値引きは、このあと講座ごとの行に配る。 */
+  const code = typeof b.code === "string" ? normalizeCouponCode(b.code) : "";
+  const gross = lines.reduce((n, l) => n + l.subtotal, 0);
+  let discount = 0;
+  let couponId: string | null = null;
+  let couponName = "";
+  if (code) {
+    const { data: cp, error: cErr } = await supabase.rpc("use_coupon", {
+      p_code: code,
+      p_group: groupId,
+      p_company: admin.companyId,
+      p_user: admin.userId,
+      p_gross: gross,
+    });
+    if (cErr) {
+      /* 断る理由は、そのまま画面に出す（期限切れ・回数など） */
+      return NextResponse.json({ ok: false, reason: cErr.message }, { status: 409 });
+    }
+    const row = (Array.isArray(cp) ? cp[0] : cp) as
+      | { coupon_id: string; name: string; discount: number }
+      | undefined;
+    discount = Number(row?.discount) || 0;
+    couponId = row?.coupon_id ?? null;
+    couponName = row?.name ?? "";
+  }
+  /* 値引きを講座ごとの行に配る。**行に配らないと、合計だけ安いのに
+     明細を足すと合わない請求書になる** */
+  const shares = spreadDiscount(lines.map((l) => l.subtotal), discount);
+
   const { data: made, error } = await supabase
     .from("orders")
     .insert(
-      lines.map((l) => ({
+      lines.map((l, i) => ({
         company_id: admin.companyId,
         group_id: groupId,
         course_id: l.courseId,
         seats: l.seats,
         unit_price: l.unitPrice,
-        amount: l.total,
+        amount: lineAmount(l.subtotal, shares[i]).amount,
         method,
         status: "pending",
         due_date: due,
         ordered_by: admin.userId,
         bill_to: (b.billTo ?? "").trim() || null,
         note: (b.note ?? "").trim() || null,
+        /* クーポンを使ったときだけ足す。**使っていない申込みは、
+           版が古いデータベースでも今までどおり通る** */
+        ...(couponId ? { coupon_id: couponId, discount: shares[i] } : {}),
       })),
     )
     .select("id, course_id, amount");
   if (error || !made?.length) {
+    /* 注文を作れなかったのに、クーポンだけ使ったことにしない。
+       **残り回数だけが減る**と、あとから理由が分からなくなる */
+    if (couponId) {
+      await supabase.rpc("release_coupon_use", { p_group: groupId });
+    }
     /* データベースの版が古いと、ここで断られる（group_id の列が無い）。
        生の文言だけ出しても直し方が分からないので、足す。
        /setup の「データベースの版」でも同じことが分かる */
-    const stale = /group_id/.test(error?.message ?? "");
+    const stale = /group_id|coupon_id|discount/.test(error?.message ?? "");
     return NextResponse.json(
       {
         ok: false,
@@ -236,11 +283,18 @@ export async function POST(req: NextRequest) {
     orderId: first.id,
     groupId,
     course: { id: first.course_id as string, short: lines[0].short },
-    items: lines.map((l) => ({ courseId: l.courseId, short: l.short, seats: l.seats, amount: l.total })),
+    items: lines.map((l, i) => ({
+      courseId: l.courseId,
+      short: l.short,
+      seats: l.seats,
+      amount: lineAmount(l.subtotal, shares[i]).amount,
+    })),
     method,
+    /* 使ったクーポン。画面で「◯◯で 2,250円引きました」と出す */
+    coupon: couponId ? { name: couponName, discount } : null,
     quote: {
       seats: lines.reduce((n, l) => n + l.seats, 0),
-      total: lines.reduce((n, l) => n + l.total, 0),
+      total: lines.reduce((n, l, i) => n + lineAmount(l.subtotal, shares[i]).amount, 0),
     },
     seatsIssued: 0,
   });

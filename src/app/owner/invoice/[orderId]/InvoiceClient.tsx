@@ -18,6 +18,8 @@ type Inv = {
     /** 講座ごとの明細。**1講座だけの申込みでも1件入る**（0029） */
     items?: { what: string; qty: number; unit: number; net: number; tax: number; amount: number }[];
     qty: number; unit: number; net: number; tax: number; amount: number;
+    /** 値引き前の小計と、値引き（0032）。古い請求書には無い */
+    gross?: number; discount?: number; couponName?: string;
     taxRate: number; due: string | null; at: string | null; invoicedAt?: string | null;
     paidAt: string | null; status: string; note: string; solo: boolean;
   };
@@ -207,7 +209,14 @@ export function InvoiceClient({ orderId, mine = false }: { orderId: string; mine
           </table>
 
           <div className="mt-2 flex flex-col items-end gap-0.5 text-[12.5px]">
-            <div>小計　{yen(o.net)}</div>
+            <div>小計　{yen(o.gross ?? o.net)}</div>
+            {/* クーポンの値引き（0032）。**明細は値引き前**を並べ、
+                引いた額はここに1行で出す。並べた行と合計が合うようにする */}
+            {!!o.discount && (
+              <div data-testid="invoice-discount">
+                値引き{o.couponName ? `（${o.couponName}）` : ""}　-{yen(o.discount)}
+              </div>
+            )}
             <div>
               消費税（{Math.round(o.taxRate * 100)}%）　{yen(o.tax)}
             </div>
