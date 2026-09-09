@@ -47,7 +47,7 @@ export function NeedSeat({ why, company }: { why: "signin" | "seat"; company: st
         ここから先が開きます
       </h1>
       <p className="mt-4 text-[13px] leading-relaxed text-dim">
-        特別教育（学科）は、受講コードを引き換えた人だけが受けられます。
+        特別教育（学科）は、受講コードを入れた人だけが受けられます。
         コードは、会社の教育担当者が人数ぶん申し込んで配ります。
         {company ? `（いまの所属：${company}）` : ""}
       </p>
@@ -72,10 +72,25 @@ export function NeedSeat({ why, company }: { why: "signin" | "seat"; company: st
       >
         受講コードを入れる
       </Link>
+
+      {/* ── 並べる順は、ここに立った人がやることの順 ──
+
+          ① コードを持っている　… 入れる
+          ② 持っていない　　　　… **担当者に受講リクエストを送る**
+          ③ 自分が担当者　　　　… 申し込む
+          ④ どれも今すぐでない　… 実務トレーニングで待つ
+
+          ②がいちばん多い。前はここが**いちばん下**で、
+          実務トレーニングの札より後ろにあった（2026-09-09 に直した）。 */}
+
+      {/* 受講リクエストを担当者に送る。どの講座かは住所から取る */}
+      <RequestCourse />
+
       {/* 担当者は、この講座の受講コードを申し込みに来ている。
           /admin へ送ると、名簿や進み具合の中から入口を探すことになる。
           申込みの画面へ**その講座を選んだ状態**で直に送る */}
       <OrderLink />
+
       {/* 実務トレーニングは別の売り物。第1章はコードが無くても遊べる。
          ここで断られた人に、いま出来ることが何も無いと、そのまま閉じられる。
 
@@ -92,9 +107,6 @@ export function NeedSeat({ why, company }: { why: "signin" | "seat"; company: st
           実務トレーニングの第1章は、コード無しで遊べます
         </Link>
       )}
-
-      {/* 「受けたい」を担当者に送る。どの講座かは住所から取る */}
-      <RequestCourse />
       <Link href="/" className="mt-5 block text-center text-[12.5px] text-dim2 no-underline">
         ← ホームへ
       </Link>

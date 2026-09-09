@@ -32,8 +32,10 @@ export function OrderLink() {
       className="mt-2 block rounded-lg border border-line p-3 text-center text-[12.5px] text-dim no-underline"
       data-testid="need-seat-admin"
     >
-      教育担当者の方はこちら（
-      {course ? `${course.short}の受講コードを申し込む` : "申込み"}）
+      {/* 括弧の中に文をもう1つ入れると読みにくい。
+          何をする札かを先に書いて、誰向けかを後ろに添える */}
+      {course ? `${course.short}の受講コードを申し込む` : "受講コードを申し込む"}
+      <span className="ml-1 text-[11.5px] text-dim2">（教育担当者の方）</span>
     </Link>
   );
 }

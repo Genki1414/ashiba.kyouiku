@@ -1010,7 +1010,7 @@ console.log("── 読めなかったことを、0件に化けさせていな�
   check(/apply-all\.sql/.test(ord), "申込み：版が古いときの直し方を出す");
 }
 
-console.log("── 受けたいと送られている数が、申込みの画面まで届くか ──");
+console.log("── 受講リクエストの数が、申込みの画面まで届くか ──");
 {
   /* 受講リクエストは担当者の画面に出るが、**申込みの画面には出ていなかった。**
      担当者がここへ来る理由の多くは「送られてきたぶんを買う」のに、
@@ -1020,7 +1020,7 @@ console.log("── 受けたいと送られている数が、申込みの画面
      **返す側にあっても、画面が組み立て直すところで落ちる。**
      実際に落ちて、札が1つも出なかった。だから両側を見る。 */
   const api = read("src/app/api/order/route.ts");
-  check(/from\("course_requests"\)/.test(api), "申込みの口が、送られている数を数える");
+  check(/from\("course_requests"\)/.test(api), "申込みの口が、受講リクエストを数える");
   check(/\.is\("handled_at", null\)/.test(api), "**まだ対応していないものだけ**数える");
   check(/\.eq\("company_id", admin\.companyId\)/.test(api),
     "自社宛だけ数える（会社は画面から受け取らない）");
@@ -1029,14 +1029,46 @@ console.log("── 受けたいと送られている数が、申込みの画面
   const oc = read("src/app/order/OrderClient.tsx");
   check(/requests: j\.requests/.test(oc),
     "**画面が組み立て直すときに拾っている**（ここで落とすと札が1つも出ない）");
-  check(/data-testid="order-requests"/.test(oc), "「受けたいと送られています」を出す");
+  check(/data-testid="order-requests"/.test(oc), "「受講リクエストが届いています」を出す");
   check(/data-testid="order-course-req"/.test(oc), "講座ごとの件数を出す");
   /* 合計だけだと、どの講座に何人ぶん要るのか分からない */
   check(/リクエスト\{req\[c\.id\]\}件/.test(oc), "講座ごとに「リクエスト◯件」と出す");
   /* 73本あるので、送られている講座を上に出さないと札が埋もれる */
-  check(/req\[b\.id\] - req\[a\.id\]/.test(oc), "送られている講座を、多い順に上へ出す");
+  check(/req\[b\.id\] - req\[a\.id\]/.test(oc), "リクエストのある講座を、多い順に上へ出す");
   /* 押したら、その人数が入る。1から数え直させない */
-  check(/set\(on \? 0 : \(req\[c\.id\] \|\| 1\)\)/.test(oc), "押すと、送られている人数が入る");
+  check(/set\(on \? 0 : \(req\[c\.id\] \|\| 1\)\)/.test(oc), "押すと、リクエストの人数が入る");
+}
+
+console.log("── 画面に出る字に、飾りの記号が混じっていないか ──");
+{
+  /* 注釈では ** で強めているが、**画面はそれを太字にしない。**
+     文字列に書くと、そのまま ** が出る。
+     実際に出た（申込みのあとの「請求書は**1枚**で送ります」。2026-09-09）。
+
+     太字を解釈する画面（はじめかたの案内など）は bold() を通している。
+     通していない所で ** を書いたら、ここで止める。 */
+  const dirs = ["src/app", "src/components"];
+  const files: string[] = [];
+  const walk = (d: string) => {
+    for (const e of readdirSync(new URL(`../${d}`, import.meta.url), { withFileTypes: true })) {
+      if (e.isDirectory()) walk(`${d}/${e.name}`);
+      else if (e.name.endsWith(".tsx")) files.push(`${d}/${e.name}`);
+    }
+  };
+  for (const d of dirs) walk(d);
+
+  const bad: string[] = [];
+  for (const f of files) {
+    const src = read(f);
+    /* 太字を解釈する画面は見ない */
+    if (/function bold\(/.test(src)) continue;
+    /* 注釈を落としてから、日本語を含む文字列だけ見る */
+    const body = src.replace(/\/\*[\s\S]*?\*\//g, "");
+    for (const m of body.matchAll(/["`]([^"`\n]*\*\*[^"`\n]*)["`]/g)) {
+      if (/[ぁ-んァ-ン一-龥]/.test(m[1])) bad.push(`${f}: ${m[1].slice(0, 40)}`);
+    }
+  }
+  check(bad.length === 0, `画面に出る字に ** を書いていない（${bad.join(" ／ ") || "無し"}）`);
 }
 
 console.log(`\n通り ${ok} ／ だめ ${ng}`);

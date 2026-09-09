@@ -44,7 +44,7 @@ type Loaded = {
   unitPrice: number;
   orders: Order[];
   seats: { total: number; used: number; paid: number };
-  /** 講座ごとの「受けたいと送られている数」。まだ対応していないもの */
+  /** 講座ごとの受講リクエストの数。まだ対応していないもの */
   requests?: Record<string, number>;
   /* 受講コードの文字そのもの。これが無いと担当者は配れない */
   codes: Code[];
@@ -166,9 +166,14 @@ export function OrderClient() {
         return;
       }
       if (method === "invoice") {
+        /* ここは太字にできない（そのまま文字として出る）ので、
+           記号を書かない。**1枚** と書いたら、画面に ** が出た */
         setNote(
-          `申し込みました（${items.length}講座）。請求書は**1枚**で送ります。` +
-            "お振込みの確認後、受講コードが出ます。",
+          items.length > 1
+            ? `${items.length}講座を申し込みました。請求書は1枚にまとめて運営から送ります。` +
+                "お振込みの確認後、受講コードが出ます。"
+            : "申し込みました。請求書を運営から送ります。" +
+                "お振込みの確認後、受講コードが出ます。",
         );
         setPicked({});
         await load();
@@ -216,7 +221,7 @@ export function OrderClient() {
     tax: rows.reduce((n, r) => n + r.q!.tax, 0),
     total: rows.reduce((n, r) => n + r.q!.total, 0),
   };
-  /* 受けたいと送られている数。講座ごと */
+  /* 届いている受講リクエストの数。講座ごと */
   const req = st.requests ?? {};
   const reqTotal = Object.values(req).reduce((n, v) => n + v, 0);
 
@@ -225,7 +230,7 @@ export function OrderClient() {
   const hit = key
     ? st.courses.filter((c) => `${c.name}${c.short}`.toLowerCase().includes(key))
     : st.courses;
-  /* **送られている講座を上に出す。**73本あるので、下に埋もれると
+  /* **リクエストのある講座を上に出す。**73本あるので、下に埋もれると
      札を付けても見えない。多い順（要る人数が多い講座から片づく） */
   const list = [
     ...hit.filter((c) => req[c.id] > 0).sort((a, b) => req[b.id] - req[a.id]),
@@ -270,7 +275,7 @@ export function OrderClient() {
             申込みは1回・請求書は1枚・振込も1回にする（0029）。 */}
         <label className="mb-1 block text-[11px] tracking-[2px] text-dim">受ける講座と人数</label>
 
-        {/* **受けたいと送られていることを、ここで知らせる。**
+        {/* **受講リクエストが届いていることを、ここで知らせる。**
             担当者がこの画面へ来る理由の多くは「送られてきたぶんを買う」。
             出ていないと、担当者の画面で数えて覚えてから来ることになる
             （げんきさん 2026-09-09） */}
@@ -279,9 +284,9 @@ export function OrderClient() {
             className="mb-2 rounded-lg border border-cyan bg-[#0F1A1D] px-3.5 py-3 text-[12.5px] leading-relaxed text-cyan"
             data-testid="order-requests"
           >
-            <span className="font-black">受けたいと送られています（{reqTotal}件）</span>
+            <span className="font-black">受講リクエストが届いています（{reqTotal}件）</span>
             <span className="mt-0.5 block text-[11.5px] text-dim">
-              送られている講座を上に出しています。押すと、その人数が入ります。
+              リクエストのある講座を上に出しています。押すと、その件数が人数に入ります。
             </span>
           </div>
         )}
@@ -320,7 +325,7 @@ export function OrderClient() {
                 data-testid="order-course"
               >
                 <button
-                  /* 送られている講座は、**その人数を入れる。**
+                  /* リクエストのある講座は、**その人数を入れる。**
                      1から数え直させない。あとから直せるので押さえつけにはならない */
                   onClick={() => set(on ? 0 : (req[c.id] || 1))}
                   className={`block w-full px-3 py-2.5 text-left text-[13px] ${on ? "text-yel" : "text-dim"}`}
@@ -385,7 +390,7 @@ export function OrderClient() {
             絞ったまま申し込むと、画面に出ていない講座まで買うことになる */}
         {rows.some((r) => !list.some((c) => c.id === r.c.id)) && (
           <div className="mt-1 text-[11.5px] leading-relaxed text-yel" data-testid="order-hidden">
-            絞り込みで隠れている選択があります：
+            絞り込みで見えていない講座があります：
             {rows.filter((r) => !list.some((c) => c.id === r.c.id)).map((r) => `${r.c.short} ${r.seats}名`).join("・")}
           </div>
         )}
@@ -441,7 +446,7 @@ export function OrderClient() {
           </Btn>
           {!rows.length && (
             <div className="text-center text-[11.5px] text-dim2" data-testid="order-none">
-              受ける講座を選んでください。まとめて選べます。
+              受ける講座を選んでください。いくつでも選べます。
             </div>
           )}
         </div>

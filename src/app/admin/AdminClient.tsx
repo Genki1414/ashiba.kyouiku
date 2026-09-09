@@ -378,8 +378,8 @@ export function AdminClient() {
             受講リクエスト {st.courseRequests.length} 件
           </div>
           <p className="mt-1 text-[11.5px] leading-relaxed text-dim">
-            受講者が「この講座を受けたい」と送ってきました。そのまま申し込めます。
-            席を配ったら、対応済みにしてください。
+            受講者から受講リクエストが届いています。そのまま申し込めます。
+            受講コードを配ったら、対応済みにしてください。
           </p>
           <div className="mt-2.5 grid gap-2">
             {Object.values(

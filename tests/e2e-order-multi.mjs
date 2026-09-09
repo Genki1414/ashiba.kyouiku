@@ -66,7 +66,7 @@ await page.route("**/api/order", async (route) => {
       orders: [],
       seats: { total: 0, used: 0, paid: 0 },
       codes: [],
-      /* 受けたいと送られている数（講座ごと）。
+      /* 届いている受講リクエストの数（講座ごと）。
          **並び順の見張りのため、上に出るはずのものを下の方に置いてある** */
       requests: { ishiwata: 2, x5: 4 },
       courses: COURSES,
@@ -86,21 +86,22 @@ await page.goto(`${BASE}/order`);
 }
 await page.waitForSelector('[data-testid="order-courses"]', { timeout: 8000 });
 
-/* ── 受けたいと送られていることが、ここで分かる ── */
+/* ── 受講リクエストが届いていることが、ここで分かる ── */
 {
   const b = page.getByTestId("order-requests");
-  check((await b.count()) === 1, "「受けたいと送られています」が出る");
+  check((await b.count()) === 1, "「受講リクエストが届いています」が出る");
   const t = (await b.innerText()).replace(/\s/g, "");
+  check(t.includes("受講リクエストが届いています"), `仕組みの名前で呼ぶ（${t.slice(0, 30)}）`);
   check(t.includes("6件"), `合計の件数が出る（${t.slice(0, 40)}）`);
 
   /* **講座ごとの件数。**合計だけだと、どの講座に何人ぶん要るのか分からない */
   const badges = page.getByTestId("order-course-req");
-  check((await badges.count()) === 2, `送られている講座にだけ札が付く（${await badges.count()}）`);
+  check((await badges.count()) === 2, `リクエストのある講座にだけ札が付く（${await badges.count()}）`);
   const texts = (await badges.allInnerTexts()).map((x) => x.replace(/\s/g, ""));
   check(texts.includes("リクエスト4件") && texts.includes("リクエスト2件"),
     `講座ごとの件数が出る（${texts.join("・")}）`);
 
-  /* **送られている講座が上に出る。**73本あるので、下に埋もれると
+  /* **リクエストのある講座が上に出る。**73本あるので、下に埋もれると
      札を付けても見えない。多い順 */
   const rows = page.locator('[data-testid="order-course"]');
   const first = await rows.nth(0).innerText();
@@ -109,8 +110,8 @@ await page.waitForSelector('[data-testid="order-courses"]', { timeout: 8000 });
   check(second.includes("石綿"), `次に多い講座が2番目（${second.split("\n")[0]}）`);
   /* 送られていない講座には札を付けない */
   const third = await rows.nth(2).innerText();
-  check(!third.includes("リクエスト"), "送られていない講座に札は付かない");
-  console.log("OK: リクエストありが、合計と講座ごとに出る");
+  check(!third.includes("リクエスト"), "リクエストの無い講座に札は付かない");
+  console.log("OK: 受講リクエストが、合計と講座ごとに出る");
 }
 
 /* ── はじめは何も選んでいない ── */
@@ -131,13 +132,13 @@ await pick("石綿使用建築物等", 2);
 
 check(!(await page.getByTestId("order-invoice").isDisabled()), "選べば押せる");
 
-/* ── 送られている講座を押すと、その人数が入る ── */
+/* ── リクエストのある講座を押すと、その人数が入る ── */
 {
   const row = page.locator('[data-testid="order-course"]', { hasText: "ならべもの5" });
   await row.getByTestId("order-course-pick").click();
   await page.waitForTimeout(100);
   const v = await row.getByTestId("order-seats-input").inputValue();
-  check(v === "4", `送られている数がそのまま入る（${v}）`);
+  check(v === "4", `リクエストの数がそのまま入る（${v}）`);
   /* あとから直せる。押さえつけない */
   await row.getByTestId("order-seats-input").fill("6");
   await page.waitForTimeout(80);
@@ -145,7 +146,7 @@ check(!(await page.getByTestId("order-invoice").isDisabled()), "選べば押せ�
   /* 片づける（このあとの合計を狂わせない） */
   await row.getByTestId("order-course-pick").click();
   await page.waitForTimeout(80);
-  console.log("OK: 送られている講座は、その人数で入る");
+  console.log("OK: リクエストのある講座は、その人数で入る");
 }
 const money = (await page.getByTestId("order-quote").innerText()).replace(/\s/g, "");
 

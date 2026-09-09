@@ -261,6 +261,15 @@ console.log("\n── 断られたその場から送れるか ──");
      まだ席が1つも無い人には、どこにも入口が無かった。 */
   const seat = code("src/components/NeedSeat.tsx");
   check(seat.includes("<RequestCourse />"), "受講コードが要る画面に、送る所がある");
+  /* **並べる順。**ここに立つ人の多くはコードを持っていないので、
+     「受講リクエストを送る」がいちばん要る。前はここが**いちばん下**で、
+     実務トレーニングの札より後ろにあった（2026-09-09 に直した）。 */
+  check(seat.indexOf("<RequestCourse />") < seat.indexOf("<OrderLink />"),
+    "リクエストを送る所は、担当者向けの札より前");
+  check(seat.indexOf("<RequestCourse />") < seat.indexOf("need-seat-train"),
+    "リクエストを送る所は、実務トレーニングの札より前");
+  check(seat.indexOf("need-seat-join") < seat.indexOf("<RequestCourse />"),
+    "コードを持っている人の札は、いちばん前");
   const req = code("src/components/RequestCourse.tsx");
   check(req.includes('data-testid="need-seat-request-send"'), "送る釦がある");
   check(req.includes('"/api/course-request"'), "送り先は受講リクエストの口");
@@ -350,6 +359,40 @@ console.log("\n── 断られた画面から、申込みへ直に行けるか 
     "講座が分からないときも、申込みの画面へは行ける");
   /* この入口も店で分けない */
   check(!link.includes("BRAND"), "申込みへの入口は店で分けない");
+}
+
+console.log("\n── 仕組みの名前で呼んでいるか ──");
+{
+  /* **名前を1つに決める。**この仕組みの名前は「受講リクエスト」。
+     画面ごとに言い方を変えると、同じものだと分からなくなる。
+
+     「受けたいと送られています（6件）」と出していて、げんきさんに
+     「これはおかしい」と言われた（2026-09-09）。 */
+  const shown = (src: string) =>
+    src
+      /* 注釈は数えない。中の説明では「受けたい」と書いてよい */
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/\{\/\*[\s\S]*?\*\/\}/g, "");
+  for (const f of [
+    "src/app/order/OrderClient.tsx",
+    "src/components/RequestCourse.tsx",
+    "src/app/admin/AdminClient.tsx",
+  ]) {
+    const t = shown(code(f));
+    check(!/受けたいと送/.test(t), `${f}：「受けたいと送られています」と書かない`);
+    check(!/「受けたい」と送っ/.test(t), `${f}：「「受けたい」と送ってきました」と書かない`);
+  }
+  const oc = shown(code("src/app/order/OrderClient.tsx"));
+  check(oc.includes("受講リクエストが届いています"), "申込みの画面は「受講リクエストが届いています」");
+  const rc = shown(code("src/components/RequestCourse.tsx"));
+  check(rc.includes("この講座の受講リクエストを送る"), "送る釦は「この講座の受講リクエストを送る」");
+
+  /* **受講者には「席」と言わない。**あれは売る側の言い方で、
+     受講者が知っているのは受講コード（NeedSeat が前からそうしている） */
+  for (const f of ["src/components/RequestCourse.tsx", "src/components/HomeCards.tsx"]) {
+    const t = shown(code(f));
+    check(!/席を用意|席が用意/.test(t), `${f}：受講者に「席」と言わない（受講コードと呼ぶ）`);
+  }
 }
 
 console.log("\n── 売っていないものの口も閉じているか ──");

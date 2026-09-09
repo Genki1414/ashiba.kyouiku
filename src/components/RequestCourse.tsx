@@ -77,7 +77,7 @@ export function RequestCourse() {
         className="mt-5 rounded-xl border border-line bg-panel p-4 text-[12.5px] leading-relaxed text-dim"
         data-testid="need-seat-request-none"
       >
-        この講座を「受けたい」と会社の教育担当者に送れます。
+        この講座の受講リクエストを、会社の教育担当者に送れます。
         <br />
         送るには、先に会社とつないでください。
         <Link href="/join" className="ml-1 text-cyan no-underline">
@@ -93,11 +93,11 @@ export function RequestCourse() {
         className="mt-5 rounded-xl border border-grn bg-panel p-4 text-[12.5px] leading-relaxed text-grn"
         data-testid="need-seat-request-sent"
       >
-        「{course.name}」を受けたいと送ってあります。
+        「{course.name}」の受講リクエストを送ってあります。
         <br />
         <span className="text-dim">
-          {st.company ? `${st.company}の教育担当者の画面に出ています。` : "教育担当者の画面に出ています。"}
-          席が用意されると、この画面が開きます。
+          {st.company ? `${st.company}の教育担当者に届いています。` : "教育担当者に届いています。"}
+          受講コードが用意されると、この画面が開きます。
         </span>
       </div>
     );
@@ -129,10 +129,10 @@ export function RequestCourse() {
         className="block w-full rounded-lg border border-cyan p-3 text-center text-[13px] font-bold text-cyan disabled:opacity-50"
         data-testid="need-seat-request-send"
       >
-        {busy ? "送っています…" : "この講座を受けたいと担当者に送る"}
+        {busy ? "送っています…" : "この講座の受講リクエストを送る"}
       </button>
       <div className="mt-1.5 text-[11.5px] leading-relaxed text-dim2">
-        送ると、会社の教育担当者の画面に出ます。担当者が席を用意すると、この画面が開きます。
+        送ると、会社の教育担当者に届きます。担当者が受講コードを用意すると、この画面が開きます。
       </div>
       {!!note && <div className="mt-1.5 text-[12px] text-yel">{note}</div>}
     </div>

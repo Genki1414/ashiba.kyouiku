@@ -323,7 +323,8 @@ export function SetupClient() {
                         ? h.sell.brandSite
                         : h.sell.siteUrl
                           ? "コードには入れていない（NEXT_PUBLIC_SITE_URL が勝つので、いまは大丈夫）"
-                          : "**決まっていません。**NEXT_PUBLIC_SITE_URL を入れるまで、合言葉の決め直しのメールが配信ごとの住所へ飛びます",
+                          /* ここは太字にできない（記号がそのまま出る）ので書かない */
+                          : "決まっていません。NEXT_PUBLIC_SITE_URL を入れるまで、合言葉の決め直しのメールが配信ごとの住所へ飛びます",
                       !!(h.sell.brandSite || h.sell.siteUrl),
                       true,
                     ],

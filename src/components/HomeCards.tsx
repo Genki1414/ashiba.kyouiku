@@ -152,8 +152,8 @@ export function HomeCards() {
         <div className="text-[11px] font-extrabold tracking-widest text-cyan">ほかの講座も</div>
         <div className="mt-1 text-[15px] font-black text-txt">受けたい講座をリクエストする</div>
         <div className="mt-1 text-[12px] leading-relaxed text-dim">
-          受けたい講座を選んで送ると、会社の教育担当者の画面に出ます。
-          担当者が席を用意すると、次に開いたときからその講座が出ます。
+          受けたい講座を選んで送ると、会社の教育担当者に届きます。
+          担当者が受講コードを用意すると、次に開いたときからその講座が出ます。
           <br />
           受講コード（12文字）を受け取っているときは、そのまま入れても始められます。
         </div>
