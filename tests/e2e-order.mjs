@@ -23,6 +23,16 @@ const dismiss = async () => {
   if (await b.count()) { await b.click(); await page.waitForTimeout(200); }
 };
 
+/* 確かめる札（AskDone。2026-09-10 から、決める操作は全部これを通る）。
+   「押す」→ 終わったら「閉じる」。断られたときは札が閉じるので、閉じるは出ない */
+const confirmDone = async () => {
+  await page.getByTestId("ask-done-yes").waitFor({ timeout: 4000 });
+  await page.getByTestId("ask-done-yes").click();
+  await page.getByTestId("ask-done-close").waitFor({ timeout: 8000 }).catch(() => {});
+  if (await page.getByTestId("ask-done-close").count()) await page.getByTestId("ask-done-close").click();
+  await page.waitForTimeout(150);
+};
+
 /* ── 申込みの画面 ── */
 await page.goto(`${BASE}/order`);
 await dismiss();
@@ -94,7 +104,8 @@ if (orderForm) {
   /* 違う人が入れてしまったときに戻せる。ただし修了証を出した人の席は戻せない */
   check((await page.getByTestId("order-code-release").count()) === 1, "取り消せるのは、修了証を出していない使用済みのぶんだけ");
   await page.getByTestId("order-code-release").click();
-  check(await page.getByTestId("order-code-release-yes").isVisible(), "取り消しは二度押しで確かめる");
+  check(await page.getByTestId("ask-done-yes").isVisible(), "取り消しは確かめる札で");
+  await page.getByTestId("ask-done-no").click();
   check(await page.getByTestId("order-codes-copyall").isVisible(), "まとめてコピーする所が出る");
   await page.screenshot({ path: `${SC}/order-01b-codes.png`, fullPage: true });
   await page.unroute("**/api/order");

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { emailLabel } from "@/lib/lineEmail";
+import { AskDone, type Ask, type RunResult } from "@/components/AskDone";
 
 /* 実務トレーニングの利用権。
 
@@ -27,6 +28,8 @@ export function TrainingClient({ onNote }: { onNote: (s: string) => void }) {
   const [q, setQ] = useState("");
   const [memo, setMemo] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
+  /* 確かめる→やる→終わった（2026-09-10）。売り物を付ける・取り消す */
+  const [ask, setAsk] = useState<Ask | null>(null);
 
   const load = useCallback(async (search?: string) => {
     try {
@@ -49,7 +52,7 @@ export function TrainingClient({ onNote }: { onNote: (s: string) => void }) {
 
   useEffect(() => { void load(); }, [load]);
 
-  const send = async (userId: string, action: "grant" | "revoke") => {
+  const send = async (userId: string, action: "grant" | "revoke"): Promise<RunResult> => {
     setBusy(userId);
     onNote("");
     try {
@@ -61,15 +64,40 @@ export function TrainingClient({ onNote }: { onNote: (s: string) => void }) {
       const j = await res.json().catch(() => ({}));
       if (!res.ok || !j.ok) {
         onNote(j.reason ?? "処理できませんでした。");
-        return;
+        return false;
       }
       setRows(j.rows ?? []);
       if (q.trim()) await load(q.trim());
       if (action === "grant") setMemo("");
+      return true;
     } finally {
       setBusy(null);
     }
   };
+
+  const askSend = (p: { userId: string; name: string }, action: "grant" | "revoke") =>
+    setAsk(action === "grant"
+      ? {
+          title: `${p.name || "この方"}に実務トレーニングを付けますか`,
+          body: (
+            <>
+              第2章から先が開きます。ご本人にお知らせが届きます。
+              {memo.trim() && <div className="mt-1">控え　{memo.trim()}</div>}
+            </>
+          ),
+          yes: "付ける",
+          done: "付けました",
+          doneBody: "ご本人にお知らせが届きました。",
+          run: () => send(p.userId, "grant"),
+        }
+      : {
+          title: `${p.name || "この方"}の実務トレーニングを取り消しますか`,
+          body: "第2章から先が閉じます。遊んだ記録は残ります。",
+          yes: "取り消す",
+          danger: true,
+          done: "取り消しました",
+          run: () => send(p.userId, "revoke"),
+        });
 
   if (!rows) return null;
 
@@ -139,7 +167,7 @@ export function TrainingClient({ onNote }: { onNote: (s: string) => void }) {
                   </span>
                 ) : (
                   <button
-                    onClick={() => void send(f.userId, "grant")}
+                    onClick={() => askSend(f, "grant")}
                     disabled={busy === f.userId}
                     className="shrink-0 rounded-lg border border-yel px-2.5 py-1.5 text-[11.5px] text-yel"
                     data-testid="owner-training-grant"
@@ -173,7 +201,7 @@ export function TrainingClient({ onNote }: { onNote: (s: string) => void }) {
               {r.note ? `　${r.note}` : ""}
             </div>
             <button
-              onClick={() => void send(r.userId, "revoke")}
+              onClick={() => askSend(r, "revoke")}
               disabled={busy === r.userId}
               className="mt-2 w-full rounded-lg border border-line p-1.5 text-[11px] text-dim2"
               data-testid="owner-training-revoke"
@@ -183,6 +211,7 @@ export function TrainingClient({ onNote }: { onNote: (s: string) => void }) {
           </div>
         ))}
       </div>
+      <AskDone ask={ask} onClose={() => setAsk(null)} />
     </div>
   );
 }

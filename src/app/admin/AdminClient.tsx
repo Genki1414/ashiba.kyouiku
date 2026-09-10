@@ -164,6 +164,39 @@ export function AdminClient() {
     return !!j.ok;
   };
 
+  /* ── 決める操作は、全部ここを通す（げんきさん 2026-09-10）──
+       「ユーザーが操作を行う部分を全て洗い出して、
+         全てに確認表示・完了表示のポップアップを付ける」
+
+     承認する・配る・発行する・外す——名簿の押す所は、指が触れただけでも
+     効く大きさで並んでいる。押した瞬間に効くと、隣の人に配ってしまう。
+     終わったことも出す。静かに書き換わるだけだと、効いたか分からず二度押す。
+
+     通ったら読み直す。after があるときは、札を閉じてから（画面が
+     入れ替わる操作。先に入れ替えると札ごと消える） */
+  const askPost = (
+    a: Omit<Ask, "run"> & { url: string; payload: unknown; busyKey?: string; reloadAfter?: boolean },
+  ) =>
+    setAsk({
+      title: a.title,
+      body: a.body,
+      yes: a.yes,
+      danger: a.danger,
+      done: a.done,
+      doneBody: a.doneBody,
+      after: a.reloadAfter ? () => { void load(); } : undefined,
+      run: async () => {
+        setBusy(a.busyKey ?? null);
+        try {
+          const ok = await post(a.url, a.payload);
+          if (ok && !a.reloadAfter) await load();
+          return ok;
+        } finally {
+          setBusy(null);
+        }
+      },
+    });
+
   /* 読み終わるまで真っ暗にしない。押したのに何も出ないと、
      同じ待ち時間でもずっと遅く感じる */
   if (!st) return <Loading title="受講管理" back="/" rows={4} />;
@@ -199,16 +232,24 @@ export function AdminClient() {
             tone="y"
             dis={!company.trim()}
             testid="admin-setup"
-            onClick={async () => {
-              setBusy("setup");
-              if (await post("/api/admin/setup", { company: company.trim() })) await load();
-              setBusy(null);
-            }}
+            onClick={() =>
+              askPost({
+                title: `「${company.trim()}」で登録しますか`,
+                body: "あなたがこの事業者の最初の教育担当者になります。名簿はこの事業者ごとに分かれます。",
+                yes: "登録する",
+                done: "登録しました",
+                doneBody: "受講する人には、名簿に申し込んでもらうか、受講コードを渡してください。",
+                url: "/api/admin/setup",
+                payload: { company: company.trim() },
+                busyKey: "setup",
+                reloadAfter: true,
+              })}
           >
             {busy === "setup" ? "登録しています…" : "この事業者で登録する"}
           </Btn>
           {note && <div className="mt-3 text-[12px] text-red">{note}</div>}
         </div>
+        <AskDone ask={ask} onClose={() => setAsk(null)} />
       </main>
     );
   }
@@ -382,24 +423,33 @@ export function AdminClient() {
                     tone="y"
                     dis={busy === q.userId}
                     testid="admin-approve"
-                    onClick={async () => {
-                      setBusy(q.userId);
-                      if (await post("/api/admin/member", { userId: q.userId, action: "approve" }))
-                        await load();
-                      setBusy(null);
-                    }}
+                    onClick={() =>
+                      askPost({
+                        title: `${q.name}さんを承認しますか`,
+                        body: "名簿に入り、受講コードを配れるようになります。ご本人にお知らせが届きます。",
+                        yes: "承認する",
+                        done: "承認しました",
+                        url: "/api/admin/member",
+                        payload: { userId: q.userId, action: "approve" },
+                        busyKey: q.userId,
+                      })}
                   >
                     承認する
                   </Btn>
                   <button
                     className="rounded-lg border border-line p-2.5 text-[12.5px] text-dim"
                     data-testid="admin-reject"
-                    onClick={async () => {
-                      setBusy(q.userId);
-                      if (await post("/api/admin/member", { userId: q.userId, action: "reject" }))
-                        await load();
-                      setBusy(null);
-                    }}
+                    onClick={() =>
+                      askPost({
+                        title: `${q.name}さんの申し込みを却下しますか`,
+                        body: "名簿には入りません。ご本人に「断られました」と届きます。間違って申し込んだ人には、これでよいです。",
+                        yes: "却下する",
+                        danger: true,
+                        done: "却下しました",
+                        url: "/api/admin/member",
+                        payload: { userId: q.userId, action: "reject" },
+                        busyKey: q.userId,
+                      })}
                   >
                     却下する
                   </button>
@@ -468,13 +518,22 @@ export function AdminClient() {
                           className="shrink-0 rounded-lg border border-grn px-2.5 py-1.5 text-[11px] font-extrabold text-grn disabled:opacity-50"
                           data-testid="admin-assign"
                           disabled={busy === q.id}
-                          onClick={async () => {
-                            setBusy(q.id);
-                            if (await post("/api/admin/assign", { userId: q.userId, courseId: g.courseId })) {
-                              await load();
-                            }
-                            setBusy(null);
-                          }}
+                          onClick={() =>
+                            askPost({
+                              title: `${q.name}さんに配りますか`,
+                              body: (
+                                <>
+                                  <div className="text-txt">{g.courseName}</div>
+                                  <div className="mt-2">ご本人にお知らせが届き、コードを打たずにそのまま受講できます。</div>
+                                </>
+                              ),
+                              yes: "配る",
+                              done: "配りました",
+                              doneBody: "ご本人にお知らせが届きました。",
+                              url: "/api/admin/assign",
+                              payload: { userId: q.userId, courseId: g.courseId },
+                              busyKey: q.id,
+                            })}
                         >
                           受講コードを配る
                         </button>
@@ -502,15 +561,26 @@ export function AdminClient() {
                     className="rounded-lg border border-line p-2.5 text-[12px] text-dim disabled:opacity-50"
                     data-testid="admin-course-req-done"
                     disabled={busy === g.courseId}
-                    onClick={async () => {
-                      setBusy(g.courseId);
-                      /* まとめて閉じる。1件ずつ押させると、押し忘れが残る */
-                      for (const q of g.rows) {
-                        await post("/api/admin/course-request", { id: q.id, on: true });
-                      }
-                      await load();
-                      setBusy(null);
-                    }}
+                    onClick={() =>
+                      setAsk({
+                        title: `${g.courseName}の受講リクエスト ${g.rows.length}件を対応済みにしますか`,
+                        body: "受講管理の一覧から消えます。受講コードを配ったあと、または口頭で済ませたときに押してください。ご本人には何も届きません。",
+                        yes: "対応済みにする",
+                        done: "対応済みにしました",
+                        run: async () => {
+                          setBusy(g.courseId);
+                          try {
+                            /* まとめて閉じる。1件ずつ押させると、押し忘れが残る */
+                            for (const q of g.rows) {
+                              await post("/api/admin/course-request", { id: q.id, on: true });
+                            }
+                            await load();
+                            return true;
+                          } finally {
+                            setBusy(null);
+                          }
+                        },
+                      })}
                   >
                     対応済みにする
                   </button>
@@ -553,12 +623,21 @@ export function AdminClient() {
                           tone="y"
                           dis={busy === it.id}
                           testid="admin-qual-ok"
-                          onClick={async () => {
-                            setBusy(it.id);
-                            if (await post("/api/admin/qual", { heldId: it.id, on: true }))
-                              await load();
-                            setBusy(null);
-                          }}
+                          onClick={() =>
+                            askPost({
+                              title: "現物を確認したことにしますか",
+                              body: (
+                                <>
+                                  <div className="text-txt">{it.name}</div>
+                                  <div className="mt-2">修了証などの現物を見たうえで押してください。「確認済み」の印が付きます。</div>
+                                </>
+                              ),
+                              yes: "確認済みにする",
+                              done: "確認済みにしました",
+                              url: "/api/admin/qual",
+                              payload: { heldId: it.id, on: true },
+                              busyKey: it.id,
+                            })}
                         >
                           現物を確認した
                         </Btn>
@@ -601,12 +680,16 @@ export function AdminClient() {
                 <button
                   className="shrink-0 rounded border border-line px-2.5 py-1.5 text-[11px] text-dim"
                   data-testid="admin-reapprove"
-                  onClick={async () => {
-                    setBusy(q.userId);
-                    if (await post("/api/admin/member", { userId: q.userId, action: "approve" }))
-                      await load();
-                    setBusy(null);
-                  }}
+                  onClick={() =>
+                    askPost({
+                      title: `${q.name}さんを承認に戻しますか`,
+                      body: "名簿に入り、受講できるようになります。",
+                      yes: "承認に戻す",
+                      done: "承認しました",
+                      url: "/api/admin/member",
+                      payload: { userId: q.userId, action: "approve" },
+                      busyKey: q.userId,
+                    })}
                 >
                   承認に戻す
                 </button>
@@ -642,14 +725,29 @@ export function AdminClient() {
                 tone="y"
                 dis={!company.trim()}
                 testid="admin-company-save"
-                onClick={async () => {
-                  setBusy("company");
-                  if (await post("/api/admin/company", { name: company.trim() })) {
-                    setEdit(false);
-                    await load();
-                  }
-                  setBusy(null);
-                }}
+                onClick={() =>
+                  setAsk({
+                    title: "事業者名を変更しますか",
+                    body: (
+                      <>
+                        <div>{st.company}</div>
+                        <div>→ <span className="text-txt">{company.trim()}</span></div>
+                        <div className="mt-2">名簿の見出しが変わります。修了証の名義は変わりません。</div>
+                      </>
+                    ),
+                    yes: "変更する",
+                    done: "変更しました",
+                    run: async () => {
+                      setBusy("company");
+                      try {
+                        const ok = await post("/api/admin/company", { name: company.trim() });
+                        if (ok) { setEdit(false); await load(); }
+                        return ok;
+                      } finally {
+                        setBusy(null);
+                      }
+                    },
+                  })}
               >
                 {busy === "company" ? "変更しています…" : "変更"}
               </Btn>
@@ -753,11 +851,18 @@ export function AdminClient() {
           <button
             className="mt-2 w-full rounded-lg border border-line p-1.5 text-[11.5px] text-dim2"
             data-testid="admin-newcode"
-            onClick={async () => {
-              setBusy("code");
-              if (await post("/api/admin/company", { newCode: true })) await load();
-              setBusy(null);
-            }}
+            onClick={() =>
+              askPost({
+                title: "参加コードを再発行しますか",
+                body: "前のコードは使えなくなります。すでに渡してある紙やメッセージは無効になるので、配り直してください。",
+                yes: "再発行する",
+                danger: true,
+                done: "再発行しました",
+                doneBody: "新しいコードを、受講する人に渡してください。",
+                url: "/api/admin/company",
+                payload: { newCode: true },
+                busyKey: "code",
+              })}
           >
             {busy === "code" ? "再発行しています…" : "参加コードを再発行"}
           </button>
@@ -807,43 +912,108 @@ export function AdminClient() {
               if (!can.length) return null;
               return {
                 courses: can,
-                run: async (cid: string) => {
-                  setBusy(r.userId);
-                  if (await post("/api/admin/assign", { userId: r.userId, courseId: cid })) {
-                    await load();
-                  }
-                  setBusy(null);
-                },
+                run: (cid: string) =>
+                  askPost({
+                    title: `${r.name || "この方"}に配りますか`,
+                    body: (
+                      <>
+                        <div className="text-txt">{can.find((c) => c.id === cid)?.short ?? cid}</div>
+                        <div className="mt-2">ご本人にお知らせが届き、コードを打たずにそのまま受講できます。</div>
+                      </>
+                    ),
+                    yes: "配る",
+                    done: "配りました",
+                    doneBody: "ご本人にお知らせが届きました。",
+                    url: "/api/admin/assign",
+                    payload: { userId: r.userId, courseId: cid },
+                    busyKey: r.userId,
+                  }),
               };
             })()}
-            onIssue={async (enrollmentId) => {
-              setBusy(r.userId);
-              if (await post("/api/admin/cert", { enrollmentId, action: "issue" }))
-                await load();
-              setBusy(null);
-            }}
-            onRevoke={async (enrollmentId) => {
-              setBusy(r.userId);
-              if (await post("/api/admin/cert", { enrollmentId, action: "revoke" }))
-                await load();
-              setBusy(null);
-            }}
-            onMember={async () => {
-              setBusy(r.userId);
-              if (
-                await post("/api/admin/member", {
-                  userId: r.userId,
-                  action: r.pending ? "approve" : "leave",
-                })
-              )
-                await load();
-              setBusy(null);
-            }}
-            onConfirm={async (heldId, on) => {
-              setBusy(r.userId);
-              if (await post("/api/admin/qual", { heldId, on })) await load();
-              setBusy(null);
-            }}
+            onIssue={(enrollmentId, courseName) =>
+              askPost({
+                title: `${r.name || "この方"}の修了証を発行しますか`,
+                body: (
+                  <>
+                    <div className="text-txt">{courseName}</div>
+                    <div className="mt-2">証明番号が付き、ご本人が受け取れるようになります。氏名と生年月日は、ご本人がマイページで入れたものが載ります。</div>
+                  </>
+                ),
+                yes: "発行する",
+                done: "修了証を発行しました",
+                doneBody: "ご本人にお知らせが届きました。",
+                url: "/api/admin/cert",
+                payload: { enrollmentId, action: "issue" },
+                busyKey: r.userId,
+              })}
+            onRevoke={(enrollmentId, courseName) =>
+              askPost({
+                title: `${r.name || "この方"}の修了証を取り消しますか`,
+                body: (
+                  <>
+                    <div className="text-txt">{courseName}</div>
+                    <div className="mt-2">証明番号は無効になります。出し直すときは、もう一度発行してください。</div>
+                  </>
+                ),
+                yes: "取り消す",
+                danger: true,
+                done: "修了証を取り消しました",
+                url: "/api/admin/cert",
+                payload: { enrollmentId, action: "revoke" },
+                busyKey: r.userId,
+              })}
+            onMember={() =>
+              askPost(r.pending
+                ? {
+                    title: `${r.name || "この方"}を承認しますか`,
+                    body: "名簿に入り、受講コードを配れるようになります。ご本人にお知らせが届きます。",
+                    yes: "承認する",
+                    done: "承認しました",
+                    url: "/api/admin/member",
+                    payload: { userId: r.userId, action: "approve" },
+                    busyKey: r.userId,
+                  }
+                : {
+                    title: `${r.name || "この方"}を退職として登録しますか`,
+                    body: "名簿から外れます。受講の記録と修了証は残ります（「名簿から外した人」から出せます）。",
+                    yes: "退職として登録",
+                    danger: true,
+                    done: "退職として登録しました",
+                    url: "/api/admin/member",
+                    payload: { userId: r.userId, action: "leave" },
+                    busyKey: r.userId,
+                  })}
+            onConfirm={(heldId, on, qualName) =>
+              askPost(on
+                ? {
+                    title: "現物を確認したことにしますか",
+                    body: (
+                      <>
+                        <div className="text-txt">{qualName}</div>
+                        <div className="mt-2">修了証などの現物を見たうえで押してください。「確認済み」の印が付きます。</div>
+                      </>
+                    ),
+                    yes: "確認済みにする",
+                    done: "確認済みにしました",
+                    url: "/api/admin/qual",
+                    payload: { heldId, on },
+                    busyKey: r.userId,
+                  }
+                : {
+                    title: "確認を取り消しますか",
+                    body: (
+                      <>
+                        <div className="text-txt">{qualName}</div>
+                        <div className="mt-2">「確認待ち」に戻ります。</div>
+                      </>
+                    ),
+                    yes: "取り消す",
+                    danger: true,
+                    done: "確認を取り消しました",
+                    url: "/api/admin/qual",
+                    payload: { heldId, on },
+                    busyKey: r.userId,
+                  })}
             canDropAdmin={admins > 1}
             /* **押した瞬間には変えない。**確かめてから変え、
                終わったことも出す（げんきさん 2026-09-09） */

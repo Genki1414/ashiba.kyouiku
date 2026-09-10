@@ -7,6 +7,7 @@ import { Btn } from "@/components/ui/Btn";
 import { MAX_SEATS, TAX_RATE, quote, yen } from "@/lib/pricing";
 import { discountOf } from "@/lib/coupon";
 import { showSeatCode } from "@/training/joinCode";
+import { AskDone, type Ask, type RunResult } from "@/components/AskDone";
 
 /* 申込みの画面。教育担当者だけ。
 
@@ -93,6 +94,10 @@ export function OrderClient() {
   const [couponBusy, setCouponBusy] = useState(false);
   const [busy, setBusy] = useState(false);
   const [canCard, setCanCard] = useState(false);
+  /* 確かめる→やる→終わった（げんきさん 2026-09-10「請求書払いで申し込む
+     とか…確認表示や完了表示のポップアップがない」）。
+     申込みは金が動く。押した瞬間に通す釦にしない */
+  const [ask, setAsk] = useState<Ask | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -190,7 +195,9 @@ export function OrderClient() {
     }
   };
 
-  const order = async (method: "card" | "invoice") => {
+  /* 申し込む。**確かめる札の中から呼ぶ**（下の askOrder）。
+     返すのは「終わった字」。断られたら false（理由は画面の上に出す） */
+  const order = async (method: "card" | "invoice"): Promise<RunResult> => {
     /* 送るのは「講座と人数」の並び。**画面で金額は作らない**
        （サーバがもう一度計算する。見せる額と請求する額を食い違わせない） */
     const items = Object.entries(picked)
@@ -198,7 +205,7 @@ export function OrderClient() {
       .map(([courseId, seats]) => ({ courseId, seats }));
     if (!items.length) {
       setNote("受講する講座をお選びください。");
-      return;
+      return false;
     }
     setBusy(true);
     setNote("");
@@ -214,27 +221,27 @@ export function OrderClient() {
         /* クーポンで断られたなら、見せていた値引きも下ろす。
            残すと、通らなかった額のまま申し込んだように見える */
         if (res.status === 409) { setCoupon(null); setCouponNg(j.reason ?? ""); }
-        return;
+        return false;
       }
       const cp = j.coupon as { name?: string; discount?: number } | null;
       if (method === "invoice") {
         /* ここは太字にできない（そのまま文字として出る）ので、
            記号を書かない。**1枚** と書いたら、画面に ** が出た */
-        setNote(
+        let msg =
           items.length > 1
             ? `${items.length}講座を申し込みました。請求書は1通にまとめてお送りします。` +
                 "お振込みの確認後、受講コードを発行します。"
-            : "お申し込みを受け付けました。請求書をお送りします。" +
-                "お振込みの確認後、受講コードを発行します。",
-        );
+            : "請求書をお送りします。お振込みの確認後、受講コードを発行します。";
         if (cp?.discount) {
-          setNote((n) => `${n}（${cp.name || "クーポン"}で ${yen(cp.discount ?? 0)}を適用しました）`);
+          msg += `（${cp.name || "クーポン"}で ${yen(cp.discount ?? 0)}を適用しました）`;
         }
+        /* 画面の上にも残す。札を閉じたあとで読み返せるように */
+        setNote(msg);
         setPicked({});
         setCode("");
         setCoupon(null);
         await load();
-        return;
+        return { done: "お申し込みを受け付けました", doneBody: msg };
       }
       const pay = await fetch("/api/stripe/checkout", {
         method: "POST",
@@ -245,9 +252,10 @@ export function OrderClient() {
       if (!pay.ok || !p.url) {
         setNote(p.reason ?? "お支払い画面を開けませんでした。");
         await load();
-        return;
+        return false;
       }
       window.location.href = p.url as string;
+      return { done: "お支払い画面へ移ります", doneBody: "カード会社の画面が開きます。そのままお進みください。" };
     } finally {
       setBusy(false);
     }
@@ -287,6 +295,36 @@ export function OrderClient() {
   const off = coupon ? discountOf(coupon, sum.subtotal) : 0;
   const net2 = sum.subtotal - off;
   const tax2 = Math.floor(net2 * TAX_RATE);
+
+  /* 申し込む前に、**何を・何名・いくら**を出して確かめる。
+     押した瞬間に注文が立つと、講座を1つ選び間違えたまま請求書が出る */
+  const askOrder = (method: "card" | "invoice") => {
+    if (!rows.length) return;
+    setAsk({
+      title: method === "invoice" ? "請求書払いで申し込みますか" : "カードで支払いますか",
+      body: (
+        <>
+          <div className="grid gap-0.5">
+            {rows.map((r) => (
+              <div key={r.c.id}>{r.c.short || r.c.name}　{r.seats}名</div>
+            ))}
+          </div>
+          <div className="mt-2 text-txt">
+            合計 {yen(net2 + tax2)}（税込）
+            {off > 0 && `　クーポン −${yen(off)}`}
+          </div>
+          <div className="mt-2">
+            {method === "invoice"
+              ? "請求書をお送りします。お振込みの確認後に受講コードが出ます。"
+              : "カード会社の画面に移ります。お支払いの確認後に受講コードが出ます。"}
+          </div>
+        </>
+      ),
+      yes: method === "invoice" ? "申し込む" : "支払いへ進む",
+      done: "お申し込みを受け付けました",
+      run: () => order(method),
+    });
+  };
 
   /* 届いている受講リクエストの数。講座ごと */
   const req = st.requests ?? {};
@@ -547,11 +585,11 @@ export function OrderClient() {
           {/* 何も選んでいないうちは押せない。押せてしまうと、
               「申し込めませんでした」で止まるだけの一手が増える */}
           {canCard && (
-            <Btn tone="y" dis={busy || !rows.length} onClick={() => order("card")} testid="order-card">
+            <Btn tone="y" dis={busy || !rows.length} onClick={() => askOrder("card")} testid="order-card">
               {busy ? "…" : "カードで支払う"}
             </Btn>
           )}
-          <Btn dis={busy || !rows.length} onClick={() => order("invoice")} testid="order-invoice">
+          <Btn dis={busy || !rows.length} onClick={() => askOrder("invoice")} testid="order-invoice">
             {busy ? "…" : "請求書払いで申し込む"}
           </Btn>
           {!rows.length && (
@@ -627,6 +665,7 @@ export function OrderClient() {
           </div>
         </details>
       )}
+      <AskDone ask={ask} onClose={() => setAsk(null)} />
     </main>
   );
 }
@@ -650,9 +689,9 @@ function CodeList({
 }) {
   const [open, setOpen] = useState(false);
   const [done, setDone] = useState<string>("");
-  /* 取り消しは戻せないので、二度押しにする */
-  const [asking, setAsking] = useState<string>("");
   const [busy, setBusy] = useState<string>("");
+  /* 配る・取り消すは、確かめてから。終わったことも出す（2026-09-10） */
+  const [ask, setAsk] = useState<Ask | null>(null);
   /* 「配る」を開いているコード。1枚ずつ（同時に2枚開くと、誰にどれか混ざる） */
   const [giving, setGiving] = useState<string>("");
   const [giveTo, setGiveTo] = useState<string>("");
@@ -664,8 +703,8 @@ function CodeList({
      **押したそのコードが渡る。**渡ったコードは画面にも残るので、
      口頭で「EQ37 を渡した」と確かめられる。
      受け取った本人には知らせが届き、押すとその講座が開く（コードは打たない） */
-  const give = async (c: Code) => {
-    if (!giveTo) { setDone("配布する相手をお選びください。"); return; }
+  const give = async (c: Code): Promise<RunResult> => {
+    if (!giveTo) { setDone("配布する相手をお選びください。"); return false; }
     setBusy(c.code);
     setDone("");
     try {
@@ -677,17 +716,40 @@ function CodeList({
       const j = await res.json().catch(() => ({}));
       if (!res.ok || !j.ok) {
         setDone(j.reason ?? "配布できませんでした。");
-        return;
+        return false;
       }
       const who = members.find((m) => m.id === giveTo)?.name ?? "";
       const cs = courses.find((x) => x.id === c.courseId)?.short ?? "";
-      setDone(`${who ? `${who}さんに` : "選択した方に"}${cs ? `${cs}の` : ""}受講コード ${showSeatCode(c.code)} を配布しました。ご本人に通知が届き、そのまま受講できます。`);
+      const msg = `${who ? `${who}さんに` : "選択した方に"}${cs ? `${cs}の` : ""}受講コード ${showSeatCode(c.code)} を配布しました。ご本人に通知が届き、そのまま受講できます。`;
+      setDone(msg);
       setGiving("");
       setGiveTo("");
       await onChange();
+      return { done: "配布しました", doneBody: msg };
     } finally {
       setBusy("");
     }
+  };
+
+  /* 配る前に、**誰に・どの講座の・どのコード**を出して確かめる。
+     名簿は指が触れただけでも効く並びなので、隣の人に渡しやすい */
+  const askGive = (c: Code) => {
+    const who = members.find((m) => m.id === giveTo)?.name ?? "";
+    const cs = courses.find((x) => x.id === c.courseId)?.short ?? "";
+    if (!who) { setDone("配布する相手をお選びください。"); return; }
+    setAsk({
+      title: `${who}さんに配布しますか`,
+      body: (
+        <>
+          {cs && <div>{cs}</div>}
+          <div className="font-mono text-[15px] font-black text-yel">{showSeatCode(c.code)}</div>
+          <div className="mt-2">ご本人に通知が届き、コードを打たずにそのまま受講できます。</div>
+        </>
+      ),
+      yes: "配布する",
+      done: "配布しました",
+      run: () => give(c),
+    });
   };
 
   const free = codes.filter((c) => !c.usedAt);
@@ -705,7 +767,7 @@ function CodeList({
 
   /* 引き換えを取り消して、もう一度配れるようにする。
      受講の記録は消えない（その人が別のコードを入れれば続きから受けられる） */
-  const release = async (code: string) => {
+  const release = async (code: string): Promise<RunResult> => {
     setBusy(code);
     try {
       const res = await fetch("/api/admin/seat", {
@@ -716,14 +778,36 @@ function CodeList({
       const j = await res.json().catch(() => ({}));
       if (!res.ok || !j.ok) {
         setDone(j.reason ?? "取り消しできませんでした。");
-        return;
+        return false;
       }
-      setDone("利用を取り消しました。次回の受講は最初からになります（受講の記録は残ります）。このコードは再度配布できます。");
-      setAsking("");
+      const msg = "次回の受講は最初からになります（受講の記録は残ります）。このコードは再度配布できます。";
+      setDone(`利用を取り消しました。${msg}`);
       await onChange();
+      return { done: "利用を取り消しました", doneBody: msg };
     } finally {
       setBusy("");
     }
+  };
+
+  /* 取り消しは戻せない。赤い札で確かめる */
+  const askRelease = (c: Code) => {
+    setDone("");
+    setAsk({
+      title: "受講コードの利用を取り消しますか",
+      body: (
+        <>
+          <div className="font-mono text-[15px] font-black">{showSeatCode(c.code)}</div>
+          <div className="mt-2">
+            その方の受講はそこで終了し、次回は最初からになります。受講の記録は残ります。
+            このコードは、もう一度配布できるようになります。
+          </div>
+        </>
+      ),
+      yes: "取り消す",
+      danger: true,
+      done: "利用を取り消しました",
+      run: () => release(c.code),
+    });
   };
 
   return (
@@ -784,7 +868,7 @@ function CodeList({
                   })}
                 </select>
                 <button
-                  onClick={() => void give(c)}
+                  onClick={() => askGive(c)}
                   disabled={!giveTo || busy === c.code}
                   className="shrink-0 rounded-lg border border-grn bg-grn px-3 py-2 text-[12px] font-bold text-bg disabled:opacity-50"
                   data-testid="order-code-give-go"
@@ -839,29 +923,14 @@ function CodeList({
             ) : c.certified ? (
               /* 修了証を出した人の席は戻さない。戻すと席の無い修了証が残る */
               <span className="shrink-0 text-[10.5px] text-dim2">修了証あり</span>
-            ) : asking === c.code ? (
-              <span className="flex shrink-0 items-center gap-1.5">
-                <button
-                  onClick={() => void release(c.code)}
-                  className="rounded-lg border border-red px-2 py-1.5 text-[11px] text-ng-tx"
-                  data-testid="order-code-release-yes"
-                >
-                  {busy === c.code ? "…" : "取り消す"}
-                </button>
-                <button
-                  onClick={() => setAsking("")}
-                  className="rounded-lg border border-line px-2 py-1.5 text-[11px] text-dim"
-                >
-                  やめる
-                </button>
-              </span>
             ) : (
               <button
-                onClick={() => { setDone(""); setAsking(c.code); }}
-                className="shrink-0 rounded-lg border border-line px-2.5 py-1.5 text-[11px] text-dim"
+                onClick={() => askRelease(c)}
+                disabled={busy === c.code}
+                className="shrink-0 rounded-lg border border-line px-2.5 py-1.5 text-[11px] text-dim disabled:opacity-50"
                 data-testid="order-code-release"
               >
-                取り消す
+                {busy === c.code ? "…" : "取り消す"}
               </button>
             )}
           </div>
@@ -898,6 +967,7 @@ function CodeList({
         修了証の発行後は戻せません（先に修了証を取り消してください）。
       </div>
       </div>
+      <AskDone ask={ask} onClose={() => setAsk(null)} />
     </details>
   );
 }

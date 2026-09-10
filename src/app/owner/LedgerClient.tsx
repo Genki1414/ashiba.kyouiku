@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { emailLabel } from "@/lib/lineEmail";
 import { yen } from "@/lib/pricing";
+import { AskDone, type Ask, type RunResult } from "@/components/AskDone";
 
 /* 本部の元帳。事業者の一覧と、事業者ごとの受講記録。
 
@@ -82,6 +83,8 @@ export function LedgerClient({ onNote }: { onNote: (s: string) => void }) {
   const [open, setOpen] = useState<string | null>(null);
   const [detail, setDetail] = useState<Detail | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  /* 確かめる→やる→終わった（2026-09-10）。担当者の付け外し */
+  const [ask, setAsk] = useState<Ask | null>(null);
   const [q, setQ] = useState("");
 
   const load = useCallback(async () => {
@@ -123,7 +126,7 @@ export function LedgerClient({ onNote }: { onNote: (s: string) => void }) {
 
   /* 教育担当者を立て直す。担当者が1人も居なくなった会社は、
      ここからしか戻せない（担当者を立てられるのは担当者だけなので） */
-  const setAdmin = async (companyId: string, p: Person) => {
+  const setAdmin = async (companyId: string, p: Person): Promise<RunResult> => {
     setBusy(p.userId);
     onNote("");
     try {
@@ -133,20 +136,41 @@ export function LedgerClient({ onNote }: { onNote: (s: string) => void }) {
         body: JSON.stringify({ companyId, userId: p.userId, admin: !p.admin }),
       });
       const j = await res.json().catch(() => ({}));
-      if (!res.ok || !j.ok) { onNote(j.reason ?? "変えられませんでした。"); return; }
-      onNote(
-        j.self
-          ? "自分を教育担当者にしました。画面を開き直してください。"
-          : `${p.name || "その人"}を${!p.admin ? "教育担当者にしました" : "受講者に戻しました"}。`,
-      );
+      if (!res.ok || !j.ok) { onNote(j.reason ?? "変えられませんでした。"); return false; }
+      const msg = j.self
+        ? "自分を教育担当者にしました。画面を開き直してください。"
+        : `${p.name || "その人"}を${!p.admin ? "教育担当者にしました" : "受講者に戻しました"}。`;
+      onNote(msg);
       /* 中身を引き直す */
       const r2 = await fetch(`/api/owner/ledger?companyId=${encodeURIComponent(companyId)}`, { cache: "no-store" });
       const d2 = await r2.json().catch(() => ({}));
       if (d2?.ok) setDetail(d2 as Detail);
+      return { done: !p.admin ? "教育担当者にしました" : "受講者に戻しました", doneBody: msg };
     } finally {
       setBusy(null);
     }
   };
+
+  const askAdmin = (companyId: string, companyName: string, p: Person) =>
+    setAsk({
+      title: p.admin
+        ? `${p.name || "この方"}を教育担当者から外しますか`
+        : `${p.name || "この方"}を教育担当者にしますか`,
+      body: (
+        <>
+          <div className="text-txt">{companyName}</div>
+          <div className="mt-2">
+            {p.admin
+              ? "名簿・受講コードの配布・修了証の発行ができなくなります。"
+              : "名簿を開いて、受講コードを配ったり、修了証を出したりできるようになります。"}
+          </div>
+        </>
+      ),
+      yes: p.admin ? "外す" : "担当者にする",
+      danger: p.admin,
+      done: p.admin ? "外しました" : "教育担当者にしました",
+      run: () => setAdmin(companyId, p),
+    });
 
   if (!cos) return null;
 
@@ -249,7 +273,7 @@ export function LedgerClient({ onNote }: { onNote: (s: string) => void }) {
                           {/* 担当者が1人も居なくなった会社は、ここからしか戻せない */}
                           {p.state === "在籍" && (
                             <button
-                              onClick={() => void setAdmin(detail.company.id, p)}
+                              onClick={() => askAdmin(detail.company.id, detail.company.name, p)}
                               disabled={busy === p.userId}
                               data-testid="ledger-admin"
                               className={`mt-2 rounded border px-2 py-1 text-[11.5px] ${
@@ -302,6 +326,7 @@ export function LedgerClient({ onNote }: { onNote: (s: string) => void }) {
           </div>
         ))}
       </div>
+      <AskDone ask={ask} onClose={() => setAsk(null)} />
     </div>
   );
 }

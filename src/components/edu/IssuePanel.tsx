@@ -5,6 +5,7 @@ import { Btn } from "@/components/ui/Btn";
 import type { IssueStatus, NextAction, Slot } from "@/lib/issue";
 import type { CourseGate } from "@/content/courses";
 import { ACCEPT, MAX_FILES, prepareFiles, sizeText, type Shrunk } from "@/lib/shrink";
+import { AskDone, type Ask, type RunResult } from "@/components/AskDone";
 
 /* 修了証の発行申請（受講する人の側）。
 
@@ -71,6 +72,8 @@ export function IssuePanel({
   /* 実技の実施記録。**端末の中で縮めてから持つ。**
      大きいまま抱えると、送る前に画面が固まる */
   const [files, setFiles] = useState<Shrunk[]>([]);
+  /* 確かめる→やる→終わった（2026-09-10）。申請を出す・日を選ぶ */
+  const [ask, setAsk] = useState<Ask | null>(null);
   const [prep, setPrep] = useState(false);
   const [busy, setBusy] = useState(false);
   const [ng, setNg] = useState("");
@@ -119,7 +122,7 @@ export function IssuePanel({
     }
   };
 
-  const post = async (body: Record<string, unknown>) => {
+  const post = async (body: Record<string, unknown>): Promise<RunResult> => {
     setBusy(true);
     setNg("");
     try {
@@ -131,10 +134,11 @@ export function IssuePanel({
       const j = await r.json();
       if (!r.ok || !j.ok) {
         setNg(j.reason ?? "うまくいきませんでした。");
-        return;
+        return false;
       }
       await load();
       onChange?.();
+      return true;
     } finally {
       setBusy(false);
     }
@@ -206,7 +210,21 @@ export function IssuePanel({
                 key={s.id}
                 type="button"
                 disabled={busy || next !== "pick"}
-                onClick={() => void post({ action: "pick", slotId: s.id })}
+                onClick={() =>
+                  setAsk({
+                    title: "この日でよろしいですか",
+                    body: (
+                      <>
+                        <div className="text-txt">{jp(s.startsAt)}　{s.minutes}分</div>
+                        {s.note && <div className="mt-1">{s.note}</div>}
+                        <div className="mt-2">選ぶと運営に伝わります。都合が変わったときは、運営にご連絡ください。</div>
+                      </>
+                    ),
+                    yes: "この日にする",
+                    done: "日を選びました",
+                    doneBody: "当日の入り口が決まると、お知らせが届きます。",
+                    run: () => post({ action: "pick", slotId: s.id }),
+                  })}
                 data-testid="issue-slot"
                 data-picked={s.picked ? "1" : "0"}
                 className={`w-full rounded-lg border px-3.5 py-3 text-left text-[13.5px] ${
@@ -331,7 +349,25 @@ export function IssuePanel({
           <Btn
             tone="y"
             dis={busy}
-            onClick={() => void post({ action: "request", note, drillOn, drillBy, files })}
+            onClick={() =>
+              setAsk({
+                title: "修了証の発行申請を出しますか",
+                body: (
+                  <>
+                    {files.length > 0 && <div>添付 {files.length}枚</div>}
+                    {note.trim() && <div>一言　{note.trim()}</div>}
+                    <div className="mt-2">
+                      {gate === "talk"
+                        ? "出しても、その場では発行されません。運営から討議の候補日が届きます。"
+                        : "出しても、その場では発行されません。運営が実技の記録を確かめてから連絡します。"}
+                    </div>
+                  </>
+                ),
+                yes: "申請を出す",
+                done: "発行申請を出しました",
+                doneBody: gate === "talk" ? "討議の候補日が出ると、お知らせが届きます。" : "運営が確かめると、お知らせが届きます。",
+                run: () => post({ action: "request", note, drillOn, drillBy, files }),
+              })}
             testid="issue-request"
           >
             {busy ? "…" : "発行申請を出す"}
@@ -360,6 +396,7 @@ export function IssuePanel({
           {ng}
         </div>
       )}
+      <AskDone ask={ask} onClose={() => setAsk(null)} />
     </section>
   );
 }

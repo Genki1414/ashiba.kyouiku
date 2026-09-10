@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { findCourse } from "@/content/courses";
+import { AskDone, type Ask, type RunResult } from "@/components/AskDone";
 
 /* 「この講座を受けたい」を、断られたその場から送る。
 
@@ -45,6 +46,7 @@ export function RequestCourse() {
   const [st, setSt] = useState<Load>({ s: "yet" });
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState("");
+  const [ask, setAsk] = useState<Ask | null>(null);
 
   useEffect(() => {
     if (!course) return;
@@ -103,34 +105,56 @@ export function RequestCourse() {
     );
   }
 
+  /* 送る。確かめる札の中から呼ぶ（2026-09-10） */
+  const send = async (): Promise<RunResult> => {
+    setBusy(true);
+    setNote("");
+    try {
+      const res = await fetch("/api/course-request", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ courseId: course.id, action: "request" }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok || !j.ok) { setNote(j.reason ?? "送信できませんでした。"); return false; }
+      setSt({ s: "ok", company: st.company, sent: true });
+      return true;
+    } catch {
+      setNote("接続できません。電波の届く場所で、もう一度お試しください。");
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <div className="mt-5" data-testid="need-seat-request">
       <button
         type="button"
         disabled={busy}
-        onClick={async () => {
-          setBusy(true);
-          setNote("");
-          try {
-            const res = await fetch("/api/course-request", {
-              method: "POST",
-              headers: { "content-type": "application/json" },
-              body: JSON.stringify({ courseId: course.id, action: "request" }),
-            });
-            const j = await res.json().catch(() => ({}));
-            if (!res.ok || !j.ok) { setNote(j.reason ?? "送信できませんでした。"); return; }
-            setSt({ s: "ok", company: st.company, sent: true });
-          } catch {
-            setNote("接続できません。電波の届く場所で、もう一度お試しください。");
-          } finally {
-            setBusy(false);
-          }
-        }}
+        onClick={() =>
+          setAsk({
+            title: "受講リクエストを送りますか",
+            body: (
+              <>
+                <div>{course.name}</div>
+                <div className="mt-2">
+                  {st.company ? `${st.company}の` : "会社の"}教育担当者に届きます。
+                  担当者が受講コードを用意すると、この講座が開きます。
+                </div>
+              </>
+            ),
+            yes: "送る",
+            done: "受講リクエストを送りました",
+            doneBody: "担当者が受講コードを用意すると、お知らせが届きます。",
+            run: send,
+          })}
         className="block w-full rounded-lg border border-cyan p-3 text-center text-[13px] font-bold text-cyan disabled:opacity-50"
         data-testid="need-seat-request-send"
       >
         {busy ? "送信しています…" : "この講座の受講リクエストを送信"}
       </button>
+      <AskDone ask={ask} onClose={() => setAsk(null)} />
       <div className="mt-1.5 text-[11.5px] leading-relaxed text-dim2">
         送信すると、会社の教育担当者に通知されます。受講コードが発行されると、受講を開始できます。
       </div>

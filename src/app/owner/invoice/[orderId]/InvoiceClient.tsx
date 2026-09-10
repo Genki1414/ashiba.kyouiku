@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { yen } from "@/lib/pricing";
+import { AskDone, type Ask, type RunResult } from "@/components/AskDone";
 
 /* 請求書。本部が開いて、印刷するか PDF にして送る。
 
@@ -38,6 +39,8 @@ const day = (s: string | null) => {
 
 export function InvoiceClient({ orderId, mine = false }: { orderId: string; mine?: boolean }) {
   const [inv, setInv] = useState<Inv | null>(null);
+  /* 確かめる→やる→終わった（2026-09-10）。知らせは1回きり */
+  const [ask, setAsk] = useState<Ask | null>(null);
   const [ng, setNg] = useState("");
   const [busy, setBusy] = useState(false);
   /* 買った側の画面には「送った」ボタンを出さない。戻り先も変わる */
@@ -101,26 +104,35 @@ export function InvoiceClient({ orderId, mine = false }: { orderId: string; mine
             </button>
             {!mine && (
               <button
-                onClick={async () => {
-                  setBusy(true);
-                  try {
-                    const r = await fetch("/api/owner/invoice", {
-                      method: "POST",
-                      headers: { "content-type": "application/json" },
-                      body: JSON.stringify({ orderId }),
-                    });
-                    const j = await r.json().catch(() => ({}));
-                    if (r.ok && j.ok) {
-                      setInv((v) =>
-                        v ? { ...v, order: { ...v.order, invoicedAt: j.invoicedAt } } : v,
-                      );
-                    } else {
-                      setNg(j.reason ?? "知らせられませんでした。");
-                    }
-                  } finally {
-                    setBusy(false);
-                  }
-                }}
+                onClick={() =>
+                  setAsk({
+                    title: "請求書が出たことを相手に知らせますか",
+                    body: `${yen(o.amount)} の請求書です。担当者にお知らせが届きます。知らせは1回きりで、取り消せません。`,
+                    yes: "知らせる",
+                    done: "知らせました",
+                    doneBody: "担当者にお知らせが届きました。",
+                    run: async (): Promise<RunResult> => {
+                      setBusy(true);
+                      try {
+                        const r = await fetch("/api/owner/invoice", {
+                          method: "POST",
+                          headers: { "content-type": "application/json" },
+                          body: JSON.stringify({ orderId }),
+                        });
+                        const j = await r.json().catch(() => ({}));
+                        if (r.ok && j.ok) {
+                          setInv((v) =>
+                            v ? { ...v, order: { ...v.order, invoicedAt: j.invoicedAt } } : v,
+                          );
+                          return true;
+                        }
+                        setNg(j.reason ?? "知らせられませんでした。");
+                        return false;
+                      } finally {
+                        setBusy(false);
+                      }
+                    },
+                  })}
                 disabled={busy || !!o.invoicedAt}
                 className={`rounded-lg border px-3 py-1.5 text-[12px] ${
                   o.invoicedAt ? "border-line text-dim2" : "border-grn text-grn"
@@ -264,6 +276,7 @@ export function InvoiceClient({ orderId, mine = false }: { orderId: string; mine
           </div>
         </div>
       </main>
+      <AskDone ask={ask} onClose={() => setAsk(null)} />
     </>
   );
 }

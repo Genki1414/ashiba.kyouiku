@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Btn } from "@/components/ui/Btn";
 import { KINDS, OTHER, search, totalH, type QualKind } from "@/content/quals";
 import type { Held } from "@/lib/quals";
+import { AskDone, type Ask, type RunResult } from "@/components/AskDone";
 
 /* 取得済みの資格。
 
@@ -54,6 +55,8 @@ export function HeldQuals() {
   const [q, setQ] = useState("");
   const [picked, setPicked] = useState<string[]>([]);
   const [label, setLabel] = useState("");
+  /* 確かめる→やる→終わった（2026-09-10）。追加・解除 */
+  const [ask, setAsk] = useState<Ask | null>(null);
   const [issuer, setIssuer] = useState("");
   const [gotOn, setGotOn] = useState("");
   const [certNo, setCertNo] = useState("");
@@ -88,7 +91,7 @@ export function HeldQuals() {
   const toggle = (id: string) =>
     setPicked((v) => (v.includes(id) ? v.filter((x) => x !== id) : [...v, id]));
 
-  const add = async () => {
+  const add = async (): Promise<RunResult> => {
     setBusy(true);
     setNote("");
     try {
@@ -99,21 +102,41 @@ export function HeldQuals() {
       });
       const j = await res.json().catch(() => ({}));
       if (!res.ok || !j.ok) {
-        setNote(j.reason ?? "足せませんでした。");
+        setNote(j.reason ?? "追加できませんでした。");
         if (j.held) setHeld(j.held as Held[]);
-        return;
+        return false;
       }
       take(j);
       clear();
       setOpen(false);
+      return true;
     } catch {
       setNote("接続できません。電波の届く場所で、もう一度お試しください。");
+      return false;
     } finally {
       setBusy(false);
     }
   };
 
-  const drop = async (id: string) => {
+  /* 自己申告は、担当者が確かめる。**何を申告するかを見せて**確かめる */
+  const askAdd = () => {
+    const names = picked.map((id) => search(kind, "").find((x) => x.id === id)?.name ?? (id === OTHER ? label : id));
+    setAsk({
+      title: `${picked.length}件の資格を追加しますか`,
+      body: (
+        <>
+          <div className="grid gap-0.5">{names.map((n, i) => <div key={i}>・{n}</div>)}</div>
+          <div className="mt-2">自己申告として入ります。会社の教育担当者が確かめると「確認済み」になります。</div>
+        </>
+      ),
+      yes: "追加する",
+      done: "追加しました",
+      doneBody: "教育担当者が確かめると「確認済み」になります。",
+      run: add,
+    });
+  };
+
+  const drop = async (id: string): Promise<RunResult> => {
     setBusy(true);
     setNote("");
     try {
@@ -123,12 +146,28 @@ export function HeldQuals() {
         body: JSON.stringify({ action: "drop", id }),
       });
       const j = await res.json().catch(() => ({}));
-      if (!res.ok || !j.ok) setNote(j.reason ?? "外せませんでした。");
-      else take(j);
+      if (!res.ok || !j.ok) { setNote(j.reason ?? "外せませんでした。"); return false; }
+      take(j);
+      return true;
     } finally {
       setBusy(false);
     }
   };
+
+  const askDrop = (h: Held) =>
+    setAsk({
+      title: "この資格を外しますか",
+      body: (
+        <>
+          <div>{h.name}</div>
+          <div className="mt-2">担当者の「確認済み」も消えます。もう一度入れるときは、確かめ直しになります。</div>
+        </>
+      ),
+      yes: "外す",
+      danger: true,
+      done: "外しました",
+      run: () => drop(h.id),
+    });
 
   if (!held) return null;
 
@@ -227,7 +266,7 @@ export function HeldQuals() {
                 {h.certNo ? <><br />修了証番号 {h.certNo}</> : null}
               </div>
               <button
-                onClick={() => void drop(h.id)}
+                onClick={() => askDrop(h)}
                 disabled={busy}
                 className="mt-2 rounded border border-line px-2 py-1 text-[11px] text-dim2"
                 data-testid="me-qual-drop"
@@ -378,7 +417,7 @@ export function HeldQuals() {
             </div>
 
             <div className="mt-3">
-              <Btn tone="y" dis={busy || !total} onClick={add} testid="me-qual-add">
+              <Btn tone="y" dis={busy || !total} onClick={askAdd} testid="me-qual-add">
                 {busy ? "登録しています…" : total ? `${total}件を登録する` : "資格を選択してください"}
               </Btn>
             </div>
@@ -392,6 +431,7 @@ export function HeldQuals() {
         )}
 
         {note && <div className="mt-2 text-[12px] text-red" data-testid="me-qual-note">{note}</div>}
+        <AskDone ask={ask} onClose={() => setAsk(null)} />
       </div>
     </details>
   );

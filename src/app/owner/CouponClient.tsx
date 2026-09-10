@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { yen } from "@/lib/pricing";
+import { AskDone, type Ask, type RunResult } from "@/components/AskDone";
 
 /* クーポンと、紹介してくれた人への広告費（0032）。本部だけ。
 
@@ -48,6 +49,8 @@ const offText = (c: Coupon) =>
 
 export function CouponClient({ onNote }: { onNote: (s: string) => void }) {
   const [list, setList] = useState<Coupon[] | null>(null);
+  /* 確かめる→やる→終わった（2026-09-10）。作る・支払先・停止 */
+  const [ask, setAsk] = useState<Ask | null>(null);
   const [partners, setPartners] = useState<Partner[]>([]);
   const [open, setOpen] = useState("");
   const [busy, setBusy] = useState(false);
@@ -226,19 +229,34 @@ export function CouponClient({ onNote }: { onNote: (s: string) => void }) {
             </div>
             <button
               disabled={busy}
-              onClick={async () => {
-                const ok = await post({
-                  code, name,
-                  percentOff: kind === "percent" ? off : undefined,
-                  amountOff: kind === "amount" ? off : undefined,
-                  partnerId: partnerId || undefined,
-                  rewardRate: Number(rate) || 0,
-                  expiresAt: expiresAt || undefined,
-                  maxUses: maxUses || undefined,
-                  companyUses: companyUses || undefined,
-                });
-                if (ok) { setCode(""); setName(""); setOff(""); setMake(false); }
-              }}
+              onClick={() =>
+                setAsk({
+                  title: "このクーポンを作りますか",
+                  body: (
+                    <>
+                      <div className="font-mono text-txt">{code}</div>
+                      <div>{name}　{kind === "percent" ? `${off}%引き` : `${off}円引き`}</div>
+                      {expiresAt && <div>期限 {expiresAt}</div>}
+                      <div className="mt-2">作ったあと、字は直せません（停止はできます）。</div>
+                    </>
+                  ),
+                  yes: "作る",
+                  done: "クーポンを作りました",
+                  run: async () => {
+                    const ok = await post({
+                      code, name,
+                      percentOff: kind === "percent" ? off : undefined,
+                      amountOff: kind === "amount" ? off : undefined,
+                      partnerId: partnerId || undefined,
+                      rewardRate: Number(rate) || 0,
+                      expiresAt: expiresAt || undefined,
+                      maxUses: maxUses || undefined,
+                      companyUses: companyUses || undefined,
+                    });
+                    if (ok) { setCode(""); setName(""); setOff(""); setMake(false); }
+                    return ok;
+                  },
+                })}
               className="rounded-lg border border-grn bg-grn px-3 py-2.5 text-[13px] font-bold text-bg disabled:opacity-50"
               data-testid="coupon-make-go"
             >
@@ -257,11 +275,18 @@ export function CouponClient({ onNote }: { onNote: (s: string) => void }) {
                 placeholder="連絡先" data-testid="partner-contact" />
               <button
                 disabled={busy}
-                onClick={async () => {
-                  if (await post({ action: "partner", name: pName, contact: pContact })) {
-                    setPName(""); setPContact("");
-                  }
-                }}
+                onClick={() =>
+                  setAsk({
+                    title: "支払先を追加しますか",
+                    body: <>{pName}{pContact ? `　${pContact}` : ""}</>,
+                    yes: "追加する",
+                    done: "追加しました",
+                    run: async () => {
+                      const ok = await post({ action: "partner", name: pName, contact: pContact });
+                      if (ok) { setPName(""); setPContact(""); }
+                      return ok;
+                    },
+                  })}
                 className="shrink-0 rounded-lg border border-yel px-3 py-2 text-[12px] text-yel disabled:opacity-50"
                 data-testid="partner-add"
               >
@@ -328,7 +353,20 @@ export function CouponClient({ onNote }: { onNote: (s: string) => void }) {
               </button>
               <button
                 disabled={busy}
-                onClick={() => void post({ action: "toggle", id: c.id, active: !c.active })}
+                onClick={() =>
+                  setAsk({
+                    title: c.active ? "このクーポンを停止しますか" : "このクーポンを再開しますか",
+                    body: (
+                      <>
+                        <div className="font-mono text-txt">{c.code}</div>
+                        <div className="mt-2">{c.active ? "停止すると、入れても通らなくなります。" : "再開すると、また使えるようになります。"}</div>
+                      </>
+                    ),
+                    yes: c.active ? "停止する" : "再開する",
+                    danger: c.active,
+                    done: c.active ? "停止しました" : "再開しました",
+                    run: () => post({ action: "toggle", id: c.id, active: !c.active }),
+                  })}
                 className="rounded-lg border border-line px-2.5 py-1.5 text-[11.5px] text-dim disabled:opacity-50"
                 data-testid="coupon-toggle"
               >
@@ -355,6 +393,7 @@ export function CouponClient({ onNote }: { onNote: (s: string) => void }) {
           </div>
         ))}
       </div>
+      <AskDone ask={ask} onClose={() => setAsk(null)} />
     </div>
   );
 }

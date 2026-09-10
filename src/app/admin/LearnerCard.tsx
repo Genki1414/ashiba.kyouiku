@@ -38,7 +38,7 @@ function Doing({
 }: {
   c: CourseRow;
   busy: boolean;
-  onIssue: (enrollmentId: string) => void;
+  onIssue: (enrollmentId: string, courseName: string) => void;
 }) {
   return (
     <div className="rounded-lg border border-line bg-bg p-3" data-testid="admin-doing">
@@ -91,7 +91,7 @@ function Doing({
 
       <div className="mt-2.5 border-t border-line pt-2.5">
         {c.canIssue && c.enrollmentId ? (
-          <Btn tone="y" testid="admin-issue" dis={busy} onClick={() => onIssue(c.enrollmentId!)}>
+          <Btn tone="y" testid="admin-issue" dis={busy} onClick={() => onIssue(c.enrollmentId!, c.name)}>
             {busy ? "発行しています…" : "修了証を発行する"}
           </Btn>
         ) : (
@@ -117,8 +117,8 @@ export function LearnerCard({
 }: {
   r: PersonRow;
   busy: boolean;
-  onIssue: (enrollmentId: string) => void;
-  onRevoke: (enrollmentId: string) => void;
+  onIssue: (enrollmentId: string, courseName: string) => void;
+  onRevoke: (enrollmentId: string, courseName: string) => void;
   onMember: () => void;
   onRole: () => void;
   /** この会社の教育担当者が、この人のほかにも居るか。
@@ -129,7 +129,7 @@ export function LearnerCard({
       「押したのに断られた」になるので、はじめから押させない */
   canDropAdmin: boolean;
   /** よそで取った資格。現物を見たら確認済みにする */
-  onConfirm: (heldId: string, on: boolean) => void;
+  onConfirm: (heldId: string, on: boolean, qualName: string) => void;
   /** この人に配れる受講コード（0028）。残数のある講座のうち、
       その人がまだ持っていないものだけが入る。1つも無ければ null */
   assign: {
@@ -330,7 +330,7 @@ export function LearnerCard({
                     <button
                       className="ml-auto rounded-lg border border-line px-2.5 py-1 text-[11px] text-dim"
                       data-testid="admin-revoke"
-                      onClick={() => onRevoke(c.enrollmentId!)}
+                      onClick={() => onRevoke(c.enrollmentId!, c.name)}
                     >
                       取り消す
                     </button>
@@ -366,7 +366,7 @@ export function LearnerCard({
                 {h.certNo ? <><br />修了証番号 {h.certNo}</> : null}
               </div>
               <button
-                onClick={() => onConfirm(h.id, !h.confirmedAt)}
+                onClick={() => onConfirm(h.id, !h.confirmedAt, h.name)}
                 disabled={busy}
                 className={`mt-2 w-full rounded-lg border p-1.5 text-[11px] ${
                   h.confirmedAt ? "border-line text-dim2" : "border-yel text-yel"

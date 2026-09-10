@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { BRAND } from "@/content/brand";
+import { AskDone, type Ask, type RunResult } from "@/components/AskDone";
 
 /* LINE の設定。運営だけ。
 
@@ -29,6 +30,8 @@ export function LineClient({ onNote }: { onNote: (s: string) => void }) {
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState("");
   const [st, setSt] = useState<St | null>(null);
+  /* 確かめる→やる→終わった（2026-09-10）。配ると全員のトークが変わる */
+  const [ask, setAsk] = useState<Ask | null>(null);
   const [shown, setShown] = useState(false);
 
   /* いまの様子。押す前に、結び付いているかが分かるように */
@@ -47,17 +50,20 @@ export function LineClient({ onNote }: { onNote: (s: string) => void }) {
       .catch(() => {});
   }, []);
 
-  const send = async () => {
+  const send = async (): Promise<RunResult> => {
     setBusy(true);
     setDone("");
     onNote("");
     try {
       const res = await fetch("/api/owner/line-menu", { method: "POST" });
       const j = await res.json().catch(() => ({}));
-      if (!res.ok || !j.ok) { onNote(j.reason ?? "配れませんでした。"); return; }
-      setDone("リッチメニューを配りました。LINEのトーク画面を開き直すと、下に3つの札が出ます。");
+      if (!res.ok || !j.ok) { onNote(j.reason ?? "配れませんでした。"); return false; }
+      const msg = "LINEのトーク画面を開き直すと、下に3つの札が出ます。";
+      setDone(`リッチメニューを配りました。${msg}`);
+      return { done: "リッチメニューを配りました", doneBody: msg };
     } catch {
       onNote("接続できません。");
+      return false;
     } finally {
       setBusy(false);
     }
@@ -91,7 +97,14 @@ export function LineClient({ onNote }: { onNote: (s: string) => void }) {
         />
 
         <button
-          onClick={() => void send()}
+          onClick={() =>
+            setAsk({
+              title: "このメニューを配りますか",
+              body: `${BRAND.name} の公式アカウントを友だち追加している全員のトーク画面に、下の3つの札が出ます。前のメニューは置き換わります。`,
+              yes: "配る",
+              done: "リッチメニューを配りました",
+              run: send,
+            })}
           disabled={busy}
           className="mt-3 w-full rounded-lg border border-grn bg-grn p-2.5 text-[13px] font-bold text-bg disabled:opacity-50"
           data-testid="owner-line-menu"
@@ -166,6 +179,7 @@ export function LineClient({ onNote }: { onNote: (s: string) => void }) {
           札の名前や行き先を変えるときは、絵を作り直します（scripts/line-richmenu.ts）。
         </div>
       </div>
+      <AskDone ask={ask} onClose={() => setAsk(null)} />
     </div>
   );
 }

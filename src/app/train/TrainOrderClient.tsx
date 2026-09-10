@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Btn } from "@/components/ui/Btn";
 import { Loading } from "@/components/Loading";
 import { TAX_RATE, yen } from "@/lib/pricing";
+import { AskDone, type Ask, type RunResult } from "@/components/AskDone";
 
 /* 実務トレーニング（第2章から先）を、本人が申し込む。
 
@@ -44,6 +45,11 @@ export function TrainOrderClient() {
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState("");
   const [made, setMade] = useState<Order | null>(null);
+  /* 確かめる→やる→終わった（2026-09-10）。金が動く。
+     **終わった札を閉じてから**「申し込みました」の画面に移す。
+     先に移すと、札ごと消えて終わったことが出ない */
+  const [ask, setAsk] = useState<Ask | null>(null);
+  const madeRef = useRef<Order | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -70,7 +76,7 @@ export function TrainOrderClient() {
 
   useEffect(() => { void load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const send = async () => {
+  const send = async (): Promise<RunResult> => {
     setBusy(true);
     setNote("");
     try {
@@ -82,12 +88,13 @@ export function TrainOrderClient() {
       const j = await res.json().catch(() => ({}));
       if (!res.ok || !j.ok) {
         setNote(j.reason ?? "申し込めませんでした。");
-        return;
+        return false;
       }
-      setMade(j.order as Order);
-      await load();
+      madeRef.current = j.order as Order;
+      return true;
     } catch {
       setNote("接続できません。電波の届く場所で、もう一度お試しください。");
+      return false;
     } finally {
       setBusy(false);
     }
@@ -198,7 +205,28 @@ export function TrainOrderClient() {
       </div>
 
       <div className="mt-5">
-        <Btn tone="y" dis={busy || !billTo.trim()} onClick={send} testid="train-order-go">
+        <Btn
+          tone="y"
+          dis={busy || !billTo.trim()}
+          onClick={() =>
+            setAsk({
+              title: "請求書払いで申し込みますか",
+              body: (
+                <>
+                  <div>実務トレーニング　第2章から先　1名分</div>
+                  <div className="mt-1 text-txt">{yen(total)}（税込）</div>
+                  <div className="mt-1">宛名　{billTo.trim()}</div>
+                  <div className="mt-2">請求書をお送りします。お振込みの確認後に開きます。</div>
+                </>
+              ),
+              yes: "申し込む",
+              done: "お申し込みを受け付けました",
+              doneBody: "請求書をお送りします。お振込みの確認後、第2章から先が開きます。",
+              run: send,
+              after: () => { setMade(madeRef.current); void load(); },
+            })}
+          testid="train-order-go"
+        >
           {busy ? "申し込んでいます…" : "請求書払いで申し込む"}
         </Btn>
       </div>
@@ -209,6 +237,7 @@ export function TrainOrderClient() {
       </p>
 
       {note && <div className="mt-3 text-[12.5px] text-red" data-testid="train-order-note">{note}</div>}
+      <AskDone ask={ask} onClose={() => setAsk(null)} />
 
       <div className="mt-8 rounded-xl border border-line bg-panel p-4 text-[11.5px] leading-relaxed text-dim2">
         実務トレーニングは、特別教育（学科）の修了証の要件ではありません。

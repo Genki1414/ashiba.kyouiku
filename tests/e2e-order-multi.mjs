@@ -45,6 +45,16 @@ const browser = await chromium.launch({
 const page = await browser.newPage({ viewport: { width: 390, height: 900 } });
 page.on("pageerror", (e) => { console.error("NG: pageerror", e.message); ng++; });
 
+/* 確かめる札（AskDone。2026-09-10 から、決める操作は全部これを通る）。
+   「押す」→ 終わったら「閉じる」。断られたときは札が閉じるので、閉じるは出ない */
+const confirmDone = async () => {
+  await page.getByTestId("ask-done-yes").waitFor({ timeout: 4000 });
+  await page.getByTestId("ask-done-yes").click();
+  await page.getByTestId("ask-done-close").waitFor({ timeout: 8000 }).catch(() => {});
+  if (await page.getByTestId("ask-done-close").count()) await page.getByTestId("ask-done-close").click();
+  await page.waitForTimeout(150);
+};
+
 /** 送られてきた申込みの中身 */
 let sent = null;
 /** 「配る」で送られた中身 */
@@ -197,7 +207,14 @@ await page.waitForTimeout(120);
 
 /* ── 送る中身 ── */
 await page.getByTestId("order-invoice").click();
-await page.waitForTimeout(400);
+/* 講座と人数と合計を出して確かめる。押した瞬間に注文が立たない */
+{
+  const askT = (await page.getByTestId("ask-done").innerText()).replace(/\s+/g, "");
+  check(/申し込みますか/.test(askT), "申し込む前に確かめる札が出る");
+  check(/5名/.test(askT) && /3名/.test(askT) && /2名/.test(askT), `講座ごとの人数が札に出る（${askT.slice(0, 60)}）`);
+  check(!sent, "確かめる前には送らない");
+}
+await confirmDone();
 check(!!sent, "申込みが送られた");
 check(Array.isArray(sent?.items) && sent.items.length === 3, `講座と人数の並びで送る（${JSON.stringify(sent?.items)}）`);
 const byId = Object.fromEntries((sent?.items ?? []).map((i) => [i.courseId, i.seats]));
@@ -237,7 +254,12 @@ console.log("OK: 3講座をまとめて申し込める");
   await page.getByTestId("order-code-give-select").selectOption("u1");
   await page.waitForTimeout(80);
   await page.getByTestId("order-code-give-go").click();
-  await page.waitForTimeout(400);
+  {
+    const askT = (await page.getByTestId("ask-done").innerText()).replace(/\s+/g, "");
+    check(/配布しますか/.test(askT) && /EQ37/.test(askT), `誰に・どのコードかを見せて確かめる（${askT.slice(0, 40)}）`);
+    check(!given, "確かめる前には配らない");
+  }
+  await confirmDone();
 
   check(!!given, "配るが送られた");
   /* **押したそのコード**が渡る。自動で別の1枚を選ばせない */

@@ -22,6 +22,16 @@ const dismiss = async () => {
   if (await b.count()) { await b.click(); await page.waitForTimeout(200); }
 };
 
+/* 確かめる札（AskDone。2026-09-10 から、決める操作は全部これを通る）。
+   「押す」→ 終わったら「閉じる」。断られたときは札が閉じるので、閉じるは出ない */
+const confirmDone = async () => {
+  await page.getByTestId("ask-done-yes").waitFor({ timeout: 4000 });
+  await page.getByTestId("ask-done-yes").click();
+  await page.getByTestId("ask-done-close").waitFor({ timeout: 8000 }).catch(() => {});
+  if (await page.getByTestId("ask-done-close").count()) await page.getByTestId("ask-done-close").click();
+  await page.waitForTimeout(150);
+};
+
 /* ── 画面が開いて、状態を正しく言う ── */
 await page.goto(`${BASE}/admin`);
 await dismiss();
@@ -167,6 +177,9 @@ await page.getByTestId("join-code").fill("abcd2345");
 check(!(await go.isDisabled()), "小文字8文字なら押せる");
 await page.screenshot({ path: `${SC}/admin-02-join.png` });
 await go.click();
+/* 使う前に確かめる札が出る。押すと送る（つながらないので、札は閉じて理由が出る） */
+check(await page.getByTestId("ask-done-yes").isVisible(), "コードを使う前に確かめる札が出る");
+await confirmDone();
 /* 決まった時間で待つと、遅い端末で取りこぼす。出るまで待つ */
 await page.getByTestId("join-note").waitFor({ timeout: 8000 }).catch(() => {});
 const joinNote = await page.getByTestId("join-note").count();
@@ -258,11 +271,12 @@ console.log("OK: 受講管理への入口");
   check(/点検用工業/.test(t) && /在籍中/.test(t), "いまの所属と、その状態が出る");
   check(/3\/13単元/.test(t), "受講の進み具合が出る");
 
-  /* 外すのは二度押し。押し間違いで所属が切れると受講が止まる */
+  /* 外すのは確かめてから。押し間違いで所属が切れると受講が止まる */
   await page.getByTestId("me-leave").click();
-  check(await page.getByTestId("me-leave-yes").isVisible(), "紐付けを外すのは二度押しで確かめる");
-  const warn = (await page.locator("main").innerText()).replace(/\s+/g, "");
+  check(await page.getByTestId("ask-done-yes").isVisible(), "紐付けを外すのは確かめる札で");
+  const warn = (await page.getByTestId("ask-done").innerText()).replace(/\s+/g, "");
   check(/記録は消えません/.test(warn), "外しても記録が消えないことを書いてある");
+  await page.getByTestId("ask-done-no").click();
 
   /* 氏名を直せる */
   await page.reload();
@@ -323,7 +337,7 @@ console.log("OK: 受講管理への入口");
   check((await page.getByTestId("join-request-row").count()) === 1, "講座名でさがせる");
 
   await page.getByTestId("join-request-send").click();
-  await page.waitForTimeout(300);
+  await confirmDone();
   check(sent.some((b) => b.courseId === "ashiba" && b.action === "request"),
     "選んだ講座を、リクエストとして送っている");
   await page.screenshot({ path: `${SC}/admin-06-join-req.png`, fullPage: true });
@@ -412,7 +426,10 @@ console.log("OK: 受講管理への入口");
   check(/コード入力なし/.test(label), `コードが要らないことを書いてある（${label}）`);
 
   await page.getByTestId("admin-assign").click();
-  await page.waitForTimeout(400);
+  /* 誰に・どの講座かを見せてから配る */
+  const askT = (await page.getByTestId("ask-done").innerText()).replace(/\s+/g, "");
+  check(/配りますか/.test(askT), `配る前に確かめる（${askT.slice(0, 30)}）`);
+  await confirmDone();
   check(posted.some((b) => b.userId === "u1" && b.courseId === "ashiba"),
     "誰に・どの講座を、だけを送っている");
   /* 会社は画面から送らない。送ると、よその会社の席を配れてしまう */

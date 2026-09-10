@@ -139,6 +139,13 @@ for (let q = 0; q < 20; q++) {
   // 常に1番目を選ぶ（採点はサーバなので合否はどちらでもよい）
   await page.locator("[data-exam-opt]").first().click();
   await page.waitForTimeout(60);
+  /* 最後の1問を押すと「採点しますか」。途中の問いには出ない（2026-09-10） */
+  if (await page.getByTestId("ask-done-yes").count()) {
+    if (q !== 19) die(`途中の問い（${q + 1}問目）で確かめる札が出た`);
+    await page.getByTestId("ask-done-yes").click();
+    await page.getByTestId("ask-done-close").waitFor({ timeout: 8000 });
+    await page.getByTestId("ask-done-close").click();
+  }
   if (await page.locator("text=/^(合格|不合格)$/").count()) break;
 }
 await page.waitForSelector("text=/^(合格|不合格)$/", { timeout: 10000 });
@@ -166,6 +173,12 @@ for (let q = 0; q < 20; q++) {
   if (ok === undefined) die(`正解表に無い設問: ${qText}`);
   await page.locator("[data-exam-opt]").nth(ok).click();
   await page.waitForTimeout(60);
+  /* 最後の1問で「採点しますか」 */
+  if (await page.getByTestId("ask-done-yes").count()) {
+    await page.getByTestId("ask-done-yes").click();
+    await page.getByTestId("ask-done-close").waitFor({ timeout: 8000 });
+    await page.getByTestId("ask-done-close").click();
+  }
   if (await page.locator("text=/^(合格|不合格)$/").count()) break;
 }
 await page.waitForSelector("text=/^合格$/", { timeout: 10000 });

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Btn } from "@/components/ui/Btn";
 import { Bar } from "@/components/ui/Bar";
 import { loadProgress } from "@/lib/progressClient";
+import { AskDone, type Ask, type RunResult } from "@/components/AskDone";
 
 type ExamQ = { q: string; a: string[] };
 type ExamResult = {
@@ -27,6 +28,9 @@ export function ExamClient({ courseId, lessonIds }: { courseId: string; lessonId
   const [answers, setAnswers] = useState<number[]>([]);
   const [result, setResult] = useState<ExamResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  /* 最後の1問を押したら採点。**押した瞬間に採点しない**（2026-09-10）。
+     途中の問いには挟まない。1問ごとに札が出ると試験にならない */
+  const [ask, setAsk] = useState<Ask | null>(null);
 
   /* 受験資格：全単元の確認問題に合格していること */
   useEffect(() => {
@@ -60,7 +64,7 @@ export function ExamClient({ courseId, lessonIds }: { courseId: string; lessonId
     }
   };
 
-  const submit = async (finalAnswers: number[]) => {
+  const submit = async (finalAnswers: number[]): Promise<RunResult> => {
     setError(null);
     try {
       const res = await fetch("/api/exam", {
@@ -79,10 +83,21 @@ export function ExamClient({ courseId, lessonIds }: { courseId: string; lessonId
         /* 無視 */
       }
       window.scrollTo(0, 0);
+      return { done: "採点しました", doneBody: "閉じると結果が出ます。" };
     } catch (e) {
       setError(e instanceof Error ? e.message : "採点できませんでした");
+      return false;
     }
   };
+
+  const askSubmit = (finalAnswers: number[]) =>
+    setAsk({
+      title: "採点しますか",
+      body: `全${finalAnswers.length}問に答えました。採点すると答えは直せません。`,
+      yes: "採点する",
+      done: "採点しました",
+      run: () => submit(finalAnswers),
+    });
 
   return (
     <main className="pb-10">
@@ -143,7 +158,7 @@ export function ExamClient({ courseId, lessonIds }: { courseId: string; lessonId
                   const n = [...answers];
                   n[i] = k;
                   setAnswers(n);
-                  if (i + 1 >= qs.length) submit(n);
+                  if (i + 1 >= qs.length) askSubmit(n);
                   else {
                     setI(i + 1);
                     window.scrollTo(0, 0);
@@ -228,6 +243,7 @@ export function ExamClient({ courseId, lessonIds }: { courseId: string; lessonId
           {error}
         </div>
       )}
+      <AskDone ask={ask} onClose={() => setAsk(null)} />
     </main>
   );
 }

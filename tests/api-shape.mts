@@ -1104,6 +1104,84 @@ console.log("── 畳んだ見出しに、取得済みの件数が出るか（
   }
 }
 
+console.log("── 決める操作は、全部「確かめる→終わった」を通るか（2026-09-10）──");
+{
+  /* げんきさん
+       「請求書払いで申し込む とか、ほとんどのユーザーが行う操作全般
+         なんだけど、確認表示や完了表示のポップアップがない。
+         ユーザーが操作を行う部分を全て洗い出して、
+         全てに確認表示・完了表示のポップアップを付ける」
+
+     **サーバに書く（POST する）画面は、全部 AskDone を持つ。**
+     持たない画面は、下の表に理由を書く。書いていなければ止める。
+     新しい画面で POST を足したら、ここで気づく。 */
+  const NO_ASK: Record<string, string> = {
+    /* ログインそのものが画面。確かめる相手が居ない */
+    "src/app/login/LoginClient.tsx": "ログイン（引き換えコードを打つ所も、ログインの一部）",
+    /* 出すだけ。何も変えない */
+    "src/components/AppCode.tsx": "引き換えコードを出すだけ（5分で消える。取り消すものが無い）",
+    /* 開いたら読んだことにする。押させない */
+    "src/components/Notices.tsx": "読んだ印。開いた時点で付く（押す所が無い）",
+    /* 受講の準備の流れそのもの。同意の画面が確かめる所 */
+    "src/app/edu/[courseId]/prep/PrepClient.tsx": "受講の準備（同意→顔→はじめる）。同意の画面が確かめる所で、途中に札を挟むと流れが切れる",
+  };
+  const postFiles: string[] = [];
+  const walk4 = (d: string) => {
+    for (const e of readdirSync(new URL(`../${d}`, import.meta.url), { withFileTypes: true })) {
+      if (e.isDirectory()) walk4(`${d}/${e.name}`);
+      else if (e.name.endsWith(".tsx")) postFiles.push(`${d}/${e.name}`);
+    }
+  };
+  for (const d of ["src/app", "src/components"]) walk4(d);
+  const posting = postFiles.filter((f) => /method: "(POST|PUT|DELETE|PATCH)"/.test(read(f)));
+  check(posting.length >= 20, `サーバに書く画面を見つけている（${posting.length}）`);
+  for (const f of posting) {
+    const src = read(f);
+    const has = /<AskDone /.test(src);
+    const why = NO_ASK[f];
+    check(has || !!why, `${f}：確かめる札があるか、無い理由が書いてある`);
+    if (has && why) check(false, `${f}：札があるのに「無い理由」も書いてある（表から消す）`);
+  }
+  /* 表に載っている画面が消えたら、表も直す */
+  for (const f of Object.keys(NO_ASK)) {
+    check(existsSync(new URL(`../${f}`, import.meta.url)), `${f}：表にあるが、もう無い`);
+  }
+
+  /* 押した瞬間に送っていないか。決める釦は setAsk か askPost を経る。
+     **ここに挙げたものは、げんきさんが名指ししたか、金・所属・修了証が動くもの** */
+  const must: [string, string][] = [
+    ["src/app/order/OrderClient.tsx", 'onClick={() => askOrder("invoice")}'],
+    ["src/app/order/OrderClient.tsx", 'onClick={() => askGive(c)}'],
+    ["src/app/order/OrderClient.tsx", 'onClick={() => askRelease(c)}'],
+    ["src/app/join/JoinClient.tsx", 'onClick={askGo}'],
+    ["src/app/join/JoinClient.tsx", 'onClick={() => askApply(c)}'],
+    ["src/app/join/JoinClient.tsx", 'onClick={() => askDrop(active.company, false)}'],
+    ["src/app/me/MeClient.tsx", 'onClick={askSave}'],
+    ["src/app/me/MeClient.tsx", 'onClick={askSignOut}'],
+    ["src/app/edu/[courseId]/cert/CertClient.tsx", 'onClick={askIssue}'],
+    ["src/app/edu/[courseId]/exam/ExamClient.tsx", 'askSubmit(n)'],
+    ["src/app/train/TrainOrderClient.tsx", 'run: send,'],
+    ["src/app/admin/AdminClient.tsx", 'payload: { userId: q.userId, action: "approve" }'],
+    ["src/app/admin/AdminClient.tsx", 'payload: { enrollmentId, action: "issue" }'],
+    ["src/app/admin/AdminClient.tsx", 'payload: { newCode: true }'],
+    ["src/app/owner/OwnerClient.tsx", 'onClick={() => askOrder(o, "paid")}'],
+    ["src/app/owner/RetentionClient.tsx", 'onClick={() => askErase(r)}'],
+  ];
+  for (const [f, needle] of must) {
+    check(read(f).includes(needle), `${f}：${needle.slice(0, 40)} が確かめる札を通る`);
+  }
+  /* window.prompt / confirm は使わない。字が小さく、スマホで画面の外に出る */
+  for (const f of posting) {
+    check(!/window\.(prompt|confirm)\(/.test(read(f)), `${f}：window.prompt / confirm を使っていない`);
+  }
+  /* 札は「確かめる → やる → 終わった」の3つを持つ */
+  const ad = read("src/components/AskDone.tsx");
+  for (const t of ["ask-done-title", "ask-done-yes", "ask-done-no", "ask-done-done", "ask-done-close"]) {
+    check(ad.includes(`data-testid="${t}"`), `AskDone に ${t} がある`);
+  }
+  check(/if \(fin\) ask\.after\?\.\(\)/.test(ad), "after は、終わって閉じたときだけ動く");
+}
+
 console.log("── 受講する人の画面に「席」と書いていないか ──");
 {
   /* 「席」は帳簿の言葉。売り物の数を数えるときは要るが、

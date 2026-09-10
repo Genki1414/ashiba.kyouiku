@@ -30,6 +30,16 @@ const dismissNotice = async () => {
   if (await b.count()) { await b.click(); await page.waitForTimeout(200); }
 };
 
+/* 確かめる札（AskDone。2026-09-10 から、決める操作は全部これを通る）。
+   「押す」→ 終わったら「閉じる」。断られたときは札が閉じるので、閉じるは出ない */
+const confirmDone = async () => {
+  await page.getByTestId("ask-done-yes").waitFor({ timeout: 4000 });
+  await page.getByTestId("ask-done-yes").click();
+  await page.getByTestId("ask-done-close").waitFor({ timeout: 8000 }).catch(() => {});
+  if (await page.getByTestId("ask-done-close").count()) await page.getByTestId("ask-done-close").click();
+  await page.waitForTimeout(150);
+};
+
 const at = (days) => new Date(Date.now() + days * 86400000).toISOString();
 
 /* 修了証そのものは、この試験の対象ではない。
@@ -580,7 +590,8 @@ await page.goto(`${BASE}/edu/kousho/cert`);
 await dismissNotice();
 await page.getByTestId("issue-request").waitFor({ timeout: 6000 });
 await page.getByTestId("issue-request").click();
-await page.waitForTimeout(600);
+await confirmDone();
+await page.waitForTimeout(300);
 check(!!sent && sent.action === "request", "発行申請を送っている");
 check(!!sent && "drillOn" in sent && "drillBy" in sent, "実技の日と人を一緒に送っている");
 check(
@@ -614,7 +625,8 @@ check(
 
 sent = null;
 await page.getByTestId("issue-request").click();
-await page.waitForTimeout(600);
+await confirmDone();
+await page.waitForTimeout(300);
 check(!!sent && sent.drillOn === "2026-08-20", "入れた日が乗る", );
 check(!!sent && sent.drillBy === "中川　元基", "入れた名前が乗る");
 check(Array.isArray(sent?.files) && sent.files.length === 1, "実施記録が一緒に乗る");

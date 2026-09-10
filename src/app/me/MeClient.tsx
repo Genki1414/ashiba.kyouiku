@@ -12,6 +12,7 @@ import { claimDevice, wipeDevice } from "@/lib/device";
 
 import { HeldQuals } from "./HeldQuals";
 import { Notices } from "@/components/Notices";
+import { AskDone, type Ask, type RunResult } from "@/components/AskDone";
 
 /* マイページ。受講者が自分のことを見る所。
 
@@ -72,8 +73,9 @@ export function MeClient() {
   const [birth, setBirth] = useState("");
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState("");
-  const [asking, setAsking] = useState(false);
   const [busyReq, setBusyReq] = useState<string | null>(null);
+  /* 確かめる→やる→終わった（2026-09-10）。保存・外す・送る・ログアウト */
+  const [ask, setAsk] = useState<Ask | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -94,7 +96,7 @@ export function MeClient() {
 
   useEffect(() => { void load(); }, [load]);
 
-  const save = async () => {
+  const save = async (): Promise<RunResult> => {
     setBusy(true);
     setNote("");
     try {
@@ -106,17 +108,34 @@ export function MeClient() {
       const j = await res.json().catch(() => ({}));
       if (!res.ok || !j.ok) {
         setNote(j.reason ?? "変更できませんでした。");
-        return;
+        return false;
       }
       setEdit(false);
       setNote("変更しました。");
       await load();
+      return true;
     } finally {
       setBusy(false);
     }
   };
 
-  const leave = async (companyId: string) => {
+  /* 氏名は修了証に載る。**載る字をそのまま見せて**確かめる */
+  const askSave = () =>
+    setAsk({
+      title: "この内容で変更しますか",
+      body: (
+        <>
+          <div>氏名　<span className="text-txt">{name.trim()}</span></div>
+          {birth && <div>生年月日　<span className="text-txt">{birth}</span></div>}
+          <div className="mt-2">修了証には、この氏名がそのまま載ります。</div>
+        </>
+      ),
+      yes: "変更する",
+      done: "変更しました",
+      run: save,
+    });
+
+  const leave = async (companyId: string): Promise<RunResult> => {
     setBusy(true);
     setNote("");
     try {
@@ -128,20 +147,38 @@ export function MeClient() {
       const j = await res.json().catch(() => ({}));
       if (!res.ok || !j.ok) {
         setNote(j.reason ?? "削除できませんでした。");
-        return;
+        return false;
       }
-      setAsking(false);
       setNote("紐付けを外しました。受けた記録は残っています。");
       await load();
+      return true;
     } finally {
       setBusy(false);
     }
   };
 
+  const askLeave = (company: { id: string; name: string }) =>
+    setAsk({
+      title: `${company.name} との紐付けを外しますか`,
+      body: (
+        <>
+          外すと、この会社の受講コードで受けている学科はそこで終わりになります。
+          <br />
+          受けた記録は消えません。会社の名簿にも「退職」として残ります。
+          会社の許可は要りません。
+        </>
+      ),
+      yes: "外す",
+      danger: true,
+      done: "紐付けを外しました",
+      doneBody: "受けた記録は残っています。次の会社へは、また申し込むか、受講コードをもらって入れてください。",
+      run: () => leave(company.id),
+    });
+
   /* 講座ごとに、教育担当者へ「受けたい」を送る・取り消す。
      席そのものはここでは作らない。担当者が見て、いつもどおり
      受講コードを渡す。ここは声を画面に残すだけ */
-  const requestCourse = async (courseId: string, cancel: boolean) => {
+  const requestCourse = async (courseId: string, cancel: boolean): Promise<RunResult> => {
     setBusyReq(courseId);
     setNote("");
     try {
@@ -153,22 +190,62 @@ export function MeClient() {
       const j = await res.json().catch(() => ({}));
       if (!res.ok || !j.ok) {
         setNote(j.reason ?? "送信できませんでした。");
-        return;
+        return false;
       }
       await load();
+      return true;
     } finally {
       setBusyReq(null);
     }
   };
 
-  const signOut = async () => {
+  const askRequest = (c: { courseId: string; name: string }, cancel: boolean) =>
+    setAsk(cancel
+      ? {
+          title: "受講リクエストを取り消しますか",
+          body: <>{c.name}</>,
+          yes: "取り消す",
+          done: "取り消しました",
+          run: () => requestCourse(c.courseId, true),
+        }
+      : {
+          title: "受講リクエストを送りますか",
+          body: (
+            <>
+              <div>{c.name}</div>
+              <div className="mt-2">会社の教育担当者に届きます。担当者が受講コードを用意すると、この講座が開きます。</div>
+            </>
+          ),
+          yes: "送る",
+          done: "受講リクエストを送りました",
+          doneBody: "担当者が受講コードを用意すると、お知らせが届きます。",
+          run: () => requestCourse(c.courseId, false),
+        });
+
+  const signOut = async (): Promise<RunResult> => {
     /* Supabase の道具を画面に積まないために、サーバでログアウトする */
     await fetch("/api/signout", { method: "POST" }).catch(() => {});
     /* 端末を次の人に渡すためのボタン。端末に残る記録もここで消す */
     wipeDevice();
     claimDevice(null);
-    window.location.href = "/login";
+    return true;
   };
+
+  const askSignOut = () =>
+    setAsk({
+      title: "ログアウトしますか",
+      body: (
+        <>
+          この端末に残っている受講の準備（氏名・顔の登録）と、視聴時間
+          {BRAND.training ? "・実務の成績" : ""}が消えます。
+          サーバに残っている記録は消えません。
+        </>
+      ),
+      yes: "ログアウトする",
+      done: "ログアウトしました",
+      run: signOut,
+      after: () => { window.location.href = "/login"; },
+    });
 
   if (ng) {
     return (
@@ -252,7 +329,7 @@ export function MeClient() {
                       className="w-full rounded-lg border border-line p-2.5 text-[12px] text-dim2 disabled:opacity-50"
                       data-testid="me-course-request-cancel"
                       disabled={busyReq === c.courseId}
-                      onClick={() => void requestCourse(c.courseId, true)}
+                      onClick={() => askRequest(c, true)}
                     >
                       教育担当者にリクエスト送信済み（取り消す）
                     </button>
@@ -261,7 +338,7 @@ export function MeClient() {
                       className="w-full rounded-lg border border-cyan p-2.5 text-[12.5px] font-bold text-cyan disabled:opacity-50"
                       data-testid="me-course-request"
                       disabled={busyReq === c.courseId}
-                      onClick={() => void requestCourse(c.courseId, false)}
+                      onClick={() => askRequest(c, false)}
                     >
                       教育担当者に受講リクエストを送る
                     </button>
@@ -323,7 +400,7 @@ export function MeClient() {
               data-testid="me-birth"
             />
             <div className="grid grid-cols-2 gap-2">
-              <Btn tone="y" dis={busy || !name.trim()} onClick={() => void save()} testid="me-save">
+              <Btn tone="y" dis={busy || !name.trim()} onClick={askSave} testid="me-save">
                 {busy ? "…" : "変更"}
               </Btn>
               <button
@@ -453,40 +530,14 @@ export function MeClient() {
           <>
             <div className="text-[15px] font-black">{st.member.company.name}</div>
             <div className="mt-0.5 text-[11.5px] text-grn">在籍中</div>
-            {asking ? (
-              <div className="mt-3 rounded-lg border border-red bg-ng-bg p-3">
-                <div className="text-[12.5px] leading-relaxed text-ng-tx">
-                  この会社との紐付けを外します。外すと、この会社の受講コードで
-                  受けている学科はそこで終わりになります。
-                  <br />
-                  受けた記録は消えません。会社の名簿にも「退職」として残ります。
-                </div>
-                <div className="mt-2.5 grid grid-cols-2 gap-2">
-                  <button
-                    onClick={() => void leave((st.member as { company: { id: string } }).company.id)}
-                    disabled={busy}
-                    className="rounded-lg border border-red p-2.5 text-[12.5px] text-ng-tx"
-                    data-testid="me-leave-yes"
-                  >
-                    {busy ? "…" : "削除"}
-                  </button>
-                  <button
-                    onClick={() => setAsking(false)}
-                    className="rounded-lg border border-line p-2.5 text-[12.5px] text-dim"
-                  >
-                    キャンセル
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <button
-                onClick={() => setAsking(true)}
-                className="mt-2 w-full rounded-lg border border-line p-2 text-[12px] text-dim2"
-                data-testid="me-leave"
-              >
-                紐付けを外す（退職・会社を変わる）
-              </button>
-            )}
+            <button
+              onClick={() => askLeave((st.member as { company: { id: string; name: string } }).company)}
+              disabled={busy}
+              className="mt-2 w-full rounded-lg border border-line p-2 text-[12px] text-dim2 disabled:opacity-50"
+              data-testid="me-leave"
+            >
+              紐付けを外す（退職・会社を変わる）
+            </button>
             <div className="mt-1 text-[11px] leading-relaxed text-dim2">
               会社の許可は要りません。次の会社へは、また申し込むか、
               コードをもらって入れてください。
@@ -578,7 +629,7 @@ export function MeClient() {
       )}
 
       <button
-        onClick={() => void signOut()}
+        onClick={askSignOut}
         className="mt-6 w-full rounded-lg border border-line p-2.5 text-[12px] text-dim2"
         data-testid="me-signout"
       >
@@ -592,6 +643,7 @@ export function MeClient() {
         {BRAND.training ? "・実務の成績" : ""}が消えます。
         サーバに残っている記録は消えません。
       </div>
+      <AskDone ask={ask} onClose={() => setAsk(null)} />
     </main>
   );
 }

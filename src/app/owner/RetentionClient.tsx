@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { emailLabel } from "@/lib/lineEmail";
+import { AskDone, type Ask, type RunResult } from "@/components/AskDone";
 
 /* 3年たった記録の、個人の部分を消す。
 
@@ -36,7 +37,8 @@ export function RetentionClient({ onNote }: { onNote: (s: string) => void }) {
   const [years, setYears] = useState(3);
   const [busy, setBusy] = useState<string | null>(null);
   /* 二度押しで確かめる。名前を消すのは戻せない */
-  const [asking, setAsking] = useState<string | null>(null);
+  /* 消すのは戻せない。確かめる→やる→終わった（2026-09-10） */
+  const [ask, setAsk] = useState<Ask | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -57,7 +59,7 @@ export function RetentionClient({ onNote }: { onNote: (s: string) => void }) {
 
   useEffect(() => { void load(); }, [load]);
 
-  const erase = async (r: Row) => {
+  const erase = async (r: Row): Promise<RunResult> => {
     setBusy(r.userId);
     onNote("");
     try {
@@ -70,14 +72,31 @@ export function RetentionClient({ onNote }: { onNote: (s: string) => void }) {
       if (!res.ok || !j.ok) {
         onNote(j.reason ?? "消せませんでした。");
         if (j.rows) setRows(j.rows as Row[]);
-        return;
+        return false;
       }
       setRows(j.rows ?? []);
-      setAsking(null);
+      return true;
     } finally {
       setBusy(null);
     }
   };
+
+  const askErase = (r: Row) =>
+    setAsk({
+      title: `${r.name} さんの個人情報を削除しますか`,
+      body: (
+        <>
+          氏名・メール・生年月日と、顔の照合の記録を消します。
+          <span className="text-red">戻せません。</span>
+          <br />
+          受講 {r.records}件・修了証 {r.certs}枚の番号と日付は残ります。
+        </>
+      ),
+      yes: "消す",
+      danger: true,
+      done: "削除しました",
+      run: () => erase(r),
+    });
 
   if (!rows) return null;
 
@@ -126,41 +145,18 @@ export function RetentionClient({ onNote }: { onNote: (s: string) => void }) {
               受講 {r.records}件　修了証 {r.certs}枚（番号と日付は残ります）
             </div>
 
-            {asking === r.userId ? (
-              <div className="mt-3 rounded-lg border border-red p-3">
-                <div className="text-[12px] leading-relaxed text-txt">
-                  {r.name} さんの氏名・メール・生年月日と、顔の照合の記録を消します。
-                  <strong className="text-red">戻せません。</strong>
-                </div>
-                <div className="mt-2 grid grid-cols-2 gap-2">
-                  <button
-                    onClick={() => setAsking(null)}
-                    className="rounded-lg border border-line p-2 text-[12px] text-dim"
-                  >
-                    やめる
-                  </button>
-                  <button
-                    onClick={() => void erase(r)}
-                    disabled={busy === r.userId}
-                    className="rounded-lg border border-red p-2 text-[12px] text-ng-tx"
-                    data-testid="owner-retention-yes"
-                  >
-                    {busy === r.userId ? "消しています…" : "消す"}
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <button
-                onClick={() => setAsking(r.userId)}
-                className="mt-3 w-full rounded-lg border border-line p-2 text-[12px] text-dim2"
-                data-testid="owner-retention-ask"
-              >
-                個人情報を削除する
-              </button>
-            )}
+            <button
+              onClick={() => askErase(r)}
+              disabled={busy === r.userId}
+              className="mt-3 w-full rounded-lg border border-line p-2 text-[12px] text-dim2 disabled:opacity-50"
+              data-testid="owner-retention-ask"
+            >
+              {busy === r.userId ? "消しています…" : "個人情報を削除する"}
+            </button>
           </div>
         ))}
       </div>
+      <AskDone ask={ask} onClose={() => setAsk(null)} />
     </div>
   );
 }

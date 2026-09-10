@@ -9,6 +9,7 @@ import { VerifyModal } from "@/components/edu/VerifyModal";
 import { loadPrep, prepDone } from "@/lib/prep";
 import { useVerification } from "@/lib/useVerification";
 import { hm } from "@/lib/hours";
+import { AskDone, type Ask, type RunResult } from "@/components/AskDone";
 
 /* 討議の画面。
 
@@ -81,6 +82,8 @@ export function TalkClient({ courseId, courseName }: { courseId: string; courseN
   const [useCam, setUseCam] = useState(false);
   /* 「入る」を押して受け取ったつなぎ先。一覧には出てこない */
   const [room, setRoom] = useState<{ sessionId: string; url: string | null } | null>(null);
+  /* 確かめる→やる→終わった（2026-09-10）。申し込む・入る・退出・答えを出す */
+  const [ask, setAsk] = useState<Ask | null>(null);
   const [busy, setBusy] = useState(false);
   const [answer, setAnswer] = useState("");
 
@@ -138,35 +141,96 @@ export function TalkClient({ courseId, courseName }: { courseId: string; courseN
     }
   };
 
-  const book = async (id: string) => {
-    if ((await post({ action: "book", sessionId: id })).ok) await load();
+  const book = async (id: string): Promise<RunResult> => {
+    if (!(await post({ action: "book", sessionId: id })).ok) return false;
+    await load();
+    return true;
   };
+
+  const askBook = (s: Session) =>
+    setAsk({
+      title: "この回に申し込みますか",
+      body: (
+        <>
+          <div className="text-txt">{whenText(s.startsAt)}　{hm(s.minutes)}</div>
+          {s.note && <div className="mt-1">{s.note}</div>}
+          <div className="mt-2">当日はこの画面から入ります。都合が悪くなったら、運営にご連絡ください。</div>
+        </>
+      ),
+      yes: "申し込む",
+      done: "申し込みました",
+      doneBody: "当日、この画面の「入る」から入れます。",
+      run: () => book(s.id),
+    });
 
   /* 顔の照合が通ってはじめて押せる。押した時点で入室が記録され、
      そこでサーバがつなぎ先を返す */
-  const enter = async (id: string) => {
+  const enter = async (id: string): Promise<RunResult> => {
     const j = await post({ action: "in", sessionId: id });
-    if (!j.ok) return;
+    if (!j.ok) return false;
     setRoom({ sessionId: id, url: j.roomUrl ?? null });
     await load();
+    return true;
   };
 
-  const leave = async () => {
-    if (!room) return;
-    if ((await post({ action: "out", sessionId: room.sessionId })).ok) {
-      setRoom(null);
-      setStopped(false);
-      await load();
-    }
+  const askEnter = (s: Session) =>
+    setAsk({
+      title: "入りますか",
+      body: (
+        <>
+          <div className="text-txt">{whenText(s.startsAt)}</div>
+          <div className="mt-2">
+            入った時刻が記録され、居た時間が数えられます。討議のあいだ、この画面は閉じないでください。
+          </div>
+        </>
+      ),
+      yes: "入る",
+      done: "入りました",
+      doneBody: "閉じると、討議への入り口が出ます。",
+      run: () => enter(s.id),
+    });
+
+  const leave = async (): Promise<RunResult> => {
+    if (!room) return false;
+    if (!(await post({ action: "out", sessionId: room.sessionId })).ok) return false;
+    setRoom(null);
+    setStopped(false);
+    await load();
+    return true;
   };
 
-  const send = async (id: string) => {
-    if (!answer.trim()) return;
-    if ((await post({ action: "answer", sessionId: id, answer })).ok) {
-      setAnswer("");
-      await load();
-    }
+  const askLeave = () =>
+    setAsk({
+      title: "退出しますか",
+      body: "退出した時刻で、居た時間が締まります。討議が終わってから押してください。",
+      yes: "退出する",
+      danger: true,
+      done: "退出しました",
+      run: leave,
+    });
+
+  const send = async (id: string): Promise<RunResult> => {
+    if (!answer.trim()) return false;
+    if (!(await post({ action: "answer", sessionId: id, answer })).ok) return false;
+    setAnswer("");
+    await load();
+    return true;
   };
+
+  /* 出した答えは直せない。**書いた字を見せて**確かめる */
+  const askSend = (id: string) =>
+    setAsk({
+      title: "この答えで出しますか",
+      body: (
+        <>
+          <div className="whitespace-pre-wrap text-txt">{answer.trim()}</div>
+          <div className="mt-2">出したあとは直せません。</div>
+        </>
+      ),
+      yes: "出す",
+      done: "答えを出しました",
+      run: () => send(id),
+    });
 
   if (!data) {
     return (
@@ -276,7 +340,7 @@ export function TalkClient({ courseId, courseName }: { courseId: string; courseN
                           この画面は閉じないでください。閉じると在席が数えられません。
                           討議が終わったら「退出する」を押してください。
                         </p>
-                        <Btn className="mt-2" dis={busy} onClick={() => void leave()} testid="talk-out">
+                        <Btn className="mt-2" dis={busy} onClick={askLeave} testid="talk-out">
                           退出する
                         </Btn>
                       </>
@@ -284,7 +348,7 @@ export function TalkClient({ courseId, courseName }: { courseId: string; courseN
                       <Btn
                         tone="y"
                         dis={busy}
-                        onClick={() => void enter(s.id)}
+                        onClick={() => askEnter(s)}
                         testid="talk-in"
                       >
                         入る（顔の照合をして Zoom へ）
@@ -303,7 +367,7 @@ export function TalkClient({ courseId, courseName }: { courseId: string; courseN
                           className="w-full rounded-lg border border-line bg-panel2 p-2.5 text-[13px] text-txt"
                           placeholder="自分の考えを書いてください"
                         />
-                        <Btn className="mt-2" dis={busy || !answer.trim()} onClick={() => void send(s.id)} testid="talk-send">
+                        <Btn className="mt-2" dis={busy || !answer.trim()} onClick={() => askSend(s.id)} testid="talk-send">
                           出す
                         </Btn>
                       </div>
@@ -314,7 +378,7 @@ export function TalkClient({ courseId, courseName }: { courseId: string; courseN
                 ) : s.full ? (
                   <div className="mt-3 text-[13px] text-dim">いっぱいです。別の回を選んでください。</div>
                 ) : (
-                  <Btn className="mt-3" tone="y" dis={busy} onClick={() => void book(s.id)} testid="talk-book">
+                  <Btn className="mt-3" tone="y" dis={busy} onClick={() => askBook(s)} testid="talk-book">
                     この回に申し込む
                   </Btn>
                 )}
@@ -335,6 +399,7 @@ export function TalkClient({ courseId, courseName }: { courseId: string; courseN
           onResume={() => { v.resume(); setStopped(false); }}
         />
       ) : null}
+      <AskDone ask={ask} onClose={() => setAsk(null)} />
     </main>
   );
 }

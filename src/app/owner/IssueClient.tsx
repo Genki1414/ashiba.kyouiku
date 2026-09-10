@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { emailLabel } from "@/lib/lineEmail";
 import { Btn } from "@/components/ui/Btn";
 import { SLOT_MAX, SLOT_LEAD_DAYS, type IssueStatus, type Slot } from "@/lib/issue";
 import { TALK_MIN } from "@/content/shokucho";
+import { AskDone, type Ask, type RunResult } from "@/components/AskDone";
 
 /* 発行申請（本部の側）。
 
@@ -84,6 +85,13 @@ export function IssueClient() {
   const [busy, setBusy] = useState(false);
   /* 候補日の入力欄。既定で3つ出す。空欄は出さない */
   const [at, setAt] = useState<string[]>([]);
+  /* 確かめる→やる→終わった（2026-09-10）。候補日・つなぎ先・修了・返す。
+     つなぎ先と理由は、札の中に書く欄を出す（window.prompt をやめた。
+     あれは字が小さく、スマホでは画面の外に出ることがある）。
+     札の中身は作ったときの物なので、書いた字は ref で受ける */
+  const [ask, setAsk] = useState<Ask | null>(null);
+  const roomRef = useRef<HTMLInputElement>(null);
+  const whyRef = useRef<HTMLTextAreaElement>(null);
   const [minutes, setMinutes] = useState(TALK_MIN);
   const [reply, setReply] = useState("");
 
@@ -135,17 +143,113 @@ export function IssueClient() {
     setAt([defaultAt(3), defaultAt(4), defaultAt(7)]);
   };
 
-  const offer = async (r: Req) => {
+  const offer = async (r: Req): Promise<RunResult> => {
     const slots = at
       .filter((v) => v.trim())
       /* datetime-local は現地時刻。ここで UTC に直して送る */
       .map((v) => ({ startsAt: new Date(v).toISOString(), minutes, note: "" }));
     if (!slots.length) {
       setNote("候補日を1つ以上入れてください。");
-      return;
+      return false;
     }
-    if (await post({ action: "offer", requestId: r.id, slots, note: reply })) setOpen(null);
+    if (!(await post({ action: "offer", requestId: r.id, slots, note: reply }))) return false;
+    setOpen(null);
+    return true;
   };
+
+  const askOffer = (r: Req) => {
+    const list = at.filter((v) => v.trim());
+    if (!list.length) { setNote("候補日を1つ以上入れてください。"); return; }
+    setAsk({
+      title: `${r.name}さんに候補日を送りますか`,
+      body: (
+        <>
+          <div className="text-txt">{r.course}</div>
+          <div className="mt-1 grid gap-0.5">
+            {list.map((v, i) => <div key={i}>・{v.replace("T", " ")}　{minutes}分</div>)}
+          </div>
+          {reply.trim() && <div className="mt-1">一言　{reply.trim()}</div>}
+          <div className="mt-2">ご本人にお知らせが届き、選んでもらいます。</div>
+        </>
+      ),
+      yes: "送る",
+      done: "候補日を送りました",
+      doneBody: "ご本人が選ぶと、ここに出ます。",
+      run: () => offer(r),
+    });
+  };
+
+  const askRoom = (r: Req) =>
+    setAsk({
+      title: r.hasRoom ? "つなぎ先を入れ直しますか" : "討議のつなぎ先を入れますか",
+      body: (
+        <>
+          <div className="text-txt">{r.name}さん　{r.course}</div>
+          <input
+            ref={roomRef}
+            type="url"
+            defaultValue=""
+            placeholder="https://…"
+            className="mt-2 w-full rounded-lg border border-line bg-bg px-3 py-2.5 text-[13px] text-txt"
+            data-testid="issue-room-url"
+          />
+          <div className="mt-2">ご本人にお知らせが届き、当日はここから入れます。</div>
+        </>
+      ),
+      yes: "入れる",
+      done: "つなぎ先を入れました",
+      run: async () => {
+        const u = roomRef.current?.value.trim() ?? "";
+        if (!u) { setNote("つなぎ先を入れてください。"); return false; }
+        return post({ action: "room", requestId: r.id, url: u });
+      },
+    });
+
+  const askClear = (r: Req) =>
+    setAsk({
+      title: `${r.name}さんを修了にしますか`,
+      body: (
+        <>
+          <div className="text-txt">{r.course}</div>
+          <div className="mt-2">
+            {r.kind === "drill"
+              ? "実技の記録を確かめたうえで押してください。修了証が出せるようになり、ご本人にお知らせが届きます。"
+              : "討議を通したことになります。修了証が出せるようになり、ご本人にお知らせが届きます。"}
+          </div>
+        </>
+      ),
+      yes: "修了にする",
+      done: "修了にしました",
+      doneBody: "ご本人にお知らせが届きました。",
+      run: () => post({ action: "clear", requestId: r.id }),
+    });
+
+  const askDecline = (r: Req) =>
+    setAsk({
+      title: `${r.name}さんに返しますか`,
+      body: (
+        <>
+          <div className="text-txt">{r.course}</div>
+          <textarea
+            ref={whyRef}
+            rows={3}
+            defaultValue=""
+            placeholder="お返しする理由（本人に届きます）"
+            className="mt-2 w-full rounded-lg border border-line bg-bg px-3 py-2.5 text-[13px] text-txt"
+            data-testid="issue-decline-why"
+          />
+          <div className="mt-2">理由はご本人の画面に出ます。LINEには理由を流しません。</div>
+        </>
+      ),
+      yes: "返す",
+      danger: true,
+      done: "返しました",
+      run: async () => {
+        const why = whyRef.current?.value.trim() ?? "";
+        if (!why) { setNote("理由を入れてください。"); return false; }
+        return post({ action: "decline", requestId: r.id, note: why });
+      },
+    });
 
   if (ng) {
     return <div className="rounded-xl border border-red bg-ng-bg p-4 text-[13px] text-ng-tx">{ng}</div>;
@@ -275,12 +379,7 @@ export function IssueClient() {
                 <button
                   type="button"
                   disabled={busy}
-                  onClick={() => {
-                    const u = window.prompt(
-                      r.hasRoom ? "つなぎ先を入れ直す（https〜）" : "討議のつなぎ先（https〜）",
-                    );
-                    if (u?.trim()) void post({ action: "room", requestId: r.id, url: u });
-                  }}
+                  onClick={() => askRoom(r)}
                   data-testid="issue-room"
                   className="rounded-lg border border-line px-2.5 py-1.5 text-[11.5px] text-dim"
                 >
@@ -348,7 +447,7 @@ export function IssueClient() {
                   />
                 </label>
                 <div className="grid grid-cols-2 gap-2">
-                  <Btn tone="y" dis={busy} onClick={() => void offer(r)} testid="offer-send">
+                  <Btn tone="y" dis={busy} onClick={() => askOffer(r)} testid="offer-send">
                     候補日を送る
                   </Btn>
                   <Btn dis={busy} onClick={() => setOpen(null)}>
@@ -375,7 +474,7 @@ export function IssueClient() {
                   <button
                     type="button"
                     disabled={busy || (r.kind === "drill" && r.files.length === 0)}
-                    onClick={() => void post({ action: "clear", requestId: r.id })}
+                    onClick={() => askClear(r)}
                     data-testid="issue-clear"
                     className="rounded-lg border border-line px-3 py-2 text-[12.5px] text-dim disabled:opacity-40"
                   >
@@ -386,10 +485,7 @@ export function IssueClient() {
                   <button
                     type="button"
                     disabled={busy}
-                    onClick={() => {
-                      const why = window.prompt("お返しする理由（本人に届きます）");
-                      if (why?.trim()) void post({ action: "decline", requestId: r.id, note: why });
-                    }}
+                    onClick={() => askDecline(r)}
                     className="rounded-lg border border-line px-3 py-2 text-[12.5px] text-dim"
                   >
                     返す
@@ -406,6 +502,7 @@ export function IssueClient() {
           </div>
         ))}
       </div>
+      <AskDone ask={ask} onClose={() => setAsk(null)} />
     </div>
   );
 }

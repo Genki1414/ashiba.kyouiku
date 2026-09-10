@@ -10,6 +10,7 @@ import { LedgerClient } from "./LedgerClient";
 import { RetentionClient } from "./RetentionClient";
 import { TrainingClient } from "./TrainingClient";
 import { IssueClient } from "./IssueClient";
+import { AskDone, type Ask, type RunResult } from "@/components/AskDone";
 import { CatalogClient } from "./CatalogClient";
 import { CouponClient } from "./CouponClient";
 import { LineClient } from "./LineClient";
@@ -109,6 +110,46 @@ export function OwnerClient() {
     if (!res.ok || !j.ok) setNote(j.reason ?? "処理できませんでした。");
     return !!j.ok;
   };
+
+  /* 確かめる→やる→終わった（2026-09-10）。入金の確認は受講コードを出す。
+     取り消しは戻せない。どちらも押した瞬間に効かせない */
+  const [ask, setAsk] = useState<Ask | null>(null);
+  const askOrder = (o: Order, action: "cancel" | "paid") =>
+    setAsk(action === "paid"
+      ? {
+          title: "入金を確認しましたか",
+          body: (
+            <>
+              <div className="text-txt">{o.company}　{yen(o.amount)}</div>
+              <div className="mt-2">受講コードが {o.seats}枚出て、担当者にお知らせが届きます。振込を確かめてから押してください。</div>
+            </>
+          ),
+          yes: "入金を確認した",
+          done: "受講コードを出しました",
+          doneBody: "担当者にお知らせが届きました。",
+          run: async () => {
+            setBusy(o.id);
+            try { const ok = await post({ action: "paid", orderId: o.id }); if (ok) await load(); return ok; }
+            finally { setBusy(null); }
+          },
+        }
+      : {
+          title: "この申込みを取り消しますか",
+          body: (
+            <>
+              <div className="text-txt">{o.company}　{yen(o.amount)}</div>
+              <div className="mt-2">請求書は無効になります。戻せません。</div>
+            </>
+          ),
+          yes: "取り消す",
+          danger: true,
+          done: "取り消しました",
+          run: async () => {
+            setBusy(o.id);
+            try { const ok = await post({ action: "cancel", orderId: o.id }); if (ok) await load(); return ok; }
+            finally { setBusy(null); }
+          },
+        });
 
   if (ng) {
     return (
@@ -279,11 +320,7 @@ export function OwnerClient() {
                 <button
                   className="rounded-lg border border-line p-2 text-[12px] text-dim"
                   data-testid="owner-cancel"
-                  onClick={async () => {
-                    setBusy(o.id);
-                    if (await post({ action: "cancel", orderId: o.id })) await load();
-                    setBusy(null);
-                  }}
+                  onClick={() => askOrder(o, "cancel")}
                 >
                   取り消す
                 </button>
@@ -292,11 +329,7 @@ export function OwnerClient() {
                     tone="y"
                     dis={busy === o.id}
                     testid="owner-paid"
-                    onClick={async () => {
-                      setBusy(o.id);
-                      if (await post({ action: "paid", orderId: o.id })) await load();
-                      setBusy(null);
-                    }}
+                    onClick={() => askOrder(o, "paid")}
                   >
                     {busy === o.id ? "…" : "入金を確認"}
                   </Btn>
@@ -316,6 +349,7 @@ export function OwnerClient() {
           無償利用に立てられなかったため */}
       </>
       )}
+      <AskDone ask={ask} onClose={() => setAsk(null)} />
     </main>
   );
 }

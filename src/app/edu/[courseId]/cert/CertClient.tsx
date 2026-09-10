@@ -7,6 +7,7 @@ import type { CertData } from "@/lib/cert";
 import { KIND_TEXT, type CourseKind } from "@/content/courses";
 import { Btn } from "@/components/ui/Btn";
 import { IssuePanel } from "@/components/edu/IssuePanel";
+import { AskDone, type Ask, type RunResult } from "@/components/AskDone";
 
 /* 修了証の画面。
    出せるかどうかはサーバが決める（/api/cert）。
@@ -40,6 +41,8 @@ export function CertClient({ courseId }: { courseId: string }) {
   const [birth, setBirth] = useState("");
   const [busy, setBusy] = useState(false);
   const [url, setUrl] = useState<string | null>(null);
+  /* 確かめる→やる→終わった（2026-09-10）。発行は氏名がそのまま載る */
+  const [ask, setAsk] = useState<Ask | null>(null);
   /* 関門のある講座か。あるなら、出せない理由は申請の枠の中で言う。
      上にも出すと、同じ文が2回並ぶ */
   const [gated, setGated] = useState(false);
@@ -100,7 +103,7 @@ export function CertClient({ courseId }: { courseId: string }) {
     }
   }, [info, name, birth, sealed]);
 
-  const issue = async () => {
+  const issue = async (): Promise<RunResult> => {
     setBusy(true);
     try {
       const r = await fetch("/api/cert", {
@@ -111,13 +114,31 @@ export function CertClient({ courseId }: { courseId: string }) {
       const j = await r.json();
       if (!r.ok || !j.ok) {
         setReason(j.reason ?? "発行できませんでした。");
-        return;
+        return false;
       }
       await load();
+      return true;
     } finally {
       setBusy(false);
     }
   };
+
+  /* 発行したら、氏名と生年月日はもう直せない。**載る字を見せて**確かめる */
+  const askIssue = () =>
+    setAsk({
+      title: "この内容で修了証を発行しますか",
+      body: (
+        <>
+          <div>氏名　<span className="text-txt">{name.trim()}</span></div>
+          {birth && <div>生年月日　<span className="text-txt">{jpDate(birth) || birth}</span></div>}
+          <div className="mt-2">発行すると番号が付き、氏名と生年月日はそのまま修了証に載ります。</div>
+        </>
+      ),
+      yes: "発行する",
+      done: "修了証を発行しました",
+      doneBody: "画像として保存できます。会社の名簿にも残ります。",
+      run: issue,
+    });
 
   const save = () => {
     if (!url || !info) return;
@@ -213,7 +234,7 @@ export function CertClient({ courseId }: { courseId: string }) {
 
       <div className="mt-4 grid gap-2">
         {!info.issued && (
-          <Btn tone="y" dis={busy || !name.trim()} onClick={issue} testid="cert-issue">
+          <Btn tone="y" dis={busy || !name.trim()} onClick={askIssue} testid="cert-issue">
             {busy ? "…" : "この内容で発行する"}
           </Btn>
         )}
@@ -229,6 +250,7 @@ export function CertClient({ courseId }: { courseId: string }) {
         <br />
         （決まっている場合は、設定で入れておくこともできます）
       </p>
+      <AskDone ask={ask} onClose={() => setAsk(null)} />
     </main>
   );
 }

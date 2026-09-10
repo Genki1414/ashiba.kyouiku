@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { emailLabel } from "@/lib/lineEmail";
 import { claimDevice, wipeDevice } from "@/lib/device";
 import { loadMe, readMe, sameMe, type Me } from "@/lib/me";
+import { AskDone, type Ask } from "@/components/AskDone";
 
 /* いま誰として使っているか。ログインしていなければ何も出さない。
    端末を人に渡すときに、ここからログアウトできる。
@@ -23,7 +24,9 @@ export function AccountBar() {
   /* 描き始めは、前に聞いた答え。無ければ null（高さだけ取る） */
   const [me, setMe] = useState<Me | null>(null);
   const [ready, setReady] = useState(false);
-  const [asking, setAsking] = useState(false);
+  /* ログアウトも、確かめる→終わった（2026-09-10）。
+     端末に残る記録が消えるので、指が触れただけで効かせない */
+  const [ask, setAsk] = useState<Ask | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -72,8 +75,18 @@ export function AccountBar() {
        受講の準備（氏名・顔の特徴量）も、視聴時間も、ここで消す */
     wipeDevice();
     claimDevice(null);
-    window.location.href = "/login";
+    return true;
   };
+
+  const askOut = () =>
+    setAsk({
+      title: "ログアウトしますか",
+      body: "この端末に残っている受講の準備（氏名・顔の登録）と視聴時間が消えます。サーバに残っている記録は消えません。",
+      yes: "ログアウトする",
+      done: "ログアウトしました",
+      run: out,
+      after: () => { window.location.href = "/login"; },
+    });
 
   return (
     <div className={BAR} data-testid="account-bar">
@@ -85,24 +98,14 @@ export function AccountBar() {
       <span className="min-w-0 truncate font-bold text-txt" data-testid="account-name">
         {who.name || emailLabel(who.email)}
       </span>
-      {asking ? (
-        <span className="ml-auto flex items-center gap-2">
-          <button onClick={out} className="rounded border border-red px-2 py-1 text-ng-tx" data-testid="signout-yes">
-            ログアウトする
-          </button>
-          <button onClick={() => setAsking(false)} className="rounded border border-line px-2 py-1 text-dim">
-            キャンセル
-          </button>
-        </span>
-      ) : (
-        <button
-          onClick={() => setAsking(true)}
-          className="ml-auto rounded border border-line px-2 py-1 text-dim"
-          data-testid="signout"
-        >
-          ログアウト
-        </button>
-      )}
+      <button
+        onClick={askOut}
+        className="ml-auto rounded border border-line px-2 py-1 text-dim"
+        data-testid="signout"
+      >
+        ログアウト
+      </button>
+      <AskDone ask={ask} onClose={() => setAsk(null)} />
     </div>
   );
 }

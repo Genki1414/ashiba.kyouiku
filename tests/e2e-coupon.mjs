@@ -76,6 +76,16 @@ const dismiss = async () => {
   if (await b.count()) { await b.click(); await page.waitForTimeout(150); }
 };
 
+/* 確かめる札（AskDone。2026-09-10 から、決める操作は全部これを通る）。
+   「押す」→ 終わったら「閉じる」。断られたときは札が閉じるので、閉じるは出ない */
+const confirmDone = async () => {
+  await page.getByTestId("ask-done-yes").waitFor({ timeout: 4000 });
+  await page.getByTestId("ask-done-yes").click();
+  await page.getByTestId("ask-done-close").waitFor({ timeout: 8000 }).catch(() => {});
+  if (await page.getByTestId("ask-done-close").count()) await page.getByTestId("ask-done-close").click();
+  await page.waitForTimeout(150);
+};
+
 /* ── 申込みの画面 ── */
 await page.goto(`${BASE}/order`);
 await dismiss();
@@ -163,7 +173,13 @@ await page.getByTestId("order-coupon").fill("PLANT10");
 await page.getByTestId("order-coupon-check").click();
 await page.waitForTimeout(400);
 await page.getByTestId("order-invoice").click();
-await page.waitForTimeout(500);
+/* 何を・いくらを出して確かめてから送る */
+{
+  const askT = (await page.getByTestId("ask-done").innerText()).replace(/\s+/g, "");
+  check(/請求書払いで申し込みますか/.test(askT), "申し込む前に確かめる札が出る");
+  check(/2,250/.test(askT), `値引きの額が札に出る（${askT.slice(0, 60)}）`);
+}
+await confirmDone();
 {
   check(sent?.code === "PLANT10", `申し込むときにクーポンを送る（${sent?.code}）`);
   /* **値引きの額は送らない。**送ると、画面の額で請求できてしまう */

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Btn } from "@/components/ui/Btn";
 import { codeKind, normalizeJoinCode } from "@/training/joinCode";
 import { wipeDevice } from "@/lib/device";
+import { AskDone, type Ask, type RunResult } from "@/components/AskDone";
 
 /* 受講を始めるための画面。**その人がどこに立っているかで、名前も並びも変わる。**
 
@@ -63,6 +64,9 @@ export function JoinClient() {
   const [reqQ, setReqQ] = useState("");
   const [reqBusy, setReqBusy] = useState("");
   const [reqNote, setReqNote] = useState("");
+  /* 確かめる→やる→終わった（2026-09-10）。申し込む・登録する・
+     コードを使う・外す・送る——決める操作は全部これを通す */
+  const [ask, setAsk] = useState<Ask | null>(null);
 
   const loadMine = useCallback(async () => {
     try {
@@ -90,7 +94,7 @@ export function JoinClient() {
 
   /* 受けたい・取り消す。席そのものはここでは作らない。
      担当者が見て、いつもどおり受講コードを渡す */
-  const sendReq = async (courseId: string, cancel: boolean) => {
+  const sendReq = async (courseId: string, cancel: boolean): Promise<RunResult> => {
     setReqBusy(courseId);
     setReqNote("");
     try {
@@ -102,13 +106,37 @@ export function JoinClient() {
       const j = await res.json().catch(() => ({}));
       if (!res.ok || !j.ok) {
         setReqNote(j.reason ?? "送信できませんでした。");
-        return;
+        return false;
       }
       await loadReqs();
+      return true;
     } finally {
       setReqBusy("");
     }
   };
+
+  const askReq = (c: ReqCourse, cancel: boolean) =>
+    setAsk(cancel
+      ? {
+          title: "受講リクエストを取り消しますか",
+          body: <>{c.name}</>,
+          yes: "取り消す",
+          done: "取り消しました",
+          run: () => sendReq(c.courseId, true),
+        }
+      : {
+          title: "受講リクエストを送りますか",
+          body: (
+            <>
+              <div>{c.name}</div>
+              <div className="mt-2">会社の教育担当者に届きます。担当者が受講コードを用意すると、この講座が開きます。</div>
+            </>
+          ),
+          yes: "送る",
+          done: "受講リクエストを送りました",
+          doneBody: "担当者が受講コードを用意すると、お知らせが届きます。",
+          run: () => sendReq(c.courseId, false),
+        });
 
   const search = async () => {
     setBusy(true);
@@ -129,7 +157,7 @@ export function JoinClient() {
     }
   };
 
-  const ask = async (c: Found) => {
+  const apply = async (c: Found): Promise<RunResult> => {
     setBusy(true);
     setNote("");
     try {
@@ -141,17 +169,28 @@ export function JoinClient() {
       const j = await res.json().catch(() => ({}));
       if (!res.ok || !j.ok) {
         setNote(j.reason ?? "申し込みできませんでした。");
-        return;
+        return false;
       }
       setFound(null);
       setQ("");
       await loadMine();
+      return true;
     } finally {
       setBusy(false);
     }
   };
 
-  const drop = async (companyId: string) => {
+  const askApply = (c: Found) =>
+    setAsk({
+      title: `${c.name} に申し込みますか`,
+      body: "会社の教育担当者が許可すると、名簿に入って受講できるようになります。よその会社に申し込むと、その会社の担当者に名前が届きます。",
+      yes: "申し込む",
+      done: "申し込みました",
+      doneBody: "担当者が許可すると、お知らせが届きます。",
+      run: () => apply(c),
+    });
+
+  const drop = async (companyId: string): Promise<RunResult> => {
     setBusy(true);
     setNote("");
     try {
@@ -162,13 +201,34 @@ export function JoinClient() {
       });
       await loadMine();
       router.refresh();
+      return true;
     } finally {
       setBusy(false);
     }
   };
 
+  /* 外すのは戻せない（申し込み直しになる）。赤い札で確かめる */
+  const askDrop = (c: Found, pendingOne: boolean) =>
+    setAsk(pendingOne
+      ? {
+          title: `${c.name} への申し込みを取り下げますか`,
+          body: "取り下げても、あとからもう一度申し込めます。",
+          yes: "取り下げる",
+          danger: true,
+          done: "取り下げました",
+          run: () => drop(c.id),
+        }
+      : {
+          title: `${c.name} との紐付けを外しますか`,
+          body: "退職などで会社を離れるときに使います。許可は要りません。外しても、この会社の受講コードで受けた記録は会社の名簿に残ります。戻るには、もう一度申し込むことになります。",
+          yes: "外す",
+          danger: true,
+          done: "紐付けを外しました",
+          run: () => drop(c.id),
+        });
+
   /* 会社を登録する。force は「似た名前を見たうえで、それでも作る」 */
-  const make = async (force: boolean) => {
+  const make = async (force: boolean): Promise<RunResult> => {
     setBusy(true);
     setNote("");
     try {
@@ -182,26 +242,40 @@ export function JoinClient() {
         /* もう同じ会社がある。作らずに申し込みへ回す */
         setMaybe([j.exists as Found]);
         setNote(j.reason ?? "");
-        return;
+        return false;
       }
       if (j.maybe) {
         setMaybe(j.maybe as Found[]);
-        return;
+        return false;
       }
       if (!res.ok || !j.ok) {
         setNote(j.reason ?? "登録できませんでした。");
-        return;
+        return false;
       }
       setMade(j.company ?? newName.trim());
       router.refresh();
+      return true;
     } catch {
       setNote("接続できません。電波の届く場所で、もう一度お試しください。");
+      return false;
     } finally {
       setBusy(false);
     }
   };
 
-  const go = async () => {
+  const askMake = (force: boolean) =>
+    setAsk({
+      title: `「${newName.trim()}」を登録しますか`,
+      body: force
+        ? "似た名前の会社とは別の会社として、新しく登録します。あなたがこの会社の教育担当者になります。"
+        : "あなたがこの会社の教育担当者になります。あとから他の人を担当者にすることもできます。",
+      yes: "登録する",
+      done: "登録しました",
+      doneBody: "受講する人には、名簿に申し込んでもらうか、受講コードを渡してください。",
+      run: () => make(force),
+    });
+
+  const go = async (): Promise<RunResult> => {
     setBusy(true);
     setNote("");
     try {
@@ -213,7 +287,7 @@ export function JoinClient() {
       const j = await res.json().catch(() => ({}));
       if (!res.ok || !j.ok) {
         setNote(j.reason ?? "登録できませんでした。");
-        return;
+        return false;
       }
       /* 受講コードを入れたら、その時点で受講は始めからになる。
          サーバ側の記録は取り消しのときに消しているので、
@@ -222,15 +296,44 @@ export function JoinClient() {
       if (j.kind === "seat") wipeDevice();
       setDone({ company: j.company ?? "", kind: j.kind ?? "join" });
       router.refresh();
+      return j.kind === "seat"
+        ? { done: `${j.company ?? "会社"} の受講コードを使いました`, doneBody: "学科を最後まで受講すると修了証を発行できます。" }
+        : { done: `${j.company ?? "会社"} に入りました`, doneBody: "名簿に登録されました。修了証の発行には受講コードが必要です。" };
     } catch {
       setNote("接続できません。電波の届く場所で、もう一度お試しください。");
+      return false;
     } finally {
       setBusy(false);
     }
   };
 
+  const askGo = () =>
+    setAsk({
+      title: codeKind(code) === "join" ? "このコードを使いますか" : "この受講コードを使いますか",
+      body: (
+        <>
+          <div className="font-mono text-[16px] font-black tracking-[3px] text-yel">
+            {normalizeJoinCode(code).replace(/(.{4})(?=.)/g, "$1-")}
+          </div>
+          <div className="mt-2">
+            {codeKind(code) === "seat"
+              ? "この受講コードは1人1回きりです。使うと、その講座の受講が最初から始まります。"
+              : "会社の名簿に入ります。"}
+          </div>
+        </>
+      ),
+      yes: "使う",
+      done: "登録しました",
+      run: go,
+    });
+
+  /* ── 終わった画面 ──
+     **確かめる札（AskDone）は、どの画面でも同じ場所に置く。**
+     早く return して画面ごと入れ替えると、札も作り直されて
+     「終わった」が出る前に消える。画面だけ選んで、札は外に置く */
+  let screen: React.ReactNode = null;
   if (made) {
-    return (
+    screen = (
       <main className="px-5 py-8">
         <div className="tape -mx-5 mb-6" />
         <h1 className="text-[18px] font-black">{made} を登録しました</h1>
@@ -253,10 +356,8 @@ export function JoinClient() {
         </Link>
       </main>
     );
-  }
-
-  if (done !== null) {
-    return (
+  } else if (done !== null) {
+    screen = (
       <main className="px-5 py-8">
         <div className="tape -mx-5 mb-6" />
         <h1 className="text-[18px] font-black">{done.company} に入りました</h1>
@@ -319,7 +420,7 @@ export function JoinClient() {
         小文字で入れても構いません。数字の0と1、英字のO・I・Lは使っていません。
       </div>
       <div className="mt-3">
-        <Btn tone="y" dis={busy || !kind} onClick={go} testid="join-go">
+        <Btn tone="y" dis={busy || !kind} onClick={askGo} testid="join-go">
           {busy ? "確認しています…" : kind === "join" ? "このコードを使う" : "この受講コードを使う"}
         </Btn>
       </div>
@@ -369,7 +470,7 @@ export function JoinClient() {
           {found.map((c) => (
             <button
               key={c.id}
-              onClick={() => void ask(c)}
+              onClick={() => askApply(c)}
               disabled={busy}
               className="rounded-lg border border-line bg-bg px-3 py-2.5 text-left text-[13px]"
               data-testid="join-found"
@@ -410,7 +511,7 @@ export function JoinClient() {
             {maybe.map((c) => (
               <button
                 key={c.id}
-                onClick={() => void ask(c)}
+                onClick={() => askApply(c)}
                 disabled={busy}
                 className="rounded-lg border border-line bg-bg px-3 py-2.5 text-left text-[13px]"
                 data-testid="join-maybe"
@@ -421,7 +522,7 @@ export function JoinClient() {
             ))}
           </div>
           <button
-            onClick={() => void make(true)}
+            onClick={() => askMake(true)}
             disabled={busy}
             className="mt-2 w-full rounded-lg border border-line p-2 text-[11.5px] text-dim2"
             data-testid="join-new-force"
@@ -433,7 +534,7 @@ export function JoinClient() {
 
       {(!maybe || !maybe.length) && (
         <button
-          onClick={() => void make(false)}
+          onClick={() => askMake(false)}
           disabled={busy || newName.trim().length < 2}
           className="mt-2.5 w-full rounded-lg border border-line p-2.5 text-[12.5px] text-dim"
           data-testid="join-new-go"
@@ -444,7 +545,7 @@ export function JoinClient() {
     </div>
   );
 
-  return (
+  if (!screen) screen = (
     <main className="px-5 py-8">
       <div className="tape -mx-5 mb-6" />
       <Link href="/" className="backlink text-[13px] text-dim no-underline">
@@ -513,7 +614,7 @@ export function JoinClient() {
                             <span className="shrink-0 text-[11px] text-grn">受講コードあり</span>
                           ) : c.requested ? (
                             <button
-                              onClick={() => void sendReq(c.courseId, true)}
+                              onClick={() => askReq(c, true)}
                               disabled={reqBusy === c.courseId}
                               className="shrink-0 rounded-lg border border-line px-2.5 py-1.5 text-[11px] text-dim2 disabled:opacity-50"
                               data-testid="join-request-cancel"
@@ -522,7 +623,7 @@ export function JoinClient() {
                             </button>
                           ) : (
                             <button
-                              onClick={() => void sendReq(c.courseId, false)}
+                              onClick={() => askReq(c, false)}
                               disabled={reqBusy === c.courseId}
                               className="shrink-0 rounded-lg border border-cyan bg-cyan px-2.5 py-1.5 text-[11px] font-extrabold text-bg disabled:opacity-50"
                               data-testid="join-request-send"
@@ -547,7 +648,7 @@ export function JoinClient() {
             <div className="text-[11px] tracking-[2px] text-grn">いまの所属</div>
             <div className="mt-1 text-[15px] font-black">{active.company.name}</div>
             <button
-              onClick={() => void drop(active.company.id)}
+              onClick={() => askDrop(active.company, false)}
               disabled={busy}
               className="mt-3 w-full rounded-lg border border-line p-2 text-[11.5px] text-dim2"
               data-testid="join-leave"
@@ -573,7 +674,7 @@ export function JoinClient() {
               <div key={x.id} className="mt-1.5">
                 <div className="text-[14px] font-black">{x.company.name}</div>
                 <button
-                  onClick={() => void drop(x.company.id)}
+                  onClick={() => askDrop(x.company, true)}
                   disabled={busy}
                   className="mt-1.5 rounded border border-line px-2 py-1 text-[11px] text-dim2"
                   data-testid="join-cancel"
@@ -607,5 +708,11 @@ export function JoinClient() {
           : "受講コードを持っていない場合は、会社の教育担当者に聞いてください。自分の会社でこれから使い始める場合は、上の「会社を登録する」から。"}
       </div>
     </main>
+  );
+  return (
+    <>
+      {screen}
+      <AskDone ask={ask} onClose={() => setAsk(null)} />
+    </>
   );
 }
