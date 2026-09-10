@@ -70,9 +70,14 @@ const offText = (c: Coupon) =>
    **1つの部品にする。**別々に書くと、片方だけ列が増えて読み比べられない。
 
    ・新しい月が上（サーバがその順で返す）
-   ・払ってよいのは「入金済み」の列だけ。入金待ちは、その下に小さく
+   ・払ってよいのは「お客様の入金あり」の列だけ。入金待ちはその下に小さく
    ・広告費は緑。**探しているのはこの数字**（月ぎめで振り込む額）
-   ・畳んである。開くのは、その月を締めるときだけ */
+   ・畳んである。開くのは、その月を締めるときだけ
+
+   ── まだ1件も使われていなくても、枠は出す（2026-09-10）──
+   げんきさん「月別が見れない、表示がない」。
+   0件のときに丸ごと消していたので、**作ったのに無いように見えた。**
+   探させるくらいなら、空だと書いてある枠を出す。 */
 function Months({
   months,
   label,
@@ -85,42 +90,57 @@ function Months({
   /** 売上の列を出すか。支払先の所は、払う額だけ見たいので省く */
   showNet?: boolean;
 }) {
-  if (!months.length) return null;
   const reward = months.reduce((n, m) => n + m.paid.reward, 0);
+  const empty = !months.length;
   return (
     <details className="mt-2 rounded-xl border border-line bg-panel" data-testid={testId}>
       <summary className="cursor-pointer list-none p-3 text-[12px] text-dim">
-        <span className="text-yel">▾</span> {label}（{months.length}か月）
-        <span className="ml-2 text-[11px] text-dim2">入金済みの広告費 {yen(reward)}</span>
+        <span className="text-yel">▾</span> {label}
+        {empty ? (
+          <span className="ml-2 text-[11px] text-dim2">まだ利用がありません</span>
+        ) : (
+          <>
+            <span className="text-dim2">（{months.length}か月）</span>
+            <span className="ml-2 text-[11px] text-dim2">お支払いする広告費 {yen(reward)}</span>
+          </>
+        )}
       </summary>
       <div className="border-t border-line px-3 pb-3">
-        {/* 字を折り返させない。クーポンの札の中は狭いので、
-            折り返すと「60,750」と「円」が上下に割れて読めなくなる */}
-        <div className="mt-2 flex items-baseline gap-1.5 whitespace-nowrap text-[10.5px] text-dim2">
-          <span className="w-[4.5rem] shrink-0">月</span>
-          <span className="w-9 shrink-0 text-right">件数</span>
-          {showNet && <span className="flex-1 text-right">売上</span>}
-          <span className="w-[5.5rem] shrink-0 text-right">広告費</span>
-        </div>
-        {months.map((m) => (
-          <div key={m.ym} data-testid="coupon-month-row">
-            <div className="mt-1.5 flex items-baseline gap-1.5 whitespace-nowrap text-[12px]">
-              <span className="w-[4.5rem] shrink-0 font-bold">{monthLabel(m.ym)}</span>
-              <span className="w-9 shrink-0 text-right">{m.paid.uses}件</span>
-              {showNet && <span className="flex-1 text-right">{yen(m.paid.net)}</span>}
-              <span className="w-[5.5rem] shrink-0 text-right font-bold text-grn">{yen(m.paid.reward)}</span>
+        {empty ? (
+          <p className="mt-2 text-[11px] leading-relaxed text-dim2" data-testid="coupon-month-none">
+            このクーポンが使われると、月ごとの件数・売上・広告費がここに並びます。
+          </p>
+        ) : (
+          <>
+            {/* 字を折り返させない。クーポンの札の中は狭いので、
+                折り返すと「60,750」と「円」が上下に割れて読めなくなる */}
+            <div className="mt-2 flex items-baseline gap-1.5 whitespace-nowrap text-[10.5px] text-dim2">
+              <span className="w-[4.5rem] shrink-0">月</span>
+              <span className="w-9 shrink-0 text-right">件数</span>
+              {showNet && <span className="flex-1 text-right">売上</span>}
+              <span className="w-[5.5rem] shrink-0 text-right">広告費</span>
             </div>
-            {m.pending.uses > 0 && (
-              <div className="text-[10.5px] text-dim2">
-                入金待ち {m.pending.uses}件・売上 {yen(m.pending.net)}・広告費 {yen(m.pending.reward)}
+            {months.map((m) => (
+              <div key={m.ym} data-testid="coupon-month-row">
+                <div className="mt-1.5 flex items-baseline gap-1.5 whitespace-nowrap text-[12px]">
+                  <span className="w-[4.5rem] shrink-0 font-bold">{monthLabel(m.ym)}</span>
+                  <span className="w-9 shrink-0 text-right">{m.paid.uses}件</span>
+                  {showNet && <span className="flex-1 text-right">{yen(m.paid.net)}</span>}
+                  <span className="w-[5.5rem] shrink-0 text-right font-bold text-grn">{yen(m.paid.reward)}</span>
+                </div>
+                {m.pending.uses > 0 && (
+                  <div className="text-[10.5px] text-dim2">
+                    お客様の入金待ち {m.pending.uses}件・売上 {yen(m.pending.net)}・広告費 {yen(m.pending.reward)}
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-        ))}
-        <p className="mt-2 text-[10.5px] leading-relaxed text-dim2">
-          上の行は入金を確認した分です。お支払いの対象はこの分のみで、
-          取り消された申込みは含みません。金額は税抜です。
-        </p>
+            ))}
+            <p className="mt-2 text-[10.5px] leading-relaxed text-dim2">
+              上の行は、お客様からのご入金を確認した分です。お支払いの対象はこの分だけで、
+              取り消された申込みは含みません。金額は税抜です。
+            </p>
+          </>
+        )}
       </div>
     </details>
   );
@@ -259,8 +279,8 @@ export function CouponClient({ onNote }: { onNote: (s: string) => void }) {
       <div className="grid grid-cols-3 gap-2" data-testid="coupon-totals">
         {[
           { t: "利用件数", v: `${paid.uses + pending.uses}件` },
-          { t: "売上（税抜・入金済み）", v: yen(paid.net) },
-          { t: "広告費（入金済み）", v: yen(paid.reward) },
+          { t: "売上（税抜）", v: yen(paid.net) },
+          { t: "お支払いする広告費", v: yen(paid.reward) },
         ].map((x) => (
           <div key={x.t} className="rounded-xl border border-line bg-panel px-2 py-3 text-center">
             <div className="text-[10px] leading-tight text-dim">{x.t}</div>
@@ -268,10 +288,21 @@ export function CouponClient({ onNote }: { onNote: (s: string) => void }) {
           </div>
         ))}
       </div>
-      <p className="mt-1.5 text-[11px] leading-relaxed text-dim2">
-        入金待ちの分は、売上 {yen(pending.net)}／広告費 {yen(pending.reward)} です。
+      {/* ── 「入金済み」が二通りに読めた（げんきさん 2026-09-10）──
+          「広告費の入金済みとはどういう意味？」
+          こちらが**払い終えた**広告費、とも読める。そうではない。
+          お客様からご入金があった申込みの分、という意味だった。
+          言葉を「お客様のご入金」に寄せて、払ったかどうかは見ていないと
+          はっきり書く。振込の管理は、この仕組みではやっていない */}
+      <p className="mt-1.5 text-[11px] leading-relaxed text-dim2" data-testid="coupon-words">
+        上の金額は、お客様からのご入金を確認した申込みの分です。
+        取り消された申込みは含みません。
         <br />
-        お支払いの対象は、入金を確認した分のみです。取り消された申込みは含みません。
+        まだご入金がない分は、売上 {yen(pending.net)}／広告費 {yen(pending.reward)} で、
+        上の数字には入っていません。
+        <br />
+        「お支払いする広告費」は、これからお支払いする額です。
+        振込が済んだかどうかは、この画面では見ていません。
       </p>
 
       {/* ── 全体の月別（げんきさん 2026-09-10）──
@@ -291,7 +322,7 @@ export function CouponClient({ onNote }: { onNote: (s: string) => void }) {
                   <span className="ml-auto text-[15px] font-black text-grn">{yen(p.paid.reward)}</span>
                 </div>
                 <div className="mt-0.5 text-[11px] text-dim2">
-                  入金済み {p.paid.uses}件・売上 {yen(p.paid.net)}
+                  お客様の入金あり {p.paid.uses}件・売上 {yen(p.paid.net)}
                   {p.pending.uses > 0 && `　／　入金待ち ${p.pending.uses}件・広告費 ${yen(p.pending.reward)}`}
                   {p.contact && `　／　${p.contact}`}
                 </div>
@@ -486,17 +517,17 @@ export function CouponClient({ onNote }: { onNote: (s: string) => void }) {
                 <div className="text-[13px] font-bold">{c.paid.uses + c.pending.uses}件</div>
               </div>
               <div>
-                <div className="text-dim2">売上（税抜・入金済み）</div>
+                <div className="text-dim2">売上（税抜）</div>
                 <div className="text-[13px] font-bold">{yen(c.paid.net)}</div>
               </div>
               <div>
-                <div className="text-dim2">広告費（入金済み）</div>
+                <div className="text-dim2">お支払いする広告費</div>
                 <div className="text-[13px] font-bold text-grn">{yen(c.paid.reward)}</div>
               </div>
             </div>
             {c.pending.uses > 0 && (
               <div className="mt-1 text-[11px] text-dim2">
-                入金待ち {c.pending.uses}件・売上 {yen(c.pending.net)}・広告費 {yen(c.pending.reward)}
+                お客様の入金待ち {c.pending.uses}件・売上 {yen(c.pending.net)}・広告費 {yen(c.pending.reward)}
               </div>
             )}
 
@@ -552,7 +583,7 @@ export function CouponClient({ onNote }: { onNote: (s: string) => void }) {
                     <span className="text-dim2">{day(r.usedAt)}</span>
                     <span>{r.company}</span>
                     <span className={r.status === "paid" ? "text-grn" : r.status === "cancelled" ? "text-dim2" : "text-yel"}>
-                      {r.status === "paid" ? "入金済み" : r.status === "cancelled" ? "取消" : "入金待ち"}
+                      {r.status === "paid" ? "入金あり" : r.status === "cancelled" ? "取消" : "入金待ち"}
                     </span>
                     <span className="ml-auto text-dim">売上 {yen(r.net)}</span>
                     <span className="w-20 text-right">{r.reward > 0 ? `広告費 ${yen(r.reward)}` : "—"}</span>

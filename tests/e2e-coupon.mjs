@@ -241,12 +241,21 @@ await page.waitForSelector('[data-testid="owner-coupons"]', { timeout: 8000 });
   const t = (await page.getByTestId("coupon-totals").innerText()).replace(/\s/g, "");
   check(t.includes("3件"), `使われた回数は取り消し以外の合計（${t}）`);
   /* **払ってよいのは入金済みだけ。**入金待ちを混ぜると払い過ぎになる */
-  check(t.includes("40,500") && t.includes("8,100"), `入金済みの売上と広告費が出る（${t}）`);
-  check(!t.includes("12,150"), "入金済みと入金待ちを足していない");
+  check(t.includes("40,500") && t.includes("8,100"), `入金のあった分の売上と広告費が出る（${t}）`);
+  check(!t.includes("12,150"), "入金のあった分と、待ちの分を足していない");
+
+  /* ── 言葉（げんきさん 2026-09-10「広告費の入金済みとはどういう意味？」）──
+     こちらが払い終えた広告費、とも読めてしまっていた */
+  const w = (await page.getByTestId("coupon-words").innerText()).replace(/\s/g, "");
+  check(w.includes("お客様からのご入金を確認した"), `誰の入金かを書いてある（${w.slice(0, 40)}）`);
+  check(w.includes("振込が済んだかどうかは、この画面では見ていません"),
+    "こちらが払ったかどうかは見ていない、と書いてある");
+  check(!t.includes("入金済み"), "上の札に「入金済み」とだけ書かない");
 
   const p = (await page.getByTestId("coupon-partner").innerText()).replace(/\s/g, "");
   check(p.includes("プラント紹介") && p.includes("8,100"), `支払い先ごとの広告費が出る（${p}）`);
   check(p.includes("入金待ち1件"), "入金待ちのぶんも分けて出す");
+  check(p.includes("お客様の入金あり"), "支払先の行でも、誰の入金かを書く");
 
   const c = (await page.getByTestId("coupon-row").innerText()).replace(/\s/g, "");
   check(c.includes("PLANT10") && c.includes("10%引き") && c.includes("広告費率20%"),
@@ -255,7 +264,7 @@ await page.waitForSelector('[data-testid="owner-coupons"]', { timeout: 8000 });
   await page.getByTestId("coupon-open").click();
   await page.waitForTimeout(200);
   const rows = (await page.getByTestId("coupon-rows").innerText()).replace(/\s/g, "");
-  check(rows.includes("クーポン工業") && rows.includes("入金済み") && rows.includes("入金待ち"),
+  check(rows.includes("クーポン工業") && rows.includes("入金あり") && rows.includes("入金待ち"),
     `明細に、どこがいつ使ったかが出る（${rows.slice(0, 60)}）`);
   console.log("OK: 運営管理の画面で、クーポンごとの売上と広告費が分かる");
 }
@@ -280,11 +289,12 @@ await page.waitForSelector('[data-testid="owner-coupons"]', { timeout: 8000 });
   check(!row.includes("8,100"), "月の行で、入金済みと入金待ちを足していない");
   check(row.includes("入金待ち"), "入金待ちは、別の行に分けて出す");
   /* 見出しの合計も入金済みだけ（4,050 が2か月ぶんで 8,100） */
-  check(t.includes("入金済みの広告費") && t.includes("8,100"),
+  check(t.includes("お支払いする広告費") && t.includes("8,100"),
     "畳んだ見出しにも、払ってよい合計が出る");
 
   const one = page.getByTestId("coupon-months-one");
   check(await one.count() > 0, "クーポンごとの月別がある");
+  check(t.includes("お支払いする広告費"), "広告費は「お支払いする額」と書く");
   const part = page.getByTestId("coupon-months-partner");
   check(await part.count() > 0, "支払先ごとの月別がある");
   await part.locator("summary").click();
@@ -292,6 +302,42 @@ await page.waitForSelector('[data-testid="owner-coupons"]', { timeout: 8000 });
   const pt = (await part.innerText()).replace(/\s/g, "");
   check(pt.includes("2026年9月") && pt.includes("4,050"), `支払先の月別に額が出る（${pt.slice(0, 60)}）`);
   console.log("OK: 全体・クーポンごと・支払先ごとの3か所で、月別が見られる");
+}
+
+/* ── まだ1件も使われていないとき（げんきさん 2026-09-10）──
+     「月別が見れない、表示がない」。0件で枠ごと消していた */
+{
+  await page.route("**/api/owner/coupons", (route) =>
+    route.fulfill({
+      status: 200, contentType: "application/json",
+      body: JSON.stringify({
+        ok: true,
+        months: [],
+        list: [{
+          id: "c9", code: "NEW1", name: "まだ使われていない", percentOff: 10, amountOff: null,
+          partnerId: null, rewardRate: 0, startsAt: null, expiresAt: null,
+          maxUses: null, companyUses: null, active: true, note: "",
+          paid: { uses: 0, net: 0, discount: 0, reward: 0 },
+          pending: { uses: 0, net: 0, discount: 0, reward: 0 },
+          rows: [], months: [],
+        }],
+        partners: [],
+      }),
+    }));
+  await page.reload();
+  await dismiss();
+  await page.waitForSelector('[data-testid="owner-tabs"]', { timeout: 8000 });
+  await page.locator('[data-testid="owner-tab"]', { hasText: "クーポンと広告費" }).click();
+  await page.waitForSelector('[data-testid="owner-coupons"]', { timeout: 8000 });
+
+  const all = page.getByTestId("coupon-months-all");
+  check(await all.count() > 0, "1件も使われていなくても、月別の枠は出る");
+  const t = (await all.innerText()).replace(/\s/g, "");
+  check(t.includes("まだ利用がありません"), `空だと書いてある（${t.slice(0, 40)}）`);
+  await all.locator("summary").click();
+  await page.waitForTimeout(150);
+  check(await all.getByTestId("coupon-month-none").count() > 0, "開くと、これから並ぶことが書いてある");
+  console.log("OK: まだ使われていなくても、月別の場所が分かる");
 }
 
 /* ── コードのコピーと、配るための絵（げんきさん 2026-09-10）── */
