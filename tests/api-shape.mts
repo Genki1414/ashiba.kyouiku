@@ -389,6 +389,27 @@ console.log("── データベースの版 ──");
   check(/data-testid="db-round"/.test(read("src/app/setup/SetupClient.tsx")),
     "設定の画面に、往復の時間を出す");
 
+  /* ── サーバの場所（2026-09-10）──
+     往復が 219ms だった。手元なら1msも掛からないので、太平洋を渡っていた。
+     vercel.json で東京に寄せたが、**寄ったかどうかは本番でしか分からない。**
+     だから画面に出す。出す以上、どちらの返事にも入れておく
+     （ログインしていない人の画面でも見られないと、確かめようがない） */
+  check(/VERCEL_REGION/.test(health), "サーバの場所を返す");
+  check(/\n\s*region,/.test(localOut), "ログインしていない人にも場所を返す");
+  const fullOut = health.slice(health.lastIndexOf("return NextResponse.json({"));
+  check(/\n\s*region,/.test(fullOut), "ログインしている人にも場所を返す");
+  check(/data-testid="server-region"/.test(setup), "設定の画面に、サーバの場所を出す");
+
+  /* 画面が「合っている」と言う場所と、実際に置く場所が食い違うと、
+     遠いままなのに合っているように見える。**必ず同じ番号にする** */
+  const vjson = JSON.parse(read("vercel.json"));
+  const want = (setup.match(/const WANT_REGION = "([a-z0-9]+)"/) ?? [])[1] ?? "";
+  check(Array.isArray(vjson.regions) && vjson.regions.length === 1,
+    "サーバを置く場所を、1か所だけ決めてある");
+  check(!!want && vjson.regions?.[0] === want,
+    `置く場所と、画面が待つ場所が同じ（vercel.json ${vjson.regions?.[0]} / 画面 ${want}）`);
+  check(/hnd1: "東京"/.test(setup), "番号だけでなく地名を出す");
+
   /* mode が "local" になる理由は2つあり、意味がまるで違う。
      鍵が無いのか、鍵はあって未ログインなのか */
   check(/justSignedOut/.test(setup), "未設定と未ログインを区別する");

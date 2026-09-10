@@ -4,6 +4,34 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Btn } from "@/components/ui/Btn";
 
+/* ── サーバをどこで動かしたいか（2026-09-10）──
+   hnd1 は東京。データベース（Supabase）と同じ場所に置きたい。
+   vercel.json の regions と**必ず同じ**にしておく。
+   ここが食い違うと、画面は「合っている」と言うのに実際は遠い */
+const WANT_REGION = "hnd1";
+
+/* 番号だけ出しても分からないので、地名を添える。
+   知らない番号は、そのまま出す（増えても壊れない） */
+const REGION_NAME: Record<string, string> = {
+  hnd1: "東京",
+  icn1: "ソウル",
+  kix1: "大阪",
+  sin1: "シンガポール",
+  syd1: "シドニー",
+  iad1: "アメリカ東部",
+  sfo1: "アメリカ西部",
+  cle1: "アメリカ中部",
+  fra1: "フランクフルト",
+  dub1: "ダブリン",
+  lhr1: "ロンドン",
+  cdg1: "パリ",
+  arn1: "ストックホルム",
+  bom1: "ムンバイ",
+  gru1: "サンパウロ",
+  hkg1: "香港",
+  pdx1: "アメリカ西部（ポートランド）",
+};
+
 type Health = {
   mode: "local" | "supabase" | "stale" | "error";
   /** どこで動いているか。手順の出し分けに使う */
@@ -18,6 +46,9 @@ type Health = {
   };
   checks?: Record<string, { ok: boolean; detail: string }>;
   schema?: { now: string; need: string; ok: boolean; firstMs?: number; roundMs?: number };
+  /* サーバがどこで動いているか（vercel.json の regions）。
+     データベースまでの往復と並べて見る */
+  region?: string;
   /* いま誰として記録しているか */
   auth?: { required: boolean; signedIn: boolean; enrollment: string; email?: string | null; owner?: boolean; admin?: boolean; company?: string; canLearn?: boolean; learnBy?: string };
   /* この版がいつのものか。新しい版が届いているかを見る目印 */
@@ -194,6 +225,31 @@ export function SetupClient() {
                 <span className="shrink-0 text-[11.5px] text-dim2">
                   ／ 繋ぎ始め {h.schema.firstMs}ms
                 </span>
+              </div>
+            )}
+
+            {/* ── サーバの場所（2026-09-10）──
+                往復が 219ms だった。手元なら1msも掛からないので、
+                **太平洋を渡っていた。**vercel.json で東京（hnd1）に寄せた。
+                寄ったかどうかは、ここで見る。東京なのに往復が遅ければ、
+                遠いのは**データベースの方**なので、Supabase 側を見る */}
+            {!!h.region && (
+              <div
+                className={`mt-2 flex items-baseline gap-2 rounded-xl border bg-panel p-4 ${
+                  h.region === WANT_REGION ? "border-line" : "border-org"
+                }`}
+                data-testid="server-region"
+              >
+                <span
+                  className={`text-[13px] ${h.region === WANT_REGION ? "text-grn" : "text-org"}`}
+                >
+                  {h.region === WANT_REGION ? "✓" : "！"}
+                </span>
+                <span className="text-[12.5px] text-dim">サーバの場所</span>
+                <span className="ml-auto shrink-0 text-[13px] font-bold text-txt">
+                  {REGION_NAME[h.region] ?? h.region}
+                </span>
+                <span className="shrink-0 font-mono text-[11.5px] text-dim2">{h.region}</span>
               </div>
             )}
 

@@ -56,6 +56,10 @@ async function readSchema(
 }
 
 export async function GET() {
+  /* サーバがどこで動いているか（2026-09-10）。
+     データベースまでの往復が 219ms だったので、場所を東京に寄せた
+     （vercel.json の regions）。効いたかどうかは、ここと往復の時間で見る */
+  const region = process.env.VERCEL_REGION ?? "";
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
   const hasAnon = !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   const hasService = !!process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -243,6 +247,7 @@ export async function GET() {
       appVersion,
       sell,
       schema,
+      region,
       message: !supabase
         ? "Supabase 未設定です。視聴記録はブラウザ内（localStorage）に保存されます。"
         : "ログインしていないので、視聴記録はブラウザ内（localStorage）に保存されます。",
@@ -361,6 +366,8 @@ export async function GET() {
     /* いま入っている版と、このアプリが要る版。
        片方だけでは「流し終わったのか」が分からない */
     schema,
+    /* サーバがどこで動いているか。往復の時間と並べて見る */
+    region,
     checks,
     message: ok
       ? "Supabase に接続できています。視聴記録・照合ログ・受験記録はサーバに保存されます。"
