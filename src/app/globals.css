@@ -37,6 +37,12 @@ html {
 
 body {
   min-height: 100dvh;
+  /* ── 上のふち（2026-09-10）──
+     viewport-fit=cover にしたので、画面のいちばん上から描かれる。
+     iPhone のホーム画面から開くと、時計や電池がそこに乗っているので、
+     そのぶんだけ空ける。ブラウザで開いたときは 0 なので何も変わらない。
+     **cover と、この余白は組で持つ**（片方だけだと必ずどちらかが潜る） */
+  padding-top: env(safe-area-inset-top);
 }
 
 /* ── 印刷 ──
@@ -47,7 +53,7 @@ body {
    .shell は src/app/layout.tsx の外枠。 */
 @media print {
   @page { size: A4; margin: 14mm; }
-  html, body { background: #fff !important; color: #000 !important; min-height: 0 !important; }
+  html, body { background: #fff !important; color: #000 !important; min-height: 0 !important; padding-top: 0 !important; }
   .shell { max-width: none !important; min-height: 0 !important; background: #fff !important; }
   .tape, .noprint { display: none !important; }
 }

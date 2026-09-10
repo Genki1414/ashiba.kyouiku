@@ -1580,6 +1580,27 @@ console.log("── 下の行き先と、お知らせの出し方 ──");
   check(!/transform|will-change|backdrop-blur/.test(shell),
     "外側の入れ物に transform を掛けない（掛けると固定が壊れる）");
   check(/print:hidden/.test(nav), "紙には出さない（請求書）");
+
+  /* ── iPhone の下の横棒と重ならないか（げんきさん 2026-09-10）──
+     「下記タブが小さくてiPhoneのバーと被って変な挙動する」。
+     env(safe-area-inset-bottom) で余白は取っていたが、
+     **viewport-fit=cover が無いと env は 0 になる。**
+     ホーム画面から開いたときだけ、横棒が札の字に乗っていた。
+     どちらか片方だけでは直らないので、両方を見る */
+  check(/viewportFit: "cover"/.test(shell), "画面のふちまで使うと宣言する");
+  const css = read("src/app/globals.css");
+  check(/padding-top: env\(safe-area-inset-top\)/.test(css),
+    "ふちまで使うぶん、上は時計のぶんを空ける（cover と組で持つ）");
+  check(/max\(env\(safe-area-inset-bottom\), \d+px\)/.test(nav),
+    "下は、env が 0 の相手でも必ず空ける");
+  /* 空ける分と、上に作る隙間は同じ式で出す。
+     別々に書くと、片方を直したときに最後の行が札の下に隠れる */
+  check(/const GAP = /.test(nav) && (nav.match(/GAP/g) ?? []).length >= 3,
+    "空ける分は1か所で決めて、隙間と札の両方で使う");
+  check(/const ROW = (\d+)/.test(nav) && Number(RegExp.$1) >= 44,
+    `押す所は 44px 以上（いま ${(nav.match(/const ROW = (\d+)/) ?? [])[1]}px）`);
+  check(/calc\(\$\{ROW\}px \+ \$\{GAP\}/.test(nav),
+    "上に作る隙間は、札の高さと空ける分の足し算");
   check(/path\.startsWith\("\/training"\)/.test(nav), "実務トレーニングでは出さない");
   check(/\/\^\\\/edu\\\/\[\^\/\]\+\\\/\.\+\//.test(nav) || /edu\\\//.test(nav),
     "単元や修了試験の途中では出さない");

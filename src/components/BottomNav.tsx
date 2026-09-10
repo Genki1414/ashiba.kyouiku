@@ -19,6 +19,21 @@ import { navItems } from "@/lib/nav";
    立場は /api/me が返す（src/lib/me.ts）。覚えているぶんで先に描くので、
    画面が一拍ずれない。 */
 
+/* ── 押す所の大きさと、下のふち（2026-09-10）──
+   げんきさん「下記タブが小さくてiPhoneのバーと被って変な挙動する」。
+
+   ROW … 札1つの高さ。指で押す所は 44px 以上ないと、
+          隣を押してしまう（手袋のままなら、なおさら）。
+   GAP … 下のふちに空ける分。iPhone のホーム画面から開くと、
+          画面のいちばん下に横棒が乗っている。そこに札を置くと、
+          押したつもりがホームに戻る。
+          env が 0 のブラウザでも、指1本ぶんは必ず空ける（max）。
+
+   **この2つは、上の隙間（spacer）と同じ式で使う。**
+   別々に書くと、片方を直したときに最後の行が札の下に隠れる */
+const ROW = 52;
+const GAP = "max(env(safe-area-inset-bottom), 10px)";
+
 /** その画面で出すかどうか。受講の邪魔になる所では出さない */
 export function navHidden(path: string): boolean {
   if (path === "/login" || path.startsWith("/auth")) return true;
@@ -51,12 +66,14 @@ export function BottomNav() {
 
   return (
     <>
-      {/* 固定した行の高さぶん、下に余白を作る。無いと最後の行が隠れる */}
-      <div className="h-[62px] print:hidden" aria-hidden />
+      {/* 固定した行の高さぶん、下に余白を作る。無いと最後の行が隠れる。
+          **札と同じ計算で出す**（片方だけ直すと、最後の行が隠れる）。
+          +1px は札の上の線のぶん */}
+      <div className="print:hidden" style={{ height: `calc(${ROW}px + ${GAP} + 1px)` }} aria-hidden />
       <nav
         className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-panel print:hidden"
         style={{
-          paddingBottom: "env(safe-area-inset-bottom)",
+          paddingBottom: GAP,
           /* ── iPhone で、送っている間だけ札が置いていかれる（2026-09-10）──
              げんきさん「下部タブの固定が出来てない」。
              手元のブラウザでは、いちばん下まで送っても画面の下にぴたりと
@@ -79,14 +96,15 @@ export function BottomNav() {
               <Link
                 key={it.href}
                 href={it.href}
-                className={`flex flex-1 flex-col items-center gap-0.5 py-2.5 no-underline ${
+                className={`flex flex-1 flex-col items-center justify-center gap-1 no-underline ${
                   on ? "text-yel" : "text-dim2"
                 }`}
+                style={{ minHeight: `${ROW}px` }}
                 aria-current={on ? "page" : undefined}
                 data-testid="bottom-nav-item"
               >
-                <span className="text-[15px] leading-none" aria-hidden>{it.icon}</span>
-                <span className="text-[10.5px] font-bold leading-none">{it.label}</span>
+                <span className="text-[20px] leading-none" aria-hidden>{it.icon}</span>
+                <span className="text-[11.5px] font-bold leading-none">{it.label}</span>
               </Link>
             );
           })}

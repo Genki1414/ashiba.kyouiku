@@ -31,6 +31,17 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   themeColor: "#14171B",
+  /* ── 画面のふちまで使う（2026-09-10）──
+     げんきさん「下部タブが小さくてiPhoneのバーと被って変な挙動する」。
+
+     下の札には env(safe-area-inset-bottom) で余白を取っていたが、
+     **これを付けないと env は 0 になる。**iPhone のホーム画面から
+     開いたとき（アプリ表示）は、下の横棒のぶんが誰にも取られないまま
+     札の字と重なっていた。
+
+     ふちまで使うと、上も status bar の下に潜るので、
+     globals.css の body で上のぶんも取り返す。**両方を必ず組で持つ** */
+  viewportFit: "cover",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
