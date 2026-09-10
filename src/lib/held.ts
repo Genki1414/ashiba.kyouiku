@@ -80,6 +80,13 @@ export async function heldCourseIds(
 export type CourseMarks = { owned: string[]; learning: string[] };
 
 /** その人が受講コードを持っている講座と、もう開いている講座 */
+/** 席にぶら下がっている注文の講座。並びで返ることもあるので、どちらでも読む */
+const courseOf = (row: unknown): string => {
+  const o = (row as { orders?: { course_id?: string } | { course_id?: string }[] } | null)?.orders;
+  const one = Array.isArray(o) ? o[0] : o;
+  return String(one?.course_id ?? "");
+};
+
 export async function courseMarks(
   supabase: SupabaseClient,
   userId: string | null | undefined,
@@ -87,22 +94,15 @@ export async function courseMarks(
   const id = (userId ?? "").trim();
   if (!id) return { owned: [], learning: [] };
 
-  /* 引き換えた席 → その注文 → 講座。席には講座が書いていない */
+  /* 引き換えた席 → その注文 → 講座。席には講座が書いていない。
+     **外部キーで繋がっているので、ひと息に取る**（2026-09-10）。
+     前は席と注文を別々に聞いていたので、往復が1回よけいだった */
   const { data: seats } = await supabase
     .from("seats")
-    .select("order_id")
+    .select("orders!inner(course_id)")
     .eq("used_by", id);
-  const orderIds = [...new Set(
-    (seats ?? []).map((s) => (s.order_id as string | null) ?? "").filter(Boolean),
-  )];
-  if (orderIds.length === 0) return { owned: [], learning: [] };
-
-  const { data: orders } = await supabase
-    .from("orders")
-    .select("course_id")
-    .in("id", orderIds);
   const owned = [...new Set(
-    (orders ?? []).map((o) => (o.course_id as string | null) ?? "").filter(Boolean),
+    (seats ?? []).map((s) => courseOf(s)).filter(Boolean),
   )];
   if (owned.length === 0) return { owned: [], learning: [] };
 

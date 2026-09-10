@@ -132,7 +132,11 @@ console.log("\n── 講座の札（げんきさん 2026-09-09）──");
 
   const held = read("src/lib/held.ts");
   check(/started_at/.test(held), "受講中は「始めた日」で見る（押しただけは数えない）");
-  check(/from\("orders"\)/.test(held), "席の講座は、注文まで辿って見る");
+  /* 席には講座が書いていないので、注文まで辿る。
+     別に聞いても、外部キーでひと息に取っても（2026-09-10 の速さ直し）、
+     **注文を見ていること**が肝心 */
+  check(/from\("orders"\)|orders!inner\(course_id\)/.test(held),
+    "席の講座は、注文まで辿って見る");
 }
 
 console.log(`\n${ok} 件通過 / ${ng} 件失敗`);

@@ -101,6 +101,7 @@
     "test:envusage": "tsx tests/env-usage.mts",
     "test:admindb": "tsx tests/admin-db.mts",
     "test:apishape": "tsx tests/api-shape.mts",
+    "test:entitle": "tsx tests/entitle-query.mts",
     "test:quals": "tsx tests/quals.ts",
     "test:coupon": "tsx tests/coupon.ts",
     "test:line": "tsx tests/line.ts",

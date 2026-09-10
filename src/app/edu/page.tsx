@@ -9,7 +9,15 @@ import { CourseCard, CourseSoon } from "@/components/CourseCard";
 import { TOKUBETSU, isReady, tokubetsuOfCourse } from "@/content/tokubetsu";
 import { BRAND } from "@/content/brand";
 
-export const dynamic = "force-dynamic";
+/* ── 作り置きにする（2026-09-10）──
+   ここに出るものは、誰が見ても同じ（講座の名前・時間・根拠）。
+   人によって違うのは札の「取得済」だけで、それは画面側が
+   あとから /api/me に聞いて重ねる（HeldMark・HeldCount）。
+
+   前は force-dynamic だったので、**押すたびにサーバで組み立て直していた。**
+   作り置きにすると、押した瞬間に出る。中身を直したら1時間で入れ替わる
+   （ホームと同じ。src/app/page.tsx） */
+export const revalidate = 3600;
 
 /* 講座の一覧。
 

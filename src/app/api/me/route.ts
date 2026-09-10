@@ -15,31 +15,37 @@ import { courseMarks, heldCourseIds } from "@/lib/held";
    （AccountBar と同じやり方）。 */
 
 export async function GET() {
-  const owner = await currentOwner();
-  const admin = await currentAdmin();
-  /* 画面の上に出す「受講者：◯◯」も、ここで一緒に返す。
-     別に聞きに行かせると、そのぶん往復が増える */
+  /* ── 並べて聞く（2026-09-10）──
+     ここは**どの画面からも呼ばれる**（上の帯・下の札・講座の札）。
+     前は上から順に await していたので、聞く先が10か所あれば
+     10回ぶん順番待ちしていた。互いに要らないものは、同時に聞く。
+
+     誰かを見るのは1回だけ（currentUser は cache 済み。session.ts）。 */
   const me = await currentUser();
-  /* 受講コードを持っているか。持っていない人に学科の札を押させると、
-     開いた先で断られるだけなので、ホームで先に知らせる */
-  const learn = await canLearn();
-  /* 届いている請求書。買った側に「請求書が届いています」を出すため。
-     送ってあって、まだ払っていないものだけ */
+  const [owner, admin] = await Promise.all([currentOwner(), currentAdmin()]);
+  const [learn, held, marks, who] = await Promise.all([
+    /* 受講コードを持っているか。持っていない人に学科の札を押させると、
+       開いた先で断られるだけなので、ホームで先に知らせる */
+    canLearn(),
+    /* 取得済みの講座。講座一覧の札に「取得済」を出す
+       （この仕組みの修了証と、よそで取ったと本人が入れたもの） */
+    heldOf(me?.id ?? null),
+    /* 講座の札に出す様子（げんきさん 2026-09-09
+       「講座一覧にも受講可能、受講中表示」）。
+         受講可能 … 受講コードを持っているが、まだ開いていない
+         受講中   … 持っていて、もう開いている */
+    marksOf(me?.id ?? null),
+    /* 画面の上に出す「受講者：◯◯」。別に聞きに行かせると往復が増える */
+    whoOf(me?.id),
+  ]);
+  /* 請求書だけは、担当者かどうかが決まってからでないと聞けない */
   const bills = await billsFor(me?.id ?? null, admin?.companyId ?? null);
-  /* 取得済みの講座。講座一覧の札に「取得済」を出す
-     （この仕組みの修了証と、よそで取ったと本人が入れたもの） */
-  const held = await heldOf(me?.id ?? null);
-  /* 講座の札に出す様子（げんきさん 2026-09-09
-     「講座一覧にも受講可能、受講中表示」）。
-       受講可能 … 受講コードを持っているが、まだ開いていない
-       受講中   … 持っていて、もう開いている */
-  const marks = await marksOf(me?.id ?? null);
   if (admin) {
     return NextResponse.json({
       ok: true,
       userId: me?.id ?? null,
       email: me?.email ?? null,
-      ...(await whoOf(me?.id)),
+      ...who,
       admin: true,
       owner: !!owner,
       member: "active" as const,
@@ -57,7 +63,7 @@ export async function GET() {
     ok: true,
     userId: me?.id ?? null,
     email: me?.email ?? null,
-    ...(await whoOf(me?.id)),
+    ...who,
     admin: false,
     /* 申し込んだが、まだ許可が下りていない。
        ここを none と一緒にすると、申し込んだ人にも

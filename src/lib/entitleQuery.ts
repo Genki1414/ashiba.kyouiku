@@ -50,62 +50,55 @@ export async function learnFor(
   userId: string,
   courseId?: string,
 ): Promise<Learn> {
-  /* 画面に出す所属の名前。断り文に「◯◯の教育担当者に聞いてください」と
-     出すために使う。**これで受講を通してはいけない** */
+  const want = (courseId ?? "").trim();
+
+  /* ── 通る人は、この1回で終わる（2026-09-10）──
+
+     前は5回、順番に聞いていた。
+       ① 所属 → ② 利用者の会社 → ③ 会社の名前 → ④ 席 → ⑤ その注文
+     ①〜③は**断り文の「◯◯の教育担当者に聞いてください」にしか使わない**のに、
+     断ると決まる前に聞いていた。受けられる人（ほとんどの人）には丸ごと無駄で、
+     しかも順番待ちなので、往復のぶんだけ画面が出るのが遅れる。
+
+     席と注文は外部キーで繋がっているので、ひと息に聞ける。
+     **その講座の席があるか**を、1回の問い合わせで確かめる。 */
+  let q = supabase
+    .from("seats")
+    .select("id, orders!inner(course_id)")
+    .eq("used_by", userId);
+  if (want) q = q.eq("orders.course_id", want);
+  const { data: seat } = await q.limit(1).maybeSingle();
+  if (seat) return { ok: true, by: "seat" };
+
+  /* ここから下は、断るときだけ通る。会社の名前は断り文のためだけ */
+  return { ok: false, why: "seat", company: await companyNameOf(supabase, userId) };
+}
+
+/** 断り文に出す会社の名前。**これで受講を通してはいけない** */
+async function companyNameOf(supabase: SupabaseClient, userId: string): Promise<string> {
+  /* 在籍している会社。名前まで一緒に取る（外部キーで繋がっている） */
   const { data: mem } = await supabase
     .from("memberships")
-    .select("company_id")
+    .select("companies(name)")
     .eq("user_id", userId)
     .not("approved_at", "is", null)
     .is("left_at", null)
     .limit(1)
     .maybeSingle();
+  const byMem = nameOf(mem);
+  if (byMem) return byMem;
 
-  let companyId = (mem?.company_id as string | null) ?? null;
-  if (!companyId) {
-    const { data: me } = await supabase
-      .from("users")
-      .select("company_id")
-      .eq("id", userId)
-      .maybeSingle();
-    companyId = (me?.company_id as string | null) ?? null;
-  }
-
-  let company = "";
-  if (companyId) {
-    const { data: co } = await supabase
-      .from("companies")
-      .select("name")
-      .eq("id", companyId)
-      .maybeSingle();
-    company = (co?.name as string) ?? "";
-  }
-
-  /* 引き換えた席。**期限は引き換えのときに DB（redeem_seat）が見ている** */
-  const { data: seats } = await supabase
-    .from("seats")
-    .select("id, order_id")
-    .eq("used_by", userId);
-
-  const orderIds = (seats ?? [])
-    .map((s) => (s.order_id as string | null) ?? "")
-    .filter(Boolean);
-  if (orderIds.length === 0) return { ok: false, why: "seat", company };
-
-  /* 講座を指していなければ、1枚でもあれば通す（ホームの案内など） */
-  const want = (courseId ?? "").trim();
-  if (!want) return { ok: true, by: "seat" };
-
-  /* **その講座の席か。**席には講座が書いていないので、注文まで見る。
-     ここを省いていたのが「どの講座でも開く」の正体 */
-  const { data: hit } = await supabase
-    .from("orders")
-    .select("id")
-    .in("id", orderIds)
-    .eq("course_id", want)
-    .limit(1)
+  /* 名簿に入る前の人。利用者の欄に会社が入っていることがある */
+  const { data: me } = await supabase
+    .from("users")
+    .select("companies(name)")
+    .eq("id", userId)
     .maybeSingle();
-
-  if (hit?.id) return { ok: true, by: "seat" };
-  return { ok: false, why: "seat", company };
+  return nameOf(me);
 }
+
+const nameOf = (row: unknown): string => {
+  const co = (row as { companies?: { name?: string } | { name?: string }[] } | null)?.companies;
+  const one = Array.isArray(co) ? co[0] : co;
+  return String(one?.name ?? "");
+};

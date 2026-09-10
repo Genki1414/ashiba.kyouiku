@@ -140,11 +140,19 @@ console.log("\n── 学科の画面 ──");
     check(pages.includes(pg), `${pg} は実在する（消えた画面が残っていないか）`);
   }
 
-  /* まとめて見張る所は、もう置かない（また手引きを塞ぐ） */
-  const lay = readFileSync(
-    new URL("../src/app/edu/[courseId]/layout.tsx", import.meta.url), "utf8",
-  );
-  check(!/canLearn/.test(strip(lay)), "講座の共通では見張らない（手引きを塞がない）");
+  /* まとめて見張る所は、もう置かない（また手引きを塞ぐ）。
+
+     **外側（/edu）も見る。**内側から外したのに外側に残っていたので、
+     本番ではまだ手引きが塞がっていた（2026-09-10 に見つけた）。
+     外側は「1枚でも持っているか」しか見られないので、
+     甘すぎ（他講座も通る）と厳しすぎ（手引きを塞ぐ）を同時にやる */
+  for (const f of [
+    "src/app/edu/[courseId]/layout.tsx",
+    "src/app/edu/layout.tsx",
+  ]) {
+    const lay = readFileSync(new URL(`../${f}`, import.meta.url), "utf8");
+    check(!/canLearn/.test(strip(lay)), `${f} では見張らない（手引きを塞がない）`);
+  }
 }
 
 console.log("\n── ログインの引き継ぎ（0036）──");

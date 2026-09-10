@@ -12,9 +12,12 @@ import { notFound } from "next/navigation";
 
    見張りは、売り物を出す頁それぞれに置く（単元・修了試験・修了証・
    受講の準備・討議）。**忘れると穴になる**ので、
-   tests/api-auth.mts が頁を数えて見張っている。 */
+   tests/api-auth.mts が頁を数えて見張っている。
 
-export const dynamic = "force-dynamic";
+   ── 押すたびに組み立て直さない（2026-09-10）──
+   ここで force-dynamic にすると、**見張りの要らない実技の手引きまで**
+   毎回サーバで組み立て直すことになる。見張る頁は、クッキーを読む時点で
+   自動的にそうなるので、ここで決め打ちにしなくてよい。 */
 
 export default async function CourseLayout({
   children,

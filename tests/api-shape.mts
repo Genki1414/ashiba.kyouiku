@@ -1104,6 +1104,56 @@ console.log("── 畳んだ見出しに、取得済みの件数が出るか（
   }
 }
 
+console.log("── 画面から画面への移りが、往復で待たされないか（2026-09-10）──");
+{
+  /* げんきさん「遷移速度が遅いのを改善して」。
+
+     遅さの正体は、**サーバでの順番待ち**だった。
+     手元（Supabase なし）では 40〜110ms で移れるので、
+     待っているのは Supabase までの往復。1回ぶん減らせば、そのぶん速くなる。 */
+
+  /* ① 受けられるかを見る所。**通る人は1回で終わる。**
+     会社の名前は断り文にしか使わないので、断ると決まってから聞く */
+  const eq = read("src/lib/entitleQuery.ts");
+  check(/orders!inner\(course_id\)/.test(eq), "席と注文を、ひと息に聞く");
+  check(eq.indexOf("if (seat) return") < eq.indexOf("companyNameOf(supabase, userId)"),
+    "会社の名前は、断ると決まってから聞く");
+  check(!/from\("memberships"\)[\s\S]{0,400}from\("seats"\)/.test(eq),
+    "席より先に所属を聞かない（通る人に要らない往復）");
+
+  /* ② どの画面からも呼ばれる /api/me。互いに要らないものは同時に聞く */
+  const meApi = read("src/app/api/me/route.ts");
+  check((meApi.match(/Promise\.all\(/g) ?? []).length >= 2, "/api/me は並べて聞く");
+  check(!/const learn = await canLearn\(\);[\s\S]{0,200}const held = await heldOf/.test(meApi),
+    "/api/me が上から順に待たない");
+
+  /* ③ 講座の札の様子も、席と注文をひと息に */
+  const held = read("src/lib/held.ts");
+  check(/orders!inner\(course_id\)/.test(held), "札の様子も、席と注文をひと息に聞く");
+
+  /* ④ 誰かを見るのは、ひとつの取りに行きで1回だけ */
+  const sess = read("src/lib/supabase/session.ts");
+  check(/export const currentUser = cache\(/.test(sess), "誰かを見るのは1回だけ（cache）");
+  check(/getClaims\(\)/.test(sess), "手元で確かめられるなら、聞きに行かない（getClaims）");
+
+  /* ⑤ 誰が見ても同じ画面は、作り置きにする。
+        押すたびに組み立て直すと、そのぶん待つ */
+  for (const [f, why] of [
+    ["src/app/page.tsx", "ホーム"],
+    ["src/app/edu/page.tsx", "講座の一覧"],
+    ["src/app/me/page.tsx", "マイページ"],
+  ] as const) {
+    /* 注釈は見ない（「前は force-dynamic だった」と書いてある） */
+    const src = read(f).replace(/\/\*[\s\S]*?\*\//g, "");
+    check(/export const revalidate = 3600/.test(src), `${why}は作り置き`);
+    check(!/force-dynamic/.test(src), `${why}を、押すたびに組み立て直さない`);
+  }
+  /* 人によって中身が変わる画面は、作り置きにしてはいけない */
+  const cp = read("src/app/edu/[courseId]/page.tsx");
+  check(/canLearn\(courseId\)/.test(cp) && !/export const revalidate/.test(cp),
+    "受講コードを見る画面は、作り置きにしない");
+}
+
 console.log("── 決める操作は、全部「確かめる→終わった」を通るか（2026-09-10）──");
 {
   /* げんきさん
