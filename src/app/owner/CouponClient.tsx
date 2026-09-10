@@ -47,6 +47,8 @@ type Coupon = {
   maxUses: number | null; companyUses: number | null;
   active: boolean; note: string;
   paid: Box; pending: Box; rows: Row[]; months: Month[];
+  /** 一度でも使われたか（取り消しも数える）。0 の間だけコードと値引きを直せる */
+  usedEver?: number;
 };
 type Partner = {
   id: string; name: string; contact: string; active: boolean; coupons: number;
@@ -146,6 +148,193 @@ function Months({
   );
 }
 
+/* ── 直す欄（0038・げんきさん 2026-09-10「クーポンに編集と削除を追加して」）──
+
+   直せるものを2つに分けてある。
+
+     いつでも  … 名前・期限・使える回数・支払い先・広告費の率
+     使う前だけ … クーポンの文字（コード）・値引きの形と額
+
+   コードと値引きは、配った絵と紙に刷ってある。使われたあとに変えると、
+   **相手の持っている券が通らなくなる**か、書いてある額と違う額が引かれる。
+   だから、使われたら欄ごと出さずに、なぜ直せないかを書く。
+   画面で隠すだけでなく、口（/api/owner/coupons）でも断っている。
+
+   名前は、使った時のぶんを記録に焼き付けた（0038）ので、直しても
+   もう渡した請求書の字は変わらない。 */
+function EditBox({
+  c,
+  partners,
+  busy,
+  post,
+  onAsk,
+  onDone,
+}: {
+  c: Coupon;
+  partners: Partner[];
+  busy: boolean;
+  /** サーバに送るところ。**画面の中に2つ目を作らない** */
+  post: (body: Record<string, unknown>) => Promise<boolean>;
+  onAsk: (a: Ask) => void;
+  onDone: () => void;
+}) {
+  const used = c.usedEver ?? 0;
+  const locked = used > 0;
+
+  const [name, setName] = useState(c.name);
+  const [kind, setKind] = useState<"percent" | "amount">(c.amountOff != null ? "amount" : "percent");
+  const [off, setOff] = useState(String(c.percentOff ?? c.amountOff ?? ""));
+  const [code, setCode] = useState(c.code);
+  const [partnerId, setPartnerId] = useState(c.partnerId ?? "");
+  const [rate, setRate] = useState(String(c.rewardRate ?? 0));
+  /* 日付の欄は「2026-12-31」の形しか受け取らない。
+     持っている時刻から、日本の日付に直して入れる */
+  const [expiresAt, setExpiresAt] = useState(() => {
+    if (!c.expiresAt) return "";
+    const d = new Date(c.expiresAt);
+    if (Number.isNaN(d.getTime())) return "";
+    const j = new Date(d.getTime() + 9 * 60 * 60 * 1000);
+    return j.toISOString().slice(0, 10);
+  });
+  const [maxUses, setMaxUses] = useState(c.maxUses ? String(c.maxUses) : "");
+  const [companyUses, setCompanyUses] = useState(c.companyUses ? String(c.companyUses) : "");
+
+  const inp = "mt-1 w-full rounded-lg border border-line bg-bg px-3 py-2 text-[13.5px] text-txt";
+
+  return (
+    <div className="mt-2 border-t border-line pt-3" data-testid="coupon-edit">
+      <div className="grid gap-2">
+        {locked ? (
+          <p className="rounded-lg border border-line bg-bg px-3 py-2.5 text-[11.5px] leading-relaxed text-dim2"
+             data-testid="coupon-edit-locked">
+            このクーポンは {used} 件の申込みで使われているため、コードと値引きは変えられません。
+            すでにお渡ししたクーポンが使えなくなるためです。
+            別の内容にする場合は、新しいクーポンを作ってください。
+          </p>
+        ) : (
+          <>
+            <label className="text-[11.5px] text-dim">
+              クーポンコード（英大文字と数字）
+              <input value={code} onChange={(e) => setCode(e.target.value)}
+                className={`${inp} font-mono`} data-testid="coupon-edit-code" />
+            </label>
+            <div className="flex gap-2">
+              <select value={kind} onChange={(e) => setKind(e.target.value as "percent" | "amount")}
+                className="rounded-lg border border-line bg-bg px-2 py-2 text-[13px] text-txt"
+                data-testid="coupon-edit-kind" aria-label="値引きの形">
+                <option value="percent">率（％）</option>
+                <option value="amount">定額（円）</option>
+              </select>
+              <input value={off} onChange={(e) => setOff(e.target.value)} inputMode="numeric"
+                className="min-w-0 flex-1 rounded-lg border border-line bg-bg px-3 py-2 text-[14px] text-txt"
+                data-testid="coupon-edit-off" aria-label="値引きの額" />
+            </div>
+          </>
+        )}
+
+        <label className="text-[11.5px] text-dim">
+          クーポン名（明細・請求書に表示されます）
+          <input value={name} onChange={(e) => setName(e.target.value)}
+            className={inp} data-testid="coupon-edit-name" />
+        </label>
+        <label className="text-[11.5px] text-dim">
+          広告費の支払先（未選択なら自社負担の値引き）
+          <select value={partnerId} onChange={(e) => setPartnerId(e.target.value)}
+            className="mt-1 w-full rounded-lg border border-line bg-bg px-2 py-2 text-[13px] text-txt"
+            data-testid="coupon-edit-partner">
+            <option value="">（なし）</option>
+            {partners.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </select>
+        </label>
+        <label className="text-[11.5px] text-dim">
+          広告費率（％）　これから使われる分に効きます
+          <input value={rate} onChange={(e) => setRate(e.target.value)} inputMode="numeric"
+            className={inp} data-testid="coupon-edit-rate" />
+        </label>
+        <div className="flex gap-2">
+          <label className="min-w-0 flex-1 text-[11.5px] text-dim">
+            有効期限（空で無期限）
+            <input type="date" value={expiresAt} onChange={(e) => setExpiresAt(e.target.value)}
+              className="mt-1 w-full rounded-lg border border-line bg-bg px-2 py-2 text-[13px] text-txt"
+              data-testid="coupon-edit-expires" />
+          </label>
+          <label className="w-24 text-[11.5px] text-dim">
+            上限（全体）
+            <input value={maxUses} onChange={(e) => setMaxUses(e.target.value)} inputMode="numeric"
+              className="mt-1 w-full rounded-lg border border-line bg-bg px-2 py-2 text-[13px] text-txt"
+              placeholder="無制限" data-testid="coupon-edit-max" />
+          </label>
+          <label className="w-24 text-[11.5px] text-dim">
+            上限（1社）
+            <input value={companyUses} onChange={(e) => setCompanyUses(e.target.value)} inputMode="numeric"
+              className="mt-1 w-full rounded-lg border border-line bg-bg px-2 py-2 text-[13px] text-txt"
+              placeholder="無制限" data-testid="coupon-edit-percompany" />
+          </label>
+        </div>
+
+        <p className="text-[10.5px] leading-relaxed text-dim2">
+          広告費率を変えても、すでに使われた分のお支払い額は変わりません。
+          使われた時の率が記録に残っているためです。
+        </p>
+
+        <button
+          disabled={busy}
+          onClick={() =>
+            onAsk({
+              title: "この内容に直しますか",
+              body: (
+                <>
+                  <div className="font-mono text-txt">{locked ? c.code : code}</div>
+                  <div>{name}</div>
+                  {!locked && <div>{kind === "percent" ? `${off}%引き` : `${off}円引き`}</div>}
+                  <div>{expiresAt ? `期限 ${expiresAt}` : "期限なし"}</div>
+                  <div className="mt-2">
+                    {locked
+                      ? "コードと値引きはそのままです。"
+                      : "作った画像を配ってある場合は、作り直してください。"}
+                  </div>
+                </>
+              ),
+              yes: "直す",
+              done: "クーポンを直しました",
+              run: async () => {
+                const ok = await onSave();
+                return ok;
+              },
+            })
+          }
+          className="rounded-lg border border-grn bg-grn px-3 py-2.5 text-[13px] font-bold text-bg disabled:opacity-50"
+          data-testid="coupon-edit-go"
+        >
+          この内容に直す
+        </button>
+      </div>
+    </div>
+  );
+
+  async function onSave() {
+    const ok = await post({
+      action: "edit",
+      id: c.id,
+      name,
+      partnerId: partnerId || undefined,
+      rewardRate: Number(rate) || 0,
+      expiresAt: expiresAt || undefined,
+      maxUses: maxUses || undefined,
+      companyUses: companyUses || undefined,
+      ...(locked
+        ? {}
+        : {
+            code,
+            percentOff: kind === "percent" ? off : undefined,
+            amountOff: kind === "amount" ? off : undefined,
+          }),
+    });
+    if (ok) onDone();
+    return ok;
+  }
+}
+
 /* ── 配るためのクーポンの絵 ──
    げんきさん「クーポン画像作成機能付けて欲しい」。
    canvas に描いて、そのまま保存してもらう。**サーバは通さない**
@@ -215,6 +404,8 @@ export function CouponClient({ onNote }: { onNote: (s: string) => void }) {
   const [open, setOpen] = useState("");
   /* 絵を出しているクーポン。**1枚ずつ。**全部いっぺんに描くと重い */
   const [art, setArt] = useState("");
+  /* 直している最中のクーポン（0038・2026-09-10） */
+  const [edit, setEdit] = useState("");
   const [busy, setBusy] = useState(false);
   const [make, setMake] = useState(false);
 
@@ -550,6 +741,14 @@ export function CouponClient({ onNote }: { onNote: (s: string) => void }) {
               >
                 {art === c.id ? "画像を閉じる" : "クーポン画像を作る"}
               </button>
+              {/* 直す（0038・げんきさん 2026-09-10「クーポンに編集と削除を追加して」） */}
+              <button
+                onClick={() => setEdit(edit === c.id ? "" : c.id)}
+                className="rounded-lg border border-line px-2.5 py-1.5 text-[11.5px] text-dim"
+                data-testid="coupon-edit-open"
+              >
+                {edit === c.id ? "編集を閉じる" : "編集する"}
+              </button>
               <button
                 disabled={busy}
                 onClick={() =>
@@ -571,7 +770,57 @@ export function CouponClient({ onNote }: { onNote: (s: string) => void }) {
               >
                 {c.active ? "停止する" : "再開する"}
               </button>
+
+              {/* ── 消す（0038）──
+                  **一度でも使われたら消せない。**払った広告費の裏が
+                  取れなくなる。押せてしまうと「押したのに断られた」に
+                  なるので、はじめから出さない。理由もその場に書く */}
+              {(c.usedEver ?? 0) === 0 ? (
+                <button
+                  disabled={busy}
+                  onClick={() =>
+                    setAsk({
+                      title: "このクーポンを削除しますか",
+                      body: (
+                        <>
+                          <div className="font-mono text-txt">{c.code}</div>
+                          <div>{c.name}</div>
+                          <div className="mt-2">
+                            まだ一度も使われていないので、削除できます。元には戻せません。
+                          </div>
+                        </>
+                      ),
+                      yes: "削除する",
+                      danger: true,
+                      done: "クーポンを削除しました",
+                      run: async () => {
+                        const ok = await post({ action: "delete", id: c.id });
+                        if (ok) { setEdit(""); setArt(""); setOpen(""); }
+                        return ok;
+                      },
+                    })}
+                  className="rounded-lg border border-red px-2.5 py-1.5 text-[11.5px] text-red disabled:opacity-50"
+                  data-testid="coupon-delete"
+                >
+                  削除する
+                </button>
+              ) : (
+                <span className="self-center text-[10.5px] text-dim2" data-testid="coupon-delete-no">
+                  使われたクーポンは削除できません（停止はできます）
+                </span>
+              )}
             </div>
+
+            {edit === c.id && (
+              <EditBox
+                c={c}
+                partners={partners}
+                busy={busy}
+                post={post}
+                onAsk={setAsk}
+                onDone={() => setEdit("")}
+              />
+            )}
 
             {art === c.id && <CouponArtBox c={c} onNote={onNote} />}
 

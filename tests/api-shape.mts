@@ -1567,6 +1567,50 @@ console.log("── クーポンと広告費（0032）──");
     "利用が0件でも、月別の枠は消さない");
   check(/まだ利用がありません/.test(owncTxt), "0件のときは、空だと書く");
 
+  /* ── 直すと消す（0038・げんきさん 2026-09-10「クーポンに編集と削除を追加して」）──
+
+     ① 名前を直すと、**もう渡した請求書の字まで変わっていた。**
+        請求書は coupons.name を生で読んでいた。使った時の名前を
+        記録に焼き付けて、請求書はそちらを見る
+     ② コードと値引きは、配った絵と紙に刷ってある。使われたあとに変えると、
+        相手の持っている券が通らなくなる。使われる前だけ直せる
+     ③ 使われたクーポンは消せない。払った広告費の裏が取れなくなる */
+  const m38 = read("supabase/migrations/0038_coupon_edit.sql");
+  check(/add column if not exists coupon_name/.test(m38), "使われた時の名前を記録に残す");
+  check(/update public\.coupon_uses[\s\S]*set coupon_name = c\.name/.test(m38),
+    "これまでの記録にも、いまの名前を入れておく");
+  check(/coupon_id, coupon_name, group_id/.test(m38), "使うときに、名前も焼き付ける");
+  const inv2 = read("src/app/api/owner/invoice/route.ts");
+  check(/from\("coupon_uses"\)[\s\S]{0,80}coupon_name/.test(inv2),
+    "請求書は、使った時の名前を見る（直しても渡した書類は変わらない）");
+  check(/if \(!couponName\)/.test(inv2), "焼き付けが無い古い記録は、いまの名前で埋める");
+
+  check(/action === "edit"/.test(own), "直す口がある");
+  check(/action === "delete"/.test(own), "消す口がある");
+  /* **数えられなかったら、0件として扱わない。**
+     0と思い込むと、使われたクーポンを消してしまう */
+  check(/return error \? null : \(count \?\? 0\)/.test(own),
+    "使われた回数を数えられなかったら、null にする（0にしない）");
+  check(/if \(used === null\)/.test(own), "数えられなかったときは、直さず・消さない");
+  check(/if \(used > 0\)/.test(own) && /status: 409/.test(own), "使われたクーポンは消さない");
+  /* 画面で隠すだけにしない。口を直に叩かれても通さない */
+  check(/} else if \(wantCode \|\| wantOff\) \{/.test(own),
+    "使われたあとのコードと値引きは、口でも断る");
+  check(/foreign key\|violates\|restrict/.test(own),
+    "数えたあとに使われたときも、そう言う（表の作りが止める）");
+  /* 期限と回数は空にできる（無期限・無制限に戻す） */
+  check(/expires_at: \(typeof b\.expiresAt === "string" && b\.expiresAt\.trim\(\)\)[\s\S]{0,120}: null,/.test(own),
+    "期限を空にしたら、無期限に戻る");
+
+  check(/data-testid="coupon-edit-open"/.test(ownc), "編集の札がある");
+  check(/data-testid="coupon-delete"/.test(ownc), "削除の札がある");
+  /* 押せてしまうと「押したのに断られた」になる。はじめから出さない */
+  check(/\(c\.usedEver \?\? 0\) === 0 \? \(/.test(ownc), "使われたクーポンには、削除の札を出さない");
+  check(/使われたクーポンは削除できません/.test(owncTxt), "なぜ消せないかを、その場に書く");
+  check(/coupon-edit-locked/.test(ownc), "使われたら、コードと値引きの欄を出さない");
+  check(/すでに使われた分のお支払い額は変わりません/.test(owncTxt),
+    "率を変えても、過去のお支払いは動かないと書いてある");
+
   /* ── 月別（げんきさん 2026-09-10）──
        「クーポンと広告費を月別に見れるようにする」
        「更に支払い先毎で月別に見れるようにもする」

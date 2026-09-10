@@ -222,6 +222,7 @@ await page.route("**/api/owner/coupons", (route) =>
             usedAt: "2026-09-08T00:00:00Z", status: "pending" },
         ],
         months: MONTHS,
+        usedEver: 3,
       }],
       partners: [{
         id: "p1", name: "プラント紹介", contact: "plant@example.jp", active: true, coupons: 1,
@@ -319,7 +320,7 @@ await page.waitForSelector('[data-testid="owner-coupons"]', { timeout: 8000 });
           maxUses: null, companyUses: null, active: true, note: "",
           paid: { uses: 0, net: 0, discount: 0, reward: 0 },
           pending: { uses: 0, net: 0, discount: 0, reward: 0 },
-          rows: [], months: [],
+          rows: [], months: [], usedEver: 0,
         }],
         partners: [],
       }),
@@ -338,6 +339,88 @@ await page.waitForSelector('[data-testid="owner-coupons"]', { timeout: 8000 });
   await page.waitForTimeout(150);
   check(await all.getByTestId("coupon-month-none").count() > 0, "開くと、これから並ぶことが書いてある");
   console.log("OK: まだ使われていなくても、月別の場所が分かる");
+}
+
+/* ── 直すと消す（0038・げんきさん 2026-09-10「クーポンに編集と削除を追加して」）──
+     いまの返事は usedEver: 0（まだ一度も使われていない） */
+{
+  await page.getByTestId("coupon-edit-open").first().click();
+  await page.waitForSelector('[data-testid="coupon-edit"]', { timeout: 5000 });
+  const box = page.getByTestId("coupon-edit");
+  check(await box.getByTestId("coupon-edit-code").count() > 0, "使う前は、コードを直せる");
+  check(await box.getByTestId("coupon-edit-off").count() > 0, "使う前は、値引きを直せる");
+  check(await box.getByTestId("coupon-edit-locked").count() === 0, "使う前は、断り書きを出さない");
+  /* 欄には、いまの中身が入っている（打ち直させない） */
+  check(await box.getByTestId("coupon-edit-code").inputValue() === "NEW1", "コードの欄に、いまのコードが入っている");
+  check(await box.getByTestId("coupon-edit-name").inputValue() === "まだ使われていない", "名前の欄に、いまの名前が入っている");
+  check(await box.getByTestId("coupon-edit-off").inputValue() === "10", "値引きの欄に、いまの額が入っている");
+
+  /* 削除の札。使われていないので出る */
+  check(await page.getByTestId("coupon-delete").count() > 0, "使われていなければ、削除できる");
+  check(await page.getByTestId("coupon-delete-no").count() === 0, "使われていなければ、断り書きは出さない");
+
+  /* 押すと確かめる札が出て、やめれば送らない */
+  let sentEdit = null;
+  await page.route("**/api/owner/coupons", async (route) => {
+    if (route.request().method() === "POST") {
+      sentEdit = JSON.parse(route.request().postData() ?? "{}");
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true }) });
+      return;
+    }
+    await route.fallback();
+  });
+  await box.getByTestId("coupon-edit-name").fill("直した名前");
+  await box.getByTestId("coupon-edit-go").click();
+  await page.waitForSelector('[data-testid="ask-done-yes"]', { timeout: 5000 });
+  check(sentEdit === null, "確かめる前には送らない");
+  await page.getByTestId("ask-done-yes").click();
+  await page.waitForTimeout(500);
+  check(sentEdit?.action === "edit", `直す口へ送る（${JSON.stringify(sentEdit)?.slice(0, 60)}）`);
+  check(sentEdit?.name === "直した名前", "直した名前を送る");
+  check(sentEdit?.code === "NEW1", "使う前なので、コードも送る");
+  console.log("OK: 使う前のクーポンは、コードも値引きも直せて、消せる");
+}
+
+/* ── 使われたあとは、コードと値引きを直せない ── */
+{
+  await page.unroute("**/api/owner/coupons");
+  await page.route("**/api/owner/coupons", (route) =>
+    route.fulfill({
+      status: 200, contentType: "application/json",
+      body: JSON.stringify({
+        ok: true, months: MONTHS, partners: [],
+        list: [{
+          id: "c8", code: "USED10", name: "もう使われた", percentOff: 10, amountOff: null,
+          partnerId: null, rewardRate: 0, startsAt: null, expiresAt: null,
+          maxUses: null, companyUses: null, active: true, note: "",
+          paid: { uses: 1, net: 20250, discount: 2250, reward: 0 },
+          pending: { uses: 0, net: 0, discount: 0, reward: 0 },
+          rows: [], months: MONTHS, usedEver: 4,
+        }],
+      }),
+    }));
+  await page.reload();
+  await dismiss();
+  await page.waitForSelector('[data-testid="owner-tabs"]', { timeout: 8000 });
+  await page.locator('[data-testid="owner-tab"]', { hasText: "クーポンと広告費" }).click();
+  await page.waitForSelector('[data-testid="owner-coupons"]', { timeout: 8000 });
+
+  /* **押せてしまうと「押したのに断られた」になる。**はじめから出さない */
+  check(await page.getByTestId("coupon-delete").count() === 0, "使われたクーポンに、削除の札を出さない");
+  const no = await page.getByTestId("coupon-delete-no").innerText();
+  check(no.includes("削除できません"), `なぜ消せないかを、その場に書く（${no}）`);
+
+  await page.getByTestId("coupon-edit-open").first().click();
+  await page.waitForSelector('[data-testid="coupon-edit"]', { timeout: 5000 });
+  const box = page.getByTestId("coupon-edit");
+  check(await box.getByTestId("coupon-edit-code").count() === 0, "使われたら、コードの欄を出さない");
+  check(await box.getByTestId("coupon-edit-off").count() === 0, "使われたら、値引きの欄を出さない");
+  const lock = await box.getByTestId("coupon-edit-locked").innerText();
+  check(lock.includes("4 件") && lock.includes("変えられません"), `なぜ直せないかを書く（${lock.slice(0, 50)}）`);
+  /* 名前と期限は直せる。使った時の名前は焼き付けてあるので、請求書は動かない */
+  check(await box.getByTestId("coupon-edit-name").count() > 0, "使われても、名前は直せる");
+  check(await box.getByTestId("coupon-edit-expires").count() > 0, "使われても、期限は直せる");
+  console.log("OK: 使われたクーポンは、コードと値引きを直せず、消せない");
 }
 
 /* ── コードのコピーと、配るための絵（げんきさん 2026-09-10）── */

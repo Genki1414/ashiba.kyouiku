@@ -141,18 +141,36 @@ export async function GET(req: NextRequest) {
   const tax = amount - net;
 
   /* 使ったクーポンの名前。請求書に「値引き（◯◯協会）」と出す。
-     **広告費は出さない。**買った側に見せる話ではない */
+     **広告費は出さない。**買った側に見せる話ではない。
+
+     ── 使った時の名前を見る（0038・2026-09-10）──
+     クーポンを直せるようにしたので、いまの名前（coupons.name）を
+     読んでいると、**もう渡した請求書の字まで変わる。**
+     請求書は相手の手元にある書類で、こちらの都合で書き換わってはいけない。
+     だから coupon_uses に焼き付けた名前を見る。
+
+     焼き付けが無いとき（版が 0037 以前・古い記録）だけ、
+     いまの名前で埋める。ここで空にすると、**古い請求書から
+     値引きの名前が消える。** */
   let couponName = "";
   const couponId = (group as Record<string, unknown>[]).find((r) => r.coupon_id)?.coupon_id as
     | string
     | undefined;
   if (couponId) {
-    const { data: cp } = await supabase
-      .from("coupons")
-      .select("name")
-      .eq("id", couponId)
+    const { data: use } = await supabase
+      .from("coupon_uses")
+      .select("coupon_name")
+      .eq("group_id", (o.group_id as string) ?? (o.id as string))
       .maybeSingle();
-    couponName = (cp?.name as string) ?? "";
+    couponName = (use?.coupon_name as string) ?? "";
+    if (!couponName) {
+      const { data: cp } = await supabase
+        .from("coupons")
+        .select("name")
+        .eq("id", couponId)
+        .maybeSingle();
+      couponName = (cp?.name as string) ?? "";
+    }
   }
 
   const what = items.length === 1

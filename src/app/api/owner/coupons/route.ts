@@ -172,6 +172,11 @@ export async function GET() {
       note: (c.note as string) ?? "",
       paid,
       pending,
+      /* ── 一度でも使われたか（0038・2026-09-10）──
+         取り消した申込みも数える。**表に記録が残っている限り、
+         コードと値引きは直せないし、消せない**（記録の裏が取れなくなる）。
+         上の paid/pending は取り消しを外してあるので、別に数える */
+      usedEver: mine.length,
       /* 月別。新しい月が上 */
       months: sortMonths(months),
       /* 明細。誰がいつ使ったか。**取り消したものも出す**（消えると調べられない） */
@@ -215,12 +220,31 @@ export async function GET() {
   return NextResponse.json({ ok: true, list, partners, months: sortMonths(allMonths) });
 }
 
-/* 作る・止める。本部だけ。
+/* 作る・直す・止める・消す。本部だけ。
 
    作るときに決めるのは、値引きの形（率か定額）、支払い先、広告費の率、
-   期限、使える回数の5つ。あとから直すのは「止める・戻す」だけにしてある。
+   期限、使える回数の5つ。
    率を書き換えても、**すでに使われたぶんの広告費は動かない**
-   （使った時の率を記録に焼き付けてある）。 */
+   （使った時の率を記録に焼き付けてある）。
+
+   ── 直すこと・消すこと（0038・げんきさん 2026-09-10）──
+   「クーポンに編集と削除を追加して」
+
+   直せるものを2つに分けた。**使われたあとに変えると、
+   もう渡したものと食い違う**ものがあるから。
+
+     いつでも直せる … 名前・期限・使える回数・支払い先・広告費の率
+     使われる前だけ … クーポンの文字（コード）・値引きの形と額
+
+   コードと値引きは、配った絵と紙に刷ってある。使われたあとに変えると、
+   相手の持っている券が通らなくなるか、書いてある額と違う額が引かれる。
+   名前は、使った時のぶんを記録に焼き付けた（0038）ので、直しても
+   もう渡した請求書の字は変わらない。
+
+   消せるのは、**一度も使われていないクーポンだけ。**
+   使われたものを消すと、払った広告費の裏が取れなくなる。
+   表の作りでも押さえてある（coupon_uses が on delete restrict）。
+   配るのをやめたいだけなら「停止する」を使う。 */
 type Body = {
   action?: unknown;
   /* クーポン */
@@ -267,6 +291,158 @@ export async function POST(req: NextRequest) {
     if (!id) return NextResponse.json({ ok: false, reason: "どのクーポンか分かりません。" }, { status: 400 });
     const { error } = await supabase.from("coupons").update({ active: b.active === true }).eq("id", id);
     if (error) return NextResponse.json({ ok: false, reason: stale(error.message) }, { status: 500 });
+    return NextResponse.json({ ok: true });
+  }
+
+  /* 一度でも使われたか。取り消した申込みも数える。
+     **記録が残っている限り、コードと値引きは動かせないし、消せない** */
+  const usedCount = async (id: string): Promise<number | null> => {
+    const { count, error } = await supabase
+      .from("coupon_uses")
+      .select("id", { count: "exact", head: true })
+      .eq("coupon_id", id);
+    /* 数えられなかったときは null。**0件として扱わない。**
+       0と思い込むと、使われたクーポンを消してしまう */
+    return error ? null : (count ?? 0);
+  };
+
+  if (action === "delete") {
+    const id = (typeof b.id === "string" ? b.id : "").trim();
+    if (!id) return NextResponse.json({ ok: false, reason: "どのクーポンか分かりません。" }, { status: 400 });
+
+    const used = await usedCount(id);
+    if (used === null) {
+      return NextResponse.json(
+        { ok: false, reason: "使われた回数を数えられませんでした。念のため消しませんでした。" },
+        { status: 500 },
+      );
+    }
+    if (used > 0) {
+      return NextResponse.json(
+        {
+          ok: false,
+          reason: `このクーポンは ${used} 件の申込みで使われているため、削除できません。お支払いした広告費の記録が残らなくなります。配るのをやめる場合は「停止する」をお使いください。`,
+        },
+        { status: 409 },
+      );
+    }
+
+    const { error } = await supabase.from("coupons").delete().eq("id", id);
+    if (error) {
+      /* 数えたあと、消すまでの間に使われた。表の作りが止めてくれる */
+      const busy = /foreign key|violates|restrict/i.test(error.message);
+      return NextResponse.json(
+        {
+          ok: false,
+          reason: busy
+            ? "たったいま、このクーポンが使われました。削除できません。"
+            : stale(error.message),
+        },
+        { status: busy ? 409 : 500 },
+      );
+    }
+    return NextResponse.json({ ok: true });
+  }
+
+  if (action === "edit") {
+    const id = (typeof b.id === "string" ? b.id : "").trim();
+    if (!id) return NextResponse.json({ ok: false, reason: "どのクーポンか分かりません。" }, { status: 400 });
+
+    const used = await usedCount(id);
+    if (used === null) {
+      return NextResponse.json(
+        { ok: false, reason: "使われた回数を数えられませんでした。念のため直しませんでした。" },
+        { status: 500 },
+      );
+    }
+
+    const name = (typeof b.name === "string" ? b.name : "").trim();
+    if (!name) {
+      return NextResponse.json({ ok: false, reason: "クーポンの名前を入れてください。" }, { status: 400 });
+    }
+    const rewardRate = Number(b.rewardRate);
+    if (!Number.isFinite(rewardRate) || rewardRate < 0 || rewardRate > 100) {
+      return NextResponse.json({ ok: false, reason: "広告費の率は0〜100の間で入れてください。" }, { status: 400 });
+    }
+    const partnerId = (typeof b.partnerId === "string" ? b.partnerId : "").trim() || null;
+    if (rewardRate > 0 && !partnerId) {
+      return NextResponse.json(
+        { ok: false, reason: "広告費を出すなら、支払い先を選んでください。" },
+        { status: 400 },
+      );
+    }
+
+    /* いつでも直せるもの。
+       期限と回数は**空にできる**（無期限・無制限に戻す）ので、
+       入っていなければ null を書く。書かないと、消したつもりが残る */
+    const patch: Record<string, unknown> = {
+      name,
+      partner_id: partnerId,
+      reward_rate: Math.floor(rewardRate),
+      expires_at: (typeof b.expiresAt === "string" && b.expiresAt.trim())
+        ? new Date(`${b.expiresAt}T23:59:59+09:00`).toISOString()
+        : null,
+      max_uses: int(b.maxUses),
+      company_uses: int(b.companyUses),
+      note: (typeof b.note === "string" ? b.note : "").trim() || null,
+    };
+
+    /* ── 使われる前だけ直せるもの ──
+       コードと値引きは、配った絵と紙に刷ってある。
+       使われたあとに変えると、相手の持っている券が通らなくなるか、
+       書いてある額と違う額が引かれる */
+    const wantCode = normalizeCouponCode(typeof b.code === "string" ? b.code : "");
+    const percentOff = int(b.percentOff);
+    const amountOff = int(b.amountOff);
+    const wantOff = percentOff !== null || amountOff !== null;
+
+    if (used === 0) {
+      if (!wantCode || wantCode.length < 3) {
+        return NextResponse.json({ ok: false, reason: "クーポンの文字を3字以上で入れてください。" }, { status: 400 });
+      }
+      if ((percentOff === null) === (amountOff === null)) {
+        return NextResponse.json(
+          { ok: false, reason: "率（◯%引き）か、定額（◯円引き）の、どちらか一方を入れてください。" },
+          { status: 400 },
+        );
+      }
+      if (percentOff !== null && percentOff > 100) {
+        return NextResponse.json({ ok: false, reason: "率は100%までです。" }, { status: 400 });
+      }
+      patch.code = wantCode;
+      patch.percent_off = percentOff;
+      patch.amount_off = amountOff;
+    } else if (wantCode || wantOff) {
+      /* 画面は出していないはずだが、口を直に叩かれても通さない。
+         **見た目だけで守らない** */
+      const { data: now } = await supabase
+        .from("coupons")
+        .select("code, percent_off, amount_off")
+        .eq("id", id)
+        .maybeSingle();
+      const changed =
+        (wantCode && wantCode !== (now?.code as string)) ||
+        (percentOff !== null && percentOff !== ((now?.percent_off as number) ?? null)) ||
+        (amountOff !== null && amountOff !== ((now?.amount_off as number) ?? null));
+      if (changed) {
+        return NextResponse.json(
+          {
+            ok: false,
+            reason: `このクーポンは ${used} 件の申込みで使われているため、コードと値引きは変えられません。すでにお渡ししたクーポンが使えなくなります。別の内容にする場合は、新しいクーポンを作ってください。`,
+          },
+          { status: 409 },
+        );
+      }
+    }
+
+    const { error } = await supabase.from("coupons").update(patch).eq("id", id);
+    if (error) {
+      const dup = /duplicate|unique/i.test(error.message);
+      return NextResponse.json(
+        { ok: false, reason: dup ? `${wantCode} は、もう作ってあります。` : stale(error.message) },
+        { status: dup ? 409 : 500 },
+      );
+    }
     return NextResponse.json({ ok: true });
   }
 
