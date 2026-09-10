@@ -5,7 +5,7 @@ import { findCourse } from "@/content/courses";
 import Link from "next/link";
 import { Loading } from "@/components/Loading";
 import { Btn } from "@/components/ui/Btn";
-import { yen } from "@/lib/pricing";
+import { overdue, yen } from "@/lib/pricing";
 import { LedgerClient } from "./LedgerClient";
 import { RetentionClient } from "./RetentionClient";
 import { TrainingClient } from "./TrainingClient";
@@ -290,6 +290,18 @@ export function OwnerClient() {
             <div className="mt-0.5 text-[11.5px] text-dim2">
               {day(o.created_at)} 申込
               {o.due_date && o.status === "pending" ? `　支払期限 ${day(o.due_date)}` : ""}
+              {/* ── 期限を過ぎた申込み（げんきさん 2026-09-11）──
+                  「支払い確認が取れなければ受講不可」。
+                  決めたからには、**過ぎたことが分からないと動けない。**
+                  一覧の中で埋もれないように、その場で赤く出す。
+                  消したり取り消したりは自動でやらない。
+                  振込が行き違っていることがあるので、見てから決める */}
+              {o.status === "pending" && overdue(o.due_date) ? (
+                <span className="ml-1 rounded border border-red px-1 py-0.5 text-[10.5px] text-red"
+                      data-testid="order-overdue">
+                  期限超過
+                </span>
+              ) : null}
               {o.paid_at ? `　${day(o.paid_at)} 入金` : ""}
               <br />
               受講コード {o.seatsIssued}枚（使用 {o.seatsUsed}）

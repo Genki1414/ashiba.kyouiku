@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { BRAND } from "@/content/brand";
 import { getServiceClient } from "@/lib/supabase/server";
 import { currentUser } from "@/lib/supabase/session";
-import { dueDate, quote } from "@/lib/pricing";
+import { dueDateStr, quote } from "@/lib/pricing";
 import { trainPrice } from "@/lib/price.server";
 import { trainFor } from "@/lib/trainingGate";
 import { notify } from "@/lib/notify.server";
@@ -125,7 +125,8 @@ export async function POST(req: NextRequest) {
       amount: q.total,
       method: "invoice",
       status: "pending",
-      due_date: dueDate(new Date()).toISOString().slice(0, 10),
+      /* 支払期限は請求書の発行から1週間。日本の日付で切る（2026-09-11） */
+      due_date: dueDateStr(new Date()),
       /* 宛名。空なら登録した氏名。個人宛の請求書に載る */
       bill_to: clip(b.billTo, 100) ?? ((me?.name as string) || null),
       bill_addr: clip(b.billAddr, 200),

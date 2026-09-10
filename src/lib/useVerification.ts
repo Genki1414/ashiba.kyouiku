@@ -51,6 +51,12 @@ export function useVerification({
   const prevFrame = useRef<Uint8Array | null>(null);
   const gate = useRef<Gate>(START);
   const [stop, setStop] = useState<VerifyStop>(null);
+  /* ── 控えがサーバに残らなかった（2026-09-11）──
+     元請や監督署に出すのはデータベースの記録なので、
+     **黙って落とさない。**残せなかったことを画面に出して、
+     受け直しや問い合わせの判断ができるようにする。
+     残せた時点で消える（一時的な電波切れで言い続けない） */
+  const [logNg, setLogNg] = useState("");
   const [camState, setCamState] = useState("待機");
   const [model, setModel] = useState<ModelState>("off");
   const turn = useRef(0);
@@ -100,14 +106,14 @@ export function useVerification({
          画面の前に人が居るかどうかで、本人かどうかではない
          （本人確認は受講の準備で、顔写真と公的書類を登録するとき） */
       setCamState(r.ok ? OK_STATE : r.msg);
-      if (r.ok && turn.current % OK_EVERY === 0) logOk(courseId, lessonId);
+      if (r.ok && turn.current % OK_EVERY === 0) logOk(courseId, lessonId, setLogNg);
       gate.current = step(gate.current, r);
       if (gate.current.stop) {
         const why = gate.current.stop;
         gate.current = START;
         setStop({ kind: "fail", message: r.ok ? "" : r.msg });
         onStop();
-        logFail(courseId, lessonId, why);
+        logFail(courseId, lessonId, why, setLogNg);
       }
     }, CHECK_INTERVAL_MS);
     return () => clearInterval(id);
@@ -121,7 +127,7 @@ export function useVerification({
       if (stopRef.current) return;
       setStop({ kind: "fail", message: "カメラが起動していません" });
       onStop();
-      logFail(courseId, lessonId, "blocked");
+      logFail(courseId, lessonId, "blocked", setLogNg);
     }, 15000);
     return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -145,7 +151,7 @@ export function useVerification({
     setStop(null);
   };
 
-  return { cam, videoRef, canvasRef, stop, resume, camState, model };
+  return { cam, videoRef, canvasRef, stop, resume, camState, model, logNg };
 }
 
 /* 1回ぶんの照合。
@@ -201,20 +207,39 @@ async function whoIsThere(
     講座の目印を必ず付ける。付けないとサーバが受講を割り出せず、
     記録は端末の中だけになって、データベースには何も残らない
     （元請や監督署に出すのはデータベースの記録） */
-function logOk(courseId: string, lessonId: string) {
-  fetch("/api/verify-log", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ courseId, lessonId, ok: true }),
-  }).catch(() => {});
+/* 送って、**残せたかどうかを見る。**
+
+   前は返事を捨てていた（.catch(() => {}) だけ）。
+   ログインが切れて 401 でも、サーバが 500 でも、画面には何も出ず、
+   受講は普通に進む。あとで記録を出そうとしたときに初めて
+   「その時間の控えが無い」と分かる。もう受け直すしかない。 */
+async function send(body: unknown, onNg: (s: string) => void) {
+  try {
+    const res = await fetch("/api/verify-log", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (res.status === 401 || res.status === 403) {
+      onNg("ログインが切れています。記録が残らないので、入り直してください。");
+      return;
+    }
+    if (!res.ok) {
+      onNg("本人確認の記録をサーバに残せていません。電波の届く場所で開き直してください。");
+      return;
+    }
+    onNg("");
+  } catch {
+    onNg("本人確認の記録をサーバに残せていません。電波の届く場所で開き直してください。");
+  }
 }
 
-function logFail(courseId: string, lessonId: string, reason: VerifyReason) {
-  fetch("/api/verify-log", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ courseId, lessonId, reason }),
-  }).catch(() => {});
+function logOk(courseId: string, lessonId: string, onNg: (s: string) => void) {
+  void send({ courseId, lessonId, ok: true }, onNg);
+}
+
+function logFail(courseId: string, lessonId: string, reason: VerifyReason, onNg: (s: string) => void) {
+  void send({ courseId, lessonId, reason }, onNg);
   // 端末内にも控えを残す（Supabase 未設定時の確認用）
   try {
     const key = "ashiba.verifyLogs";

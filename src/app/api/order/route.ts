@@ -6,7 +6,7 @@ import { currentAdmin } from "@/lib/admin";
 import { listSeats, seatCounts } from "@/lib/seats";
 import { heldCourseIds } from "@/lib/held";
 import { findCourse, readyCourses } from "@/content/courses";
-import { dueDate, quote } from "@/lib/pricing";
+import { dueDateStr, quote } from "@/lib/pricing";
 import { unitPrice } from "@/lib/price.server";
 import { notify } from "@/lib/notify.server";
 
@@ -188,7 +188,12 @@ export async function POST(req: NextRequest) {
 
   const method = b.method === "card" ? "card" : "invoice";
   const now = new Date();
-  const due = method === "invoice" ? dueDate(now).toISOString().slice(0, 10) : null;
+  /* 支払期限は請求書の発行から1週間（げんきさん 2026-09-11）。
+     請求書は申し込んだその場で出るので、起点はここでよい。
+     **日本の日付で切る**（dueDateStr）。世界標準時のまま切ると、
+     朝9時前に申し込んだ人の期限が1日手前になる。
+     カード払いはその場で払うので期限を持たない */
+  const due = method === "invoice" ? dueDateStr(now) : null;
   /* ひとまとめの印。請求書と入金の確認は、これでまとめる。
      1講座だけでも group を作る。**例外を作らない**（0029） */
   const groupId = randomUUID();

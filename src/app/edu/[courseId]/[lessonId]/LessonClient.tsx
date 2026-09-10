@@ -223,6 +223,20 @@ export function LessonClient({
           )}
         </>
       )}
+      {/* ── 控えがサーバに残らなかった（2026-09-11）──
+          元請や監督署に出すのはデータベースの記録。残せていないことを
+          黙っていると、あとで「その時間の控えが無い」と分かったときには
+          受け直すしかなくなる。**画面を止めはしない**（見ている時間は
+          端末にも残る）が、気づける形で出す */}
+      {verification.logNg && (
+        <div
+          className="mx-5 mt-3 rounded-lg border border-org bg-panel px-3 py-2.5 text-[12px] leading-relaxed text-org"
+          data-testid="verify-log-ng"
+          role="alert"
+        >
+          {verification.logNg}
+        </div>
+      )}
       {verification.stop && (
         <VerifyModal
           kind={verification.stop.kind}

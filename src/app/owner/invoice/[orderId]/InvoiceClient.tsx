@@ -181,10 +181,17 @@ export function InvoiceClient({ orderId, mine = false }: { orderId: string; mine
             <div className="mt-0.5 text-right text-[11px]">（消費税込）</div>
           </div>
 
-          {/* 期日は切らない。振込を確認してから受講コードを出す決まりなので、
-             日付を書くと「その日までに使える」と読めてしまう */}
+          {/* ── 期日を書く（げんきさん 2026-09-11）──
+             「支払い期限は請求書発行から1週間後。
+               支払い確認が取れなければ受講不可」
+
+             前は「確認次第」と書いて日付を出していなかった。ところが
+             申込みの画面には日付が出ており、**同じ取引について
+             書類ごとに違うことを言っていた。**
+             請求書は相手が振込に使う紙なので、ここに日付が無いと
+             いつまでに払えばよいかが分からない */}
           <div className="mt-2 text-[12.5px]" data-testid="invoice-due">
-            お支払期限　<strong>確認次第</strong>
+            お支払期限　<strong>{o.due ? day(o.due) : "請求書の発行から1週間"}</strong>
             <span className="text-[11.5px]">（お振込みの確認後、受講コードを発行します）</span>
           </div>
           {o.paidAt && (

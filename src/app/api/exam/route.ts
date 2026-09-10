@@ -109,24 +109,43 @@ export async function POST(req: NextRequest) {
   const supabase = getServiceClient();
   const who = await currentEnrollment(courseId);
   const enrollmentId = who?.enrollmentId ?? null;
+  /* ── 残せなかったことを、黙って成功に見せない（2026-09-11）──
+
+     前は error を捨てて mode を "local" のままにしていた。画面側は
+     mode を見ていなかったので、**受講者には「合格」と出るのに
+     exams には1行も無い。**あとで修了証を申し込むと
+     「試験に合格していません」と断られ、何が起きたのか誰にも分からない。
+
+     数え直しも同じ。count の失敗を 0 と読むと、受験回数が
+     いつも1回目からになり、何度目の合格かが記録から消える。 */
+  let saveNg = "";
   if (supabase && enrollmentId) {
-    const { count } = await supabase
+    const { count, error: countErr } = await supabase
       .from("exams")
       .select("id", { count: "exact", head: true })
       .eq("enrollment_id", enrollmentId);
-    attempt = (count ?? 0) + 1;
-    const { error } = await supabase.from("exams").insert({
-      enrollment_id: enrollmentId,
-      score,
-      total: qs.length,
-      passed,
-      attempt,
-    });
-    if (!error) mode = "supabase";
+    if (countErr) {
+      saveNg = "これまでの受験回数を読めませんでした。";
+    } else {
+      attempt = (count ?? 0) + 1;
+      const { error } = await supabase.from("exams").insert({
+        enrollment_id: enrollmentId,
+        score,
+        total: qs.length,
+        passed,
+        attempt,
+      });
+      if (error) saveNg = error.message;
+      else mode = "supabase";
+    }
   }
 
   return NextResponse.json({
     mode,
+    /* サーバに記録が残ったか。**残っていないと修了証は出せない。**
+       画面はこれを見て、受講者にその場で伝える */
+    saved: mode === "supabase",
+    saveNg,
     score,
     total: qs.length,
     passRequired: EXAM_PASS,

@@ -24,7 +24,13 @@ for (const p of ["/", "/edu", "/order", "/me"]) {
     return { pos: cs.position, bad, h: document.documentElement.scrollHeight };
   });
   if (!r) { console.log(`${p.padEnd(8)} 下の札なし`); continue; }
-  await page.evaluate(() => window.scrollTo(0, 100000));
+  /* ── 送るのは本体ではなく、真ん中（2026-09-11）──
+     札を貼り付けるのをやめ、外枠を縦並びにして <main> だけを動かす作りにした。
+     本体はもう動かないので、window.scrollTo では何も起きない */
+  await page.evaluate(() => {
+    const m = document.querySelector(".shell > main");
+    if (m) m.scrollTop = 1e6; else window.scrollTo(0, 100000);
+  });
   await page.waitForTimeout(300);
   const after = await page.evaluate(() => {
     const n = document.querySelector('[data-testid="bottom-nav"]');
@@ -47,21 +53,37 @@ for (const p of ["/", "/edu", "/order", "/me"]) {
       h: Math.round(box.height),
       w: Math.round(box.width),
       pad: Math.round(parseFloat(getComputedStyle(n).paddingBottom)),
-      /* 隙間（spacer）が、札の高さぶん取れているか。
-         足りないと、いちばん下の行が札の下に隠れる */
       nav: Math.round(n.getBoundingClientRect().height),
-      spacer: Math.round(
-        (document.querySelector('[aria-hidden="true"][style*="height"]')?.getBoundingClientRect().height) ?? 0,
-      ),
     };
   });
+  /* ── 本体が止まっていて、真ん中だけが動くか（2026-09-11）──
+     ここが崩れると、いちばん下の行に指が届かなくなる */
+  const shell = await page.evaluate(() => {
+    const m = document.querySelector(".shell > main");
+    const n = document.querySelector('[data-testid="bottom-nav"]');
+    return {
+      mark: document.documentElement.dataset.shell ?? "",
+      pos: getComputedStyle(n).position,
+      body: getComputedStyle(document.body).overflow,
+      canScroll: !!m && m.scrollHeight > m.clientHeight + 2,
+      atEnd: !!m && m.scrollTop + m.clientHeight >= m.scrollHeight - 2,
+      docOver: document.documentElement.scrollHeight - window.innerHeight,
+    };
+  });
+  console.log(
+    `         印:${shell.mark || "無し"} 札:${shell.pos} 本体:${shell.body}` +
+      ` ／ ${shell.mark === "fixed" && shell.pos !== "fixed" && shell.body === "hidden" ? "貼り付けていない OK" : "**貼り付けに戻っている**"}` +
+      ` ／ 本体のはみ出し ${shell.docOver}px ${shell.docOver <= 2 ? "OK" : "**本体が動く**"}` +
+      (shell.canScroll ? `／ 真ん中は最後まで送れた ${shell.atEnd ? "OK" : "**届かない**"}` : ""),
+  );
+
   const okTap = size.h >= 44;
   const okPad = size.pad >= 10;
-  const okGap = size.spacer >= size.nav;
+  /* 隙間（spacer）はもう要らない。札は本体の外ではなく、並びの中に居る */
   console.log(
     `         押す所 ${size.w}×${size.h}px ${okTap ? "OK" : "**小さい**"}` +
       ` ／ 下に空けた分 ${size.pad}px ${okPad ? "OK" : "**足りない**"}` +
-      ` ／ 隙間 ${size.spacer}px と札 ${size.nav}px ${okGap ? "OK" : "**隠れる**"}`,
+      ` ／ 札の高さ ${size.nav}px`,
   );
 }
 await browser.close();

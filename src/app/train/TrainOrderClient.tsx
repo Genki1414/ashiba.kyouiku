@@ -233,8 +233,29 @@ export function TrainOrderClient() {
       <p className="mt-2 text-[11.5px] leading-relaxed text-dim2">
         申し込むと請求書をお送りします。入金が確認できると、第2章から先が開きます。
         <br />
+        支払期限は、請求書の発行から1週間です。
+        期限までにお振込みの確認が取れない場合、お申込みを取り消すことがあります。
+        <br />
         カード払いは、いま準備中です。
       </p>
+
+      {/* ── 法務の表記へ行けるようにする（2026-09-11）──
+          ここは**お金が動く画面**なのに、規約・特商法へのリンクが
+          1つも無かった（申込みの画面 /order には置いてあった）。
+          特商法は、買う前に見られることを求めている。
+          置き方も /order とそろえる（別の書き方にすると、
+          片方を直したときにもう片方が古くなる） */}
+      <div className="mt-3 border-t border-line pt-3 text-[11.5px] leading-relaxed text-dim2">
+        申し込むと{" "}
+        <Link href="/legal/terms" className="text-cyan no-underline">利用規約</Link>{" "}
+        と{" "}
+        <Link href="/legal/privacy" className="text-cyan no-underline">個人情報の取扱い</Link>{" "}
+        に同意したものとします。
+        <br />
+        <Link href="/legal/tokushoho" className="text-cyan no-underline">
+          特定商取引法に基づく表記
+        </Link>
+      </div>
 
       {note && <div className="mt-3 text-[12.5px] text-red" data-testid="train-order-note">{note}</div>}
       <AskDone ask={ask} onClose={() => setAsk(null)} />

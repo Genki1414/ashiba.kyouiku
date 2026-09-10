@@ -1003,8 +1003,10 @@ console.log("── 照合の控えが、記録として残るか ──");
      「ちゃんと受けた」を示せなくなる */
   const v = read("src/lib/useVerification.ts");
   check(/courseId: string;/.test(v), "照合は、どの講座かを受け取る");
-  check(/JSON\.stringify\(\{ courseId, lessonId, ok: true \}\)/.test(v), "通った控えに講座の目印を付ける");
-  check(/JSON\.stringify\(\{ courseId, lessonId, reason \}\)/.test(v), "外れた控えにも講座の目印を付ける");
+  /* 送る形は send() にまとめた（2026-09-11。返事を見るようにしたため）。
+     見たいのは**講座の目印が付いていること**なので、そこだけ見る */
+  check(/send\(\{ courseId, lessonId, ok: true \}/.test(v), "通った控えに講座の目印を付ける");
+  check(/send\(\{ courseId, lessonId, reason \}/.test(v), "外れた控えにも講座の目印を付ける");
 
   const lc = read("src/app/edu/[courseId]/[lessonId]/LessonClient.tsx");
   check(/useVerification\(\{\s*courseId,/.test(lc), "学科の受講画面が、講座の目印を渡している");
@@ -1649,6 +1651,89 @@ console.log("── クーポンと広告費（0032）──");
   check(!/rewardRate|partnerId/.test(artBox), "絵に渡す中身にも、広告費と支払先を入れない");
 }
 
+console.log("── 支払期限と、記録の取りこぼし（げんきさん 2026-09-11）──");
+{
+  /* ── 支払期限（げんきさん 2026-09-11）──
+       「支払い期限は請求書発行から1週間後。
+         支払い確認が取れなければ受講不可」
+
+     前は同じ取引について画面ごとに違うことを言っていた。
+     特商法には「支払期限は定めていません」、申込みの画面の上にも
+     「設けていません」、なのに同じ画面の下の履歴には日付が出ていた。
+     支払時期は特商法の必須記載なので、1つに揃える */
+  const pricing = read("src/lib/pricing.ts");
+  check(/export const DUE_DAYS = 7;/.test(pricing), "支払期限は1週間");
+  /* **日本の日付で切る。**世界標準時のまま切ると、朝9時前に
+     申し込んだ人の期限が1日手前になる（境目は tests/pricing.mts） */
+  check(/export function dueDateStr/.test(pricing), "期限は日本の日付で切る");
+  /* **期限を出す所を2つ持たない。**片方だけ直すと、画面と請求書で
+     違う日付が出る。日付を作るのは dueDateStr だけ */
+  check(!/export function dueDate\(/.test(pricing), "期限を作る所は1つだけ");
+  for (const f of ["src/app/api/order/route.ts", "src/app/api/train-order/route.ts"]) {
+    check(/dueDateStr\(/.test(read(f)) && !/dueDate\(new Date\(\)\)\.toISOString/.test(read(f)),
+      `${f.split("/").slice(-2)[0]} は日本の日付で期限を入れる`);
+  }
+
+  const legal2 = read("src/content/legal.ts");
+  check(!/支払期限は定めていません/.test(strip(legal2)), "特商法に「定めていません」と書かない");
+  check(/請求書の発行から1週間以内/.test(legal2), "特商法に、1週間と書く");
+  check(/お振込みの確認が取れない場合、受講いただけません/.test(legal2),
+    "確認が取れなければ受講できない、と書く");
+  const oc2 = read("src/app/order/OrderClient.tsx");
+  check(!/支払期限は設けていません/.test(oc2), "申込みの画面に「設けていません」と書かない");
+  check(/支払期限は、請求書の発行から1週間です/.test(oc2), "申込みの画面にも、1週間と書く");
+  const terms2 = read("src/app/legal/terms/page.tsx");
+  check(/支払期限は請求書の発行から1週間/.test(terms2), "規約にも、1週間と書く");
+  const invc2 = read("src/app/owner/invoice/[orderId]/InvoiceClient.tsx");
+  check(/data-testid="invoice-due"/.test(invc2) && /o\.due \? day\(o\.due\)/.test(invc2),
+    "請求書に、その申込みの期限の日付を出す");
+  /* 決めたからには、過ぎたことが分からないと動けない */
+  check(/overdue\(o\.due_date\)/.test(read("src/app/owner/OwnerClient.tsx")),
+    "期限を過ぎた申込みが、運営の一覧で分かる");
+
+  /* ── カード払いの入金が、静かに消えていた（2026-09-11）──
+     Stripe は 200 を受け取ると二度と送ってこない。読み書きに失敗したまま
+     200 を返すと、**カードは切れているのに入金が立たず、受講コードも出ない。**
+     記録にも残らないので、あとから誰も気づけない */
+  const hook = read("src/app/api/stripe/webhook/route.ts");
+  check(/error: readErr/.test(hook), "注文を読めたかどうかを見る");
+  check(/error: payErr/.test(hook), "入金を立てられたかどうかを見る");
+  check((hook.match(/status: 503/g) ?? []).length >= 3,
+    "失敗したら 5xx を返す（Stripe に送り直させる）");
+  check((hook.match(/console\.error/g) ?? []).length >= 3, "失敗を記録に残す");
+  /* 0件は正しいこともある（二度目の知らせ）。入金待ちが残っているかで見分ける */
+  check(/入金待ちが残ったまま立たなかった/.test(hook), "0件を、いつも成功にしない");
+  /* **要る枚数で見る。**0件で断ると、席を出さない申込みで送り直しが終わらない */
+  check(/want > 0 && made === 0/.test(hook), "席が要るのに出せなかったときだけ断る");
+
+  /* ── 記録が黙って欠ける（2026-09-11）──
+     元請や監督署に出すのはサーバの記録。残せなかったら、その場で伝える */
+  const uv = read("src/lib/useVerification.ts");
+  check(!/\}\)\.catch\(\(\) => \{\}\);/.test(uv.slice(uv.indexOf("function logOk"))),
+    "本人確認の控えの返事を、捨てない");
+  check(/logNg/.test(uv) && /return \{ cam[^}]*logNg \}/.test(uv), "残せなかったことを画面に返す");
+  check(/data-testid="verify-log-ng"/.test(read("src/app/edu/[courseId]/[lessonId]/LessonClient.tsx")),
+    "残せなかったことを、受講中の画面に出す");
+
+  const ex = read("src/app/api/exam/route.ts");
+  check(/error: countErr/.test(ex), "受験回数を読めたかどうかを見る");
+  check(/saved: mode === "supabase"/.test(ex), "記録が残ったかどうかを返す");
+  const exc = read("src/app/edu/[courseId]/exam/ExamClient.tsx");
+  check(/result\.saved === false/.test(exc), "画面が、それを見る");
+  check(/data-testid="exam-not-saved"/.test(exc), "残っていないことを、その場で伝える");
+  check(/修了証を発行できません/.test(strip(exc)), "このままでは修了証が出ない、と書く");
+
+  /* ── 実務トレーニングの申込み（2026-09-11）──
+     お金が動く画面なのに、法務の表記へ行けなかった */
+  const to = read("src/app/train/TrainOrderClient.tsx");
+  check(/href="\/legal\/tokushoho"/.test(to), "実務トレーニングの申込みから、特商法へ行ける");
+  check(/href="\/legal\/terms"/.test(to) && /href="\/legal\/privacy"/.test(to),
+    "規約と個人情報の取扱いへも行ける");
+  const ps = read("src/lib/price.server.ts");
+  check(/実務トレーニング 利用権/.test(ps), "実務トレーニングの値段も、特商法に載せる");
+  check(/BRAND\.training/.test(ps), "売っている店でだけ載せる");
+}
+
 console.log("── 下の行き先と、お知らせの出し方 ──");
 {
   /* げんきさん（2026-09-09）
@@ -1671,11 +1756,23 @@ console.log("── 下の行き先と、お知らせの出し方 ──");
   check(/href="\/updates"/.test(home), "ホームに「更新のお知らせ」の入口がある");
 
   const nav = read("src/components/BottomNav.tsx");
-  check(/fixed inset-x-0 bottom-0/.test(nav), "下に固定する");
-  /* iPhone の惰性スクロールで置いていかれないよう、自分の層に切り出す。
-     **fixed の要素そのものに掛ける。**親に掛けると、fixed が親を基準に
-     してしまって、本当に固定が壊れる（2026-09-10） */
-  check(/transform: "translateZ\(0\)"/.test(nav), "自分の層に切り出す（iPhone 対策）");
+  const css = read("src/app/globals.css");
+  /* ── 貼り付けるのをやめた（げんきさん 2026-09-11）──
+     「また下部タブがずれる。スクロールするとズレる。固定して」
+
+     position: fixed で画面に貼り付けている限り、iOS の惰性スクロールでは
+     札の位置を決めるのが合成側になり、慣性の間だけ取り残される。
+     小さくしても、描画層を切り出しても（2026-09-10 にやった）、
+     この道筋そのものは残る。
+
+     だから**本体をスクロールさせない。**外枠を画面ぴったりの縦並びにして、
+     真ん中の <main> だけを動かし、札はその並びのいちばん下に普通に置く。
+     動かないものの隣にあるので、ずれようがない。
+     貼り付けに戻したら、また同じことが起きる */
+  check(!/fixed inset-x-0 bottom-0/.test(nav), "札を画面に貼り付けない（ずれる元）");
+  check(!/translateZ|willChange/.test(nav), "描画層の細工に頼らない（貼り付けをやめたので要らない）");
+  check(/dataset\.shell = "fixed"/.test(nav), "札が出ている間だけ、本体を止める印を立てる");
+  check(/delete el\.dataset\.shell/.test(nav), "画面を移ったら印を外す（次の画面が動かなくなる）");
   const shell = read("src/app/layout.tsx");
   check(!/transform|will-change|backdrop-blur/.test(shell),
     "外側の入れ物に transform を掛けない（掛けると固定が壊れる）");
@@ -1688,19 +1785,26 @@ console.log("── 下の行き先と、お知らせの出し方 ──");
      ホーム画面から開いたときだけ、横棒が札の字に乗っていた。
      どちらか片方だけでは直らないので、両方を見る */
   check(/viewportFit: "cover"/.test(shell), "画面のふちまで使うと宣言する");
-  const css = read("src/app/globals.css");
   check(/padding-top: env\(safe-area-inset-top\)/.test(css),
     "ふちまで使うぶん、上は時計のぶんを空ける（cover と組で持つ）");
   check(/max\(env\(safe-area-inset-bottom\), \d+px\)/.test(nav),
     "下は、env が 0 の相手でも必ず空ける");
-  /* 空ける分と、上に作る隙間は同じ式で出す。
-     別々に書くと、片方を直したときに最後の行が札の下に隠れる */
-  check(/const GAP = /.test(nav) && (nav.match(/GAP/g) ?? []).length >= 3,
-    "空ける分は1か所で決めて、隙間と札の両方で使う");
   check(/const ROW = (\d+)/.test(nav) && Number(RegExp.$1) >= 44,
     `押す所は 44px 以上（いま ${(nav.match(/const ROW = (\d+)/) ?? [])[1]}px）`);
-  check(/calc\(\$\{ROW\}px \+ \$\{GAP\}/.test(nav),
-    "上に作る隙間は、札の高さと空ける分の足し算");
+
+  /* ── 外枠の作り（2026-09-11）──
+     本体を止めて、真ん中だけを動かす。3つが揃っていないと成り立たない。
+     min-height: 0 が抜けると、中身の高さぶんまで伸びて末尾が切れる */
+  check(/:root\[data-shell="fixed"\][\s\S]{0,400}overflow: hidden/.test(css),
+    "印が立っている間は、本体を止める");
+  check(/:root\[data-shell="fixed"\] \.shell > main[\s\S]{0,200}overflow-y: auto/.test(css),
+    "動くのは真ん中だけ");
+  check(/:root\[data-shell="fixed"\] \.shell > main[\s\S]{0,200}min-height: 0/.test(css),
+    "真ん中に min-height: 0 を入れる（無いと末尾が切れる）");
+  /* **紙のときは必ず戻す。**止めたまま刷ると、請求書が1枚目で切れる */
+  const printBlock = css.slice(css.indexOf("@media print"));
+  check(/data-shell="fixed"[\s\S]{0,300}overflow: visible/.test(printBlock),
+    "紙では、止めた本体を戻す（請求書が1枚目で切れる）");
   check(/path\.startsWith\("\/training"\)/.test(nav), "実務トレーニングでは出さない");
   check(/\/\^\\\/edu\\\/\[\^\/\]\+\\\/\.\+\//.test(nav) || /edu\\\//.test(nav),
     "単元や修了試験の途中では出さない");
@@ -1826,10 +1930,24 @@ console.log("── 下の行き先と、お知らせの出し方 ──");
   const ll = read("src/app/edu/[courseId]/LessonList.tsx");
   check(/<HeldNotice courseId=\{course\.id\} \/>/.test(ll), "講座を開いた所にも、持っていることを出す");
 
-  /* ── 「受講不要」とは、どこにも書かない（げんきさん 2026-09-09）──
-     受けるか受けないかを決めるのは本人と会社。こちらが「要らない」と
-     言い切る筋合いではない。**持っていることだけ伝える。**
-     マイページからは消したのに、講座を開いた所には残っていた（2026-09-10） */
+  /* ── 「受講不要」と書いてよい場所は、1つだけ ──
+
+     げんきさん 2026-09-09
+       「受講不要がまだ表示されてる」
+     げんきさん 2026-09-11
+       「取得済みでも押すと講座リクエスト可能になるから、
+         取得済み資格はタップで開いたら取得済みの為受講不要などと表示する」
+
+     一見ぶつかっているが、立っている場所が違う。
+
+       受けられる人（受講コードがある）… 受けるかどうかは本人と会社が決める。
+         こちらが「要らない」と言い切らない。持っていることだけ伝える
+       受けられない人（コードが無い）… そのままでは担当者に
+         「受けたい」と頼む札が出る。もう持っている資格を頼ませない。
+         ここは、はっきり不要と書いて止める
+
+     だから **HeldInstead だけが書いてよい。**
+     ほかの画面に増えたら止める。 */
   const uiFiles: string[] = [];
   const walk3 = (d: string) => {
     for (const e of readdirSync(new URL(`../${d}`, import.meta.url), { withFileTypes: true })) {
@@ -1838,9 +1956,22 @@ console.log("── 下の行き先と、お知らせの出し方 ──");
     }
   };
   for (const d of ["src/app", "src/components"]) walk3(d);
+  const MAY_SAY = "src/components/HeldInstead.tsx";
   const noNeed = uiFiles.filter((f) =>
-    /受講不要/.test(read(f).replace(/\/\*[\s\S]*?\*\//g, "")));
-  check(noNeed.length === 0, `画面に「受講不要」と書かない（${noNeed.join(" ／ ") || "無し"}）`);
+    f !== MAY_SAY && /受講不要|受講の必要はありません|受講は不要/.test(read(f).replace(/\/\*[\s\S]*?\*\//g, "")));
+  check(noNeed.length === 0, `ほかの画面に「受講不要」と書かない（${noNeed.join(" ／ ") || "無し"}）`);
+
+  /* 持っている人には、受講リクエストの札そのものを出さない。
+     **言葉で止めるだけでは足りない。**押せれば押される */
+  const hi = read(MAY_SAY);
+  check(/受講は不要です|受講の必要はありません/.test(strip(hi)), "取得済みの画面には、不要だと書く");
+  check(!/RequestCourse/.test(strip(hi)), "取得済みの画面に、受講リクエストを置かない");
+  const ns = read("src/components/NeedSeat.tsx");
+  check(/<HeldInstead>/.test(ns) && /<\/HeldInstead>/.test(ns),
+    "断りの画面は、取得済みの人には差し替える");
+  /* マイページへ戻す道を残す。よそで取った資格は本人が登録するので、
+     押し間違いがある。黙って行き止まりにしない */
+  check(/href="\/me"/.test(hi), "登録を直しに行ける（間違って登録していたとき）");
 }
 
 console.log(`\n通り ${ok} ／ だめ ${ng}`);

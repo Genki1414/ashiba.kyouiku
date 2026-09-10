@@ -531,10 +531,34 @@ export function quote(seats: number, price: number): Quote | null {
 /** 「1,234円」 */
 export const yen = (n: number): string => `${n.toLocaleString("ja-JP")}円`;
 
-/** 請求書払いの支払期限。月末締め翌月末払いに寄せて、30日後の月末 */
-export function dueDate(from: Date): Date {
-  const d = new Date(from.getTime());
-  d.setDate(d.getDate() + 30);
-  /* その月の末日 */
-  return new Date(d.getFullYear(), d.getMonth() + 1, 0);
+/* ── 支払期限（げんきさん 2026-09-11）──
+     「支払い期限は請求書発行から1週間後。支払い確認が取れなければ受講不可」
+
+   前は「30日後の月末」だった（月末締め翌月末払いに寄せていた）。
+   受講コードは入金を確かめてから出すので、長く空けるほど
+   「申し込んだのに始められない」期間が延びるだけだった。
+
+   請求書は申し込んだその場で出る（あとから発行する手順は無い）ので、
+   起点は申込みの時刻でよい。 */
+export const DUE_DAYS = 7;
+
+/* 期限を、データベースに入れる形（YYYY-MM-DD）にする。
+
+   **日本の日付で切る。**世界標準時のまま切ると、
+   日本の朝9時前に申し込んだ人の期限が1日手前になる。
+     2026-09-11 08:00（日本）＝ 2026-09-10 23:00（世界標準時）
+   30日後の月末だった頃は月をまたぐ時だけの話だったが、
+   1週間になると**毎日ずれる。**1日でも短く言えば、
+   払ったのに期限切れ、が起きる */
+export function dueDateStr(from: Date): string {
+  const j = new Date(from.getTime() + 9 * 60 * 60 * 1000);
+  j.setUTCDate(j.getUTCDate() + DUE_DAYS);
+  return j.toISOString().slice(0, 10);
+}
+
+/** その期限を過ぎているか。**日本の今日**と比べる（時刻は見ない） */
+export function overdue(due: string | null | undefined, now: Date = new Date()): boolean {
+  if (!due) return false;
+  const today = new Date(now.getTime() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  return due < today;
 }

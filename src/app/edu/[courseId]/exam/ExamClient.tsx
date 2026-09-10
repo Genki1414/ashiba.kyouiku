@@ -15,6 +15,10 @@ type ExamResult = {
   passed: boolean;
   attempt: number;
   wrong: { q: string; correct: string }[];
+  /** サーバに受験記録が残ったか。残っていないと修了証は出せない（2026-09-11） */
+  saved?: boolean;
+  saveNg?: string;
+  mode?: "supabase" | "local";
 };
 
 const TRIES_KEY = "ashiba.examTries";
@@ -199,6 +203,28 @@ export function ExamClient({ courseId, lessonIds }: { courseId: string; lessonId
               回目
             </div>
           </div>
+
+          {/* ── 記録が残っていない（2026-09-11）──
+              前は残せなくても「合格」とだけ出ていた。あとで修了証を
+              申し込むと「試験に合格していません」と断られ、
+              **何が起きたのか受講者にも運営にも分からなかった。**
+              修了証はサーバの記録を見て出すので、ここで伝える。
+              Supabase を繋いでいない手元（mode が local で saveNg が無い）
+              では出さない。開発の画面に警告を出しても意味がない */}
+          {result.saved === false && !!result.saveNg && (
+            <div
+              className="mt-4 rounded-xl border border-org bg-panel p-4 text-[12.5px] leading-relaxed text-org"
+              data-testid="exam-not-saved"
+              role="alert"
+            >
+              この受験の記録を、サーバに残せませんでした。
+              <br />
+              <span className="text-dim">
+                このままでは修了証を発行できません。電波の届く場所で開き直し、
+                もう一度受験してください。何度も続く場合は、教育担当者にお伝えください。
+              </span>
+            </div>
+          )}
 
           {!result.passed && result.wrong.length > 0 && (
             <div className="mt-4">

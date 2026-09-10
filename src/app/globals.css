@@ -45,6 +45,57 @@ body {
   padding-top: env(safe-area-inset-top);
 }
 
+/* ── 下の札が、送っている間にずれる（げんきさん 2026-09-11）──
+
+   「また下部タブがずれる。スクロールするとズレる。固定して」
+
+   ── なぜ前の当て方では足りなかったか ──
+   position: fixed で画面の下に貼り付け、iOS 対策に描画層を切り出していた
+   （translateZ(0)）。ところが iOS の惰性スクロールでは、**貼り付けた札の
+   位置を決めるのが本体ではなく合成側**になる。指を離したあとの慣性の間、
+   本体の巻き取りに札が追いつかず、画面の途中に取り残される。
+   小さくしても、層を切っても、この道筋そのものは残る。
+
+   ── だから、貼り付けるのをやめた ──
+   **本体（ページ）を一切スクロールさせない。**
+   外枠を画面ぴったりの高さの縦並びにして、真ん中の <main> だけを動かす。
+   札は縦並びのいちばん下に「普通に」置く。動かないものの隣に置いてあるので、
+   ずれようがない。合成側の追いつき待ちも起きない。
+
+   ── 効かせるのは、札を出す画面だけ ──
+   単元・修了試験・実務トレーニングは札を出さないうえ、
+   window.scrollTo で本体を動かしている（LessonClient・ExamClient）。
+   本体を止めると、そこが動かなくなる。
+   だから BottomNav が、出ている間だけ <html> に data-shell="fixed" を立てる。 */
+:root[data-shell="fixed"],
+:root[data-shell="fixed"] body {
+  height: 100dvh;
+  overflow: hidden;
+  /* 上のふちは外枠側で取る（下の .shell）。二重に空けない */
+  padding-top: 0;
+  /* 端まで送ったときに、本体ごと引っぱられるのを止める */
+  overscroll-behavior: none;
+}
+
+:root[data-shell="fixed"] .shell {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  /* 上のふち（時計や電池）のぶんを、この高さの中に含める */
+  box-sizing: border-box;
+  padding-top: env(safe-area-inset-top);
+}
+
+/* 動くのはここだけ。**min-height: 0 が要る。**
+   これが無いと、中身の高さぶんまで伸びて、はみ出した先が切れる */
+:root[data-shell="fixed"] .shell > main {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+}
+
 /* ── 印刷 ──
    紙に出すのは請求書。画面は黒地・スマホ幅（max-w-md）だが、
    紙でそれをやると **黒い枠の中に細長い請求書が2枚に割れて出る**
@@ -54,6 +105,15 @@ body {
 @media print {
   @page { size: A4; margin: 14mm; }
   html, body { background: #fff !important; color: #000 !important; min-height: 0 !important; padding-top: 0 !important; }
+  /* **紙のときは、止めた本体を必ず戻す。**
+     画面のために overflow: hidden にしてあるので、そのまま刷ると
+     請求書が1枚目で切れる（2026-09-11） */
+  :root[data-shell="fixed"], :root[data-shell="fixed"] body,
+  :root[data-shell="fixed"] .shell, :root[data-shell="fixed"] .shell > main {
+    height: auto !important;
+    overflow: visible !important;
+    display: block !important;
+  }
   .shell { max-width: none !important; min-height: 0 !important; background: #fff !important; }
   .tape, .noprint { display: none !important; }
 }

@@ -1,6 +1,6 @@
 /* 値段の計算の試験。実行: npx tsx tests/pricing.ts */
 
-import { DEFAULT_UNIT_PRICE, MAX_SEATS, TAX_RATE, dueDate, parseUnitPrice, quote, yen } from "@/lib/pricing";
+import { DEFAULT_UNIT_PRICE, DUE_DAYS, MAX_SEATS, TAX_RATE, dueDateStr, overdue, parseUnitPrice, quote, yen } from "@/lib/pricing";
 import { DEFAULT_COURSE_PRICE, pickUnitPrice, priceEnvName } from "@/lib/pricing";
 import { COURSES } from "@/content/courses";
 
@@ -200,14 +200,36 @@ console.log("── 講座ごとの単価 ──");
   check(unitPrice() > 0, "講座を渡さなくても0円にはしない");
 }
 
-console.log("── 支払期限 ──");
+console.log("── 支払期限（げんきさん 2026-09-11）──");
 {
-  /* 30日後の、その月の末日 */
-  const d = dueDate(new Date("2026-08-22T00:00:00+09:00"));
-  check(d.getMonth() === 8, `9月になる（${d.getMonth() + 1}月）`);
-  check(d.getDate() === 30, `末日（${d.getDate()}日）`);
-  const feb = dueDate(new Date("2026-01-15T00:00:00+09:00"));
-  check(feb.getDate() === 28, `2月は28日（${feb.getMonth() + 1}/${feb.getDate()}）`);
+  /* 「支払い期限は請求書発行から1週間後」。請求書は申し込んだその場で出る */
+  check(DUE_DAYS === 7, `1週間（いま ${DUE_DAYS}日）`);
+  check(dueDateStr(new Date("2026-09-11T12:00:00+09:00")) === "2026-09-18",
+    `昼に申し込めば1週間後（${dueDateStr(new Date("2026-09-11T12:00:00+09:00"))}）`);
+
+  /* **日本の日付で切る。**世界標準時のまま切ると、日本の朝9時前に
+     申し込んだ人の期限が1日手前になる。1日でも短く言えば、
+     払ったのに期限切れ、が起きる */
+  check(dueDateStr(new Date("2026-09-11T00:30:00+09:00")) === "2026-09-18",
+    `未明に申し込んでも同じ日（${dueDateStr(new Date("2026-09-11T00:30:00+09:00"))}）`);
+  check(dueDateStr(new Date("2026-09-11T23:59:00+09:00")) === "2026-09-18",
+    `夜遅くでも同じ日（${dueDateStr(new Date("2026-09-11T23:59:00+09:00"))}）`);
+  /* 月をまたぐとき */
+  check(dueDateStr(new Date("2026-09-28T10:00:00+09:00")) === "2026-10-05",
+    `月をまたいでも正しい（${dueDateStr(new Date("2026-09-28T10:00:00+09:00"))}）`);
+  /* 年をまたぐとき */
+  check(dueDateStr(new Date("2026-12-29T10:00:00+09:00")) === "2027-01-05",
+    `年をまたいでも正しい（${dueDateStr(new Date("2026-12-29T10:00:00+09:00"))}）`);
+
+  /* 期限を過ぎたかどうか。**その日のうちは過ぎていない** */
+  const now = new Date("2026-09-18T12:00:00+09:00");
+  check(!overdue("2026-09-18", now), "期限の当日は、まだ過ぎていない");
+  check(overdue("2026-09-17", now), "前の日なら過ぎている");
+  check(!overdue("2026-09-19", now), "先の日なら過ぎていない");
+  check(!overdue(null, now), "期限が無ければ、過ぎたことにしない（カード払い）");
+  /* 日本の朝9時前でも、日本の今日で比べる */
+  const dawn = new Date("2026-09-18T00:30:00+09:00");
+  check(!overdue("2026-09-18", dawn), "未明に見ても、当日は過ぎていない");
 }
 
 

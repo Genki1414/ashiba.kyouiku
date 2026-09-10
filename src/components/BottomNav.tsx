@@ -29,8 +29,7 @@ import { navItems } from "@/lib/nav";
           押したつもりがホームに戻る。
           env が 0 のブラウザでも、指1本ぶんは必ず空ける（max）。
 
-   **この2つは、上の隙間（spacer）と同じ式で使う。**
-   別々に書くと、片方を直したときに最後の行が札の下に隠れる */
+   高さは、下の縦並びの中で使う（貼り付けはやめた。2026-09-11） */
 const ROW = 52;
 const GAP = "max(env(safe-area-inset-bottom), 10px)";
 
@@ -56,7 +55,23 @@ export function BottomNav() {
     return () => { alive = false; };
   }, [path]);
 
-  if (navHidden(path)) return null;
+  /* ── 本体を止める印（2026-09-11）──
+     この札が出ている画面だけ、ページ本体のスクロールを止めて
+     <main> の中だけを動かす（globals.css の data-shell="fixed"）。
+
+     **札を出さない画面では止めない。**単元と修了試験は
+     window.scrollTo でページ本体を動かしているので、
+     止めるとそこが動かなくなる。
+     画面を移ったら必ず外す（外し忘れると、次の画面が動かない）。 */
+  const show = !navHidden(path);
+  useEffect(() => {
+    const el = document.documentElement;
+    if (show) el.dataset.shell = "fixed";
+    else delete el.dataset.shell;
+    return () => { delete el.dataset.shell; };
+  }, [show]);
+
+  if (!show) return null;
   /* 並びは src/lib/nav.ts が決める。**ホームも同じ所を見て、
      ここに出るものを札にしない**（げんきさん 2026-09-10） */
   const items = navItems(me);
@@ -66,25 +81,24 @@ export function BottomNav() {
 
   return (
     <>
-      {/* 固定した行の高さぶん、下に余白を作る。無いと最後の行が隠れる。
-          **札と同じ計算で出す**（片方だけ直すと、最後の行が隠れる）。
-          +1px は札の上の線のぶん */}
-      <div className="print:hidden" style={{ height: `calc(${ROW}px + ${GAP} + 1px)` }} aria-hidden />
+      {/* ── 貼り付けるのをやめた（げんきさん 2026-09-11）──
+          「また下部タブがずれる。スクロールするとズレる。固定して」
+
+          position: fixed で画面に貼り付けている限り、iOS の惰性スクロールでは
+          札の位置を決めるのが合成側になり、慣性の間だけ取り残される。
+          小さくしても、描画層を切り出しても、この道筋は残る。
+
+          だから**本体をスクロールさせない。**外枠を画面ぴったりの縦並びにして、
+          真ん中の <main> だけを動かす（globals.css の data-shell="fixed"）。
+          札は、その縦並びのいちばん下に普通に置く。
+          動かないものの隣にあるので、ずれようがない。
+
+          上に隙間（spacer）を作る必要も無くなった。
+          札は本体の外ではなく、並びの中に居るため。 */}
       <nav
-        className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-panel print:hidden"
+        className="shrink-0 border-t border-line bg-panel print:hidden"
         style={{
           paddingBottom: GAP,
-          /* ── iPhone で、送っている間だけ札が置いていかれる（2026-09-10）──
-             げんきさん「下部タブの固定が出来てない」。
-             手元のブラウザでは、いちばん下まで送っても画面の下にぴたりと
-             付いている（tests/nav-check.mjs）。iOS の惰性スクロールでだけ、
-             固定したものの描き直しが後回しになって、途中に取り残される。
-
-             自分の層に切り出すと、送っている間も一緒に描かれる。
-             **fixed の要素そのものに掛けるので、位置の基準は変わらない**
-             （親に掛けると、fixed が親を基準にしてしまって壊れる）。 */
-          transform: "translateZ(0)",
-          willChange: "transform",
         }}
         data-testid="bottom-nav"
         aria-label="画面の行き先"

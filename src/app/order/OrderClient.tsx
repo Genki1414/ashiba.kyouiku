@@ -602,7 +602,7 @@ export function OrderClient() {
           申し込むと請求書をお送りします。
           <strong className="text-dim">お振込みの確認後に、受講コードを発行します。</strong>
           <br />
-          支払期限は設けていません。確認は営業日に行うため、数日いただく場合があります。
+          支払期限は、請求書の発行から1週間です。確認は営業日に行うため、数日いただく場合があります。
         </div>
         <div className="mt-3 border-t border-line pt-3 text-[11.5px] leading-relaxed text-dim2">
           申し込むと{" "}

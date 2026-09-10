@@ -2,6 +2,7 @@ import Link from "next/link";
 import { BRAND } from "@/content/brand";
 import { RequestCourse } from "./RequestCourse";
 import { OrderLink } from "./OrderLink";
+import { HeldInstead } from "./HeldInstead";
 
 /* 受講コードが無い人に出す画面。
 
@@ -16,7 +17,13 @@ import { OrderLink } from "./OrderLink";
 
    出すものは店で変わる（src/content/brand.ts）。
    実務トレーニングは足場屋革命だけの売り物なので、
-   特別教育ドットコムでは案内しない。 */
+   特別教育ドットコムでは案内しない。
+
+   ── 取得済みの人には、そもそもこの画面を出さない（2026-09-11）──
+   げんきさん「取得済みでも押すと講座リクエスト可能になるから、
+   取得済み資格はタップで開いたら取得済みの為受講不要などと表示する」。
+   もう持っている資格を「受けたい」と担当者に頼めてしまっていた。
+   HeldInstead が包んで、持っている人には取得済みの画面に差し替える。 */
 
 export function NeedSeat({ why, company }: { why: "signin" | "seat"; company: string }) {
   if (why === "signin") {
@@ -38,6 +45,7 @@ export function NeedSeat({ why, company }: { why: "signin" | "seat"; company: st
   }
 
   return (
+    <HeldInstead>
     <main className="px-5 py-10" data-testid="need-seat">
       <div className="tape -mx-5 mb-6" />
       <div className="text-[11px] font-extrabold tracking-[2px] text-yel">受講コードが必要です</div>
@@ -111,5 +119,6 @@ export function NeedSeat({ why, company }: { why: "signin" | "seat"; company: st
         ← ホームへ
       </Link>
     </main>
+    </HeldInstead>
   );
 }

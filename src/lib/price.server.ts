@@ -1,6 +1,7 @@
 import "server-only";
 import { pickUnitPrice, priceEnvName, parseUnitPrice } from "./pricing";
 import { COURSES, readyCourses } from "@/content/courses";
+import { BRAND } from "@/content/brand";
 
 /* 単価。サーバだけが読む。
 
@@ -29,11 +30,21 @@ export const unitPrice = (courseId?: string): number =>
     all: process.env.SEAT_UNIT_PRICE,
   });
 
-/** 受けられる講座ぜんぶの単価。特定商取引法の表記に載せる。
+/** 売っているものぜんぶの単価。特定商取引法の表記に載せる。
 
-    1つしか載せないと、載っていない講座の値段が書いていないことになる。 */
-export const allPrices = (): { id: string; name: string; price: number }[] =>
-  readyCourses().map((c) => ({ id: c.id, name: c.name, price: unitPrice(c.id) }));
+    1つしか載せないと、載っていない講座の値段が書いていないことになる。
+
+    ── 実務トレーニングも載せる（2026-09-11）──
+    講座だけを並べていたので、**別売りの実務トレーニング（第2章から先）の
+    値段が、特商法の表記に1件も載っていなかった。**
+    請求書には独立した品目として出るのに、値段だけどこにも書いていない。
+    売っている店でだけ載せる（特別教育ドットコムは売っていない）。 */
+export const allPrices = (): { id: string; name: string; price: number }[] => [
+  ...readyCourses().map((c) => ({ id: c.id, name: c.name, price: unitPrice(c.id) })),
+  ...(BRAND.training
+    ? [{ id: "training", name: "実務トレーニング 利用権（第2章以降）", price: trainPrice() }]
+    : []),
+];
 
 /** **環境変数がコードの値を上書きしている講座。**
 
