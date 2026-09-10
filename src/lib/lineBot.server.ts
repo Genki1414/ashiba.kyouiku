@@ -1,7 +1,7 @@
 import "server-only";
 import { getServiceClient } from "@/lib/supabase/server";
 import { BRAND } from "@/content/brand";
-import { LINE_PUSH_URL, LINE_REPLY_URL, checkLine } from "./lineBot";
+import { LINE_PUSH_URL, LINE_REPLY_URL, LINE_PROFILE_URL, checkLine } from "./lineBot";
 
 /* 公式アカウントから送る・届いたものを確かめる。鍵を使うのでサーバだけ。
 
@@ -21,23 +21,56 @@ const token = () => (process.env.LINE_MENU_TOKEN ?? "").trim();
    **同じ人でも、店が違えば番号が違う。**
    だから line_links（人と店の組）で引く。 */
 
-/** この店で繋がっている LINE の表示名。繋いでいなければ空 */
-export async function lineNameOf(userId: string | null | undefined): Promise<string> {
+/** LINE 側に表示名を聞く。**失敗しても投げない**（名前が出ないだけ） */
+async function askName(lineUserId: string): Promise<string> {
+  const t = token();
+  if (!t) return "";
+  try {
+    const res = await fetch(`${LINE_PROFILE_URL}${encodeURIComponent(lineUserId)}`, {
+      headers: { authorization: `Bearer ${t}` },
+      signal: AbortSignal.timeout(3000),
+    });
+    if (!res.ok) return "";
+    const v = (await res.json()) as { displayName?: string };
+    return (v.displayName ?? "").trim();
+  } catch {
+    return "";
+  }
+}
+
+/** この店での紐付け。番号と表示名をまとめて引く。繋いでいなければ空。
+
+    ── 名前が入っていなければ、LINE に聞いて入れておく ──
+    表示名を持つようにしたのは 0037。**それより前に繋いだ人は空のまま**で、
+    マイページには「つながっています」としか出なかった
+    （げんきさん 2026-09-10「どのLINEと繋がってるのか分からない」）。
+    繋ぎ直してもらえば入るが、そのために押させる筋合いは無い。
+    空のときだけ聞く。一度入れば、もう聞かない */
+export async function lineLinkOf(
+  userId: string | null | undefined,
+): Promise<{ lineUserId: string; name: string }> {
+  const none = { lineUserId: "", name: "" };
   const id = (userId ?? "").trim();
-  if (!id) return "";
+  if (!id) return none;
   const supabase = getServiceClient();
-  if (!supabase) return "";
+  if (!supabase) return none;
   try {
     const { data, error } = await supabase
       .from("line_links")
-      .select("display_name")
+      .select("line_user_id, display_name")
       .eq("user_id", id)
       .eq("brand", BRAND.id)
       .maybeSingle();
-    if (error) return "";
-    return (data?.display_name as string | null) ?? "";
+    if (error || !data) return none;
+    const lineUserId = String(data.line_user_id ?? "");
+    if (!lineUserId) return none;
+    const name = ((data.display_name as string | null) ?? "").trim();
+    if (name) return { lineUserId, name };
+    const asked = await askName(lineUserId);
+    if (asked) await linkLine(id, lineUserId, asked);
+    return { lineUserId, name: asked };
   } catch {
-    return "";
+    return none;
   }
 }
 
@@ -97,7 +130,11 @@ export async function userByLineId(
 
     @param displayName LINE の表示名（0037）。
                        **どのLINEと繋がっているかを本人に見せるためだけ。**
-                       修了証には使わない（本名とは限らない） */
+                       修了証には使わない（本名とは限らない）。
+                       **空のときは、いま入っている名前を消さない。**
+                       LINE が名前を返さないことがあり、返らなかったせいで
+                       「つながっています」だけに戻ってしまうと、
+                       どのLINEか分からない元の状態に逆戻りする */
 export async function linkLine(
   userId: string,
   lineUserId: string,
@@ -105,6 +142,7 @@ export async function linkLine(
 ): Promise<boolean> {
   const supabase = getServiceClient();
   if (!supabase) return false;
+  const name = (displayName ?? "").trim();
   try {
     const { error } = await supabase
       .from("line_links")
@@ -113,7 +151,8 @@ export async function linkLine(
           user_id: userId,
           brand: BRAND.id,
           line_user_id: lineUserId,
-          display_name: (displayName ?? "").trim() || null,
+          /* 空なら列ごと送らない。送らなければ書き換わらない */
+          ...(name ? { display_name: name } : {}),
         },
         { onConflict: "user_id,brand" },
       );

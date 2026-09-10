@@ -217,6 +217,37 @@ console.log("── 紐付けは店ごと（0034）──");
   check(/owner-line-id/.test(owner), "自分の番号を出せる（LINE_TO に写すため）");
 }
 
+console.log("── どのLINEと繋がっているか（0037）──");
+{
+  /* げんきさん（2026-09-10）「どのLINEと繋がってるのか分からない」。
+     表示名は 0037 で足したが、**それより前に繋いだ人は空のまま**だった。
+     繋ぎ直しても入らなかった（すでに繋がっている人は、
+     結び直す所を素通りしていたため） */
+  const mig = read("supabase/migrations/0037_line_name.sql");
+  check(/add column if not exists display_name/.test(mig), "0037 で表示名の欄を足す");
+  check(/修了証には使わない/.test(mig), "表示名は修了証に使わないと書いてある");
+
+  const bot = read("src/lib/lineBot.server.ts");
+  check(/LINE_PROFILE_URL/.test(bot), "名前が無ければ LINE に聞ける");
+  check(/name \? \{ display_name: name \} : \{\}/.test(bot),
+        "空の名前で、入っている名前を消さない");
+
+  const cb = read("src/app/auth/line/route.ts");
+  check(/if \(found\) await linkLine\(found\.id, who\.sub, who\.name\)/.test(cb),
+        "すでに繋がっている人も、通るたびに表示名を入れ直す");
+  check(cb.indexOf("if (found) await linkLine") < cb.indexOf("if (!found) {"),
+        "入れ直しは、作る前に済ませる");
+
+  const my = read("src/app/api/mypage/route.ts");
+  check(/lineName/.test(my), "マイページに表示名を返す");
+  check(/lineLinkOf\(/.test(my), "番号と名前は1回で引く（往復を増やさない）");
+
+  const me = read("src/app/me/MeClient.tsx");
+  check(/st\.lineName/.test(me), "マイページに、どのLINEかを出す");
+  check(/me-line-relink/.test(me), "別のLINEにつなぎ直せる");
+  check(!/line_user_id/.test(me), "本人の画面に LINE の番号は出さない");
+}
+
 console.log("── 仮のメールを画面に出さない（docs/106）──");
 {
   check(emailLabel("a@b.jp") === "a@b.jp", "ふつうのメールはそのまま");

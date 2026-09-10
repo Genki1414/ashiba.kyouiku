@@ -30,6 +30,8 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 
 export const LINE_PUSH_URL = "https://api.line.me/v2/bot/message/push";
 export const LINE_REPLY_URL = "https://api.line.me/v2/bot/message/reply";
+/** 友だちの表示名を聞く所。末尾に LINE の利用者番号を付ける */
+export const LINE_PROFILE_URL = "https://api.line.me/v2/bot/profile/";
 
 /** 本人に知らせを送れるか（送る鍵が入っているか）。/setup で出す */
 export const lineBotReady = (): boolean => !!(process.env.LINE_MENU_TOKEN ?? "").trim();
