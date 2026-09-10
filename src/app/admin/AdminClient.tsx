@@ -290,11 +290,7 @@ export function AdminClient() {
           選ぶのをやめて、**買った講座の残数をそのまま並べる。**
           配る講座は、配るときに選ぶ（LearnerCard） */}
       {!!freeList.length && (
-        <div
-          id="codes"
-          className="mx-5 mb-3 scroll-mt-4 rounded-xl border border-line bg-panel p-3.5"
-          data-testid="admin-free-list"
-        >
+        <div className="mx-5 mb-3 rounded-xl border border-line bg-panel p-3.5" data-testid="admin-free-list">
           <div className="mb-1 text-[11px] tracking-[2px] text-dim">
             まだ配っていない受講コード
           </div>
@@ -697,13 +693,21 @@ export function AdminClient() {
           </div>
 
           {st.seats.free > 0 ? (
-            <Link
-              href="#codes"
-              className="mt-2 block rounded-lg border border-yel bg-yel p-2.5 text-center text-[13px] font-extrabold text-bg no-underline"
-              data-testid="admin-give"
-            >
-              まだ配っていない受講コードが {st.seats.free} 枚あります（配る）
-            </Link>
+            <>
+              <div className="mt-1 text-[11.5px] leading-relaxed text-yel">
+                まだ配っていない受講コードが {st.seats.free} 枚あります。
+              </div>
+              {/* **配るのは名簿。**枚数の一覧へ戻しても配れない
+                  （げんきさん 2026-09-10「配るを押してまだ配ってない
+                  受講コードに遷移するのはおかしい」） */}
+              <Link
+                href="#roster"
+                className="mt-2 block rounded-lg border border-yel bg-yel p-2.5 text-center text-[13px] font-extrabold text-bg no-underline"
+                data-testid="admin-give"
+              >
+                名簿から配る
+              </Link>
+            </>
           ) : null}
 
           <Link
@@ -779,7 +783,7 @@ export function AdminClient() {
         </p>
       )}
 
-      <div className="mx-5 mt-4 grid gap-3">
+      <div id="roster" className="mx-5 mt-4 grid scroll-mt-4 gap-3">
         {rows.map((r) => (
           <LearnerCard
             key={r.userId}

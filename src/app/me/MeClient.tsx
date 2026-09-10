@@ -390,22 +390,39 @@ export function MeClient() {
         <div className="mt-4 rounded-xl border border-line bg-panel p-4" data-testid="me-line">
           <div className="mb-1 text-[11px] tracking-[2px] text-dim">LINE</div>
           {st.lineLinked ? (
-            <div className="text-[12.5px] leading-relaxed text-grn" data-testid="me-line-on">
+            <>
               {/* **どのLINEと繋がっているかを出す**（げんきさん 2026-09-10）。
                   スマホを持ち替えた人・LINEを使い分けている人は、
                   「そもそも別のLINEに繋いでいた」を疑えない */}
-              {st.lineName ? (
-                <>
-                  LINEの
-                  <span className="font-black text-txt">「{st.lineName}」</span>
-                  とつながっています。
-                </>
-              ) : (
-                <>このアカウントとLINEがつながっています。</>
-              )}
-              <br />
-              <span className="text-dim">受講コードや修了証の知らせが、LINEに届きます。</span>
-            </div>
+              <div className="text-[12.5px] leading-relaxed text-grn" data-testid="me-line-on">
+                {st.lineName ? (
+                  <>
+                    LINEの
+                    <span className="font-black text-txt">「{st.lineName}」</span>
+                    とつながっています。
+                  </>
+                ) : (
+                  <>このアカウントとLINEがつながっています。</>
+                )}
+                <br />
+                <span className="text-dim">受講コードや修了証の知らせが、LINEに届きます。</span>
+              </div>
+
+              {/* **つなぎ直す道を残す**（げんきさん 2026-09-10「LINEをつなぐが無い」）。
+                  スマホやLINEを替えたとき、つなぎ先を移せないと知らせが届かない。
+                  押しても新しく作り直さない（いまのアカウントに付け替えるだけ） */}
+              <a
+                href="/api/line/login?next=%2Fme"
+                className="mt-2.5 block rounded-lg border border-line p-2.5 text-center text-[12.5px] font-bold text-txt no-underline"
+                data-testid="me-line-relink"
+              >
+                別のLINEにつなぎ直す
+              </a>
+              <div className="mt-1.5 text-[11px] leading-relaxed text-dim2">
+                スマホやLINEを替えたときは、ここから新しいLINEに移せます。
+                いまのアカウントはそのままです。
+              </div>
+            </>
           ) : (
             <>
               <p className="text-[12.5px] leading-relaxed text-dim">

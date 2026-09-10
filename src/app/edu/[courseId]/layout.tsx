@@ -1,24 +1,22 @@
-import { canLearn } from "@/lib/entitle";
-import { NeedSeat } from "@/components/NeedSeat";
 import { findCourse } from "@/content/courses";
 import { notFound } from "next/navigation";
 
-/* 講座ごとの見張り。**ここが本番。**
+/* 講座の下の共通。
 
-   げんきさん（2026-09-09）
-     「有償利用に切り替えてもどんな講座でも受けれてしまう」
+   ── 見張りをここに置かない理由（2026-09-10）──
+   げんきさん「実技の手引きが出る講座と出ずに受講ページへ遷移する講座とがある」。
 
-   受講コードは講座ごとに売っている。なのに前は「1枚でも持っていれば通す」
-   だったので、足場のコードを1枚持っているだけで73講座すべてが開いた。
-   1講座ぶんの代金で全部見られる、ということ。
+   ここで canLearn を見ていたので、**実技の手引き（/edu/◯◯/drill）まで
+   塞いでいた。**手引きは実技を行う会社の人が見るもので、受講コードを
+   持っているのは受ける本人。持っていない人が開くのが当たり前の画面だった。
 
-   ここで止めれば、単元も修了試験も討議も、この講座の下は全部止まる。
-   断る画面には「この講座を受けたい」を送る所が付いている（NeedSeat）ので、
-   行き止まりにはならない。 */
+   見張りは、売り物を出す頁それぞれに置く（単元・修了試験・修了証・
+   受講の準備・討議）。**忘れると穴になる**ので、
+   tests/api-auth.mts が頁を数えて見張っている。 */
 
 export const dynamic = "force-dynamic";
 
-export default async function CourseGate({
+export default async function CourseLayout({
   children,
   params,
 }: {
@@ -27,8 +25,5 @@ export default async function CourseGate({
 }) {
   const { courseId } = await params;
   if (!findCourse(courseId)) notFound();
-
-  const may = await canLearn(courseId);
-  if (!may.ok) return <NeedSeat why={may.why} company={may.company} />;
   return <>{children}</>;
 }

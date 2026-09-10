@@ -102,14 +102,49 @@ console.log("\n── 記録を書く所は、その講座の受講コードで�
 
 console.log("\n── 学科の画面 ──");
 {
-  const gate = readFileSync(
+  /* ── 頁ごとに見張る（2026-09-10）──
+     げんきさん「実技の手引きが出る講座と出ずに受講ページへ遷移する
+     講座とがある。必ず実技の手引きを出すことにして」。
+
+     まとめて layout で見張っていたら、**公開のはずの実技の手引きまで
+     塞いでいた。**手引きは実技を行う会社の人が見るもので、
+     受講コードを持っているのは受ける本人。持っていない人が開く画面だった。
+
+     頁ごとに置くと忘れる。だから**ここで数える。**
+     新しく頁を足したら、見張るか、開ける理由を書くまで落ちる。 */
+  const dir = new URL("../src/app/edu/[courseId]/", import.meta.url).pathname;
+  const pages: string[] = [];
+  const walk2 = (d: string, rel = "") => {
+    for (const e of readdirSync(d)) {
+      const full = path.join(d, e);
+      if (statSync(full).isDirectory()) walk2(full, path.join(rel, e));
+      else if (e === "page.tsx") pages.push(path.join(rel, e));
+    }
+  };
+  walk2(dir);
+  check(pages.length >= 6, `講座の下の画面が見つかる（${pages.length}枚）`);
+
+  /* 開けてある画面。**なぜ開けてよいのかを書くこと** */
+  const OPEN_PAGES: Record<string, string> = {
+    "drill/page.tsx":
+      "実技の手引き。実技は事業者が自社で行うので、**受講コードを持っていない会社の人が見る。**中身は公開情報（何を何分やるか・記録の様式）",
+  };
+
+  for (const pg of pages) {
+    const src = readFileSync(path.join(dir, pg), "utf8");
+    const why = OPEN_PAGES[pg];
+    if (why) check(why.length > 10, `${pg} 開けてある理由が書いてある`);
+    else check(/canLearn\(courseId\)/.test(src), `${pg} に見張りが無い`);
+  }
+  for (const pg of Object.keys(OPEN_PAGES)) {
+    check(pages.includes(pg), `${pg} は実在する（消えた画面が残っていないか）`);
+  }
+
+  /* まとめて見張る所は、もう置かない（また手引きを塞ぐ） */
+  const lay = readFileSync(
     new URL("../src/app/edu/[courseId]/layout.tsx", import.meta.url), "utf8",
   );
-  check(/canLearn\(courseId\)/.test(gate), "講座ごとに見張っている");
-  const lesson = readFileSync(
-    new URL("../src/app/edu/[courseId]/[lessonId]/page.tsx", import.meta.url), "utf8",
-  );
-  check(/canLearn\(courseId\)/.test(lesson), "単元の本文でも、講座ごとに見張っている");
+  check(!/canLearn/.test(strip(lay)), "講座の共通では見張らない（手引きを塞がない）");
 }
 
 console.log("\n── ログインの引き継ぎ（0036）──");

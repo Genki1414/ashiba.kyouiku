@@ -1,4 +1,6 @@
 import { notFound } from "next/navigation";
+import { canLearn } from "@/lib/entitle";
+import { NeedSeat } from "@/components/NeedSeat";
 import { getCurriculum } from "@/lib/curriculum";
 import { drillMinOf, findCourse, needsLive } from "@/content/courses";
 import { LessonList } from "./LessonList";
@@ -11,6 +13,12 @@ export default async function CoursePage({
   params: Promise<{ courseId: string }>;
 }) {
   const { courseId } = await params;
+
+  /* **その講座の受講コードを持っている人だけ。**
+     画面を隠すのではなく、ここで止めて中身を作らない
+     （作ってしまうと、売り物がそのまま返る） */
+  const may = await canLearn(courseId);
+  if (!may.ok) return <NeedSeat why={may.why} company={may.company} />;
   const course = findCourse(courseId);
   const cur = course ? await getCurriculum(courseId) : null;
   if (!course || !cur) notFound();

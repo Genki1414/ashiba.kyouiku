@@ -1325,7 +1325,12 @@ console.log("── 下の行き先と、お知らせの出し方 ──");
     "買った・配った・残りの3つを返す");
   const ad = read("src/app/admin/AdminClient.tsx");
   check(/st\.seats\.free/.test(ad), "残り枚数を出す");
+  /* 配るのは名簿。枚数の一覧へ戻しても配れない
+     （げんきさん 2026-09-10「配るを押してまだ配ってない受講コードに
+     遷移するのはおかしい」） */
   check(/admin-give/.test(ad), "残りがあれば、配る所へ飛べる");
+  check(/href="#roster"/.test(ad) && /id="roster"/.test(ad), "飛び先は名簿");
+  check(!/href="#codes"/.test(ad), "枚数の一覧へは戻さない");
   check(/admin-drills-open/.test(ad), "実技の案内は畳んで出す");
 
   const card = read("src/app/admin/LearnerCard.tsx");
@@ -1367,6 +1372,9 @@ console.log("── 下の行き先と、お知らせの出し方 ──");
   check(!/me-handoff/.test(me), "マイページに、コードを作る枠は置かない");
   /* どのLINEと繋がっているか（0037） */
   check(/st\.lineName/.test(me), "繋がっているLINEの名前を出す");
+  /* つなぎ直す道（げんきさん 2026-09-10「LINEをつなぐが無い」）。
+     スマホやLINEを替えたとき、移せないと知らせが届かない */
+  check(/me-line-relink/.test(me), "つながっていても、つなぎ直せる");
   const my = read("src/app/api/mypage/route.ts");
   check(/lineName/.test(my), "表示名を返す");
   const bot = read("src/lib/lineBot.server.ts");
