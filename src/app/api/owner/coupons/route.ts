@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase/server";
 import { currentOwner } from "@/lib/owner";
 import { currentUser } from "@/lib/supabase/session";
-import { normalizeCouponCode } from "@/lib/coupon";
+import { monthKeyJst, normalizeCouponCode } from "@/lib/coupon";
 
 /* クーポンと、紹介してくれた人への広告費（0032）。本部だけ。
 
@@ -15,7 +15,17 @@ import { normalizeCouponCode } from "@/lib/coupon";
    **入金済みと入金待ちを分ける。**まだ振り込まれていない申込みのぶんまで
    広告費を払うと、取り消されたときに払い過ぎになる。
 
-   金額はぜんぶ税抜。広告費の元が税抜だから、並べて見えた方が確かめやすい。 */
+   金額はぜんぶ税抜。広告費の元が税抜だから、並べて見えた方が確かめやすい。
+
+   ── 月別（2026-09-10）──
+   げんきさん
+     「クーポンと広告費を月別に見れるようにする」
+     「更に支払い先毎で月別に見れるようにもする」
+
+   広告費は月ぎめで払うものなので、**その月にいくら払うのか**が
+   1つの数字で要る。全体・クーポンごと・支払先ごとの3つに月別を付ける。
+   月の切れ目は**日本の時計**で決める（monthKeyJst）。
+   世界標準時のまま切ると、1日の朝に使われたぶんが前の月に落ちる。 */
 
 type Use = {
   coupon_id: string;
@@ -91,18 +101,60 @@ export async function GET() {
   const coName = new Map((cos ?? []).map((c) => [c.id as string, c.name as string]));
 
   const zero = () => ({ uses: 0, net: 0, discount: 0, reward: 0 });
+
+  /* ── 月別の入れ物 ──
+     月の名前（2026-09）→ 入金済み・入金待ち。
+     **足すのは1か所だけ。**画面ごとに数え直すと、必ずどこかで食い違う */
+  type Box = ReturnType<typeof zero>;
+  type Month = { ym: string; paid: Box; pending: Box };
+  const newMonths = () => new Map<string, Month>();
+  const addTo = (
+    m: Map<string, Month>,
+    ym: string,
+    st: "paid" | "pending",
+    u: Use,
+  ) => {
+    if (!ym) return;
+    let row = m.get(ym);
+    if (!row) { row = { ym, paid: zero(), pending: zero() }; m.set(ym, row); }
+    const box = st === "paid" ? row.paid : row.pending;
+    box.uses += 1;
+    box.net += u.net ?? 0;
+    box.discount += u.discount ?? 0;
+    box.reward += u.reward ?? 0;
+  };
+  /* 新しい月が上。**その月に払う額**を探すのは、たいてい直近だから */
+  const sortMonths = (m: Map<string, Month>) =>
+    [...m.values()].sort((a, b) => (a.ym < b.ym ? 1 : a.ym > b.ym ? -1 : 0));
+
+  /* 全体と、支払先ごと。クーポンごとは下の map の中で作る */
+  const allMonths = newMonths();
+  const partnerMonths = new Map<string, Map<string, Month>>();
+
   const list = (cs.data ?? []).map((c) => {
     const mine = uses.filter((u) => u.coupon_id === c.id);
     const paid = zero();
     const pending = zero();
+    const months = newMonths();
+    const pid = (c.partner_id as string) ?? null;
     for (const u of mine) {
       const st = state.get(u.group_id) ?? "cancelled";
+      /* 取り消しは、どの合計にも入れない。**払ってはいけない** */
       if (st === "cancelled") continue;
       const box = st === "paid" ? paid : pending;
       box.uses += 1;
       box.net += u.net ?? 0;
       box.discount += u.discount ?? 0;
       box.reward += u.reward ?? 0;
+
+      const ym = monthKeyJst(u.used_at);
+      addTo(months, ym, st, u);
+      addTo(allMonths, ym, st, u);
+      if (pid) {
+        let pm = partnerMonths.get(pid);
+        if (!pm) { pm = newMonths(); partnerMonths.set(pid, pm); }
+        addTo(pm, ym, st, u);
+      }
     }
     return {
       id: c.id as string,
@@ -120,6 +172,8 @@ export async function GET() {
       note: (c.note as string) ?? "",
       paid,
       pending,
+      /* 月別。新しい月が上 */
+      months: sortMonths(months),
       /* 明細。誰がいつ使ったか。**取り消したものも出す**（消えると調べられない） */
       rows: mine.slice(0, 50).map((u) => ({
         groupId: u.group_id,
@@ -153,10 +207,12 @@ export async function GET() {
         net: mine.reduce((n, c) => n + c.pending.net, 0),
         reward: mine.reduce((n, c) => n + c.pending.reward, 0),
       },
+      /* この支払先に、月ごとにいくら払うか。**請求のもとになる数字** */
+      months: sortMonths(partnerMonths.get(p.id as string) ?? newMonths()),
     };
   });
 
-  return NextResponse.json({ ok: true, list, partners });
+  return NextResponse.json({ ok: true, list, partners, months: sortMonths(allMonths) });
 }
 
 /* 作る・止める。本部だけ。

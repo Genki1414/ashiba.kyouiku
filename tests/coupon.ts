@@ -6,7 +6,7 @@
    同じ数を両方に入れて、同じ答えになることを見る
    （SQL 側は supabase/tests/coupon.sql）。 */
 
-import { discountOf, lineAmount, normalizeCouponCode, rewardOf, spreadDiscount } from "../src/lib/coupon";
+import { discountOf, lineAmount, monthKeyJst, monthLabel, normalizeCouponCode, rewardOf, spreadDiscount } from "../src/lib/coupon";
 import { TAX_RATE } from "../src/lib/pricing";
 
 let ok = 0;
@@ -83,6 +83,28 @@ console.log("── 値引きしたあとの、行の金額 ──");
   const b = lineAmount(22500, 0);
   eq(b.amount, 22500 + Math.floor(22500 * TAX_RATE), "値引きが無ければ、今までと同じ");
   eq(lineAmount(1000, 5000).amount, 0, "行の額より大きい値引きでも、マイナスにしない");
+}
+
+console.log("── 月の切れ目（2026-09-10）──");
+{
+  /* げんきさん「クーポンと広告費を月別に見れるようにする」。
+     使った日は世界標準時でしまってある。そのまま切ると、
+     **1日の朝9時前に使われたぶんが、前の月に落ちる。**
+     広告費は月ぎめで払うので、1件でも落ちれば払う額が変わる */
+  eq(monthKeyJst("2026-09-15T03:00:00Z"), "2026-09", "昼間のぶんは、その月");
+
+  /* 10月1日 0時30分（日本）＝ 9月30日 15時30分（世界標準時） */
+  eq(monthKeyJst("2026-09-30T15:30:00Z"), "2026-10", "月初の未明は、新しい月に入る");
+  /* 9月30日 23時59分（日本）＝ 9月30日 14時59分（世界標準時） */
+  eq(monthKeyJst("2026-09-30T14:59:00Z"), "2026-09", "月末の夜は、まだ前の月");
+  /* 1月1日 0時0分（日本）＝ 12月31日 15時0分（世界標準時）。年もまたぐ */
+  eq(monthKeyJst("2026-12-31T15:00:00Z"), "2027-01", "年をまたいでも正しい");
+
+  eq(monthKeyJst("2026-01-05T00:00:00Z"), "2026-01", "1月は 01 と 0 を付ける");
+  eq(monthKeyJst("こわれた日付"), "", "読めない日は、空にする（勝手にどこかの月へ入れない）");
+
+  eq(monthLabel("2026-09"), "2026年9月", "画面には日本語で出す");
+  eq(monthLabel("2026-01"), "2026年1月", "1月の 0 は落とす");
 }
 
 console.log(`\n${ok} 件通過 / ${ng} 件失敗`);

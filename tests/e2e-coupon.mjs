@@ -195,6 +195,15 @@ await page.route("**/api/owner/orders", (route) =>
     status: 200, contentType: "application/json",
     body: JSON.stringify({ ok: true, orders: [], invoiceNo: "T0000000000000" }),
   }));
+/* 月別（げんきさん 2026-09-10）。8月と9月の2か月。
+   **入金済みだけが払う対象。**入金待ちを足した額が画面に出てはいけない */
+const MONTHS = [
+  { ym: "2026-09", paid: { uses: 1, net: 20250, discount: 2250, reward: 4050 },
+    pending: { uses: 1, net: 20250, discount: 2250, reward: 4050 } },
+  { ym: "2026-08", paid: { uses: 1, net: 20250, discount: 2250, reward: 4050 },
+    pending: { uses: 0, net: 0, discount: 0, reward: 0 } },
+];
+
 await page.route("**/api/owner/coupons", (route) =>
   route.fulfill({
     status: 200, contentType: "application/json",
@@ -212,12 +221,15 @@ await page.route("**/api/owner/coupons", (route) =>
           { groupId: "g2", company: "よその工業", net: 20250, discount: 2250, reward: 4050, rate: 20,
             usedAt: "2026-09-08T00:00:00Z", status: "pending" },
         ],
+        months: MONTHS,
       }],
       partners: [{
         id: "p1", name: "プラント紹介", contact: "plant@example.jp", active: true, coupons: 1,
         paid: { uses: 2, net: 40500, reward: 8100 },
         pending: { uses: 1, net: 20250, reward: 4050 },
+        months: MONTHS,
       }],
+      months: MONTHS,
     }),
   }));
 await page.goto(`${BASE}/owner`);
@@ -246,6 +258,66 @@ await page.waitForSelector('[data-testid="owner-coupons"]', { timeout: 8000 });
   check(rows.includes("クーポン工業") && rows.includes("入金済み") && rows.includes("入金待ち"),
     `明細に、どこがいつ使ったかが出る（${rows.slice(0, 60)}）`);
   console.log("OK: 運営管理の画面で、クーポンごとの売上と広告費が分かる");
+}
+
+/* ── 月別（げんきさん 2026-09-10）──
+     「クーポンと広告費を月別に見れるようにする」
+     「更に支払い先毎で月別に見れるようにもする」 */
+{
+  const all = page.getByTestId("coupon-months-all");
+  check(await all.count() > 0, "全体の月別がある");
+  await all.locator("summary").click();
+  await page.waitForTimeout(150);
+  const t = (await all.innerText()).replace(/\s/g, "");
+  check(t.includes("2026年9月") && t.includes("2026年8月"), `月が並ぶ（${t.slice(0, 60)}）`);
+  /* 新しい月が上。締めるときに見るのは、たいてい直近 */
+  check(t.indexOf("2026年9月") < t.indexOf("2026年8月"), "新しい月が上");
+  check(t.includes("4,050"), "その月の広告費が出る");
+  /* **入金済みと入金待ちを足さない。**足すと払い過ぎになる。
+     行の額は入金済みだけ。入金待ちは、その下に別の行で出す */
+  const row = (await all.getByTestId("coupon-month-row").first().innerText()).replace(/\s/g, "");
+  check(row.includes("2026年9月") && row.includes("4,050"), `月の行に、入金済みの額が出る（${row}）`);
+  check(!row.includes("8,100"), "月の行で、入金済みと入金待ちを足していない");
+  check(row.includes("入金待ち"), "入金待ちは、別の行に分けて出す");
+  /* 見出しの合計も入金済みだけ（4,050 が2か月ぶんで 8,100） */
+  check(t.includes("入金済みの広告費") && t.includes("8,100"),
+    "畳んだ見出しにも、払ってよい合計が出る");
+
+  const one = page.getByTestId("coupon-months-one");
+  check(await one.count() > 0, "クーポンごとの月別がある");
+  const part = page.getByTestId("coupon-months-partner");
+  check(await part.count() > 0, "支払先ごとの月別がある");
+  await part.locator("summary").click();
+  await page.waitForTimeout(150);
+  const pt = (await part.innerText()).replace(/\s/g, "");
+  check(pt.includes("2026年9月") && pt.includes("4,050"), `支払先の月別に額が出る（${pt.slice(0, 60)}）`);
+  console.log("OK: 全体・クーポンごと・支払先ごとの3か所で、月別が見られる");
+}
+
+/* ── コードのコピーと、配るための絵（げんきさん 2026-09-10）── */
+{
+  await page.context().grantPermissions(["clipboard-read", "clipboard-write"]).catch(() => {});
+  const copy = page.getByTestId("coupon-copy").first();
+  check(await copy.count() > 0, "コードをコピーする札がある");
+  await copy.click();
+  await page.waitForTimeout(250);
+  const said = await copy.innerText();
+  check(/コピーしました|長押し/.test(said), `押したら、写せたかどうかを言う（${said}）`);
+
+  await page.getByTestId("coupon-art-open").first().click();
+  await page.waitForSelector('[data-testid="coupon-art-canvas"]', { timeout: 5000 });
+  const art = await page.evaluate(() => {
+    const cv = document.querySelector('[data-testid="coupon-art-canvas"]');
+    const g = cv.getContext("2d");
+    /* 真っ白（何も描いていない）ではないか。角の色を見る */
+    const px = g.getImageData(4, 4, 1, 1).data;
+    return { w: cv.width, h: cv.height, px: [px[0], px[1], px[2]], url: cv.toDataURL("image/png").slice(0, 22) };
+  });
+  check(art.w === 1200 && art.h === 630, `貼っても切られない形（${art.w}×${art.h}）`);
+  check(art.url.startsWith("data:image/png"), "画像として取り出せる");
+  check(!(art.px[0] === 0 && art.px[1] === 0 && art.px[2] === 0), "描かれている（真っ黒ではない）");
+  check(await page.getByTestId("coupon-art-save").count() > 0, "保存する札がある");
+  console.log("OK: コードを写せて、配るためのクーポン画像が作れる");
 }
 
 await browser.close();

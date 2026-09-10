@@ -93,3 +93,29 @@ export function lineAmount(subtotal: number, discount: number): { net: number; t
   const tax = Math.floor(net * TAX_RATE);
   return { net, tax, amount: net + tax };
 }
+
+/* ── 月別に見るための、月の名前（2026-09-10）──
+
+   げんきさん「クーポンと広告費を月別に見れるようにする」。
+
+   使った日は、データベースには**世界標準時**でしまってある。
+   そのまま月で切ると、10月1日の朝9時前に使われたぶんが
+   **9月に入ってしまう。**日本の時計で切り直してから月を出す。
+
+   例）2026-10-01 00:30（日本）＝ 2026-09-30 15:30（世界標準時）
+       → "2026-10" でなければならない */
+export function monthKeyJst(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  /* 9時間ぶん進めてから、世界標準時の日付として読む。
+     こうすると、日本の日付そのものになる */
+  const jst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
+  const m = `${jst.getUTCMonth() + 1}`.padStart(2, "0");
+  return `${jst.getUTCFullYear()}-${m}`;
+}
+
+/** "2026-09" を「2026年9月」に。画面に出す形 */
+export function monthLabel(ym: string): string {
+  const [y, m] = ym.split("-");
+  return y && m ? `${y}年${Number(m)}月` : ym;
+}

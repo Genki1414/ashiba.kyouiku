@@ -1547,6 +1547,43 @@ console.log("── クーポンと広告費（0032）──");
   check(/rewardRate > 0 && !partnerId/.test(own), "広告費を出すなら、支払い先を決めさせる");
   const ownc = read("src/app/owner/CouponClient.tsx");
   check(/入金済み/.test(ownc) && /入金待ち/.test(ownc), "入金済みと入金待ちを分けて出す");
+
+  /* ── 月別（げんきさん 2026-09-10）──
+       「クーポンと広告費を月別に見れるようにする」
+       「更に支払い先毎で月別に見れるようにもする」
+     広告費は月ぎめで払う。月の切れ目は**日本の時計**で決める。
+     世界標準時のまま切ると、1日の朝に使われたぶんが前の月に落ちて、
+     払う額が変わる（数え方は tests/coupon.ts が見ている） */
+  check(/monthKeyJst\(u\.used_at\)/.test(own), "月は、日本の時計で切る");
+  check(/months: sortMonths\(allMonths\)/.test(own), "全体の月別を返す");
+  check(/months: sortMonths\(months\)/.test(own), "クーポンごとの月別を返す");
+  check(/months: sortMonths\(partnerMonths\.get/.test(own), "支払先ごとの月別を返す");
+  /* 数えるのはサーバの1か所だけ。画面で足し直すと、同じ月なのに
+     場所によって違う額が出る */
+  check(!/reduce\([^)]*month/i.test(ownc), "画面で月を数え直していない");
+  check(/testId="coupon-months-all"/.test(ownc), "全体の月別が画面にある");
+  check(/testId="coupon-months-one"/.test(ownc), "クーポンごとの月別が画面にある");
+  check(/testId="coupon-months-partner"/.test(ownc), "支払先ごとの月別が画面にある");
+  /* 3か所とも同じ形。別々に書くと、片方だけ列が増えて読み比べられない */
+  check((ownc.match(/<Months/g) ?? []).length === 3 && /function Months\(/.test(ownc),
+    "月別の並びは1つの部品（3か所で同じ形）");
+
+  /* ── コピーと、配るための絵（げんきさん 2026-09-10）──
+       「クーポン画面でクーポンコードのコピーと、クーポン画像作成機能」 */
+  check(/<CopyBtn/.test(ownc) && /coupon-copy/.test(ownc), "コードをコピーできる");
+  const cb = read("src/components/ui/CopyBtn.tsx");
+  check(/navigator\.clipboard/.test(cb) && /catch/.test(cb),
+    "写せない相手には、そう出す（黙って失敗させない）");
+
+  const art = read("src/components/owner/drawCoupon.ts");
+  check(/export function drawCoupon/.test(art), "クーポンの絵を描くところがある");
+  check(/coupon-art-save/.test(ownc), "作った絵を保存できる");
+  /* **外に出る絵。**渡した相手が読む。こちらの取り分は載せない */
+  check(!/reward|rewardRate|partner/i.test(art), "絵に広告費と支払先を載せない");
+  check(!/maxUses|companyUses/.test(art), "絵に利用回数の上限を載せない");
+  check(/期限なし/.test(art), "期限が無いときも、そう書く（空欄にしない）");
+  const artBox = ownc.slice(ownc.indexOf("function CouponArtBox"), ownc.indexOf("export function CouponClient"));
+  check(!/rewardRate|partnerId/.test(artBox), "絵に渡す中身にも、広告費と支払先を入れない");
 }
 
 console.log("── 下の行き先と、お知らせの出し方 ──");
