@@ -26,18 +26,32 @@ import { getLessonList } from "@/lib/curriculum";
 
 
 /** データベースの版を読む。読めなければ空。
-    service_role で聞くので、**ログインしていなくても分かる** */
+    service_role で聞くので、**ログインしていなくても分かる**
+
+    ── 往復にかかる時間も返す（2026-09-10）──
+    げんきさん「マイページ 6秒」。画面が遅いとき、たいていは
+    **サーバとデータベースが遠い**（サーバが米国、データベースが東京、など）。
+    1往復に何ミリ秒かかっているかが分かれば、何回減らせばいいか、
+    そもそも場所を寄せるべきかが決められる。
+
+    2回聞くのは、**1回目には繋ぎ始め（TLSの握手）が乗る**ため。
+    2回目が、そのあと1往復にかかる本当の時間 */
 async function readSchema(
   supabase: ReturnType<typeof getServiceClient>,
-): Promise<{ now: string; need: string; ok: boolean }> {
+): Promise<{ now: string; need: string; ok: boolean; firstMs: number; roundMs: number }> {
   const need = NEED_SCHEMA;
-  if (!supabase) return { now: "", need, ok: false };
+  if (!supabase) return { now: "", need, ok: false, firstMs: -1, roundMs: -1 };
   try {
+    const t0 = Date.now();
     const { data, error } = await supabase.rpc("schema_version");
+    const firstMs = Date.now() - t0;
+    const t1 = Date.now();
+    await supabase.rpc("schema_version");
+    const roundMs = Date.now() - t1;
     const now = error ? "" : String(data ?? "");
-    return { now, need, ok: !!now && now >= need };
+    return { now, need, ok: !!now && now >= need, firstMs, roundMs };
   } catch {
-    return { now: "", need, ok: false };
+    return { now: "", need, ok: false, firstMs: -1, roundMs: -1 };
   }
 }
 

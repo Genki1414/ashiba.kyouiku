@@ -380,9 +380,14 @@ console.log("── データベースの版 ──");
     health.indexOf("if (!supabase || !enrollmentId)") + 500,
   );
   check(/\n\s*schema,/.test(localOut), "ログインしていない人にも版を返す");
-  /* 同じことを2度聞かない */
-  check((health.match(/rpc\("schema_version"\)/g) ?? []).length === 1,
-    "版を聞くのは1回だけ");
+  /* 同じことを2度聞かない。**測るときだけ2回**（2026-09-10）。
+     1回目には繋ぎ始め（TLSの握手）が乗るので、2回目が本当の1往復。
+     3回以上なら、どこかで聞き直している */
+  const asks = (health.match(/rpc\("schema_version"\)/g) ?? []).length;
+  check(asks === 2, `版を聞くのは、測るための2回だけ（いま ${asks}回）`);
+  check(/roundMs/.test(health), "1往復にかかる時間を返す（遠さが分かる）");
+  check(/data-testid="db-round"/.test(read("src/app/setup/SetupClient.tsx")),
+    "設定の画面に、往復の時間を出す");
 
   /* mode が "local" になる理由は2つあり、意味がまるで違う。
      鍵が無いのか、鍵はあって未ログインなのか */

@@ -18,8 +18,17 @@ import { statOf } from "@/content/lessonStats";
 type Body = { name?: string; birth?: string };
 
 export async function GET() {
+  /* ── どこで待っているかを、本番の記録に残す（2026-09-10）──
+     げんきさん「マイページ 6秒」。手元（Supabase なし）では出ない遅さなので、
+     本番のサーバでしか分からない。区切りごとの時間を1行だけ出す。
+     **人の名前も会社も出さない。**出すのは区切りの名前とミリ秒だけ */
+  const t0 = Date.now();
+  const lap: string[] = [];
+  const mark = (name: string) => lap.push(`${name}=${Date.now() - t0}`);
+
   const supabase = getServiceClient();
   const user = supabase ? await currentUser() : null;
+  mark("誰か");
   if (!supabase || !user) {
     return NextResponse.json({ ok: false, reason: "ログインが必要です。" }, { status: 403 });
   }
@@ -52,6 +61,7 @@ export async function GET() {
       .is("handled_at", null),
   ]);
 
+  mark("最初の4つ");
   const rows = mem ?? [];
   const ids = rows.map((m) => m.company_id as string);
   const eids = (ens ?? []).map((e) => e.id as string);
@@ -77,6 +87,7 @@ export async function GET() {
       ? supabase.from("exams").select("enrollment_id, passed").in("enrollment_id", eids)
       : Promise.resolve({ data: [] as Record<string, unknown>[] }),
   ]);
+  mark("次の4つ");
   const nameOf = new Map((cos ?? []).map((c) => [c.id as string, c.name as string]));
   const joined = rows.find((m) => m.approved_at);
   const member = joined
@@ -137,7 +148,9 @@ export async function GET() {
   /* 外部で取得した資格（本人がマイページから登録したもの）のうち、
      この仕組みの講座に当たるもの。**受講の一覧で「取得済み」と出す**
      （げんきさん 2026-09-09）。修了証はこの上の cert が持っている */
+  mark("講座ごと");
   const heldOutside = (await heldCourseIds(supabase, [user.id])).get(user.id) ?? [];
+  mark("取得済み");
 
   /* この店の LINE と結び付いているか（0034）。
      **店ごとに違う。**足場屋革命-教育で結んでいても、
@@ -147,9 +160,11 @@ export async function GET() {
      （げんきさん 2026-09-10「どのLINEアカウントと繋がってるか表示」）。
      名前が入っていなければ、その場で LINE に聞いて入れる */
   const line = await lineLinkOf(user.id);
+  mark("LINE");
   const lineLinked = !!line.lineUserId;
   const lineName = line.name;
 
+  console.log(`mypage ${lap.join(" ")} 合計=${Date.now() - t0}ms`);
   return NextResponse.json({
     ok: true,
     held: heldOutside,

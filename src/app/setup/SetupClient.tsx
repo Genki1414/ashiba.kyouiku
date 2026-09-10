@@ -17,7 +17,7 @@ type Health = {
     examSecret: boolean;
   };
   checks?: Record<string, { ok: boolean; detail: string }>;
-  schema?: { now: string; need: string; ok: boolean };
+  schema?: { now: string; need: string; ok: boolean; firstMs?: number; roundMs?: number };
   /* いま誰として記録しているか */
   auth?: { required: boolean; signedIn: boolean; enrollment: string; email?: string | null; owner?: boolean; admin?: boolean; company?: string; canLearn?: boolean; learnBy?: string };
   /* この版がいつのものか。新しい版が届いているかを見る目印 */
@@ -169,6 +169,31 @@ export function SetupClient() {
                   {h.schema.now || "読めません"}
                 </span>
                 <span className="shrink-0 text-[11.5px] text-dim2">／ 要る版 {h.schema.need}</span>
+              </div>
+            )}
+
+            {/* ── データベースまでの往復（2026-09-10）──
+                げんきさん「マイページ 6秒」。画面が遅いとき、たいていは
+                **サーバとデータベースが遠い。**1往復に何ミリ秒かかるかが
+                分かれば、聞く回数を減らすのか、場所を寄せるのかが決められる。
+                50ms より遅ければ、近くに寄せた方が効く */}
+            {typeof h.schema?.roundMs === "number" && h.schema.roundMs >= 0 && (
+              <div
+                className={`mt-2 flex items-baseline gap-2 rounded-xl border bg-panel p-4 ${
+                  h.schema.roundMs <= 50 ? "border-line" : "border-org"
+                }`}
+                data-testid="db-round"
+              >
+                <span className={`text-[13px] ${h.schema.roundMs <= 50 ? "text-grn" : "text-org"}`}>
+                  {h.schema.roundMs <= 50 ? "✓" : "！"}
+                </span>
+                <span className="text-[12.5px] text-dim">データベースまで1往復</span>
+                <span className="ml-auto shrink-0 font-mono text-[13px] font-bold text-txt">
+                  {h.schema.roundMs}ms
+                </span>
+                <span className="shrink-0 text-[11.5px] text-dim2">
+                  ／ 繋ぎ始め {h.schema.firstMs}ms
+                </span>
               </div>
             )}
 
