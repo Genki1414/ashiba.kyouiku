@@ -568,9 +568,14 @@ console.log("── 受講リクエストが返す形 ──");
   check(/member\?\.state !== "active"/.test(need), "在籍していない人には、先にやることを出す");
   /* 会社は画面から渡さない（GET と同じ決まり） */
   check(!/companyId/.test(need), "会社の番号を画面から渡していない");
-  /* 会社に居ないと誰宛か決まらない。在籍しているときだけ出す */
-  check(/mine\?\.state === "active" && !!reqs\?\.length/.test(join),
-    "在籍しているときだけ出している");
+  /* 会社に居ないと誰宛か決まらない。在籍しているときだけ出す。
+     いまは「在籍している人」の節の中に置いてある（2026-09-10 の整理） */
+  check(/!!reqs\?\.length/.test(join), "講座が取れていないときは出さない");
+  check(
+    join.indexOf("{active && (") < join.indexOf('data-testid="join-request"') &&
+      join.indexOf('data-testid="join-request"') < join.indexOf("{pending && ("),
+    "在籍しているときだけ出している",
+  );
 
   const adm = read("src/app/admin/AdminClient.tsx");
   check(/\/order\?courseId=/.test(adm), "担当者の画面から、申し込み画面へ渡している");
@@ -1074,6 +1079,87 @@ console.log("── 画面に出る字に、飾りの記号が混じっていな
   check(bad.length === 0, `画面に出る字に ** を書いていない（${bad.join(" ／ ") || "無し"}）`);
 }
 
+console.log("── 畳んだ見出しに、取得済みの件数が出るか（2026-09-10）──");
+{
+  /* げんきさん「73講座を畳んであるので、開かないと自分がどれを
+     持っているか分からない」。畳んだままだと、何も取っていない人と
+     20件取った人の画面が、そっくり同じに見える */
+  const hc = read("src/components/HeldCount.tsx");
+  check(/loadMe\(\)/.test(hc), "件数は /api/me から出す（作り置きの札には載せない）");
+  check(/if \(!n\) return null/.test(hc), "0件のときは出さない");
+  check(/data-testid="course-held-count"/.test(hc), "件数を見つけられる印がある");
+  /* 配列をそのまま見張ると、描き直すたびに聞きに行く */
+  check(/ids\.join\(","\)/.test(hc), "描き直しのたびに聞きに行かない");
+  /* 畳んだ見出しは3か所ある（ホームの2つと、講座の一覧の中の1つ）。
+     1つ入れ忘れると、その画面だけ分からないままになる */
+  for (const f of [
+    "src/components/CourseDrawer.tsx",
+    "src/components/OtherTokubetsu.tsx",
+    "src/app/edu/page.tsx",
+  ]) {
+    const d = read(f);
+    check(/<HeldCount ids=/.test(d), `${f} の見出しに件数が出る`);
+    check(d.indexOf("<HeldCount") < d.indexOf("</summary>"),
+      `${f} は畳んだままでも見える所に出す`);
+  }
+}
+
+console.log("── 受講する人の画面に「席」と書いていないか ──");
+{
+  /* 「席」は帳簿の言葉。売り物の数を数えるときは要るが、
+     **受講する人には「受講コード」と言う**（前からの決まり）。
+     混ぜると、渡された12文字が「席」なのか別物なのか分からなくなる。
+
+     実際に残っていた（受講コードを入れる画面の「席（受講コード）を用意」と
+     「席あり」。2026-09-10）。注釈は見ない（考え方を書く所なので）。
+     運営と受講管理の画面は数を扱うので、ここでは見ない。
+     「在席確認」は別の言葉（その場に居るか）なので通す。 */
+  const skip = ["src/app/admin", "src/app/owner"];
+  const seatFiles: string[] = [];
+  const walk2 = (d: string) => {
+    if (skip.some((k) => d.startsWith(k))) return;
+    for (const e of readdirSync(new URL(`../${d}`, import.meta.url), { withFileTypes: true })) {
+      if (e.isDirectory()) walk2(`${d}/${e.name}`);
+      else if (e.name.endsWith(".tsx")) seatFiles.push(`${d}/${e.name}`);
+    }
+  };
+  for (const d of ["src/app", "src/components"]) walk2(d);
+
+  const seats: string[] = [];
+  for (const f of seatFiles) {
+    const body = read(f).replace(/\/\*[\s\S]*?\*\//g, "");
+    for (const m of body.matchAll(/(.?)席/g)) {
+      if (m[1] === "在") continue;
+      seats.push(`${f}: …${body.slice(Math.max(0, m.index - 12), m.index + 8)}…`);
+    }
+  }
+  check(seats.length === 0, `受講する人の画面に「席」と書いていない（${seats.join(" ／ ") || "無し"}）`);
+}
+
+console.log("── 受講を始める画面が、その人のいる所を言うか（2026-09-10）──");
+{
+  /* げんきさん「UIも動線が分かりにくいから整理して欲しい」。
+     ホームの札4枚が、どれも /join へ行く。名前が違うのに
+     着いた先の見出しは「会社とつなぐ」のままだった */
+  const j = read("src/app/join/JoinClient.tsx");
+  check(/data-testid="join-title"/.test(j), "画面の名前を出す所がある");
+  for (const t of ["受講をはじめる", "承認を待っています", "会社とつなぐ"]) {
+    check(j.includes(`"${t}"`), `いる所で名前が変わる（${t}）`);
+  }
+  /* 番号は使わない。**出ない節があるので、必ず飛ぶ** */
+  const jBody = j.replace(/\/\*[\s\S]*?\*\//g, "");
+  check(!/[①②③④]/.test(jBody), "節に番号を振らない（出ない節があると飛ぶ）");
+  /* 在籍している人には、受講コードがいちばん上 */
+  check(j.indexOf("{codeBox}") < j.indexOf('data-testid="join-active"'),
+    "在籍している人には、受講コードを所属より上に出す");
+
+  /* 押した札の名前が、着いた先に出ているか */
+  const h = read("src/components/HomeCards.tsx");
+  for (const t of ["承認を待っています", "会社とつなぐ", "受講コードを入れる", "受講リクエストを送る"]) {
+    check(h.includes(t) && j.includes(t), `札の名前が、着いた先にもある（${t}）`);
+  }
+}
+
 console.log("── 1回の申込みを、1件として見せているか ──");
 {
   /* **請求書だけ1枚にして、ほかを行ごとのままにしていた**（2026-09-09）。
@@ -1419,7 +1505,23 @@ console.log("── 下の行き先と、お知らせの出し方 ──");
   const mp = read("src/app/api/mypage/route.ts");
   check(/heldCourseIds\(supabase, \[user\.id\]\)/.test(mp), "外部で取得した講座も返す");
   const ll = read("src/app/edu/[courseId]/LessonList.tsx");
-  check(/<HeldNotice courseId=\{course\.id\} \/>/.test(ll), "講座を開いた所にも「受講不要」と出す");
+  check(/<HeldNotice courseId=\{course\.id\} \/>/.test(ll), "講座を開いた所にも、持っていることを出す");
+
+  /* ── 「受講不要」とは、どこにも書かない（げんきさん 2026-09-09）──
+     受けるか受けないかを決めるのは本人と会社。こちらが「要らない」と
+     言い切る筋合いではない。**持っていることだけ伝える。**
+     マイページからは消したのに、講座を開いた所には残っていた（2026-09-10） */
+  const uiFiles: string[] = [];
+  const walk3 = (d: string) => {
+    for (const e of readdirSync(new URL(`../${d}`, import.meta.url), { withFileTypes: true })) {
+      if (e.isDirectory()) walk3(`${d}/${e.name}`);
+      else if (e.name.endsWith(".tsx")) uiFiles.push(`${d}/${e.name}`);
+    }
+  };
+  for (const d of ["src/app", "src/components"]) walk3(d);
+  const noNeed = uiFiles.filter((f) =>
+    /受講不要/.test(read(f).replace(/\/\*[\s\S]*?\*\//g, "")));
+  check(noNeed.length === 0, `画面に「受講不要」と書かない（${noNeed.join(" ／ ") || "無し"}）`);
 }
 
 console.log(`\n通り ${ok} ／ だめ ${ng}`);

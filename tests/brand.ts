@@ -193,8 +193,11 @@ console.log("\n── 平らな店でも、押して開く ──");
   const drawer = code("src/components/CourseDrawer.tsx");
   check(drawer.includes("<details"), "開け閉めは details（JS が動かなくても開く）");
   check(drawer.includes("<OtherCourses"), "中身は OtherCourses に任せる");
-  /* ここで札を並べると、探す窓が札の下に来る（一度やらかしている） */
-  check(!/\bready\.map\(/.test(drawer), "CourseDrawer が自分で札を並べていない");
+  /* ここで札を並べると、探す窓が札の下に来る（一度やらかしている）。
+     **番号だけ取り出すのは、並べているうちに入らない**
+     （見出しの「◯件取得済み」に渡すため。2026-09-10） */
+  const laid = drawer.replace(/\.map\(\(c\) => c\.id\)/g, "");
+  check(!/\bready\.map\(/.test(laid), "CourseDrawer が自分で札を並べていない");
 
   for (const f of ["src/app/page.tsx", "src/app/edu/page.tsx"]) {
     const src = code(f);

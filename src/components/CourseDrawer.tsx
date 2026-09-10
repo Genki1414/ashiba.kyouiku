@@ -1,5 +1,6 @@
 import type { CourseMeta } from "@/content/courses";
 import { OtherCourses } from "./OtherCourses";
+import { HeldCount } from "./HeldCount";
 
 /* 講座の一覧を、押して開く形で出す。
 
@@ -42,6 +43,9 @@ export function CourseDrawer({
         </span>
         {title}
         <span className="text-[11.5px] font-normal text-dim">{n}件</span>
+        {/* 開く前に、自分がいくつ持っているかが分かるように
+            （げんきさん 2026-09-10）。0件のときは出ない */}
+        <HeldCount ids={ready.map((c) => c.id)} />
       </summary>
       <div className="px-4 pb-4">
         <OtherCourses ready={ready} soon={soon} />

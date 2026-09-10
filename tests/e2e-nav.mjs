@@ -81,6 +81,32 @@ await page.waitForTimeout(800);
   console.log("OK: 立場によって行き先が変わる");
 }
 
+/* ── お知らせに、誰から届いたかが出る（げんきさん 2026-09-10）── */
+{
+  /* 会社の教育担当者からの返事と、運営からの返事が、同じ枠に並ぶ。
+     **次に誰に聞けばいいか**が分からないと、動きようがない */
+  const now = new Date().toISOString();
+  await page.route("**/api/notices", (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
+      ok: true, unread: 2,
+      notices: [
+        { id: "n1", kind: "given", t: "受講コードが届きました", d: "押すと開きます",
+          href: "/edu/ashiba", from: "admin", note: "", at: now, read: false },
+        { id: "n2", kind: "slot", t: "討議の候補日が出ました", d: "日を選んでください",
+          href: "/edu/shokucho/cert", from: "owner", note: "", at: now, read: false },
+      ],
+    }) }));
+  await page.goto(`${BASE}/`);
+  await page.waitForTimeout(700);
+  await page.getByTestId("notices").waitFor({ timeout: 8000 });
+  const froms = (await page.getByTestId("notice-from").allInnerTexts()).map((t) => t.trim());
+  check(froms.length === 2, `1件ずつ差出人が出る（${froms.join("・")}）`);
+  check(froms.includes("教育担当者"), `受講コードを配ったのは会社の担当者（${froms.join("・")}）`);
+  check(froms.includes("運営"), `討議の日を出すのは運営（${froms.join("・")}）`);
+  await page.unroute("**/api/notices");
+  console.log("OK: お知らせに、誰から届いたかが出る");
+}
+
 /* ── ホームと下の札が重ならない（げんきさん 2026-09-10）── */
 {
   /* 「ホームと下部タブで重複するものはホームに出さない」。

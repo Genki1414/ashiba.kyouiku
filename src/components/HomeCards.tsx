@@ -44,7 +44,14 @@ export function HomeCards() {
 
   const cards = [];
 
-  /* ── 下の札に出ている行き先は、ここに出さない ──
+  /* ── 札の名前は、着いた先の名前と同じにする ──
+     げんきさん（2026-09-10）「UIも動線が分かりにくい」。
+     4枚とも /join へ行くので、**押した札の名前が、着いた先の見出しに
+     出ていないと「間違えて別の所へ来た」と思う。**
+     /join は立場で名前が変わる（会社とつなぐ／承認を待っています／
+     受講をはじめる）ので、札の言葉をそちらに合わせてある。
+
+     ── 下の札に出ている行き先は、ここに出さない ──
      げんきさん（2026-09-10）
        「ホームと下部タブで重複するものはホームに出さない」
 
@@ -92,7 +99,7 @@ export function HomeCards() {
         data-testid="home-pending"
       >
         <div className="text-[11px] font-extrabold tracking-widest text-yel">承認待ち</div>
-        <div className="mt-1 text-[15px] font-black text-txt">会社からの承認をお待ちください</div>
+        <div className="mt-1 text-[15px] font-black text-txt">承認を待っています</div>
         <div className="mt-1 text-[12px] leading-relaxed text-dim">
           お申し込みは届いています。教育担当者が承認すると、名簿に登録され受講できるようになります。
           <br />
@@ -142,7 +149,7 @@ export function HomeCards() {
         data-testid="home-request"
       >
         <div className="text-[11px] font-extrabold tracking-widest text-cyan">ほかの講座も</div>
-        <div className="mt-1 text-[15px] font-black text-txt">受けたい講座をリクエストする</div>
+        <div className="mt-1 text-[15px] font-black text-txt">受講リクエストを送る</div>
         <div className="mt-1 text-[12px] leading-relaxed text-dim">
           受けたい講座を選んで送ると、会社の教育担当者に届きます。
           担当者が受講コードを用意すると、次に開いたときからその講座が出ます。

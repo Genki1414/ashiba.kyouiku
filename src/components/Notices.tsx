@@ -32,9 +32,24 @@ type Notice = {
   t: string;
   d: string;
   href: string;
+  /** 誰から届いたか。admin=会社の教育担当者／owner=運営 */
+  from?: "admin" | "owner";
   note: string;
   at: string;
   read: boolean;
+};
+
+/* 差出人の札（げんきさん 2026-09-10）。
+
+   受講する人から見ると、返事をくれる相手は2種類いる。
+   **どちらも同じ「おしらせ」に並ぶので、次に誰に聞けばいいかが
+   分からなくなる。**「断られました」が届いたとき、会社の担当者に
+   聞くのか、運営に問い合わせるのかで動きが変わる。
+
+   古い返事（from が無い）でも落とさない。そのときは札を出さない */
+const FROM: Record<string, { t: string; cls: string }> = {
+  admin: { t: "教育担当者", cls: "border-grn text-grn" },
+  owner: { t: "運営", cls: "border-cyan text-cyan" },
 };
 
 /** 「3日前」くらいの粗さで出す。何時何分は要らない */
@@ -144,6 +159,14 @@ export function Notices({ mode = "unread" }: { mode?: "unread" | "all" } = {}) {
               >
                 {n.t}
               </span>
+              {!!n.from && !!FROM[n.from] && (
+                <span
+                  className={`shrink-0 rounded border px-1.5 py-0.5 text-[10px] font-bold ${FROM[n.from].cls}`}
+                  data-testid="notice-from"
+                >
+                  {FROM[n.from].t}
+                </span>
+              )}
               <span className="ml-auto shrink-0 text-[11px] text-dim2">{ago(n.at)}</span>
             </div>
             <div className="mt-0.5 pl-3.5 text-[12px] leading-relaxed text-dim">{n.d}</div>

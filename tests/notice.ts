@@ -3,7 +3,9 @@
 
 import { readFileSync, readdirSync } from "node:fs";
 import {
+  NOTICE_HEADS,
   NOTICE_KINDS,
+  noticeFrom,
   isNoticeKind,
   needsCourse,
   noteOf,
@@ -221,6 +223,39 @@ console.log("\n── 版 ──");
   check(Number(last.slice(0, 4)) >= 25, `0025 以降まで来ている（${last}）`);
   const all = read("supabase/apply-all.sql");
   check(all.includes("add_notice"), "apply-all.sql にも入っている");
+}
+
+/* ── 差出人（げんきさん 2026-09-10「全部やろう」）──
+
+   受講する人から見ると、返事をくれる相手は2種類いる。
+   **どちらも同じ「おしらせ」に並ぶので、次に誰に聞けばいいかが
+   分からなくなる。**「断られました」が届いたとき、会社の担当者に
+   聞くのか、運営に問い合わせるのかで動きが変わる。 */
+console.log("\n── 誰から届いたか ──");
+{
+  /* 会社の教育担当者が起こすもの。許可・受講コード・修了証 */
+  for (const k of ["member_ok", "member_ng", "cert", "given"]) {
+    check(noticeFrom(k) === "admin", `${k} は会社の教育担当者から`, noticeFrom(k));
+  }
+  /* 運営が起こすもの。入金の確認・討議まわり・実務トレーニング */
+  for (const k of ["seat", "train", "slot", "room", "pass", "issue_ng"]) {
+    check(noticeFrom(k) === "owner", `${k} は運営から`, noticeFrom(k));
+  }
+  /* 知らない字でも落とさない。古い版が残した行かもしれない */
+  check(noticeFrom("むかしの字") === "owner", "知らない種類は運営あつかい（落とさない）");
+  /* 種類を足したときの入れ忘れを止める */
+  for (const k of NOTICE_KINDS) {
+    check(noticeView({ kind: k }).from === noticeFrom(k), `${k}: 画面にも差出人が出る`);
+  }
+  check(NOTICE_HEADS.admin !== NOTICE_HEADS.owner, "2つの差出人は違う字で出る");
+  check(NOTICE_HEADS.owner === "運営からのお知らせ", "運営あては、これまでどおりの言い方");
+
+  /* 画面と、返す所 */
+  const nt = read("src/components/Notices.tsx");
+  check(/data-testid="notice-from"/.test(nt), "画面に差出人の札が出る");
+  check(/n\.from && !!FROM\[n\.from\]/.test(nt), "古い返事（差出人なし）でも落ちない");
+  const api = read("src/app/api/notices/route.ts");
+  check(/from: v\.from/.test(api), "返す所が差出人を渡している");
 }
 
 console.log("\n── まとめ ──");

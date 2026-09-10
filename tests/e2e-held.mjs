@@ -77,6 +77,28 @@ await page.waitForTimeout(800);
   console.log("OK: ホームにも取得済が付く");
 }
 
+/* ── 畳んだ見出しに、取得済みの件数が出る（げんきさん 2026-09-10）── */
+{
+  /* **畳んである中の講座**を持たせる。足場屋革命では足場は畳まずに
+     出しているので、足場だけ持っていても見出しには出ない。
+     石綿は、どちらの店でも畳んだ中にある */
+  held = ["ishiwata"];
+  await page.evaluate(() => { try { localStorage.removeItem("ashiba.me"); } catch {} });
+  await page.goto(`${BASE}/edu`);
+  await dismiss();
+  await page.waitForSelector('[data-testid="course-card"]', { timeout: 8000 });
+  await page.waitForTimeout(700);
+  /* **畳んだまま**見えることが肝心。開かないと分からないのでは意味が無い */
+  const shut = await page.evaluate(() =>
+    [...document.querySelectorAll("details")].every((d) => !d.open));
+  check(shut, "まだ開いていない");
+  const cnt = page.getByTestId("course-held-count");
+  check((await cnt.count()) === 1, `畳んだ見出しに件数が出る（${await cnt.count()}）`);
+  const t = (await cnt.first().innerText()).replace(/\s/g, "");
+  check(/1件取得済み/.test(t), `持っている数が出る（${t}）`);
+  console.log("OK: 畳んだ見出しに取得済みの件数が出る");
+}
+
 /* ── 古い返事（held が無い）でも落ちない ── */
 held = null;
 await page.evaluate(() => { try { localStorage.removeItem("ashiba.me"); } catch {} });
@@ -86,6 +108,7 @@ await openAll();
 await page.waitForSelector('[data-testid="course-card"]', { timeout: 8000 });
 await page.waitForTimeout(600);
 check((await page.getByTestId("course-held").count()) === 0, "held が無ければ何も付かない");
+check((await page.getByTestId("course-held-count").count()) === 0, "件数も出さない（0件と書かない）");
 console.log("OK: 古い返事でも落ちない");
 
 await browser.close();

@@ -66,6 +66,9 @@ export async function GET() {
         t: v.t,
         d: v.d,
         href: v.href,
+        /* 誰から届いたか（げんきさん 2026-09-10）。
+           会社の教育担当者か、運営か。次に聞く相手が変わる */
+        from: v.from,
         /* こちらが書いた一言。断った理由がここに入る */
         note: (n.note as string) ?? "",
         at: n.created_at,

@@ -129,8 +129,17 @@ console.log("── 本人への知らせ（docs/106）──");
   const t = noticeLine({ kind: "given", courseId: "ashiba" }, "https://example.com/", "特別教育ドットコム");
   /* 運営あての知らせと同じトークに並ぶので、向きが分かる1行を足す
      （げんきさん 2026-09-09「ユーザー宛の送信は『運営からのお知らせ』と
-       表示させて。こんがらがる」） */
-  check(t.startsWith("【特別教育ドットコム】運営からのお知らせ\n受講コードが届きました"), "誰からの知らせかが1行目に出る");
+       表示させて。こんがらがる」）。
+
+     差出人は2つに分かれている（げんきさん 2026-09-10）。
+     **受講コードを配ったのは会社の教育担当者**であって、運営ではない。
+     次に誰に聞けばいいかが変わるので、取り違えさせない */
+  check(t.startsWith("【特別教育ドットコム】教育担当者からのお知らせ\n受講コードが届きました"),
+    "誰からの知らせかが1行目に出る");
+  const own = noticeLine({ kind: "slot", courseId: "ashiba" }, "https://example.com", "店");
+  check(own.startsWith("【店】運営からのお知らせ"), "運営が起こしたものは運営から");
+  const adm = noticeLine({ kind: "cert", courseId: "ashiba" }, "https://example.com", "店");
+  check(adm.startsWith("【店】教育担当者からのお知らせ"), "修了証を出すのは会社の教育担当者");
   check(t.includes("https://example.com/edu/ashiba"), "開く場所が入る（末尾の / は重ねない）");
   check(noticeLine({ kind: "なにこれ" }, "https://example.com", "店") === "", "知らない種類は送らない");
 

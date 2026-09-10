@@ -312,9 +312,10 @@ console.log("OK: 受講管理への入口");
 
   await page.getByTestId("join-request-open").click();
   check((await page.getByTestId("join-request-row").count()) === 3, "講座が並ぶ");
-  /* もう席がある講座に「送る」を出すと、二重に頼むことになる */
+  /* もう受講コードがある講座に「送る」を出すと、二重に頼むことになる。
+     **受講する人の画面では「席」と言わない**（2026-09-10 に直した） */
   const rows = await page.getByTestId("join-request-row").allInnerTexts();
-  check(/席あり/.test(rows[2]), "もう席がある講座は、送るを出さない");
+  check(/受講コードあり/.test(rows[2]), "もう受講コードがある講座は、送るを出さない");
   check((await page.getByTestId("join-request-cancel").count()) === 1, "送信済みは取り消しに変わる");
 
   /* さがせる。73講座あるので、探せないと押す物にたどり着けない */

@@ -93,7 +93,9 @@ console.log("\n── 一覧の書き方 ──");
   check(other.includes("matchesCourse"), "受けられる講座も、同じ窓で絞る");
   check(other.includes("hitReady") && other.includes("hitSoon") && other.includes("hitTodo"),
     "受けられる講座・準備中・目録の3つとも絞る");
-  check(!page.includes("r.other.map("), "その他の中身を page.tsx で並べていない（窓の下に来てしまう）");
+  /* 番号だけ取り出すのは、並べているうちに入らない（2026-09-10） */
+  check(!page.replace(/\.map\(\(c\) => c\.id\)/g, "").includes("r.other.map("),
+    "その他の中身を page.tsx で並べていない（窓の下に来てしまう）");
 
   /* **「その他特別教育」を出す所は2つある。**講座の一覧（/edu）と、
      ホーム（OtherTokubetsu）。/edu だけ直して、ホームを直し忘れ、
@@ -114,9 +116,12 @@ console.log("\n── 一覧の書き方 ──");
        **OtherCourses に渡した物を、同じファイルで自分でも並べていないか**が芯。
        ホームは「その他」の外（足場・職長）でも札を出すので、
        その札まで止めない（mainCourses という別の名前にしてある） */
-    check(!/\.other\.map\(/.test(src)
-      && !/\bready\.map\(/.test(src)
-      && !/\botherReady\.map\(/.test(src),
+    /* **番号だけ取り出すのは、並べているうちに入らない**
+       （見出しの「◯件取得済み」に渡すため。2026-09-10） */
+    const laid = src.replace(/\.map\(\(c\) => c\.id\)/g, "");
+    check(!/\.other\.map\(/.test(laid)
+      && !/\bready\.map\(/.test(laid)
+      && !/\botherReady\.map\(/.test(laid),
       `${name}：その他の中身を自分で並べていない（並べると窓の下に来る）`);
   }
 }

@@ -30,11 +30,25 @@ export type NoticeKind =
   /* 会社の担当者から、受講する人へ */
   | "given";      // 受講コードを配った（打たずに受講できる）
 
+/** 誰が起こした知らせか。**画面にも LINE にも、これを出す**
+    （げんきさん 2026-09-10）。
+
+    受講する人から見ると、返事をくれる相手は2種類いる。
+      admin … 会社の教育担当者（許可する・受講コードを配る・修了証を出す）
+      owner … この仕組みの運営（入金を確認する・討議の日を出す）
+
+    どちらも同じ「お知らせ」に並ぶので、**次に誰に聞けばいいかが
+    分からなくなる。**「断られました」が届いたとき、
+    会社の担当者に聞くのか、運営に問い合わせるのかで動きが変わる。 */
+export type NoticeFrom = "admin" | "owner";
+
 type Def = {
   /** 見出し。一覧で並ぶ字 */
   t: string;
   /** 次に何をすればいいか */
   d: string;
+  /** 誰から届いたか */
+  from: NoticeFrom;
   /** 開く場所。講座に紐づくものは courseId を受け取る */
   href: (courseId: string) => string;
   /** 講座が要るか。要るのに無ければ、講座に依らない場所へ落とす */
@@ -45,21 +59,25 @@ const DEFS: Record<NoticeKind, Def> = {
   member_ok: {
     t: "会社とつながりました",
     d: "名簿に入りました。受講できます",
+    from: "admin",
     href: () => "/",
   },
   member_ng: {
     t: "参加申込が断られました",
     d: "会社の教育担当者に確かめてください",
+    from: "admin",
     href: () => "/me",
   },
   cert: {
     t: "修了証が出ました",
     d: "マイページから受け取れます",
+    from: "admin",
     href: (c) => (c ? `/edu/${c}/cert` : "/me"),
   },
   seat: {
     t: "受講コードが出ました",
     d: "受講する人に配ってください",
+    from: "owner",
     href: () => "/admin",
   },
   /* 担当者が席を直接配った（0028・0031）。受講者はコードを打たない。
@@ -69,35 +87,41 @@ const DEFS: Record<NoticeKind, Def> = {
   given: {
     t: "受講コードが届きました",
     d: "押すと、その講座が開きます。コードを打つ必要はありません",
+    from: "admin",
     href: (c) => (c ? `/edu/${c}` : "/edu"),
     needsCourse: true,
   },
   train: {
     t: "実務トレーニングが開きました",
     d: "第2章から先に進めます",
+    from: "owner",
     href: () => "/training",
   },
   slot: {
     t: "討議の候補日が出ました",
     d: "都合の良い日を選んでください",
+    from: "owner",
     href: (c) => (c ? `/edu/${c}/cert` : "/me"),
     needsCourse: true,
   },
   room: {
     t: "討議の入り口が決まりました",
     d: "当日、この画面から入れます",
+    from: "owner",
     href: (c) => (c ? `/edu/${c}/talk` : "/me"),
     needsCourse: true,
   },
   pass: {
     t: "討議・実技を確認しました",
     d: "修了証が出せます",
+    from: "owner",
     href: (c) => (c ? `/edu/${c}/cert` : "/me"),
     needsCourse: true,
   },
   issue_ng: {
     t: "修了証の発行申請が断られました",
     d: "理由を読んで、出し直してください",
+    from: "owner",
     href: (c) => (c ? `/edu/${c}/cert` : "/me"),
     needsCourse: true,
   },
@@ -108,12 +132,13 @@ export function noticeView(n: { kind: string; courseId?: string | null; note?: s
   t: string;
   d: string;
   href: string;
+  from: NoticeFrom;
 } {
   const d = DEFS[n.kind as NoticeKind];
   /* 知らない字が来ても落とさない。古い版が残した行かもしれない。
      消してしまうと、何があったのかを追えなくなる */
-  if (!d) return { t: "お知らせ", d: "", href: "/" };
-  return { t: d.t, d: d.d, href: d.href((n.courseId ?? "").trim()) };
+  if (!d) return { t: "お知らせ", d: "", href: "/", from: "owner" };
+  return { t: d.t, d: d.d, href: d.href((n.courseId ?? "").trim()), from: d.from };
 }
 
 /* ── LINE に送るときの本文（docs/106）──────────────
@@ -136,8 +161,25 @@ export function noticeView(n: { kind: string; courseId?: string | null; note?: s
      ・運営あて … 「受講コードの申込が1件」（src/lib/notifyText.ts）
      ・本人あて … 「受講コードが届きました」（ここ）
    運営を兼ねている人には、どちらも同じ店の名前で並ぶので見分けがつかない。
-   本人あてのほうに1行足して、開く前に分かるようにする。 */
-export const NOTICE_LINE_HEAD = "運営からのお知らせ";
+   本人あてのほうに1行足して、開く前に分かるようにする。
+
+   ── 差出人を2つに分けた（げんきさん 2026-09-10「全部やろう」）──
+   はじめは本人あてを全部「運営からのお知らせ」にしていた。
+   ところが**受講コードを配ったのも、修了証を出したのも、
+   会社の教育担当者**であって、運営ではない。
+   「断られました」が届いたときに、会社に聞くのか運営に問い合わせるのかで
+   動きが変わるので、そこを取り違えさせない。 */
+export const NOTICE_HEADS: Record<NoticeFrom, string> = {
+  owner: "運営からのお知らせ",
+  admin: "教育担当者からのお知らせ",
+};
+
+/** 前からの名前。運営あてのぶんは、これまでどおり */
+export const NOTICE_LINE_HEAD = NOTICE_HEADS.owner;
+
+/** その知らせの差出人 */
+export const noticeFrom = (kind: string): NoticeFrom =>
+  DEFS[kind as NoticeKind]?.from ?? "owner";
 
 export function noticeLine(
   n: { kind: string; courseId?: string | null },
@@ -148,7 +190,7 @@ export function noticeLine(
   if (!d) return "";
   const base = site.replace(/\/+$/, "");
   return [
-    `【${prefix}】${NOTICE_LINE_HEAD}`,
+    `【${prefix}】${NOTICE_HEADS[d.from]}`,
     d.t,
     d.d,
     "",

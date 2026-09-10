@@ -65,6 +65,12 @@ export function HeldMark({ courseId }: { courseId: string }) {
   );
 }
 
+/* 講座を開いたときに出す「取得済み」。
+
+   **「受講不要」とは書かない**（げんきさん 2026-09-09「受講不要がまだ
+   表示されてる」）。受けるか受けないかを決めるのは本人と会社であって、
+   こちらが「要らない」と言い切る筋合いではない。
+   持っていることだけを伝える。 */
 export function HeldNotice({ courseId }: { courseId: string }) {
   const [held, setHeld] = useState(false);
   useEffect(() => {
@@ -80,10 +86,9 @@ export function HeldNotice({ courseId }: { courseId: string }) {
       className="mt-3 rounded-xl border border-grn bg-[#14201A] p-3.5"
       data-testid="course-held-notice"
     >
-      <div className="text-[13.5px] font-black text-grn">取得済みのため受講不要です</div>
+      <div className="text-[13.5px] font-black text-grn">この講座は取得済みです</div>
       <div className="mt-1 text-[11.5px] leading-relaxed text-dim">
-        この特別教育は取得済みとして登録されています。同じ特別教育を受け直す必要はありません。
-        もう一度受講することもできます。
+        取得済みとして登録されています。もう一度受けることもできます。
       </div>
     </div>
   );
