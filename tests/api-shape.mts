@@ -1127,7 +1127,24 @@ console.log("── 画面から画面への移りが、往復で待たされな
   check(!/const learn = await canLearn\(\);[\s\S]{0,200}const held = await heldOf/.test(meApi),
     "/api/me が上から順に待たない");
 
-  /* ③ 講座の札の様子も、席と注文をひと息に */
+  /* ③ 申込みの画面（げんきさん「受講コードを追加で申し込むがめちゃくちゃ遅い」）*/
+  const ordApi = read("src/app/api/order/route.ts");
+  check((ordApi.match(/Promise\.all\(/g) ?? []).length >= 2, "/api/order は並べて聞く");
+  check(!/const counts = await seatCounts[\s\S]{0,200}const paid = await seatCounts/.test(ordApi),
+    "/api/order が、数え上げを順番に待たない");
+
+  /* ④ 単元の数は、先に数えてある。**73講座ぶんの教材（15MB）を毎回読まない**
+        （げんきさん「マイページ開くのが遅い」） */
+  const cur = read("src/lib/curriculum.ts");
+  check(/return statOf\(courseId\)\.list;/.test(cur), "単元の一覧は、先に数えた表から返す");
+  for (const f of ["src/app/api/mypage/route.ts", "src/app/api/admin/summary/route.ts"]) {
+    const src = read(f);
+    check(!/await readFile|getCurriculum\(/.test(src), `${f} が教材を開き直さない`);
+  }
+  const pkg = read("package.json");
+  check(/npm run build:stats/.test(pkg), "作るときに、先に数え直す");
+
+  /* ⑤ 講座の札の様子も、席と注文をひと息に */
   const held = read("src/lib/held.ts");
   check(/orders!inner\(course_id\)/.test(held), "札の様子も、席と注文をひと息に聞く");
 
@@ -1529,6 +1546,13 @@ console.log("── 下の行き先と、お知らせの出し方 ──");
 
   const nav = read("src/components/BottomNav.tsx");
   check(/fixed inset-x-0 bottom-0/.test(nav), "下に固定する");
+  /* iPhone の惰性スクロールで置いていかれないよう、自分の層に切り出す。
+     **fixed の要素そのものに掛ける。**親に掛けると、fixed が親を基準に
+     してしまって、本当に固定が壊れる（2026-09-10） */
+  check(/transform: "translateZ\(0\)"/.test(nav), "自分の層に切り出す（iPhone 対策）");
+  const shell = read("src/app/layout.tsx");
+  check(!/transform|will-change|backdrop-blur/.test(shell),
+    "外側の入れ物に transform を掛けない（掛けると固定が壊れる）");
   check(/print:hidden/.test(nav), "紙には出さない（請求書）");
   check(/path\.startsWith\("\/training"\)/.test(nav), "実務トレーニングでは出さない");
   check(/\/\^\\\/edu\\\/\[\^\/\]\+\\\/\.\+\//.test(nav) || /edu\\\//.test(nav),

@@ -4,8 +4,8 @@ import { lineLoginReady } from "@/lib/line";
 import { heldCourseIds } from "@/lib/held";
 import { getServiceClient } from "@/lib/supabase/server";
 import { currentUser } from "@/lib/supabase/session";
-import { readyCourses, lessonKey } from "@/content/courses";
-import { getLessonList } from "@/lib/curriculum";
+import { readyCourses } from "@/content/courses";
+import { statOf } from "@/content/lessonStats";
 
 /* マイページの中身。受講者が自分のことを見る所。
 
@@ -97,12 +97,15 @@ export async function GET() {
   const learning = [];
   for (const c of readyCourses()) {
     const en = (ens ?? []).find((e) => e.course_id === c.id);
-    const lessons = await getLessonList(c.id);
-    const requiredSec = lessons.reduce((n, l) => n + l.legal_min * 60, 0);
+    /* 単元の数と学科の時間は、**先に数えてある**（2026-09-10）。
+       前はここで73講座ぶんの教材（15MB）を毎回読んでいた。
+       欲しいのは数字2つだけなのに、開くたびにそれを待たせていた
+       （げんきさん「マイページ開くのが遅い」） */
+    const { lessons: lessonsTotal, requiredSec, list } = statOf(c.id);
     if (!en) {
       learning.push({
         courseId: c.id, name: c.name, short: c.short,
-        started: false, lessonsPassed: 0, lessonsTotal: lessons.length,
+        started: false, lessonsPassed: 0, lessonsTotal,
         watchedSec: 0, requiredSec, examPassed: false, cert: null, hasSeat: false,
         requested: requested.has(c.id),
       });
@@ -110,7 +113,9 @@ export async function GET() {
     }
     const mine = (prog ?? []).filter((p) => p.enrollment_id === en.id);
     /* 単元IDは「講座:番号」。その講座のぶんだけ数える */
-    const keys = new Set(lessons.map((l) => lessonKey(c.id, l.id)));
+    /* 単元IDは「講座:番号」。**いま教材にある単元だけ**数える
+       （消した単元の合格を数えると、13単元中14合格になる） */
+    const keys = new Set(list.map((l) => `${c.id}:${l.id}`));
     const passed = mine.filter((p) => p.quiz_passed_at && keys.has(p.lesson_id as string)).length;
     const cert = (certs ?? []).find((x) => x.enrollment_id === en.id && !x.revoked_at) ?? null;
     learning.push({
@@ -119,7 +124,7 @@ export async function GET() {
       short: c.short,
       started: true,
       lessonsPassed: passed,
-      lessonsTotal: lessons.length,
+      lessonsTotal,
       watchedSec: mine.reduce((n, p) => n + ((p.watched_sec as number) ?? 0), 0),
       requiredSec,
       examPassed: (exams ?? []).some((x) => x.enrollment_id === en.id && x.passed),

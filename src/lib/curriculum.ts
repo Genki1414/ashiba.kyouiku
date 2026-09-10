@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { CurriculumSchema, type Curriculum, type Lesson, type Subject } from "@/types/curriculum";
 import { COURSES, findCourse, type CourseMeta } from "@/content/courses";
+import { statOf } from "@/content/lessonStats";
 
 /* 教材の正本は content/courses/<講座>.json。
    サーバ側で一度だけ読み込み・検証してキャッシュする。
@@ -47,11 +48,21 @@ export async function getLessonOrder(courseId: string): Promise<string[]> {
 export async function getLessonList(
   courseId: string,
 ): Promise<{ id: string; title: string; legal_min: number }[]> {
-  const cur = await getCurriculum(courseId);
-  if (!cur) return [];
-  return cur.subjects.flatMap((s) =>
-    s.lessons.map((l) => ({ id: l.id, title: l.title, legal_min: l.legal_min })),
-  );
+  /* ── 教材を開かずに答える（2026-09-10）──
+     げんきさん「マイページ開くのが遅い」。
+
+     マイページと受講管理は、**73講座ぶんの教材（15MB）を毎回読んで**
+     単元の名前と時間を数えていた。手元でも 272ms、本番のサーバは
+     冷えているのでもっとかかる。欲しいのは名前と分だけなのに、
+     台本も図も問題も、ぜんぶ開いていた。
+
+     名前と分は動かない（教材を直したときだけ変わる）ので、
+     先に数えて src/content/lessonStats.ts に書き出してある
+     （npm run build:stats）。ずれていたら tests/lesson-stats.mts が止める。
+
+     中身が要るとき（単元を見る画面・修了証）は getCurriculum を使う。
+     そちらは1講座ぶんだけ読む */
+  return statOf(courseId).list;
 }
 
 /** 教材の json がある講座だけ。壊れていれば外す（画面に出さない） */

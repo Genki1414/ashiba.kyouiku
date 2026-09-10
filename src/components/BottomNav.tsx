@@ -55,7 +55,20 @@ export function BottomNav() {
       <div className="h-[62px] print:hidden" aria-hidden />
       <nav
         className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-panel print:hidden"
-        style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+        style={{
+          paddingBottom: "env(safe-area-inset-bottom)",
+          /* ── iPhone で、送っている間だけ札が置いていかれる（2026-09-10）──
+             げんきさん「下部タブの固定が出来てない」。
+             手元のブラウザでは、いちばん下まで送っても画面の下にぴたりと
+             付いている（tests/nav-check.mjs）。iOS の惰性スクロールでだけ、
+             固定したものの描き直しが後回しになって、途中に取り残される。
+
+             自分の層に切り出すと、送っている間も一緒に描かれる。
+             **fixed の要素そのものに掛けるので、位置の基準は変わらない**
+             （親に掛けると、fixed が親を基準にしてしまって壊れる）。 */
+          transform: "translateZ(0)",
+          willChange: "transform",
+        }}
         data-testid="bottom-nav"
         aria-label="画面の行き先"
       >
