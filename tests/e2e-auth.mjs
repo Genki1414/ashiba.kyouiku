@@ -144,6 +144,41 @@ check(
 );
 console.log("OK: ログイン画面が使える");
 
+/* ── 合言葉の決め直しは、確かめてから送る（げんきさん 2026-09-10）──
+   **ログインと新規登録には挟まない**（上の手順が、挟まずに通っている
+   ことを見ている）。メールが外に飛ぶのは、この1つだけ */
+{
+  await page.getByTestId("login-forgot").click();
+  await page.waitForTimeout(200);
+  /* 空のままなら、札は出さずに知らせる */
+  await page.getByTestId("login-email").fill("");
+  await page.getByTestId("login-go").click();
+  await page.waitForTimeout(200);
+  check((await page.getByTestId("ask-done").count()) === 0, "空のまま押しても札は出さない");
+
+  await page.getByTestId("login-email").fill("machigai@example.com");
+  await page.getByTestId("login-go").click();
+  await page.getByTestId("ask-done").waitFor({ timeout: 4000 });
+  const t = (await page.getByTestId("ask-done").innerText()).replace(/\s+/g, "");
+  check(/machigai@example\.com/.test(t), `送り先のメールを見せて確かめる（${t.slice(0, 40)}）`);
+  /* やめれば、何も起きない */
+  await page.getByTestId("ask-done-no").click();
+  await page.waitForTimeout(200);
+  check((await page.getByTestId("login-mailed").count()) === 0, "やめたら送らない");
+
+  /* 送れば、終わったと出る */
+  await page.getByTestId("login-go").click();
+  await page.getByTestId("ask-done-yes").waitFor({ timeout: 4000 });
+  await page.getByTestId("ask-done-yes").click();
+  await page.getByTestId("ask-done-close").waitFor({ timeout: 10000 });
+  const d = (await page.getByTestId("ask-done-done").innerText()).replace(/\s+/g, "");
+  check(/メールを送りました/.test(d), `終わったと出る（${d}）`);
+  await page.getByTestId("ask-done-close").click();
+  await page.waitForTimeout(300);
+  check((await page.getByTestId("login-mailed").count()) === 1, "閉じたあと、送ったことが画面にも残る");
+  console.log("OK: 合言葉の決め直しは、確かめてから送る");
+}
+
 await browser.close();
 stop();
 if (ng) { console.error(`\n${ng} 件失敗`); process.exit(1); }

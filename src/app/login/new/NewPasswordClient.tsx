@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { getBrowserClient } from "@/lib/supabase/browser";
 import { Btn } from "@/components/ui/Btn";
+import { AskDone, type Ask, type RunResult } from "@/components/AskDone";
 
 /* 合言葉を決め直す。
 
@@ -24,6 +25,10 @@ export function NewPasswordClient() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [done, setDone] = useState(false);
+  /* 確かめる→終わった（げんきさん 2026-09-10）。
+     決め直すと、**前の合言葉はその場で使えなくなる。**
+     打ち込んだ字が見えないので、押す前に一度止める */
+  const [ask, setAsk] = useState<Ask | null>(null);
 
   useEffect(() => {
     if (!supabase) { setReady("no"); return; }
@@ -34,20 +39,34 @@ export function NewPasswordClient() {
     return () => { alive = false; };
   }, [supabase]);
 
-  const go = async () => {
+  const go = async (): Promise<RunResult> => {
     setErr(null);
-    if (pw.length < MIN) { setErr(`合言葉は${MIN}文字以上にしてください。`); return; }
-    if (pw !== pw2) { setErr("2つのパスワードが一致しません。"); return; }
     setBusy(true);
     try {
       const { error } = await supabase!.auth.updateUser({ password: pw });
       if (error) throw error;
-      setDone(true);
+      return true;
     } catch (e) {
       setErr((e as { message?: string })?.message ?? "変更できませんでした。");
+      return false;
     } finally {
       setBusy(false);
     }
+  };
+
+  const askGo = () => {
+    setErr(null);
+    if (pw.length < MIN) { setErr(`合言葉は${MIN}文字以上にしてください。`); return; }
+    if (pw !== pw2) { setErr("2つのパスワードが一致しません。"); return; }
+    setAsk({
+      title: "この合言葉に決めますか",
+      body: `${pw.length}文字で決め直します。前の合言葉は、この時点で使えなくなります。忘れないところに控えてください。`,
+      yes: "決める",
+      done: "パスワードを変更しました",
+      doneBody: "次からは新しい合言葉で入ってください。",
+      run: go,
+      after: () => setDone(true),
+    });
   };
 
   if (ready === "checking") return null;
@@ -109,9 +128,10 @@ export function NewPasswordClient() {
         </div>
       )}
 
-      <Btn tone="y" className="mt-5" dis={busy} onClick={() => void go()} testid="newpw-go">
+      <Btn tone="y" className="mt-5" dis={busy} onClick={askGo} testid="newpw-go">
         {busy ? "…" : "これにする"}
       </Btn>
+      <AskDone ask={ask} onClose={() => setAsk(null)} />
     </main>
   );
 }

@@ -9,6 +9,7 @@ import { getBrowserClient } from "@/lib/supabase/browser";
 import { claimDevice } from "@/lib/device";
 import { siteUrl } from "@/lib/siteUrl";
 import { Btn } from "@/components/ui/Btn";
+import { AskDone, type Ask, type RunResult } from "@/components/AskDone";
 import { SERVICE_NAME } from "@/content/courses";
 import { AUTH_MAIL_FROM, mailFromNote, showMailFrom } from "@/content/authMail";
 
@@ -74,6 +75,13 @@ export function LoginClient() {
   const [err, setErr] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
   const [mailed, setMailed] = useState(false);
+  /* 確かめる→終わった（げんきさん 2026-09-10）。
+
+     **ログインと新規登録には挟まない。**毎日押すものなので、
+     一手増えると邪魔になるだけ（引き換えコードも同じ。ログインの一部）。
+     ここで挟むのは**メールが外に飛ぶ**決め直しの1つだけ。
+     打ち間違えたメールに送っても、こちらからは取り消せない */
+  const [ask, setAsk] = useState<Ask | null>(null);
 
   const supabase = getBrowserClient();
 
@@ -101,9 +109,8 @@ export function LoginClient() {
 
      登録の無いメールでも「送りました」と出す。
      出し分けると、誰が登録しているかを外から当てられる。 */
-  const sendReset = async () => {
+  const sendReset = async (): Promise<RunResult> => {
     setErr(null);
-    if (!email.trim()) { setErr("メールアドレスを入力してください。"); return; }
     setBusy(true);
     try {
       await supabase.auth.resetPasswordForEmail(email.trim(), {
@@ -113,8 +120,31 @@ export function LoginClient() {
       /* 押し黙る。ここで出し分けると、登録の有無が外から分かる */
     } finally {
       setBusy(false);
-      setMailed(true);
     }
+    return true;
+  };
+
+  const askReset = () => {
+    setErr(null);
+    if (!email.trim()) { setErr("メールアドレスを入力してください。"); return; }
+    setAsk({
+      title: "このメールアドレスに送りますか",
+      body: (
+        <>
+          <div className="text-txt">{email.trim()}</div>
+          <div className="mt-2">
+            合言葉を決め直すリンクをお送りします。
+            打ち間違えていると届かないので、もう一度お確かめください。
+          </div>
+        </>
+      ),
+      yes: "送る",
+      done: "メールを送りました",
+      doneBody: "届いたリンクから、新しい合言葉を決めてください。",
+      run: sendReset,
+      /* 送ったことは画面にも残す（札を閉じたあとで読み返せるように） */
+      after: () => setMailed(true),
+    });
   };
 
   const go = async () => {
@@ -368,7 +398,7 @@ export function LoginClient() {
         <Btn
           tone="y"
           dis={busy}
-          onClick={mode === "forgot" ? () => void sendReset() : go}
+          onClick={mode === "forgot" ? askReset : go}
           testid="login-go"
         >
           {busy ? "…" : mode === "in" ? "ログインする" : mode === "up" ? "登録して始める" : "再設定メールを送信"}
@@ -485,6 +515,7 @@ export function LoginClient() {
         <Link href="/legal/terms" className="text-dim no-underline">利用規約</Link>
         <Link href="/legal/privacy" className="text-dim no-underline">個人情報の取扱い</Link>
       </nav>
+      <AskDone ask={ask} onClose={() => setAsk(null)} />
     </main>
   );
 }

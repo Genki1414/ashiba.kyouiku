@@ -1116,8 +1116,6 @@ console.log("── 決める操作は、全部「確かめる→終わった」
      持たない画面は、下の表に理由を書く。書いていなければ止める。
      新しい画面で POST を足したら、ここで気づく。 */
   const NO_ASK: Record<string, string> = {
-    /* ログインそのものが画面。確かめる相手が居ない */
-    "src/app/login/LoginClient.tsx": "ログイン（引き換えコードを打つ所も、ログインの一部）",
     /* 出すだけ。何も変えない */
     "src/components/AppCode.tsx": "引き換えコードを出すだけ（5分で消える。取り消すものが無い）",
     /* 開いたら読んだことにする。押させない */
@@ -1133,8 +1131,17 @@ console.log("── 決める操作は、全部「確かめる→終わった」
     }
   };
   for (const d of ["src/app", "src/components"]) walk4(d);
-  const posting = postFiles.filter((f) => /method: "(POST|PUT|DELETE|PATCH)"/.test(read(f)));
+  /* **fetch だけを見ていると漏れる。**
+     パスワードの決め直し（supabase.auth.updateUser）と、決め直しのメール
+     （resetPasswordForEmail）は fetch を書かないので、はじめの見張りは
+     素通りしていた（げんきさん 2026-09-10「抜けがないか確認して」で見つかった）。
+     道具ごしに書くものも、サーバに書く画面として数える */
+  const WRITES = /method: "(POST|PUT|DELETE|PATCH)"|auth\.(updateUser|signUp|resetPasswordForEmail)\(/;
+  const posting = postFiles.filter((f) => WRITES.test(read(f)));
   check(posting.length >= 20, `サーバに書く画面を見つけている（${posting.length}）`);
+  /* 見つけ方そのものを見張る。fetch だけに戻したら止める */
+  check(/auth\\.\(updateUser\|signUp\|resetPasswordForEmail\)/.test(read("tests/api-shape.mts")),
+    "道具ごしに書くもの（supabase.auth）も数えている");
   for (const f of posting) {
     const src = read(f);
     const has = /<AskDone /.test(src);
@@ -1166,6 +1173,10 @@ console.log("── 決める操作は、全部「確かめる→終わった」
     ["src/app/admin/AdminClient.tsx", 'payload: { newCode: true }'],
     ["src/app/owner/OwnerClient.tsx", 'onClick={() => askOrder(o, "paid")}'],
     ["src/app/owner/RetentionClient.tsx", 'onClick={() => askErase(r)}'],
+    /* メールが外に飛ぶ。打ち間違えたら、こちらからは取り消せない */
+    ["src/app/login/LoginClient.tsx", 'onClick={mode === "forgot" ? askReset : go}'],
+    /* 決め直すと、前の合言葉はその場で使えなくなる */
+    ["src/app/login/new/NewPasswordClient.tsx", 'onClick={askGo}'],
   ];
   for (const [f, needle] of must) {
     check(read(f).includes(needle), `${f}：${needle.slice(0, 40)} が確かめる札を通る`);
@@ -1180,6 +1191,15 @@ console.log("── 決める操作は、全部「確かめる→終わった」
     check(ad.includes(`data-testid="${t}"`), `AskDone に ${t} がある`);
   }
   check(/if \(fin\) ask\.after\?\.\(\)/.test(ad), "after は、終わって閉じたときだけ動く");
+
+  /* ── 挟まないと決めた所は、挟まないままにする ──
+     ログインと新規登録は毎日押すもの。一手増えると邪魔になるだけ。
+     引き換えコードも同じ（ログインの一部）。ここに札を足したくなったら、
+     まず「毎日押すものか」を考えること */
+  const lg = read("src/app/login/LoginClient.tsx");
+  check(/onClick=\{mode === "forgot" \? askReset : go\}/.test(lg),
+    "ログイン・新規登録そのものには挟まない（決め直しのメールだけ）");
+  check(/onClick=\{\(\) => void useCode\(\)\}/.test(lg), "引き換えコードにも挟まない");
 }
 
 console.log("── 受講する人の画面に「席」と書いていないか ──");
