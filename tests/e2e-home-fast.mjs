@@ -24,9 +24,15 @@ const page = await ctx.newPage();
 
 /* この検証は Supabase 抜きで動かす。返事だけ差し替えて、
    遅い回線でも画面がどう出るかを見る */
+/* **本部と担当者を兼ねる人**にしてある。
+   ホームの札は、下の行き先と重なるものを出さなくなった
+   （げんきさん 2026-09-10「ホームと下部タブで重複するものは
+   ホームに出さない」）。兼ねている人の下の札は「運営」だけなので、
+   受講管理の札だけがホームに残る。ここで見たいのは
+   **立場で決まる札が、聞き終わる前に出るか**なので、その1枚を使う */
 const ME = {
   ok: true, userId: "u1", name: "中川 元基", email: "n@x",
-  admin: true, owner: false, needsJoin: false, canLearn: true,
+  admin: true, owner: true, needsJoin: false, canLearn: true,
   courses: 1, company: "東北三上機材株式会社",
 };
 let asked = 0;

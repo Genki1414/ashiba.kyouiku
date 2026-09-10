@@ -81,6 +81,33 @@ await page.waitForTimeout(800);
   console.log("OK: 立場によって行き先が変わる");
 }
 
+/* ── ホームと下の札が重ならない（げんきさん 2026-09-10）── */
+{
+  /* 「ホームと下部タブで重複するものはホームに出さない」。
+     同じ行き先が1画面に2つ並ぶと、どちらを押せばいいのか分からない */
+  await page.goto(`${BASE}/`);
+  await page.waitForTimeout(600);
+  check((await page.getByTestId("home-me").count()) === 0, "ホームにマイページの札が出ない");
+
+  who = { ...who, admin: true };
+  await page.goto(`${BASE}/`);
+  await page.waitForTimeout(600);
+  check((await page.getByTestId("home-admin").count()) === 0,
+    "担当者のホームに受講管理の札が出ない（下に出ている）");
+
+  /* 兼ねている人の下の札は「運営」だけ。**受講管理はそこに無いので残す。**
+     消すと、ホームから受講管理へ行く道が無くなる */
+  who = { ...who, owner: true };
+  await page.goto(`${BASE}/`);
+  await page.waitForTimeout(600);
+  check((await page.getByTestId("home-owner").count()) === 0, "ホームに運営管理の札が出ない");
+  check((await page.getByTestId("home-admin").count()) === 1,
+    "兼ねている人には受講管理の札が残る（下は運営だけなので重ならない）");
+
+  who = { ...who, admin: false, owner: false };
+  console.log("OK: ホームと下の札が重ならない");
+}
+
 /* ── 受講の邪魔になる画面では出ない ── */
 {
   await page.goto(`${BASE}/login`);

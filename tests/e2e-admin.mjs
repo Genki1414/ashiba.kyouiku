@@ -182,9 +182,19 @@ await dismiss();
 /* ホームが描き終わるのを待つだけ。売り物の名前では待たない
    （実務トレーニングは足場屋革命だけ。e2e-order と同じ直し） */
 await page.waitForSelector('[data-testid="home-course"], [data-testid="course-drawer"]', { timeout: 8000 });
+/* 入口は**画面の下の札**（げんきさん 2026-09-10
+   「ホームと下部タブで重複するものはホームに出さない」）。
+   ホームに同じ札を重ねて出さない */
+const labels = (await page.getByTestId("bottom-nav-item").allInnerTexts())
+  .map((t) => t.replace(/\s/g, ""));
+const tab = labels.some((t) => t.includes("受講管理") || t.includes("運営")) ? 1 : 0;
+check(tab === (has.list ? 1 : 0), `下の札の入口は担当者にだけ出る（${labels.join("・")}）`);
 const homeAdmin = await page.getByTestId("home-admin").count();
-check(homeAdmin === (has.list ? 1 : 0), `ホームの入口は担当者にだけ出る（${homeAdmin}）`);
-console.log("OK: ホームの入口");
+const homeMe = await page.getByTestId("home-me").count();
+check(homeMe === 0, `ホームにマイページの札を重ねない（${homeMe}）`);
+check(!labels.some((t) => t.includes("受講管理")) || homeAdmin === 0,
+  `下に受講管理が出ているなら、ホームには出さない（${homeAdmin}）`);
+console.log("OK: 受講管理への入口");
 
 /* ── 照合の記録（本人が受けた証拠）──
    ここに Supabase が無いので、返事だけ差し替えて画面を見る。

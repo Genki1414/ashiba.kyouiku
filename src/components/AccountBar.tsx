@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { emailLabel } from "@/lib/lineEmail";
-import Link from "next/link";
 import { claimDevice, wipeDevice } from "@/lib/device";
 import { loadMe, readMe, sameMe, type Me } from "@/lib/me";
 
@@ -79,14 +78,13 @@ export function AccountBar() {
   return (
     <div className={BAR} data-testid="account-bar">
       <span className="text-dim">ログイン中</span>
-      {/* 名前を押すとマイページ。所属を外すのも、氏名を直すのもそこから */}
-      <Link
-        href="/me"
-        className="min-w-0 truncate font-bold text-txt no-underline"
-        data-testid="account-name"
-      >
+      {/* **名前は押せない。**マイページは画面の下の札から開く
+          （げんきさん 2026-09-10「ホームと下部タブで重複するものは
+          ホームに出さない」）。ここは「いま誰として使っているか」を
+          言うだけの所で、行き先ではない */}
+      <span className="min-w-0 truncate font-bold text-txt" data-testid="account-name">
         {who.name || emailLabel(who.email)}
-      </Link>
+      </span>
       {asking ? (
         <span className="ml-auto flex items-center gap-2">
           <button onClick={out} className="rounded border border-red px-2 py-1 text-ng-tx" data-testid="signout-yes">

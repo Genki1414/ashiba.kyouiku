@@ -1299,13 +1299,36 @@ console.log("── 下の行き先と、お知らせの出し方 ──");
   check(/path\.startsWith\("\/training"\)/.test(nav), "実務トレーニングでは出さない");
   check(/\/\^\\\/edu\\\/\[\^\/\]\+\\\/\.\+\//.test(nav) || /edu\\\//.test(nav),
     "単元や修了試験の途中では出さない");
-  check(/me\?\.owner/.test(nav) && /me\?\.admin/.test(nav), "立場によって行き先が変わる");
+  const navlib = read("src/lib/nav.ts");
+  check(/me\?\.owner/.test(navlib) && /me\?\.admin/.test(navlib), "立場によって行き先が変わる");
   const lay = read("src/app/layout.tsx");
   check(/<BottomNav \/>/.test(lay), "どの画面にも出る（layout に置く）");
   /* 立場はサーバが決める（OWNER_EMAILS）。画面で作らない */
   check(!/owner: true/.test(nav) && /loadMe\(\)/.test(nav), "立場は /api/me が返すものを使う");
   const hc = read("src/components/HomeCards.tsx");
   check(/!me\.admin && !me\.owner/.test(hc), "配る側には「受講するには」を出さない");
+
+  /* ── ホームと下の札を重ねない（げんきさん 2026-09-10）──
+       「ホームと下部タブで重複するものはホームに出さない」
+     同じ行き先が1画面に2つ並ぶと、どちらを押せばいいのか分からない。
+     **並びを決める所は1つ**にして、ホームはそれを見て消す */
+  check(/navItems/.test(nav) && !/const out: (Item|NavItem)\[\]/.test(nav),
+    "下の札の並びは src/lib/nav.ts が決める（2か所に書かない）");
+  check(/export function inNav/.test(navlib), "その行き先が下に出ているか聞ける");
+  for (const [href, why] of [
+    ["/me", "マイページ"], ["/admin", "受講管理"], ["/owner", "運営"],
+  ] as const) {
+    check(new RegExp(`inNav\\(me, "${href}"\\)`).test(hc),
+      `ホームの「${why}」は、下に出ていないときだけ出す`);
+  }
+  /* 下に出ている行き先を、ホームが決め打ちで札にしていないか。
+     講座（/edu）はホームに札が無い（各講座へ直接飛ぶ） */
+  const homeAll = read("src/app/page.tsx") + hc + read("src/components/FirstSteps.tsx");
+  check(!/href="\/edu"/.test(homeAll), "ホームに講座の一覧の札を置かない（下に出ている）");
+  /* 帯の名前も、押せばマイページだった。**同じ行き先が3つ**あった */
+  const barc = read("src/components/AccountBar.tsx");
+  check(!/href="\/me"/.test(barc), "帯の名前は押せない（マイページは下の札から）");
+  check(/data-testid="account-name"/.test(barc), "帯には、いま誰かが出る");
   /* 請求書は、いちばん急ぐ用。**はじめかたのすぐ下**に出す */
   check(!/data-testid="home-bill"/.test(hc), "請求書の札は、下のほうの並びから外してある");
   check(/<BillCard \/>/.test(home) && home.indexOf("<BillCard") > home.indexOf("<FirstSteps"),

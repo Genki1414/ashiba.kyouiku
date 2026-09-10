@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { loadMe, readMe, type Me } from "@/lib/me";
+import { navItems } from "@/lib/nav";
 
 /* 画面の下に、いつも出ている行き先（げんきさん 2026-09-09）。
 
@@ -18,8 +19,6 @@ import { loadMe, readMe, type Me } from "@/lib/me";
    立場は /api/me が返す（src/lib/me.ts）。覚えているぶんで先に描くので、
    画面が一拍ずれない。 */
 
-type Item = { href: string; label: string; icon: string };
-
 /** その画面で出すかどうか。受講の邪魔になる所では出さない */
 export function navHidden(path: string): boolean {
   if (path === "/login" || path.startsWith("/auth")) return true;
@@ -29,19 +28,6 @@ export function navHidden(path: string): boolean {
      /edu と /edu/<講座> は一覧なので出す */
   if (/^\/edu\/[^/]+\/.+/.test(path)) return true;
   return false;
-}
-
-function itemsFor(me: Me | null): Item[] {
-  const out: Item[] = [
-    { href: "/", label: "ホーム", icon: "⌂" },
-    { href: "/edu", label: "講座", icon: "▤" },
-    { href: "/me", label: "マイページ", icon: "◉" },
-  ];
-  /* 立場のある人だけ、4つ目が出る。本部と担当者を兼ねる人には本部を出す
-     （本部の画面から担当者の画面へは、そのまま行ける） */
-  if (me?.owner) out.push({ href: "/owner", label: "運営", icon: "▦" });
-  else if (me?.admin) out.push({ href: "/admin", label: "受講管理", icon: "▦" });
-  return out;
 }
 
 export function BottomNav() {
@@ -56,7 +42,9 @@ export function BottomNav() {
   }, [path]);
 
   if (navHidden(path)) return null;
-  const items = itemsFor(me);
+  /* 並びは src/lib/nav.ts が決める。**ホームも同じ所を見て、
+     ここに出るものを札にしない**（げんきさん 2026-09-10） */
+  const items = navItems(me);
   /* いまどこに居るか。/edu/ashiba のような下の階層でも、講座を光らせる */
   const here = (href: string) =>
     href === "/" ? path === "/" : path === href || path.startsWith(`${href}/`);

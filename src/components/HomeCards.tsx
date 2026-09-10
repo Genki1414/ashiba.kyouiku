@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { loadMe, readMe, sameMe, type Me } from "@/lib/me";
+import { inNav } from "@/lib/nav";
 import { BRAND } from "@/content/brand";
 
 /* ホームの出し分け。
@@ -43,24 +44,37 @@ export function HomeCards() {
 
   const cards = [];
 
-  /* マイページ。所属を外す・氏名を直す・進み具合を見るのはここから。
-     ログインしている人には必ず出す（入口が無いと辿り着けない） */
-  cards.push(
-    <Link
-      key="me"
-      href="/me"
-      className="block rounded-xl border border-line bg-panel p-4 no-underline"
-      data-testid="home-me"
-    >
-      <div className="text-[11px] font-extrabold tracking-widest text-dim">マイページ</div>
-      <div className="mt-1 text-[15px] font-black text-txt">
-        {me.company ? me.company : "会社とつながっていません"}
-      </div>
-      <div className="mt-1 text-[12px] leading-relaxed text-dim">
-        受講の進み具合、修了証、氏名の直し、所属の紐付けはここから。
-      </div>
-    </Link>,
-  );
+  /* ── 下の札に出ている行き先は、ここに出さない ──
+     げんきさん（2026-09-10）
+       「ホームと下部タブで重複するものはホームに出さない」
+
+     マイページ・運営・受講管理は、画面の下にいつも出ている（BottomNav）。
+     ホームにも同じ札があると、同じ行き先が1画面に2つ並ぶ。
+     どちらを押せばいいのか、押すまで分からない。
+
+     **消すのではなく、下に出ていないときだけ出す。**
+     立場によって下の4つ目が変わるので、決め打ちにすると
+     行き着けない画面ができる（src/lib/nav.ts の inNav）。 */
+
+  /* マイページ。所属を外す・氏名を直す・進み具合を見るのはここから */
+  if (!inNav(me, "/me")) {
+    cards.push(
+      <Link
+        key="me"
+        href="/me"
+        className="block rounded-xl border border-line bg-panel p-4 no-underline"
+        data-testid="home-me"
+      >
+        <div className="text-[11px] font-extrabold tracking-widest text-dim">マイページ</div>
+        <div className="mt-1 text-[15px] font-black text-txt">
+          {me.company ? me.company : "会社とつながっていません"}
+        </div>
+        <div className="mt-1 text-[12px] leading-relaxed text-dim">
+          受講の進み具合、修了証、氏名の直し、所属の紐付けはここから。
+        </div>
+      </Link>,
+    );
+  }
 
   /* 申し込んだが、まだ許可が下りていない。
      ここを「会社とつなぐ」と出すと、押しても同じ画面に戻るだけで、
@@ -172,7 +186,9 @@ export function HomeCards() {
     );
   }
 
-  if (me.admin) {
+  /* 兼ねている人の下の札は「運営」だけなので、そのときは重なっていない。
+     消してしまうと、ホームから受講管理へ行く道が無くなる */
+  if (me.admin && !inNav(me, "/admin")) {
     cards.push(
       <Link
         key="admin"
@@ -191,7 +207,7 @@ export function HomeCards() {
     );
   }
 
-  if (me.owner) {
+  if (me.owner && !inNav(me, "/owner")) {
     cards.push(
       <Link
         key="owner"
