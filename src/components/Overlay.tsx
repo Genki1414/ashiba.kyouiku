@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { createPortal } from "react-dom";
 
 /* 画面全体に被せる札（確認・完了・アプリのコード）を、外枠の外に出す。
@@ -15,12 +15,16 @@ import { createPortal } from "react-dom";
    札は body の直下に描く（createPortal）。枠の外なので、どの画面でも
    タブの上に被さる。中身は同じ。試験の目印（data-testid）も同じ。
 
-   最初の描画はサーバで行われ、そこに document は無い。
-   取り付いてから描く（それまでは何も出さない）。 */
+   サーバでの描画には document が無いので、そこでは何も出さない。
+   端末では**最初の描画から**body に描く。取り付いてから描く形にすると
+   1コマ遅れて、押した瞬間には札が無い（e2e-order が見ている）。
+   札はどれも押してから開く（最初の描画で開いているものは無い）ので、
+   サーバと端末で食い違うことはない。 */
 
 export function Overlay({ children }: { children: React.ReactNode }) {
-  const [host, setHost] = useState<HTMLElement | null>(null);
-  useEffect(() => { setHost(document.body); }, []);
+  const [host] = useState<HTMLElement | null>(() =>
+    typeof document === "undefined" ? null : document.body,
+  );
   if (!host) return null;
   return createPortal(children, host);
 }
