@@ -2080,5 +2080,19 @@ console.log("── 下の行き先と、お知らせの出し方 ──");
   check(/href="\/me"/.test(hi), "登録を直しに行ける（間違って登録していたとき）");
 }
 
+/* ── ログイン画面の LINE の札（げんきさん 2026-09-11）──
+   「LINEでログイン。初めての人の方はLINEではじめるのままで」
+   はじめて使う（mode === "up"）だけ「はじめる」、それ以外は「ログイン」。
+   決め打ちに戻すと、ログインしに来た人に「はじめる」を押させる */
+{
+  const lg = strip(read("src/app/login/LoginClient.tsx"));
+  check(/mode === "up" \? "LINEではじめる" : "LINEでログイン"/.test(lg),
+    "LINE の札は、はじめての人だけ「はじめる」、それ以外は「ログイン」");
+  check(!/>\s*LINEではじめる\s*</.test(lg), "「LINEではじめる」を決め打ちで出さない");
+  check(/下の「LINEでログイン」を押せば/.test(lg), "パスワードを忘れた人への案内も「LINEでログイン」");
+  const lc = strip(read("src/app/owner/LineClient.tsx"));
+  check(!/「LINEではじめる」/.test(lc), "運営の案内も、ログイン画面の札と同じ言葉にする");
+}
+
 console.log(`\n通り ${ok} ／ だめ ${ng}`);
 process.exit(ng ? 1 : 0);

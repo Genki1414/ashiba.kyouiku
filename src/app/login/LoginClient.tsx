@@ -376,7 +376,7 @@ export function LoginClient() {
               data-testid="login-forgot-line"
             >
               LINEではじめた方は、パスワードがありません。
-              下の「LINEではじめる」を押せば、そのまま入れます。
+              下の「LINEでログイン」を押せば、そのまま入れます。
             </p>
           )}
           <a
@@ -384,7 +384,11 @@ export function LoginClient() {
             className="block rounded-lg bg-[#06C755] p-3.5 text-center text-[15px] font-extrabold text-white no-underline"
             data-testid="login-line"
           >
-            LINEではじめる
+            {/* はじめての人には「はじめる」、それ以外は「ログイン」
+                （げんきさん 2026-09-11「LINEでログイン。初めての人の方は
+                  LINEではじめるのままで」）。押した先は同じ。
+                LINE 側で見分けるので、どちらを押しても正しく入る */}
+            {mode === "up" ? "LINEではじめる" : "LINEでログイン"}
           </a>
           <p className="mt-1.5 text-center text-[11.5px] leading-relaxed text-dim2">
             メールとパスワードは要りません。修了証に載る氏名は、

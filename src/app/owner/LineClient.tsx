@@ -153,7 +153,7 @@ export function LineClient({ onNote }: { onNote: (s: string) => void }) {
               <div className="mt-1.5 text-[12px] leading-relaxed text-org" data-testid="owner-line-unlinked">
                 この店のLINEと、まだ結び付いていません。
                 <br />
-                一度ログアウトして、ログイン画面の「LINEではじめる」で入り直すと結び付きます。
+                一度ログアウトして、ログイン画面の「LINEでログイン」で入り直すと結び付きます。
                 結び付くまでは、「設定」と送っても返りません。
               </div>
             )}
