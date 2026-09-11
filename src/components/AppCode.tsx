@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { HANDOFF_MIN, showHandoff } from "@/lib/handoff";
+import { Overlay } from "./Overlay";
 
 /* ログインしたあとに出す、ホーム画面のアプリに入るコード（0036）。
 
@@ -102,8 +103,10 @@ export function AppCode() {
   if (!open) return null;
 
   return (
+    <Overlay>
     <div
       className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-4 print:hidden"
+      style={{ paddingBottom: "max(env(safe-area-inset-bottom), 16px)" }}
       data-testid="app-code"
     >
       <div className="w-full max-w-md rounded-2xl border border-line bg-panel p-5">
@@ -163,5 +166,6 @@ export function AppCode() {
         </div>
       </div>
     </div>
+    </Overlay>
   );
 }

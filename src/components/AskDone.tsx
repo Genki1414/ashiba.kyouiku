@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Overlay } from "./Overlay";
 
 /* 「確かめる → やる → 終わったと出す」の3つを1つにした札。
 
@@ -94,8 +95,10 @@ export function AskDone({ ask, onClose }: { ask: Ask | null; onClose: () => void
   };
 
   return (
+    <Overlay>
     <div
       className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-4 print:hidden"
+      style={{ paddingBottom: "max(env(safe-area-inset-bottom), 16px)" }}
       data-testid="ask-done"
     >
       <div className="w-full max-w-md rounded-2xl border border-line bg-panel p-5">
@@ -145,5 +148,6 @@ export function AskDone({ ask, onClose }: { ask: Ask | null; onClose: () => void
         )}
       </div>
     </div>
+    </Overlay>
   );
 }

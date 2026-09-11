@@ -2094,5 +2094,19 @@ console.log("── 下の行き先と、お知らせの出し方 ──");
   check(!/「LINEではじめる」/.test(lc), "運営の案内も、ログイン画面の札と同じ言葉にする");
 }
 
+/* ── 被せる札は外枠の外に描く（げんきさん 2026-09-11 実機）──
+   本体だけを動かす枠（data-shell="fixed"）の中で fixed の札を出すと、
+   iPhone では枠に閉じ込められて下のタブの下に潜る。
+   画面全体に被せる札は Overlay（body 直下）を通す */
+{
+  const ov = strip(read("src/components/Overlay.tsx"));
+  check(/createPortal\(children, host\)/.test(ov) && /document\.body/.test(ov), "Overlay は body の直下に描く");
+  for (const f of ["src/components/AskDone.tsx", "src/components/AppCode.tsx"]) {
+    const t = strip(read(f));
+    check(/<Overlay>/.test(t) && /<\/Overlay>/.test(t), `${f} は Overlay を通す`);
+    check(/<Overlay>\s*<div\s+className="fixed inset-0/.test(t), `${f} の fixed の札は Overlay の直下`);
+  }
+}
+
 console.log(`\n通り ${ok} ／ だめ ${ng}`);
 process.exit(ng ? 1 : 0);
