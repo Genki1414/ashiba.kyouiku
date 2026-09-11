@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { replyLine, userByLineId } from "@/lib/lineBot.server";
+import { replyLine, userByLineId, unlinkLineId } from "@/lib/lineBot.server";
 import { isOpsWord, verifyLineSignature } from "@/lib/lineBot";
 import { isOwnerEmail } from "@/lib/owner";
 import { opsNotLinkedText, opsNotOwnerText, opsStatusText } from "@/lib/opsStatus.server";
@@ -62,6 +62,12 @@ export async function POST(req: NextRequest) {
   }
 
   for (const ev of events) {
+    /* ブロック・友だち解除。結び付きを外して、送るのをやめる（2026-09-11） */
+    if (ev?.type === "unfollow") {
+      const gone = typeof ev.source?.userId === "string" ? ev.source.userId : "";
+      if (gone) await unlinkLineId(gone);
+      continue;
+    }
     if (ev?.type !== "message") continue;
     if (ev.message?.type !== "text") continue;
 

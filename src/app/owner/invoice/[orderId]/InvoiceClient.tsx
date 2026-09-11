@@ -236,6 +236,11 @@ export function InvoiceClient({ orderId, mine = false }: { orderId: string; mine
                 値引き{o.couponName ? `（${o.couponName}）` : ""}　-{yen(o.discount)}
               </div>
             )}
+            {/* 適格請求書の記載事項「税率ごとに区分した対価の額」。
+                読み手が小計から値引きを引き算しなくて済むように、1行で出す（2026-09-11） */}
+            <div data-testid="invoice-taxable">
+              {Math.round(o.taxRate * 100)}%対象　{yen(o.net)}
+            </div>
             <div>
               消費税（{Math.round(o.taxRate * 100)}%）　{yen(o.tax)}
             </div>

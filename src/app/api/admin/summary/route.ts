@@ -204,11 +204,13 @@ export async function GET(req: NextRequest) {
 
   const pick = async (table: string, cols: string): Promise<Record<string, unknown>[]> => {
     if (!eids.length) return [];
-    const { data } = await supabase.from(table).select(cols).in("enrollment_id", eids);
+    const { data, error } = await supabase.from(table).select(cols).in("enrollment_id", eids);
+    /* 読めなかったことを「0件」に化けさせない（docs/100。2026-09-11） */
+    if (error) throw new Error(`${table} を読めませんでした（${error.message}）`);
     return (data ?? []) as unknown as Record<string, unknown>[];
   };
 
-  const [seatRows, { data: named }, progress, exams, attempts, views, certs] = await Promise.all([
+  const gathered = await Promise.all([
     orderIds.length
       ? supabase.from("seats").select("order_id, used_by").in("order_id", orderIds)
       : Promise.resolve({ data: [] as Record<string, unknown>[] }),
@@ -221,7 +223,17 @@ export async function GET(req: NextRequest) {
     /* 通し見学。点は付かないが「手順を最後まで見たか」は担当者が知りたい */
     pick("training_views", "enrollment_id, chapter, times, done"),
     pick("certificates", "enrollment_id, cert_no, issued_at, revoked_at"),
-  ]);
+  ]).catch((e: unknown) => (e instanceof Error ? e : new Error(String(e))));
+  /* どれか1つでも読めなかったら、画面を「0件」で出さない */
+  if (gathered instanceof Error) {
+    return NextResponse.json({ ok: false, reason: gathered.message }, { status: 500 });
+  }
+  const [seatRows, namedRes, progress, exams, attempts, views, certs] = gathered;
+  const seatErr = "error" in seatRows ? seatRows.error : null;
+  if (seatErr) return NextResponse.json({ ok: false, reason: `席を読めませんでした（${seatErr.message}）` }, { status: 500 });
+  const namedErr = "error" in namedRes ? namedRes.error : null;
+  if (namedErr) return NextResponse.json({ ok: false, reason: `名前を読めませんでした（${namedErr.message}）` }, { status: 500 });
+  const named = namedRes.data;
 
   /* 席は、注文ぜんぶで1回引いて、入金済みかどうかで分ける */
   const seatList = ((seatRows as { data?: Record<string, unknown>[] }).data ?? []) as Record<string, unknown>[];
@@ -342,7 +354,8 @@ export async function GET(req: NextRequest) {
      この仕組みの記録ではないが、担当者が「誰を現場に出せるか」を
      見るのに要る。まとめて引く。人ごとに引くと、
      名簿の人数だけ問い合わせが増える */
-  const held = await heldForMany(supabase, rows0.map((r) => r.userId));
+  const held = await heldForMany(supabase, rows0.map((r) => r.userId)).catch((e: unknown) => (e instanceof Error ? e : new Error(String(e))));
+  if (held instanceof Error) return NextResponse.json({ ok: false, reason: held.message }, { status: 500 });
   const rows = rows0.map((r) => ({ ...r, held: held.get(r.userId) ?? [] }));
 
   /* まだ確かめていない申請。担当者がやることなので、上に出す。

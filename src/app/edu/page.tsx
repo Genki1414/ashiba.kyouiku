@@ -114,7 +114,7 @@ export default async function EduPage() {
                 下に置くと71枚めくらないと窓に届かない。
                 受けられる講座も、準備中も、まだ作っていない目録も、
                 同じ窓で絞る（OtherCourses が3つとも受け持つ） */}
-            <OtherCourses ready={r.other} soon={s.other} />
+            <OtherCourses ready={r.other} soon={s.other} main={r.main} />
           </div>
         </details>
       )}

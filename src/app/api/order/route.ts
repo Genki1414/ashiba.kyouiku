@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { lineAmount, normalizeCouponCode, spreadDiscount } from "@/lib/coupon";
+import { groupAmounts, normalizeCouponCode, spreadDiscount } from "@/lib/coupon";
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase/server";
 import { currentAdmin } from "@/lib/admin";
@@ -233,6 +233,8 @@ export async function POST(req: NextRequest) {
   /* 値引きを講座ごとの行に配る。**行に配らないと、合計だけ安いのに
      明細を足すと合わない請求書になる** */
   const shares = spreadDiscount(lines.map((l) => l.subtotal), discount);
+  /* 消費税は申込みまるごとで1回だけ端数を落とし、行に配る（インボイス制度。2026-09-11） */
+  const money = groupAmounts(lines.map((l) => l.subtotal), shares);
 
   const { data: made, error } = await supabase
     .from("orders")
@@ -243,7 +245,7 @@ export async function POST(req: NextRequest) {
         course_id: l.courseId,
         seats: l.seats,
         unit_price: l.unitPrice,
-        amount: lineAmount(l.subtotal, shares[i]).amount,
+        amount: money.amounts[i],
         method,
         status: "pending",
         due_date: due,
@@ -302,14 +304,14 @@ export async function POST(req: NextRequest) {
       courseId: l.courseId,
       short: l.short,
       seats: l.seats,
-      amount: lineAmount(l.subtotal, shares[i]).amount,
+      amount: money.amounts[i],
     })),
     method,
     /* 使ったクーポン。画面で「◯◯で 2,250円引きました」と出す */
     coupon: couponId ? { name: couponName, discount } : null,
     quote: {
       seats: lines.reduce((n, l) => n + l.seats, 0),
-      total: lines.reduce((n, l, i) => n + lineAmount(l.subtotal, shares[i]).amount, 0),
+      total: money.amount,
     },
     seatsIssued: 0,
   });

@@ -87,11 +87,51 @@ export function spreadDiscount(subtotals: number[], discount: number): number[] 
   return out;
 }
 
-/** 値引きを引いたあとの、その行の金額（税込） */
-export function lineAmount(subtotal: number, discount: number): { net: number; tax: number; amount: number } {
-  const net = Math.max(0, Math.floor(subtotal) - Math.max(0, Math.floor(discount)));
+/* ── 消費税の端数は、1つの請求書につき1回（2026-09-11）──
+
+   インボイス制度では、消費税額の端数処理は**1つの適格請求書につき、
+   税率ごとに1回**と決まっている。前は行ごとに切り捨てていた。
+
+   単価が500円刻みで人数が整数のうちは、行ごとに切っても
+   税額はいつも整数で、ずれなかった。**パーセント型のクーポンで
+   ずれる。**
+     足場4,500＋石綿4,500（9,000）に 7%引き → 630円引き → 315／315
+     行ごと：net 4,185 → floor(418.5)=418 ×2 = 836円
+     1回で：net 8,370 → floor(837.0)   = 837円
+   1円だが、制度どおりでない請求書になる。
+
+   ここでは、**税額を先に1回で決めて**、行に配る。
+   行の合計が、その税額にぴったり合うように、端数は高い行から1円ずつ足す
+   （spreadDiscount と同じ考え方）。行ごとの税込額は orders.amount に
+   入れる（Stripe の品目・運営の売上集計が行ごとに読む）。 */
+export function groupAmounts(
+  subtotals: number[],
+  discounts: number[],
+): { nets: number[]; taxes: number[]; amounts: number[]; net: number; tax: number; amount: number } {
+  const nets = subtotals.map((s, i) =>
+    Math.max(0, Math.floor(s) - Math.max(0, Math.floor(discounts[i] ?? 0))),
+  );
+  const net = nets.reduce((n, x) => n + x, 0);
+  /* **ここが1回。**行ごとに floor しない */
   const tax = Math.floor(net * TAX_RATE);
-  return { net, tax, amount: net + tax };
+  const taxes = nets.map((x) => Math.floor(x * TAX_RATE));
+  let rest = tax - taxes.reduce((n, x) => n + x, 0);
+  /* floor(合計) ≧ Σfloor なので rest ≧ 0。高い行から1円ずつ */
+  const order = nets
+    .map((x, i) => ({ x, i }))
+    .sort((a, b) => b.x - a.x || a.i - b.i)
+    .map((o) => o.i);
+  let guard = 0;
+  while (rest > 0 && guard < nets.length * 2 + 4) {
+    for (const i of order) {
+      if (rest <= 0) break;
+      taxes[i] += 1;
+      rest -= 1;
+    }
+    guard += 1;
+  }
+  const amounts = nets.map((x, i) => x + taxes[i]);
+  return { nets, taxes, amounts, net, tax, amount: net + tax };
 }
 
 /* ── 月別に見るための、月の名前（2026-09-10）──

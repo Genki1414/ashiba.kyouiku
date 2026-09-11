@@ -101,11 +101,12 @@ export async function POST(req: NextRequest) {
 
   /* その回に入ってよい人か。よその会社の回には入れない
      （討議の中身が、その会社の外に出る） */
-  const { data: ses } = await supabase
+  const { data: ses , error: sesErr } = await supabase
     .from("live_sessions")
     .select("id, course_id, company_id, starts_at, minutes, room_url, closed_at")
     .eq("id", id)
     .maybeSingle();
+  if (sesErr) return NextResponse.json({ ok: false, reason: `その回を読めませんでした（${sesErr.message}）` }, { status: 500 });
   if (!ses || ses.closed_at) {
     return NextResponse.json({ ok: false, reason: "その回はありません。" }, { status: 404 });
   }
@@ -144,11 +145,12 @@ export async function POST(req: NextRequest) {
     if (!who) {
       return NextResponse.json({ ok: false, reason: "受講の準備が必要です。" }, { status: 403 });
     }
-    const { data: en } = await supabase
+    const { data: en , error: enErr } = await supabase
       .from("enrollments")
       .select("consented_at, face_registered_at")
       .eq("id", who.enrollmentId)
       .maybeSingle();
+    if (enErr) return NextResponse.json({ ok: false, reason: `受講の準備の記録を読めませんでした（${enErr.message}）` }, { status: 500 });
     if (!en?.consented_at || !en?.face_registered_at) {
       return NextResponse.json(
         { ok: false, reason: "受講の準備（同意と顔の登録）を先に済ませてください。" },

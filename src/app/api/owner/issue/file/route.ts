@@ -27,11 +27,12 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: false, reason: "どの記録か分かりません。" }, { status: 400 });
   }
 
-  const { data } = await supabase
+  const { data , error: fileErr } = await supabase
     .from("cert_request_files")
     .select("mime, data, filename")
     .eq("id", id)
     .maybeSingle();
+  if (fileErr) return NextResponse.json({ ok: false, reason: `記録を読めませんでした（${fileErr.message}）` }, { status: 500 });
   if (!data) {
     return NextResponse.json({ ok: false, reason: "その記録はありません。" }, { status: 404 });
   }

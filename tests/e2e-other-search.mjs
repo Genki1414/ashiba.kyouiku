@@ -73,6 +73,25 @@ for (const [label, path] of [["ホーム", "/"], ["一覧", "/edu"]]) {
     t(!/Error|undefined|NaN/.test(c) && /\d/.test(c), `「${q.length > 20 ? q.slice(0, 8) + "…" : q}」${why} → ${c}（札 ${r}枚）`);
   }
 
+  /* ── 大きな札の講座も、打てば当たる（2026-09-11）──
+     足場屋革命は足場と職長を上の大きな札に出し、窓は「その他」だけを見ていたので、
+     「足場」「職長」と打つと0件だった（docs/92 §4）。打ったときだけ、ここにも出す。
+     特別教育ドットコム（平らに並ぶ店）は元から当たるので、開く札が無い店では見ない */
+  if (await open.count()) {
+    for (const [q, id] of [["足場", "ashiba"], ["職長", "shokucho"]]) {
+      await box.fill(q);
+      await page.waitForTimeout(250);
+      const hit = page.getByTestId("other-main-hit").first();
+      t(await hit.count() > 0, `「${q}」で大きな札の講座が当たる`);
+      t((await hit.innerText()).length > 0 && (await page.locator(`[data-testid="other-main-hit"] a[href="/edu/${id}"]`).count()) > 0,
+        `「${q}」の札から /edu/${id} へ行ける`);
+      t(!(await n()).startsWith("0"), `「${q}」が0件にならない（${await n()}）`);
+    }
+    await box.fill("");
+    await page.waitForTimeout(250);
+    t((await page.getByTestId("other-main-hit").count()) === 0, "空の窓では、大きな札の講座をここに出さない（上に既に有る）");
+  }
+
   await box.fill("");
   await page.waitForTimeout(200);
   t((await n()) === before, `消したら元に戻る（${await n()}）`);

@@ -90,13 +90,14 @@ async function gather(courseId: string): Promise<Gathered> {
     };
   }
 
-  const { data: prog } = await supabase
+  const { data: prog , error: progErr } = await supabase
     .from("progress")
     .select("lesson_id, quiz_passed_at")
     .eq("enrollment_id", who.enrollmentId);
+  if (progErr) return { ok: false, status: 500, reason: `確認問題の記録を読めませんでした（${progErr.message}）` };
   const lessonsPassed = (prog ?? []).filter((p) => p.quiz_passed_at).length;
 
-  const { data: exam } = await supabase
+  const { data: exam , error: examErr } = await supabase
     .from("exams")
     .select("score, total, passed")
     .eq("enrollment_id", who.enrollmentId)
@@ -104,6 +105,7 @@ async function gather(courseId: string): Promise<Gathered> {
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
+  if (examErr) return { ok: false, status: 500, reason: `修了試験の記録を読めませんでした（${examErr.message}）` };
 
   /* 学科のあとに残る関門（討議・実技）。
      ここを見ないと、討議が済んでいない人に職長教育の修了証が出る。 */
@@ -134,18 +136,20 @@ async function gather(courseId: string): Promise<Gathered> {
   const v = eligible({ lessons, lessonsPassed, examPassed: !!exam, gate: gateBlock });
   if (!v.ok) return { ok: false, status: 409, reason: v.reason };
 
-  const { data: user } = await supabase
+  const { data: user , error: userErr } = await supabase
     .from("users")
     .select("name, birth_date")
     .eq("id", who.userId)
     .maybeSingle();
+  if (userErr) return { ok: false, status: 500, reason: `氏名を読めませんでした（${userErr.message}）` };
 
-  const { data: cert } = await supabase
+  const { data: cert , error: certErr } = await supabase
     .from("certificates")
     .select("cert_no, issued_at, course_name, basis, total_min, subjects, law_version")
     .eq("enrollment_id", who.enrollmentId)
     .is("revoked_at", null)
     .maybeSingle();
+  if (certErr) return { ok: false, status: 500, reason: `修了証を読めませんでした（${certErr.message}）` };
 
   const issuedAt = cert?.issued_at ? new Date(cert.issued_at as string) : new Date();
 
@@ -229,7 +233,15 @@ export async function POST(req: NextRequest) {
   const d = body.birth ? Date.parse(body.birth) : NaN;
   if (!Number.isNaN(d)) patch.birth_date = new Date(d).toISOString().slice(0, 10);
   if (Object.keys(patch).length && r.userId) {
-    await supabase.from("users").update(patch).eq("id", r.userId);
+    /* ここで直した氏名が修了証に焼き付く。**保存できなかったのに先へ進むと、
+       仮の名前のまま修了証が出て、あとから直せない**（2026-09-11） */
+    const { error: nameErr } = await supabase.from("users").update(patch).eq("id", r.userId);
+    if (nameErr) {
+      return NextResponse.json(
+        { ok: false, reason: "氏名を保存できませんでした。もう一度お試しください。" },
+        { status: 500 },
+      );
+    }
   }
 
   if (r.already) {

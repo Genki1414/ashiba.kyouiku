@@ -85,19 +85,45 @@ export async function markQuizPassed(
   needSec: number,
   localWatchedSec: number,
 ): Promise<{ ok: boolean; quizPassedAt: string | null; error?: string }> {
+  /* ── 本番では、サーバに残らない合格を作らない（2026-09-11）──
+     前は、サーバが 401（ログイン切れ）や 500 を返しても、
+     通信が切れても、端末内の視聴秒数だけで「合格」にしていた。
+     修了証はサーバの記録を見て出すので、**「合格したのに修了証が出ない」**
+     に行き着く。何が起きたのか、本人にも運営にも分からない。
+
+     端末内の判定は、Supabase を繋いでいない手元（開発）のためのもの。
+     本番の組み立てでは、その道を閉じる。 */
+  const prod = process.env.NODE_ENV === "production";
   try {
     const res = await fetch("/api/quiz", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ courseId, lessonId }),
     });
-    const j = await res.json();
+    const j = await res.json().catch(() => ({}));
     if (res.ok && j.mode === "supabase") return { ok: true, quizPassedAt: j.quizPassedAt };
     if (res.status === 409) return { ok: false, quizPassedAt: null, error: j.error };
+    if (prod) {
+      return {
+        ok: false,
+        quizPassedAt: null,
+        error:
+          res.status === 401 || res.status === 403
+            ? "ログインが切れています。合格を記録できないので、入り直してからもう一度お試しください。"
+            : "合格を記録できませんでした。電波の届く場所で、もう一度お試しください。",
+      };
+    }
   } catch {
-    /* 通信不可はローカル判定 */
+    if (prod) {
+      return {
+        ok: false,
+        quizPassedAt: null,
+        error: "合格を記録できませんでした。電波の届く場所で、もう一度お試しください。",
+      };
+    }
+    /* 手元だけ：通信不可はローカル判定 */
   }
-  // ローカルモード：規定時間の判定を端末内の値で行う（開発用）
+  // ローカルモード：規定時間の判定を端末内の値で行う（開発用。本番では上で返っている）
   if (localWatchedSec < needSec) {
     return { ok: false, quizPassedAt: null, error: "規定時間に達していません" };
   }

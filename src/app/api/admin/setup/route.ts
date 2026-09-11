@@ -35,11 +35,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, reason: "ログインしてください。" }, { status: 401 });
   }
 
-  const { data: me } = await supabase
+  const { data: me , error: meErr } = await supabase
     .from("users")
     .select("id, company_id")
     .eq("id", user.id)
     .maybeSingle();
+  if (meErr) return NextResponse.json({ ok: false, reason: `登録を読めませんでした（${meErr.message}）` }, { status: 500 });
   if (!me) {
     return NextResponse.json({ ok: false, reason: "受講者の登録が見つかりません。" }, { status: 409 });
   }
@@ -58,7 +59,8 @@ export async function POST(req: NextRequest) {
 
   /* もう同じ会社が登録されていないか。
      名前の一覧はそう長くならないので、まとめて引いて突き合わせる */
-  const { data: all } = await supabase.from("companies").select("id, name");
+  const { data: all , error: allErr } = await supabase.from("companies").select("id, name");
+  if (allErr) return NextResponse.json({ ok: false, reason: `事業者の一覧を読めませんでした（同じ名前が無いか確かめられません）（${allErr.message}）` }, { status: 500 });
   const rows = all ?? [];
 
   const hit = rows.find((c) => sameCompany(name, (c.name as string) ?? ""));

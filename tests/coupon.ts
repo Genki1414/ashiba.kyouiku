@@ -6,7 +6,7 @@
    同じ数を両方に入れて、同じ答えになることを見る
    （SQL 側は supabase/tests/coupon.sql）。 */
 
-import { discountOf, lineAmount, monthKeyJst, monthLabel, normalizeCouponCode, rewardOf, spreadDiscount } from "../src/lib/coupon";
+import { discountOf, groupAmounts, monthKeyJst, monthLabel, normalizeCouponCode, rewardOf, spreadDiscount } from "../src/lib/coupon";
 import { TAX_RATE } from "../src/lib/pricing";
 
 let ok = 0;
@@ -73,16 +73,46 @@ console.log("── 値引きを講座ごとの行に配る ──");
   eq(bad, 0, "どの組み合わせでも、合計が合って、行の額を超えない");
 }
 
-console.log("── 値引きしたあとの、行の金額 ──");
+console.log("── 値引きしたあとの金額と、消費税の端数（1請求書につき1回）──");
 {
-  const a = lineAmount(22500, 2250);
+  const a = groupAmounts([22500], [2250]);
   eq(a.net, 20250, "税抜は値引き後");
   eq(a.tax, Math.floor(20250 * TAX_RATE), "税は値引き後にかかる");
   eq(a.amount, 20250 + Math.floor(20250 * TAX_RATE), "税込は税抜＋税");
   /* 値引きが無いときは、今までと同じ額のまま（古い注文と食い違わせない） */
-  const b = lineAmount(22500, 0);
+  const b = groupAmounts([22500], [0]);
   eq(b.amount, 22500 + Math.floor(22500 * TAX_RATE), "値引きが無ければ、今までと同じ");
-  eq(lineAmount(1000, 5000).amount, 0, "行の額より大きい値引きでも、マイナスにしない");
+  eq(groupAmounts([1000], [5000]).amount, 0, "行の額より大きい値引きでも、マイナスにしない");
+
+  /* ── インボイス制度：端数処理は1つの請求書につき税率ごとに1回（2026-09-11）──
+     足場4,500＋石綿4,500 に 7%引き（630円 → 315／315）。
+     行ごとに floor すると 418+418=836。1回なら floor(837.0)=837 */
+  const g = groupAmounts([4500, 4500], [315, 315]);
+  eq(g.net, 8370, "税抜の合計");
+  eq(g.tax, 837, "税は合計に対して1回で端数を落とす（行ごとだと836）");
+  eq(g.amounts.reduce((n, x) => n + x, 0), g.amount, "行の税込を足すと、合計にぴったり合う");
+  eq(g.taxes.reduce((n, x) => n + x, 0), 837, "行の税を足すと、1回で出した税に合う");
+  eq(Math.max(...g.taxes) - Math.min(...g.taxes), 1, "端数の1円は、どれか1行が背負う");
+
+  /* 端数が出ない普通の申込みでは、行ごとの額が今までと同じ */
+  const h = groupAmounts([4500 * 3, 7000 * 2], [0, 0]);
+  eq(h.amounts[0], 13500 + 1350, "足場3名の行は今までどおり");
+  eq(h.amounts[1], 14000 + 1400, "職長2名の行は今までどおり");
+
+  /* どんな組み合わせでも、行の合計＝1回で出した合計 */
+  let bad = 0;
+  for (let t = 0; t < 400; t++) {
+    const n = 1 + (t % 4);
+    const subs = Array.from({ length: n }, (_, i) => 500 * (1 + ((t * 7 + i * 3) % 40)));
+    const gross = subs.reduce((x, y) => x + y, 0);
+    const d = (t * 37) % (gross + 1);
+    const sh = spreadDiscount(subs, d);
+    const r = groupAmounts(subs, sh);
+    if (r.amounts.reduce((x, y) => x + y, 0) !== r.amount) bad++;
+    if (r.tax !== Math.floor((gross - d) * TAX_RATE)) bad++;
+    if (r.taxes.some((x) => x < 0)) bad++;
+  }
+  eq(bad, 0, "400通りで、行の合計と1回の端数処理が食い違わない");
 }
 
 console.log("── 月の切れ目（2026-09-10）──");

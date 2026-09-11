@@ -1,9 +1,13 @@
 import { Article, LegalPage } from "@/components/legal/Page";
-import { seller } from "@/content/legal";
+import { LEGAL_REVISED, seller } from "@/content/legal";
+import { hasStripe } from "@/lib/stripe";
 import { needsLive, readyCourses, totalNoteOf } from "@/content/courses";
 import { BRAND } from "@/content/brand";
 
 export const metadata = { title: "利用規約" };
+
+/* 事業者の情報とカードの有無は環境変数で変わる。作り置きにしない（2026-09-11） */
+export const dynamic = "force-dynamic";
 
 /* 利用規約。げんきさんの確認が要る文言です（docs/12） */
 export default function TermsPage() {
@@ -23,7 +27,7 @@ export default function TermsPage() {
     <LegalPage
       title="利用規約"
       lead={`${s.name}（以下「当社」）が提供する教育（${names}）${training}（以下「本サービス」）の利用条件を定めます。`}
-      updated="2026年8月24日"
+      updated={LEGAL_REVISED}
     >
       <div data-testid="terms">
         <Article n={1} t="適用">
@@ -58,7 +62,7 @@ export default function TermsPage() {
         </Article>
 
         <Article n={4} t="料金と支払い">
-          料金は申込みの画面に表示します。支払方法はクレジットカードまたは請求書（銀行振込）です。
+          料金は申込みの画面に表示します。支払方法は{hasStripe() ? "クレジットカードまたは" : ""}請求書（銀行振込）です。
           請求書払いの場合、支払期限は請求書の発行から1週間です。期限は請求書にも記載します。
           期限までにお振込みの確認が取れない場合、受講いただけません。お申込みを取り消すことがあります。
           <br />

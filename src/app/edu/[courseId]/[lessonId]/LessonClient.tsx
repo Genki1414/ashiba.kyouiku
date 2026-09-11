@@ -257,7 +257,14 @@ export function LessonClient({
           onPlaying={(v) => s.set({ playing: v })}
           onFinished={nextStage}
           devPlus={
-            s.mode === "local" && loaded
+            /* ── 開発用の札を、本番に出さない（2026-09-11）──
+               前は s.mode === "local" だけで出していた。mode は /api/progress の
+               返事で決まるので、**本番でもログインが切れたり、サーバが一時的に
+               断ったりすると local になり、受講者に「＋1分」の札が出ていた。**
+               サーバは実経過で頭打ちにするので記録は水増しされないが、
+               見た目が壊れているうえ、押した分は端末にしか残らない。
+               NODE_ENV は組み立てるときに埋め込まれるので、本番では必ず消える */
+            process.env.NODE_ENV !== "production" && s.mode === "local" && loaded
               ? () =>
                   useLessonStore
                     .getState()

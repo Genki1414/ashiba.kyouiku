@@ -39,12 +39,13 @@ export async function POST(req: NextRequest) {
      いちど断ったあとでも、同じ人からの申し込みがあったなら許可できる
      （押し間違いで消したまま戻せないと、担当者はどうにもできない） */
   if (action === "approve") {
-    const { data: req0 } = await supabase
+    const { data: req0 , error: req0Err } = await supabase
       .from("memberships")
       .select("id")
       .eq("user_id", userId)
       .eq("company_id", admin.companyId)
       .limit(1);
+    if (req0Err) return NextResponse.json({ ok: false, reason: `在籍を確かめられませんでした（${req0Err.message}）` }, { status: 500 });
     if (!(req0 ?? []).length) {
       return NextResponse.json({ ok: false, reason: "その申し込みはもうありません。" }, { status: 409 });
     }

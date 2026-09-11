@@ -1734,6 +1734,112 @@ console.log("── 支払期限と、記録の取りこぼし（げんきさん
   check(/BRAND\.training/.test(ps), "売っている店でだけ載せる");
 }
 
+console.log("── 残っていた壁を全部（げんきさん 2026-09-11「他は全て修正して」）──");
+{
+  /* ── 修了証の照会：読めなかったら「無い」と言わない ──
+     元請や労働基準監督署が番号を打ち込む窓口。データベースが一時的に
+     断っただけで「その番号は存在しません」と答えると、本物を偽物だと言うことになる */
+  const vc = read("src/app/api/verify-cert/route.ts");
+  check(/const \{ data, error \} = await supabase\s*\.from\("certificates"\)/.test(vc), "照会は、読めたかどうかを見る");
+  check(/unavailable: true/.test(vc) && /status: 503/.test(vc), "読めなかったら 503 で、そう言う（掛け直せば通る）");
+  check(!/if \(!data\) return NextResponse\.json\(\{ found: false \}\);[\s\S]*error/.test(vc.split("if (error)")[0]),
+    "「無い」と言う前に、読めたかどうかを見ている");
+
+  /* ── 個人情報保護法で足りなかった3点 ── */
+  const pv = strip(read("src/app/legal/privacy/page.tsx"));
+  check(/代表者　\{s\.ceo/.test(pv), "個人情報の取扱いに、代表者の氏名がある（第32条）");
+  check(/t="安全管理措置"/.test(pv), "安全管理措置の条項がある（第32条）");
+  check(/アメリカ合衆国/.test(pv) && /日本国内（東京）/.test(pv), "保管国と、経由する国を書いてある（第28条）");
+  check(/包括的な法制度はなく/.test(pv), "その国の制度についても書いてある");
+
+  /* ── 特商法：カードの有無で出し分け・特別の販売条件・改定日 ── */
+  const lg = read("src/content/legal.ts");
+  check(/export const LEGAL_REVISED = "20\d\d年\d{1,2}月\d{1,2}日";/.test(lg), "直した日を1か所で持つ");
+  check(!/LEGAL_REVISED = "2026年8月24日"/.test(lg), "直した日が、制定日のままではない");
+  check(/card \? "クレジットカード、または銀行振込（請求書払い）" : "銀行振込（請求書払い）"/.test(lg),
+    "支払方法は、カードの有無で出し分ける（入れた瞬間に虚偽にならない）");
+  check(/k: "特別の販売条件"/.test(lg) && /受講コードは発行から1年で失効/.test(lg), "特別の販売条件がある");
+  const tp = read("src/app/legal/tokushoho/page.tsx");
+  check(/tokushoho\(allPrices\(\), \{ card: hasStripe\(\), maxSeats: MAX_SEATS \}\)/.test(tp),
+    "出し分けの元は、画面と同じ判定（hasStripe）");
+  for (const f of ["tokushoho", "terms", "privacy"]) {
+    const pg = read(`src/app/legal/${f}/page.tsx`);
+    check(/export const dynamic = "force-dynamic";/.test(pg), `${f} は作り置きにしない（環境変数が反映される）`);
+    check(/updated=\{LEGAL_REVISED\}/.test(pg), `${f} の日付は1か所から`);
+  }
+  check(/hasStripe\(\) \? "クレジットカードまたは" : ""/.test(read("src/app/legal/terms/page.tsx")),
+    "規約の支払方法も、同じ判定で出し分ける");
+  check(/改定/.test(read("src/components/legal/Page.tsx")), "直した日を「改定」として出す");
+
+  /* ── 開発用の逃げ道を、本番で塞ぐ ──
+     サーバは実経過で頭打ちにするので水増しにはならないが、
+     本番の受講者に「＋1分（開発用）」が見えていた。
+     確認問題は、通信不調で端末内合格になり「合格したのに修了証が出ない」に行き着いていた */
+  const lc2 = read("src/app/edu/[courseId]/[lessonId]/LessonClient.tsx");
+  check(/process\.env\.NODE_ENV !== "production" && s\.mode === "local" && loaded/.test(lc2),
+    "「＋1分」の札は、本番の組み立てでは消える");
+  const pc = read("src/lib/progressClient.ts");
+  check(/const prod = process\.env\.NODE_ENV === "production";/.test(pc) && /if \(prod\) \{/.test(pc),
+    "本番では、サーバに残らない合格を作らない");
+  check(/ログインが切れています。合格を記録できない/.test(strip(pc)), "切れているなら、そう言う");
+
+  /* ── 消費税の端数は、1つの請求書につき1回（インボイス制度）──
+     パーセント型のクーポンで、行ごとに切ると1円ずれていた */
+  const cp = read("src/lib/coupon.ts");
+  check(/export function groupAmounts/.test(cp), "税額を申込みまるごとで1回決めて、行に配る");
+  check(!/export function lineAmount/.test(cp), "行ごとに税を切る関数は残さない（2つの流儀を持たない）");
+  check(/const tax = Math\.floor\(net \* TAX_RATE\);/.test(cp), "端数を落とすのは合計に対して1回");
+  const or2 = read("src/app/api/order/route.ts");
+  check(/const money = groupAmounts\(/.test(or2) && /amount: money\.amounts\[i\]/.test(or2), "注文の行の額は、その配り方で入れる");
+  const iv = read("src/app/api/owner/invoice/route.ts");
+  check(!/Math\.round\(a \/ \(1 \+ TAX_RATE\)\)/.test(iv), "請求書は税込から割り戻さない（端数を背負った行が1円ずれる）");
+  check(/const gross = unit \* qty;/.test(iv), "税抜は単価×人数から出す");
+  check(/data-testid="invoice-taxable"/.test(read("src/app/owner/invoice/[orderId]/InvoiceClient.tsx")),
+    "「10%対象」の行がある（税率ごとに区分した対価の額）");
+
+  /* ── LINE：ブロックされたら送るのをやめる ── */
+  check(/export async function unlinkLineId/.test(read("src/lib/lineBot.server.ts")), "結び付きを外す口がある");
+  const wh = read("src/app/api/line/webhook/route.ts");
+  check(/ev\?\.type === "unfollow"/.test(wh) && /unlinkLineId\(/.test(wh), "unfollow を受けて、結び付きを外す");
+
+  /* ── そのほか ── */
+  check(/try \{\s*session = await stripe\.checkout\.sessions\.create/.test(read("src/app/api/stripe/checkout/route.ts")),
+    "Stripe が断ったら、見当違いの文を出さずにそう言う");
+  check(/error: nameErr/.test(read("src/app/api/cert/route.ts")), "修了証の氏名の保存に失敗したら、先へ進まない");
+  const envx = read(".env.example");
+  for (const v of ["OWNER_EMAILS","SEAT_UNIT_PRICE","TRAIN_UNIT_PRICE","STRIPE_SECRET_KEY","STRIPE_WEBHOOK_SECRET","SITE_URL","NEXT_PUBLIC_SITE_URL","CERT_ISSUER_NAME","NEXT_PUBLIC_BRAND"]) {
+    check(new RegExp(`^${v}=`, "m").test(envx), `.env.example に ${v} がある`);
+  }
+  check(!/console\.log\(/.test(read("src/app/api/mypage/route.ts")), "マイページの口に計測の console.log を残さない");
+
+  /* 検索窓で「足場」「職長」と打つと0件になっていた（docs/92 §4） */
+  const ocs = read("src/components/OtherCourses.tsx");
+  check(/main\?: CourseMeta\[\];/.test(ocs) && /data-testid="other-main-hit"/.test(ocs), "大きな札の講座も、打てば当たる");
+  check(/typed \? main\.filter/.test(ocs), "空の窓では出さない（上に既に有る）");
+  check(/main=\{mainCourses\}/.test(read("src/app/page.tsx")), "ホームが、大きな札の講座を探す窓に渡す");
+  check(/main=\{r\.main\}/.test(read("src/app/edu/page.tsx")), "講座の一覧も渡す");
+
+  /* ── 読めなかったことを「0件」に化けさせない（docs/100）を、口ぜんぶで ──
+     2026-09-10 の点検で 61か所残っていた。1か所も残さない */
+  const apiFiles: string[] = [];
+  const walk4 = (d: string) => {
+    for (const e of readdirSync(new URL(`../${d}`, import.meta.url), { withFileTypes: true })) {
+      if (e.isDirectory()) walk4(`${d}/${e.name}`);
+      else if (e.name.endsWith(".ts")) apiFiles.push(`${d}/${e.name}`);
+    }
+  };
+  walk4("src/app/api");
+  const silent: string[] = [];
+  for (const f of apiFiles) {
+    const src = read(f);
+    for (const m of src.matchAll(/const \{ data([^}]*)\} = await /g)) {
+      if (!/error/.test(m[1])) silent.push(`${f}: ${m[0].slice(0, 40)}`);
+    }
+  }
+  check(silent.length === 0, `口の読み取りで、失敗を受け取っていない所が無い（${silent.length}件${silent.length ? "：" + silent.slice(0, 3).join(" ／ ") : ""}）`);
+  check(/throw new Error\(`取得済みの資格を読めませんでした/.test(read("src/lib/quals.ts")), "取得済みの資格も、読めなかったら「無い」と言わない");
+}
+
 console.log("── 下の行き先と、お知らせの出し方 ──");
 {
   /* げんきさん（2026-09-09）

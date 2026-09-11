@@ -91,17 +91,24 @@ function matchesCourse(c: CourseMeta, q: string): boolean {
 export function OtherCourses({
   ready = [],
   soon = [],
+  main = [],
 }: {
   /** 受けられる講座（menu: "other" のもの） */
   ready?: CourseMeta[];
   /** 準備中の講座（menu: "other" のもの） */
   soon?: CourseMeta[];
+  /** 大きな札で上に出している講座（足場・職長）。
+      **打ったときだけ**ここにも出す。空の窓では出さない（上に既に有る）。
+      前は「足場」「職長」と打つと0件になっていた（docs/92 §4。2026-09-11） */
+  main?: CourseMeta[];
 }) {
   const [q, setQ] = useState("");
+  const typed = norm(q).trim().length > 0;
 
   /* 目録のうち、まだ講座になっていないもの */
   const todo = useMemo(() => TOKUBETSU.filter((t) => !isReady(t)), []);
 
+  const hitMain = useMemo(() => (typed ? main.filter((c) => matchesCourse(c, q)) : []), [main, q, typed]);
   const hitReady = useMemo(() => ready.filter((c) => matchesCourse(c, q)), [ready, q]);
   const hitSoon = useMemo(() => soon.filter((c) => matchesCourse(c, q)), [soon, q]);
   const hitTodo = useMemo(() => {
@@ -111,7 +118,7 @@ export function OtherCourses({
     return [...found.filter(isBuilding), ...found.filter((t) => !isBuilding(t))];
   }, [q, todo]);
 
-  const nHit = hitReady.length + hitSoon.length + hitTodo.length;
+  const nHit = hitMain.length + hitReady.length + hitSoon.length + hitTodo.length;
 
   return (
     <div data-testid="other-courses">
@@ -135,6 +142,14 @@ export function OtherCourses({
         {nHit}件
       </div>
 
+      {/* 上の大きな札の講座は、打ったときだけここにも出す */}
+      {!!hitMain.length && (
+        <div className="mt-2.5 grid gap-2.5" data-testid="other-main-hit">
+          {hitMain.map((c) => (
+            <CourseCard key={c.id} c={c} />
+          ))}
+        </div>
+      )}
       {/* 受けられるものが先。次に準備中。最後に、まだ講座にしていない目録 */}
       {!!hitReady.length && (
         <div className="mt-2.5 grid gap-2.5">

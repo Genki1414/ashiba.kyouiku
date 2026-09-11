@@ -19,16 +19,18 @@ type Body = { action?: "grant" | "revoke"; userId?: string; note?: string };
 
 /** いま持っている人 */
 async function held(supabase: NonNullable<ReturnType<typeof getServiceClient>>) {
-  const { data } = await supabase
+  const { data , error: accErr } = await supabase
     .from("training_access")
     .select("user_id, granted_at, source, note");
+  if (accErr) throw new Error(`利用権を読めませんでした（${accErr.message}）`);
   const rows = data ?? [];
   if (!rows.length) return [];
 
-  const { data: us } = await supabase
+  const { data: us , error: usErr } = await supabase
     .from("users")
     .select("id, name, email")
     .in("id", rows.map((r) => r.user_id as string));
+  if (usErr) throw new Error(`氏名を読めませんでした（${usErr.message}）`);
   const who = new Map((us ?? []).map((u) => [u.id as string, u]));
 
   return rows
@@ -58,15 +60,17 @@ export async function GET(req: NextRequest) {
   let found: { userId: string; name: string; email: string; has: boolean }[] = [];
   if (q.length >= 3) {
     const safe = q.replace(/[%_\\]/g, (m) => `\\${m}`);
-    const { data } = await supabase
+    const { data , error: findErr } = await supabase
       .from("users")
       .select("id, name, email")
       .ilike("email", `%${safe}%`)
       .limit(20);
+    if (findErr) return NextResponse.json({ ok: false, reason: `検索できませんでした（${findErr.message}）` }, { status: 500 });
     const ids = (data ?? []).map((u) => u.id as string);
-    const { data: has } = ids.length
+    const { data: has, error: hasErr } = ids.length
       ? await supabase.from("training_access").select("user_id").in("user_id", ids)
-      : { data: [] as { user_id: string }[] };
+      : { data: [] as { user_id: string }[], error: null };
+    if (hasErr) return NextResponse.json({ ok: false, reason: `利用権を読めませんでした（${hasErr.message}）` }, { status: 500 });
     const got = new Set((has ?? []).map((r) => r.user_id as string));
     found = (data ?? []).map((u) => ({
       userId: u.id as string,
@@ -76,9 +80,11 @@ export async function GET(req: NextRequest) {
     }));
   }
 
+  const h = await held(supabase).catch((e: unknown) => (e instanceof Error ? e : new Error(String(e))));
+  if (h instanceof Error) return NextResponse.json({ ok: false, reason: h.message }, { status: 500 });
   return NextResponse.json({
     ok: true,
-    rows: await held(supabase),
+    rows: h,
     found,
     hint: q && q.length < 3 ? "3文字以上で探してください。" : "",
   });
@@ -103,15 +109,20 @@ export async function POST(req: NextRequest) {
   if (b.action === "revoke") {
     const { error } = await supabase.rpc("revoke_training", { p_user: userId });
     if (error) return NextResponse.json({ ok: false, reason: error.message }, { status: 500 });
-    return NextResponse.json({ ok: true, rows: await held(supabase) });
+    {
+    const h = await held(supabase).catch((e: unknown) => (e instanceof Error ? e : new Error(String(e))));
+    if (h instanceof Error) return NextResponse.json({ ok: false, reason: h.message }, { status: 500 });
+    return NextResponse.json({ ok: true, rows: h });
+  }
   }
 
   /* 誰が押したか。あとで振込と突き合わせるため */
-  const { data: me } = await supabase
+  const { data: me , error: meErr } = await supabase
     .from("users")
     .select("id")
     .eq("email", owner)
     .maybeSingle();
+  if (meErr) console.error("owner/training 押した人を読めない", meErr.message);
 
   const { data, error } = await supabase.rpc("grant_training", {
     p_user: userId,
@@ -127,5 +138,9 @@ export async function POST(req: NextRequest) {
      取り消しでは出さない（こちらから一言ある話なので、
      知らせだけが先に届くほうが困る） */
   await addNotice(userId, "train");
-  return NextResponse.json({ ok: true, rows: await held(supabase) });
+  {
+    const h = await held(supabase).catch((e: unknown) => (e instanceof Error ? e : new Error(String(e))));
+    if (h instanceof Error) return NextResponse.json({ ok: false, reason: h.message }, { status: 500 });
+    return NextResponse.json({ ok: true, rows: h });
+  }
 }

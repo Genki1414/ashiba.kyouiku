@@ -23,7 +23,7 @@ export async function GET() {
      誰かを見るのは1回だけ（currentUser は cache 済み。session.ts）。 */
   const me = await currentUser();
   const [owner, admin] = await Promise.all([currentOwner(), currentAdmin()]);
-  const [learn, held, marks, who] = await Promise.all([
+  const gathered = await Promise.all([
     /* 受講コードを持っているか。持っていない人に学科の札を押させると、
        開いた先で断られるだけなので、ホームで先に知らせる */
     canLearn(),
@@ -37,7 +37,10 @@ export async function GET() {
     marksOf(me?.id ?? null),
     /* 画面の上に出す「受講者：◯◯」。別に聞きに行かせると往復が増える */
     whoOf(me?.id),
-  ]);
+  ]).catch((e: unknown) => (e instanceof Error ? e : new Error(String(e))));
+  /* どれか1つでも読めなかったら、名前が空の人として描かせない（2026-09-11） */
+  if (gathered instanceof Error) return NextResponse.json({ ok: false, reason: gathered.message }, { status: 500 });
+  const [learn, held, marks, who] = gathered;
   /* 請求書だけは、担当者かどうかが決まってからでないと聞けない */
   const bills = await billsFor(me?.id ?? null, admin?.companyId ?? null);
   if (admin) {
@@ -98,11 +101,12 @@ async function marksOf(userId: string | null): Promise<{ owned: string[]; learni
 async function whoOf(userId?: string | null): Promise<{ name: string; birth: string }> {
   const supabase = getServiceClient();
   if (!supabase || !userId) return { name: "", birth: "" };
-  const { data } = await supabase
+  const { data , error: whoErr } = await supabase
     .from("users")
     .select("name, birth_date")
     .eq("id", userId)
     .maybeSingle();
+  if (whoErr) throw new Error(`氏名を読めませんでした（${whoErr.message}）`);
   return {
     name: (data?.name as string) ?? "",
     birth: (data?.birth_date as string) ?? "",

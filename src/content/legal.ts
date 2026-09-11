@@ -130,9 +130,30 @@ const priceLine = (price: number): string => {
 
     講座ごとに値段が違うので、受けられる講座を全部並べる。
     1つしか載せないと、載っていない講座の値段が書いていないことになる。 */
-export function tokushoho(prices: CoursePrice[]): Item[] {
+/* ── 表記を最後に直した日（2026-09-11）──
+   3ページとも「2026年8月24日 制定」で固定になっていて、その後に文言を
+   何度も直したのに日付が動いていなかった。規約は「掲示した時点から効力」
+   なので、直した日が実態と違うのはまずい。
+   **法務の3ページの文言を直したら、ここも直す。**1か所にしてある */
+export const LEGAL_ENACTED = "2026年8月24日";
+export const LEGAL_REVISED = "2026年9月11日";
+
+export type TokushohoOpts = {
+  /** カード払いを出しているか（STRIPE_SECRET_KEY の有無）。
+      サーバの page が hasStripe() で決めて渡す。ここで Stripe を読み込まない */
+  card?: boolean;
+  /** 1回の申込みの上限人数（MAX_SEATS） */
+  maxSeats?: number;
+};
+
+export function tokushoho(prices: CoursePrice[], opts: TokushohoOpts = {}): Item[] {
   const s = seller();
   const list = prices.length ? prices : [{ id: "", name: "受講", price: 0 }];
+  /* ── 支払方法は、実際に画面に出ているものと同じにする（2026-09-11）──
+     「銀行振込」で固定していたので、STRIPE_SECRET_KEY を入れた瞬間に
+     申込みの画面にはカードのボタンが出るのに、表記は振込のまま＝虚偽になる。
+     鍵の有無で出し分ける。規約 第4条も同じ値を見る */
+  const card = !!opts.card;
   return [
     { k: "販売事業者", v: s.name, env: "SELLER_NAME" },
     { k: "代表者", v: s.ceo, env: "SELLER_CEO" },
@@ -165,7 +186,7 @@ export function tokushoho(prices: CoursePrice[]): Item[] {
     },
     {
       k: "支払方法",
-      v: "銀行振込（請求書払い）",
+      v: card ? "クレジットカード、または銀行振込（請求書払い）" : "銀行振込（請求書払い）",
       env: "",
       /* 振込先は請求書にも載るが、買う前に見えている方が親切。
          そろっていないうちは書かない（中途半端に出す方が危ない） */
@@ -186,6 +207,7 @@ export function tokushoho(prices: CoursePrice[]): Item[] {
          ここを正として全部そろえた（DUE_DAYS = 7）。 */
       k: "支払時期",
       v:
+        (card ? "クレジットカードの場合は、お申込み時にお支払いいただきます。銀行振込の場合は" : "") +
         "前払いです。お申込み後にお送りする請求書の振込先へ、" +
         "請求書の発行から1週間以内にお振込みください。" +
         "お振込みの確認が取れない場合、受講いただけません。" +
@@ -195,10 +217,22 @@ export function tokushoho(prices: CoursePrice[]): Item[] {
     {
       k: "引渡し時期",
       v:
+        (card ? "クレジットカードの場合は、決済の完了後ただちに受講コードを発行します。銀行振込の場合は、" : "") +
         "お振込みの確認後、受講コードを発行します。確認は営業日に行うため、" +
         "お振込みから発行まで数日いただく場合があります。" +
         "受講コードをお渡しした時点で、受講を始められます。" +
         "期限までにお振込みの確認が取れない場合は、お申込みを取り消すことがあります。",
+      env: "",
+    },
+    {
+      /* ── 特別の販売条件（2026-09-11）──
+         特商法は「販売数量の制限その他特別の販売条件」の記載を求めている。
+         コードには上限（MAX_SEATS）と有効期限（0009 の expires_at、1年）が
+         実在するのに、表記に無かった。規約 第3条にはあった */
+      k: "特別の販売条件",
+      v:
+        (opts.maxSeats ? `1回のお申込みは${opts.maxSeats}名までです。` : "") +
+        "受講コードは発行から1年で失効します。1名につき1つで、他の方への譲渡はできません。",
       env: "",
     },
     {

@@ -31,29 +31,47 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const { data } = await supabase
+  /* ── 読めなかったことを「無い」に化けさせない（2026-09-11）──
+     ここは元請や労働基準監督署が番号を打ち込む窓口。
+     データベースが一時的に断っただけで「その番号は存在しません」と
+     答えると、**本物の修了証を偽物だと言うことになる。**
+     誤答の向きが最悪なので、読めなかったときは、そう言う。
+     503 なら、掛け直せば通る */
+  const { data, error } = await supabase
     .from("certificates")
     .select("cert_no, issued_at, revoked_at, enrollment_id, course_name, law_version")
     .eq("cert_no", no)
     .maybeSingle();
+  if (error) {
+    console.error("verify-cert 読めない", no, error.message);
+    return NextResponse.json(
+      { found: false, unavailable: true, reason: "いま照会できません。しばらくしてからもう一度お試しください。" },
+      { status: 503 },
+    );
+  }
 
   if (!data) return NextResponse.json({ found: false });
   if (data.revoked_at) {
     return NextResponse.json({ found: true, valid: false, reason: "取り消されています。" });
   }
 
-  const { data: enr } = await supabase
+  /* 氏名（伏せ字）は添え物。**ここが読めなくても、番号が本物であることは
+     もう分かっている。**添え物が読めないせいで「照会できない」にしない。
+     空で返し、画面は「氏名は紙で確かめてください」と出せる */
+  const { data: enr, error: enrErr } = await supabase
     .from("enrollments")
     .select("user_id")
     .eq("id", data.enrollment_id as string)
     .maybeSingle();
+  if (enrErr) console.error("verify-cert 受講を読めない", no, enrErr.message);
   let name = "";
   if (enr?.user_id) {
-    const { data: u } = await supabase
+    const { data: u, error: uErr } = await supabase
       .from("users")
       .select("name")
       .eq("id", enr.user_id as string)
       .maybeSingle();
+    if (uErr) console.error("verify-cert 氏名を読めない", no, uErr.message);
     name = mask((u?.name as string) ?? "");
   }
 

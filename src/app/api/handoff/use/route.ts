@@ -35,11 +35,12 @@ export async function POST(req: NextRequest) {
   }
 
   /* 誰のものかを引く。メールが要る（合図はメールに対して作る） */
-  const { data: who } = await admin
+  const { data: who , error: whoErr } = await admin
     .from("users")
     .select("email")
     .eq("id", userId)
     .maybeSingle();
+  if (whoErr) return NextResponse.json({ ok: false, reason: `登録を読めませんでした（${whoErr.message}）` }, { status: 500 });
   const email = ((who?.email as string | null) ?? "").trim();
   if (!email) {
     return NextResponse.json({ ok: false, reason: "この方のログインを作れません。" }, { status: 500 });

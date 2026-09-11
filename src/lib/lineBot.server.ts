@@ -135,6 +135,27 @@ export async function userByLineId(
                        LINE が名前を返さないことがあり、返らなかったせいで
                        「つながっています」だけに戻ってしまうと、
                        どのLINEか分からない元の状態に逆戻りする */
+/* ── ブロックされたら、結び付きを外す（2026-09-11）──
+   LINE は、相手がブロック（または友だち解除）すると unfollow を送ってくる。
+   受けずにいると、**ブロックした人に送り続ける。**届かないだけでなく、
+   送るたびに LINE から失敗が返り、本人の「つながっています」も嘘になる。
+   店（BRAND）ごとの番号なので、この店の行だけ外す。
+   本人がまたつなげば、linkLine で入り直る */
+export async function unlinkLineId(lineUserId: string): Promise<boolean> {
+  const supabase = getServiceClient();
+  if (!supabase || !lineUserId) return false;
+  const { error } = await supabase
+    .from("line_links")
+    .delete()
+    .eq("brand", BRAND.id)
+    .eq("line_user_id", lineUserId);
+  if (error) {
+    console.error("LINE の結び付きを外せない:", error.message);
+    return false;
+  }
+  return true;
+}
+
 export async function linkLine(
   userId: string,
   lineUserId: string,

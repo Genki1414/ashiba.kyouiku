@@ -64,10 +64,12 @@ const order = (a: Held, b: Held) =>
 
 /** その人がよそで取った資格 */
 export async function heldFor(supabase: SupabaseClient, userId: string): Promise<Held[]> {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("held_quals")
     .select("id, qual_id, label, issuer, got_on, cert_no, confirmed_at")
     .eq("user_id", userId);
+  /* 読めなかったら「持っていない」ではなく、そう言う（2026-09-11） */
+  if (error) throw new Error(`取得済みの資格を読めませんでした（${error.message}）`);
   return ((data ?? []) as Row[]).map(toHeld).sort(order);
 }
 
@@ -78,10 +80,11 @@ export async function heldForMany(
 ): Promise<Map<string, Held[]>> {
   const out = new Map<string, Held[]>();
   if (!userIds.length) return out;
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("held_quals")
     .select("id, user_id, qual_id, label, issuer, got_on, cert_no, confirmed_at")
     .in("user_id", userIds);
+  if (error) throw new Error(`取得済みの資格を読めませんでした（${error.message}）`);
   for (const r of (data ?? []) as Row[]) {
     const k = r.user_id as string;
     if (!out.has(k)) out.set(k, []);

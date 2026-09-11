@@ -29,11 +29,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, reason: "コードの形が違います。" }, { status: 400 });
   }
 
-  const { data: me } = await supabase
+  const { data: me , error: meErr } = await supabase
     .from("users")
     .select("company_id")
     .eq("id", user.id)
     .maybeSingle();
+  if (meErr) return NextResponse.json({ ok: false, reason: `登録を読めませんでした（${meErr.message}）` }, { status: 500 });
 
   /* ── 受講コード（席）── */
   if (kind === "seat") {
@@ -47,20 +48,22 @@ export async function POST(req: NextRequest) {
         { status: 409 },
       );
     }
-    const { data: co } = await supabase
+    const { data: co , error: coNameErr } = await supabase
       .from("companies")
       .select("name")
       .eq("id", companyId)
       .maybeSingle();
+    if (coNameErr) console.error("join 会社の名前を読めない", coNameErr.message);
     return NextResponse.json({ ok: true, kind: "seat", company: (co?.name as string) ?? "" });
   }
 
   /* ── 参加コード ── */
-  const { data: co } = await supabase
+  const { data: co , error: coErr } = await supabase
     .from("companies")
     .select("id, name")
     .eq("join_code", code)
     .maybeSingle();
+  if (coErr) return NextResponse.json({ ok: false, reason: `事業者を読めませんでした（${coErr.message}）` }, { status: 500 });
   if (!co) {
     return NextResponse.json({ ok: false, reason: "そのコードの事業者がありません。" }, { status: 404 });
   }

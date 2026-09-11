@@ -25,10 +25,11 @@ export async function GET(req: NextRequest) {
   const days = Math.min(365, Math.max(1, Number(req.nextUrl.searchParams.get("days")) || 90));
   const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
 
-  const { data: users } = await supabase
+  const { data: users , error: usersErr } = await supabase
     .from("users")
     .select("id, name, email")
     .eq("company_id", admin.companyId);
+  if (usersErr) return NextResponse.json({ ok: false, reason: `受講者を読めませんでした（${usersErr.message}）` }, { status: 500 });
   const ids = (users ?? []).map((u) => u.id as string);
   if (!ids.length) {
     return NextResponse.json({
@@ -37,21 +38,23 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  const { data: enrollments } = await supabase
+  const { data: enrollments , error: ensErr } = await supabase
     .from("enrollments")
     .select("id, user_id")
     .in("user_id", ids);
+  if (ensErr) return NextResponse.json({ ok: false, reason: `受講を読めませんでした（${ensErr.message}）` }, { status: 500 });
   const eids = (enrollments ?? []).map((e) => e.id as string);
 
   let logs: RawLog[] = [];
   if (eids.length) {
-    const { data } = await supabase
+    const { data , error: logErr } = await supabase
       .from("verify_logs")
       .select("enrollment_id, lesson_id, result, reason, created_at")
       .in("enrollment_id", eids)
       .gte("created_at", since)
       .order("created_at", { ascending: false })
       .limit(MAX_ROWS);
+    if (logErr) return NextResponse.json({ ok: false, reason: `確認記録を読めませんでした（${logErr.message}）` }, { status: 500 });
     logs = (data ?? []) as unknown as RawLog[];
   }
 

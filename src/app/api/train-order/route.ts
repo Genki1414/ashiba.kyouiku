@@ -89,7 +89,7 @@ export async function POST(req: NextRequest) {
 
   /* 払っていない申し込みが残っていれば、それを返す。
      押すたびに注文が増えると、どれを払えばよいか分からなくなる */
-  const { data: open } = await supabase
+  const { data: open , error: openErr } = await supabase
     .from("orders")
     .select("id, amount, due_date, bill_to, created_at")
     .eq("user_id", user.id)
@@ -97,16 +97,18 @@ export async function POST(req: NextRequest) {
     .eq("status", "pending")
     .limit(1)
     .maybeSingle();
+  if (openErr) return NextResponse.json({ ok: false, reason: `申込みを確かめられませんでした（${openErr.message}）` }, { status: 500 });
   if (open?.id) {
     return NextResponse.json({ ok: true, order: open, already: true });
   }
 
   const b = (await req.json().catch(() => ({}))) as Body;
-  const { data: me } = await supabase
+  const { data: me , error: meErr } = await supabase
     .from("users")
     .select("name")
     .eq("id", user.id)
     .maybeSingle();
+  if (meErr) console.error("train-order 宛名の氏名を読めない", meErr.message);
 
   const price = trainPrice();
   const q = quote(1, price);

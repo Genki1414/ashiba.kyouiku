@@ -223,11 +223,12 @@ export async function POST(req: NextRequest) {
   if (!id) {
     return NextResponse.json({ ok: false, reason: "注文が分かりません。" }, { status: 400 });
   }
-  const { data: order } = await supabase
+  const { data: order , error: orderErr } = await supabase
     .from("orders")
     .select("id, seats, status, method, kind, user_id, ordered_by, group_id")
     .eq("id", id)
     .maybeSingle();
+  if (orderErr) return NextResponse.json({ ok: false, reason: `注文を読めませんでした（${orderErr.message}）` }, { status: 500 });
   if (!order) {
     return NextResponse.json({ ok: false, reason: "その注文がありません。" }, { status: 404 });
   }
@@ -260,11 +261,12 @@ export async function POST(req: NextRequest) {
      2つに分けると、片方だけ通ったときに
      「払ったのに開かない」「開いているのに未入金」が起きる */
   if (order.user_id) {
-    const { data: by } = await supabase
+    const { data: by , error: byErr } = await supabase
       .from("users")
       .select("id")
       .eq("email", owner)
       .maybeSingle();
+    if (byErr) console.error("owner/orders 押した人を読めない", byErr.message);
     const { data: done, error: soloErr } = await supabase.rpc("pay_solo_order", {
       p_order: id,
       p_by: (by?.id as string) ?? null,

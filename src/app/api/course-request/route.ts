@@ -31,13 +31,14 @@ export async function GET() {
 
   /* いま在籍しているか。していなければ、誰宛か決まらないので送れない。
      画面には「送れない理由」を出したいので、false を返して伝える */
-  const { data: mem } = await supabase
+  const { data: mem , error: memErr } = await supabase
     .from("memberships")
     .select("company_id, companies(name)")
     .eq("user_id", user.id)
     .not("approved_at", "is", null)
     .is("left_at", null)
     .limit(1);
+  if (memErr) return NextResponse.json({ ok: false, reason: `在籍を読めませんでした（${memErr.message}）` }, { status: 500 });
   const m = (mem ?? [])[0] as { company_id?: string; companies?: { name?: string } } | undefined;
 
   const [{ data: creqs }, { data: ens }] = await Promise.all([

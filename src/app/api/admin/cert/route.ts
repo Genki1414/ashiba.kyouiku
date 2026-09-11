@@ -44,20 +44,22 @@ export async function POST(req: NextRequest) {
        ・辞めた人の修了証を、受けさせた会社が出せなくなる（取り消しも）
        ・よそへ移った人の記録を、移った先の会社が触れてしまう
      受講コードを買って受けさせたのは前の会社なので、どちらも困る。 */
-  const { data: en } = await supabase
+  const { data: en , error: enErr } = await supabase
     .from("enrollments")
     .select("id, user_id, course_id, company_id")
     .eq("id", id)
     .maybeSingle();
+  if (enErr) return NextResponse.json({ ok: false, reason: `受講を読めませんでした（${enErr.message}）` }, { status: 500 });
 
   /* 0012 より前の受講で、会社が入っていないものだけ、人の側で見る（受け皿） */
   let ownerCompany = (en?.company_id as string | null) ?? null;
   if (en && !ownerCompany) {
-    const { data: owner } = await supabase
+    const { data: owner , error: ownerErr } = await supabase
       .from("users")
       .select("company_id")
       .eq("id", en.user_id as string)
       .maybeSingle();
+    if (ownerErr) return NextResponse.json({ ok: false, reason: `所属を読めませんでした（${ownerErr.message}）` }, { status: 500 });
     ownerCompany = (owner?.company_id as string | null) ?? null;
   }
   if (!en || ownerCompany !== admin.companyId) {
@@ -75,12 +77,13 @@ export async function POST(req: NextRequest) {
   }
 
   /* すでに有効な1枚があれば、それを返して終わり */
-  const { data: already } = await supabase
+  const { data: already , error: alreadyErr } = await supabase
     .from("certificates")
     .select("cert_no")
     .eq("enrollment_id", id)
     .is("revoked_at", null)
     .maybeSingle();
+  if (alreadyErr) return NextResponse.json({ ok: false, reason: `発行済みかどうかを読めませんでした（${alreadyErr.message}）` }, { status: 500 });
   if (already?.cert_no) {
     return NextResponse.json({ ok: true, certNo: already.cert_no as string, issued: true });
   }
@@ -92,19 +95,21 @@ export async function POST(req: NextRequest) {
   }
   const lessons = cur.subjects.reduce((n, s) => n + s.lessons.length, 0);
 
-  const { data: prog } = await supabase
+  const { data: prog , error: progErr } = await supabase
     .from("progress")
     .select("quiz_passed_at")
     .eq("enrollment_id", id);
+  if (progErr) return NextResponse.json({ ok: false, reason: `確認問題の記録を読めませんでした（${progErr.message}）` }, { status: 500 });
   const lessonsPassed = (prog ?? []).filter((p) => p.quiz_passed_at).length;
 
-  const { data: exam } = await supabase
+  const { data: exam , error: examErr } = await supabase
     .from("exams")
     .select("id")
     .eq("enrollment_id", id)
     .eq("passed", true)
     .limit(1)
     .maybeSingle();
+  if (examErr) return NextResponse.json({ ok: false, reason: `修了試験の記録を読めませんでした（${examErr.message}）` }, { status: 500 });
 
   const v = eligible({ lessons, lessonsPassed, examPassed: !!exam });
   if (!v.ok) return NextResponse.json({ ok: false, reason: v.reason }, { status: 409 });

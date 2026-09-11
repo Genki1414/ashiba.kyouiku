@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { LEGAL_ENACTED } from "@/content/legal";
 
 /* 表記のページの枠。3ページで同じ見た目にする */
 
@@ -10,7 +11,7 @@ export function LegalPage({
 }: {
   title: string;
   lead?: string;
-  /** 最後に直した日 */
+  /** 最後に直した日（src/content/legal.ts の LEGAL_REVISED）。制定日は枠が持つ */
   updated: string;
   children: React.ReactNode;
 }) {
@@ -23,7 +24,10 @@ export function LegalPage({
       <h1 className="mt-2 text-[19px] font-black">{title}</h1>
       {lead && <p className="mt-2 text-[12.5px] leading-relaxed text-dim">{lead}</p>}
       <div className="mt-5">{children}</div>
-      <div className="mt-8 border-t border-line pt-3 text-[11.5px] text-dim2">{updated} 制定</div>
+      {/* 「制定」で固定すると、直しても直した日が出ない（2026-09-11） */}
+      <div className="mt-8 border-t border-line pt-3 text-[11.5px] text-dim2" data-testid="legal-dates">
+        {LEGAL_ENACTED} 制定{updated !== LEGAL_ENACTED ? `　／　${updated} 改定` : ""}
+      </div>
       <LegalNav />
     </main>
   );

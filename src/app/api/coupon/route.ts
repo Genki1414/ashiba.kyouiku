@@ -82,11 +82,12 @@ export async function POST(req: NextRequest) {
      返さないと、5名で見た値引きが10名に変えても そのまま残り、
      **申し込むまで違う額を見せることになる**（本当に引く額はサーバが決める）。
      率（10%）を見せて困ることは無い。値引きの額はもともと見せている */
-  const { data: c } = await supabase
+  const { data: c , error: cErr } = await supabase
     .from("coupons")
     .select("percent_off, amount_off")
     .eq("id", row.coupon_id ?? "")
     .maybeSingle();
+  if (cErr) console.error("coupon 値引きの形を読めない", cErr.message);
 
   return NextResponse.json({
     ok: true,

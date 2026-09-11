@@ -38,7 +38,11 @@ export async function GET() {
     return NextResponse.json({ ok: false, reason: "ログインが必要です。" }, { status: 403 });
   }
   /* 2つとも自分のぶん。順に待つ理由がないので、まとめて聞く */
-  const [held, mine] = await Promise.all([heldFor(supabase, user.id), minted(supabase, user.id)]);
+  const got = await Promise.all([heldFor(supabase, user.id), minted(supabase, user.id)])
+    .catch((e: unknown) => (e instanceof Error ? e : new Error(String(e))));
+  /* 読めなかったのに「持っている資格は無い」と出さない（2026-09-11） */
+  if (got instanceof Error) return NextResponse.json({ ok: false, reason: got.message }, { status: 500 });
+  const [held, mine] = got;
   return NextResponse.json({ ok: true, held, mine });
 }
 
@@ -49,17 +53,19 @@ async function minted(
   supabase: NonNullable<ReturnType<typeof getServiceClient>>,
   userId: string,
 ) {
-  const { data: ens } = await supabase
+  const { data: ens , error: ensErr } = await supabase
     .from("enrollments")
     .select("id, course_id")
     .eq("user_id", userId);
+  if (ensErr) throw new Error(`受講を読めませんでした（${ensErr.message}）`);
   const rows = ens ?? [];
   if (!rows.length) return [];
 
-  const { data: certs } = await supabase
+  const { data: certs , error: certsErr } = await supabase
     .from("certificates")
     .select("enrollment_id, cert_no, issued_at, revoked_at")
     .in("enrollment_id", rows.map((e) => e.id as string));
+  if (certsErr) throw new Error(`修了証を読めませんでした（${certsErr.message}）`);
 
   const courseOf = new Map(rows.map((e) => [e.id as string, e.course_id as string]));
   const name = new Map(COURSES.map((c) => [c.id, c.name]));
@@ -98,7 +104,9 @@ export async function POST(req: NextRequest) {
     /* 自分のぶんだけ消える（drop_qual が user_id で絞っている） */
     const { error } = await supabase.rpc("drop_qual", { p_user: user.id, p_id: id });
     if (error) return NextResponse.json({ ok: false, reason: error.message }, { status: 500 });
-    const [held, mine] = await Promise.all([heldFor(supabase, user.id), minted(supabase, user.id)]);
+    const got = await Promise.all([heldFor(supabase, user.id), minted(supabase, user.id)]).catch((e: unknown) => (e instanceof Error ? e : new Error(String(e))));
+    if (got instanceof Error) return NextResponse.json({ ok: false, reason: got.message }, { status: 500 });
+    const [held, mine] = got;
     return NextResponse.json({ ok: true, held, mine });
   }
 
@@ -154,11 +162,14 @@ export async function POST(req: NextRequest) {
     });
     if (error) {
       return NextResponse.json(
-        { ok: false, reason: error.message, held: await heldFor(supabase, user.id) },
+        /* もう断っている。ここで読めなくても、画面には断った理由だけ出せればよい */
+        { ok: false, reason: error.message, held: await heldFor(supabase, user.id).catch((): never[] => []) },
         { status: 500 },
       );
     }
   }
-  const [held, mine] = await Promise.all([heldFor(supabase, user.id), minted(supabase, user.id)]);
+  const got2 = await Promise.all([heldFor(supabase, user.id), minted(supabase, user.id)]).catch((e: unknown) => (e instanceof Error ? e : new Error(String(e))));
+  if (got2 instanceof Error) return NextResponse.json({ ok: false, reason: got2.message }, { status: 500 });
+  const [held, mine] = got2;
   return NextResponse.json({ ok: true, added: ids.length, held, mine });
 }

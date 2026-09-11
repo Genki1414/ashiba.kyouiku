@@ -44,10 +44,11 @@ export async function GET() {
      （本部の画面とはいえ、一覧に部屋の場所を並べない） */
   const hasRoom = new Set<string>();
   if (picked.length) {
-    const { data: rs } = await supabase
+    const { data: rs , error: rsErr } = await supabase
       .from("live_sessions")
       .select("id, room_url")
       .in("id", [...new Set(picked.map((r) => r.sessionId as string))]);
+    if (rsErr) return NextResponse.json({ ok: false, reason: `実技の回を読めませんでした（${rsErr.message}）` }, { status: 500 });
     for (const x of rs ?? []) if (`${x.room_url ?? ""}`.trim()) hasRoom.add(x.id as string);
   }
   /* 実技の実施記録。**中身（data）はここでは読まない。**
@@ -57,11 +58,12 @@ export async function GET() {
   const filesBy = new Map<string, { id: string; name: string; mime: string; bytes: number }[]>();
   const drillIds = rows.filter((r) => r.kind === "drill").map((r) => r.id);
   if (drillIds.length) {
-    const { data: fs } = await supabase
+    const { data: fs , error: fsErr } = await supabase
       .from("cert_request_files")
       .select("id, request_id, filename, mime, size_bytes")
       .in("request_id", drillIds)
       .order("uploaded_at", { ascending: true });
+    if (fsErr) return NextResponse.json({ ok: false, reason: `実技の記録の一覧を読めませんでした（${fsErr.message}）` }, { status: 500 });
     for (const f of fs ?? []) {
       const k = f.request_id as string;
       const list = filesBy.get(k) ?? [];
@@ -142,11 +144,12 @@ export async function POST(req: NextRequest) {
 
   /* 誰の、どの講座の申請か。返事のたびに本人へ知らせるので、
      どの返事でも要る。ここで1回だけ読む */
-  const { data: reqRow } = await supabase
+  const { data: reqRow , error: reqErr } = await supabase
     .from("cert_requests")
     .select("user_id, course_id, session_id")
     .eq("id", id)
     .maybeSingle();
+  if (reqErr) console.error("owner/issue 申請を読めない（本人への知らせだけ止まる）", reqErr.message);
   const to = (reqRow?.user_id as string | null) ?? null;
   const courseId = (reqRow?.course_id as string | null) ?? null;
 

@@ -71,19 +71,21 @@ export async function GET(req: NextRequest) {
   /* 宛名。決めてあればそれを使い、無ければ会社名か本人の名前 */
   let to = (o.bill_to as string) ?? "";
   if (!to && o.company_id) {
-    const { data: c } = await supabase
+    const { data: c , error: cErr } = await supabase
       .from("companies")
       .select("name")
       .eq("id", o.company_id as string)
       .maybeSingle();
+    if (cErr) return NextResponse.json({ ok: false, reason: `宛名（事業者）を読めませんでした（${cErr.message}）` }, { status: 500 });
     to = (c?.name as string) ?? "";
   }
   if (!to && o.user_id) {
-    const { data: u } = await supabase
+    const { data: u , error: uErr } = await supabase
       .from("users")
       .select("name")
       .eq("id", o.user_id as string)
       .maybeSingle();
+    if (uErr) return NextResponse.json({ ok: false, reason: `宛名（氏名）を読めませんでした（${uErr.message}）` }, { status: 500 });
     to = (u?.name as string) ?? "";
   }
 
@@ -95,11 +97,12 @@ export async function GET(req: NextRequest) {
 
      3枚に分けると、1回でまとめて振り込まれたときに
      **どの請求書の入金か分からなくなる。** */
-  const { data: rows } = await supabase
+  const { data: rows , error: rowsErr } = await supabase
     .from("orders")
     .select("id, course_id, kind, seats, unit_price, amount, discount, coupon_id, created_at")
     .eq("group_id", (o.group_id as string) ?? (o.id as string))
     .order("created_at", { ascending: true });
+  if (rowsErr) return NextResponse.json({ ok: false, reason: `申込みの行を読めませんでした（${rowsErr.message}）` }, { status: 500 });
   /* 版が古くて group_id がまだ無いときは、開いた1行だけで出す。
      ここで空にすると、**古い請求書が真っ白になる** */
   const group = (rows ?? []).length ? rows! : [o];
@@ -114,30 +117,36 @@ export async function GET(req: NextRequest) {
        形が違う。読むときにそろえる */
     const r = row as Record<string, unknown>;
     const a = (r.amount as number) ?? 0;
-    /* 税込から割り戻す。注文を作ったときの計算と食い違わせない */
-    const after = Math.round(a / (1 + TAX_RATE));
+    const qty = (r.seats as number) ?? 1;
+    const unit = (r.unit_price as number) ?? 0;
     /* 値引き（0032）。明細に出すのは**値引き前**の額。
        値引きは1行にまとめて下に出す。行ごとに引いた額を並べると、
        「単価×数量」と行の金額が合わない請求書になる */
     const off = (r.discount as number) ?? 0;
+    /* ── 税抜は「単価×人数」から出す（2026-09-11）──
+       前は税込から割り戻していた（round(a / 1.1)）。消費税の端数を
+       申込みまるごとで1回にしたので、端数の1円を背負った行は
+       割り戻すと1円ずれる。単価と人数は行にそのまま入っているので、
+       そこから出せば割り戻しは要らない。税は、税込の合計との差で1回 */
+    const gross = unit * qty;
     return {
       what: nameOf(r),
-      qty: (r.seats as number) ?? 1,
-      unit: (r.unit_price as number) ?? 0,
-      net: after + off,
-      tax: a - after,
+      qty,
+      unit,
+      net: gross,
+      tax: a - (gross - off),
       amount: a,
       discount: off,
     };
   });
 
   const amount = items.reduce((n, i) => n + i.amount, 0);
-  /* 小計は値引き前（明細を足したもの）。
-     **行ごとに割り戻してから足す。**合計から割り戻すと、
-     行の税額を足したものと1円ずれることがある */
+  /* 小計は値引き前（明細を足したもの） */
   const gross = items.reduce((n, i) => n + i.net, 0);
   const discount = items.reduce((n, i) => n + i.discount, 0);
+  /* 10%対象の対価の額。適格請求書に要る「税率ごとに区分した対価の額」 */
   const net = gross - discount;
+  /* 税は**1回**。行ごとの税を足さず、税込の合計と税抜の合計の差で出す */
   const tax = amount - net;
 
   /* 使ったクーポンの名前。請求書に「値引き（◯◯協会）」と出す。
@@ -157,18 +166,20 @@ export async function GET(req: NextRequest) {
     | string
     | undefined;
   if (couponId) {
-    const { data: use } = await supabase
+    const { data: use , error: useErr } = await supabase
       .from("coupon_uses")
       .select("coupon_name")
       .eq("group_id", (o.group_id as string) ?? (o.id as string))
       .maybeSingle();
+    if (useErr) console.error("invoice クーポン名（焼き付け）を読めない", useErr.message);
     couponName = (use?.coupon_name as string) ?? "";
     if (!couponName) {
-      const { data: cp } = await supabase
+      const { data: cp , error: cpErr } = await supabase
         .from("coupons")
         .select("name")
         .eq("id", couponId)
         .maybeSingle();
+      if (cpErr) console.error("invoice クーポン名を読めない", cpErr.message);
       couponName = (cp?.name as string) ?? "";
     }
   }

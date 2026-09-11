@@ -70,9 +70,10 @@ async function all(supabase: NonNullable<ReturnType<typeof getServiceClient>>) {
   /* 修了証は受講にぶら下がっている。会社ごとに数えるため、受講から引く */
   const enrolls = ens ?? [];
   const byEnroll = new Map(enrolls.map((e) => [e.id as string, e.company_id as string | null]));
-  const { data: certs } = await supabase
+  const { data: certs , error: certsErr } = await supabase
     .from("certificates")
     .select("enrollment_id, issued_at, revoked_at");
+  if (certsErr) return NextResponse.json({ ok: false, reason: `修了証を読めませんでした（${certsErr.message}）` }, { status: 500 });
 
   const zero = () => ({ active: 0, waiting: 0, gone: 0, learners: 0, certs: 0, sales: 0, orders: 0 });
   const acc = new Map<string, ReturnType<typeof zero>>();
@@ -147,11 +148,12 @@ async function one(
   supabase: NonNullable<ReturnType<typeof getServiceClient>>,
   companyId: string,
 ) {
-  const { data: co } = await supabase
+  const { data: co , error: coErr } = await supabase
     .from("companies")
     .select("id, name, join_code, created_at")
     .eq("id", companyId)
     .maybeSingle();
+  if (coErr) return NextResponse.json({ ok: false, reason: `事業者を読めませんでした（${coErr.message}）` }, { status: 500 });
   if (!co) {
     return NextResponse.json({ ok: false, reason: "その事業者がありません。" }, { status: 404 });
   }
@@ -215,15 +217,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, reason: "会社と人が分かりません。" }, { status: 400 });
   }
 
-  const { data: co } = await supabase
+  const { data: co , error: coErr2 } = await supabase
     .from("companies").select("id, name").eq("id", companyId).maybeSingle();
+  if (coErr2) return NextResponse.json({ ok: false, reason: `事業者を読めませんでした（${coErr2.message}）` }, { status: 500 });
   if (!co) {
     return NextResponse.json({ ok: false, reason: "その事業者がありません。" }, { status: 404 });
   }
 
   /* その会社に在籍している人だけ。抜けた人を担当者に立てると、
      辞めた人がその会社の名簿を見続けることになる */
-  const { data: mem } = await supabase
+  const { data: mem , error: memErr } = await supabase
     .from("memberships")
     .select("user_id")
     .eq("company_id", companyId)
@@ -231,6 +234,7 @@ export async function POST(req: NextRequest) {
     .not("approved_at", "is", null)
     .is("left_at", null)
     .maybeSingle();
+  if (memErr) return NextResponse.json({ ok: false, reason: `在籍を確かめられませんでした（${memErr.message}）` }, { status: 500 });
   if (!mem) {
     return NextResponse.json(
       { ok: false, reason: "その人は、この事業者に在籍していません。" },

@@ -27,17 +27,19 @@ async function study(courseId: string, enrollmentId: string): Promise<StudyDone>
   const cur = await getCurriculum(courseId);
   const lessons = cur ? cur.subjects.reduce((n, s) => n + s.lessons.length, 0) : 0;
 
-  const { data: prog } = await supabase
+  const { data: prog , error: progErr } = await supabase
     .from("progress")
     .select("lesson_id, quiz_passed_at")
     .eq("enrollment_id", enrollmentId);
-  const { data: exam } = await supabase
+  if (progErr) throw new Error(`確認問題の記録を読めませんでした（${progErr.message}）`);
+  const { data: exam , error: examErr } = await supabase
     .from("exams")
     .select("passed")
     .eq("enrollment_id", enrollmentId)
     .eq("passed", true)
     .limit(1)
     .maybeSingle();
+  if (examErr) throw new Error(`修了試験の記録を読めませんでした（${examErr.message}）`);
 
   return {
     lessons,
@@ -63,7 +65,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: false, reason: "ログインが必要です。" }, { status: 401 });
   }
 
-  const [s, row] = await Promise.all([study(courseId, who.enrollmentId), requestOf(supabase, who.enrollmentId)]);
+  const got = await Promise.all([study(courseId, who.enrollmentId), requestOf(supabase, who.enrollmentId)]).catch((e: unknown) => (e instanceof Error ? e : new Error(String(e))));
+  /* 読めなかったのに「学科が終わっていない」と見せない（2026-09-11） */
+  if (got instanceof Error) return NextResponse.json({ ok: false, reason: got.message }, { status: 500 });
+  const [s, row] = got;
   const slots = row ? await slotsOf(supabase, row.id) : [];
   const st = row ? toState(row, slots) : null;
   const can = canRequest(s);
@@ -157,7 +162,9 @@ export async function POST(req: NextRequest) {
   if (b.action === "request") {
     /* 学科が終わっていない人の申請は受けない。
        受けると、候補日を出したあとに学科が終わらないまま宙に浮く */
-    const can = canRequest(await study(course.id, who.enrollmentId));
+    const st = await study(course.id, who.enrollmentId).catch((e: unknown) => (e instanceof Error ? e : new Error(String(e))));
+    if (st instanceof Error) return NextResponse.json({ ok: false, reason: st.message }, { status: 500 });
+    const can = canRequest(st);
     if (!can.ok) return NextResponse.json({ ok: false, reason: can.reason }, { status: 409 });
 
     /* 実技のある講座は、事業者で実技を済ませてから申請してもらう。

@@ -119,7 +119,7 @@ export default async function Home() {
             前は講座の一覧（/edu）にだけ置いていたが、**ホームの札は
             各講座へ直接飛ぶ**ので、一覧に辿り着く道がどこにも無かった。
             置いたのに誰にも見えていなかった。人が見ているのはホーム。 */}
-        {!BRAND.flatList && <OtherTokubetsu ready={otherReady} />}
+        {!BRAND.flatList && <OtherTokubetsu ready={otherReady} main={mainCourses} />}
 
         {/* 実務トレーニングは足場を組むゲーム。足場屋さん以外には要らない */}
         {BRAND.training && (

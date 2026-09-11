@@ -32,7 +32,7 @@ import { HeldCount } from "./HeldCount";
    キーボードでも開ける。圏外で開いた人が詰まらない。 */
 
 /** @param ready 受けられる「その他」の講座。サーバ側で教材の有無を見てから渡す */
-export function OtherTokubetsu({ ready = [] }: { ready?: CourseMeta[] }) {
+export function OtherTokubetsu({ ready = [], main = [] }: { ready?: CourseMeta[]; main?: CourseMeta[] }) {
   const todo = TOKUBETSU.filter((t) => !isReady(t)).length;
   const n = ready.length + todo;
   if (!n) return null;
@@ -60,7 +60,7 @@ export function OtherTokubetsu({ ready = [] }: { ready?: CourseMeta[] }) {
       <div className="px-4 pb-4">
         {/* **札を並べるのは OtherCourses。ここでは並べない。**
             ここで並べると、探す窓が札の下に来る */}
-        <OtherCourses ready={ready} />
+        <OtherCourses ready={ready} main={main} />
       </div>
     </details>
   );

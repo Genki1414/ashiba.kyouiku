@@ -21,16 +21,18 @@ export async function GET() {
     return NextResponse.json({ ok: false, reason: "ログインが必要です。" }, { status: 403 });
   }
 
-  const { data } = await supabase
+  const { data , error: memErr } = await supabase
     .from("memberships")
     .select("id, company_id, approved_at, requested_at")
     .eq("user_id", user.id)
     .is("left_at", null);
+  if (memErr) return NextResponse.json({ ok: false, reason: `在籍を読めませんでした（${memErr.message}）` }, { status: 500 });
   const rows = data ?? [];
   if (!rows.length) return NextResponse.json({ ok: true, state: "none" });
 
   const ids = rows.map((r) => r.company_id as string);
-  const { data: cos } = await supabase.from("companies").select("id, name").in("id", ids);
+  const { data: cos , error: coErr } = await supabase.from("companies").select("id, name").in("id", ids);
+  if (coErr) return NextResponse.json({ ok: false, reason: `会社の名前を読めませんでした（${coErr.message}）` }, { status: 500 });
   const nameOf = new Map((cos ?? []).map((c) => [c.id as string, c.name as string]));
 
   const active = rows.find((r) => r.approved_at);

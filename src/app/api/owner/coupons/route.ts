@@ -95,9 +95,10 @@ export async function GET() {
 
   /* 会社の名前。「どこが使ったか」が分からないと、紹介の裏が取れない */
   const companyIds = [...new Set(uses.map((u) => u.company_id).filter(Boolean))] as string[];
-  const { data: cos } = companyIds.length
+  const { data: cos, error: cosErr } = companyIds.length
     ? await supabase.from("companies").select("id, name").in("id", companyIds)
-    : { data: [] as { id: string; name: string }[] };
+    : { data: [] as { id: string; name: string }[], error: null };
+  if (cosErr) return NextResponse.json({ ok: false, reason: stale(cosErr.message) }, { status: 500 });
   const coName = new Map((cos ?? []).map((c) => [c.id as string, c.name as string]));
 
   const zero = () => ({ uses: 0, net: 0, discount: 0, reward: 0 });
@@ -415,11 +416,12 @@ export async function POST(req: NextRequest) {
     } else if (wantCode || wantOff) {
       /* 画面は出していないはずだが、口を直に叩かれても通さない。
          **見た目だけで守らない** */
-      const { data: now } = await supabase
+      const { data: now , error: nowErr } = await supabase
         .from("coupons")
         .select("code, percent_off, amount_off")
         .eq("id", id)
         .maybeSingle();
+      if (nowErr) return NextResponse.json({ ok: false, reason: `いまのクーポンを読めませんでした（直しませんでした）（${nowErr.message}）` }, { status: 500 });
       const changed =
         (wantCode && wantCode !== (now?.code as string)) ||
         (percentOff !== null && percentOff !== ((now?.percent_off as number) ?? null)) ||

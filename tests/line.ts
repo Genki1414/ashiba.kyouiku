@@ -177,7 +177,13 @@ console.log("── LINE から受ける（docs/106）──");
   check(/status: 401/.test(hook), "偽物には 200 を返さない");
   check(/isOwnerEmail/.test(hook), "運営にしか返さない");
   check(/runtime = "nodejs"/.test(hook), "署名を作るので node で動かす");
-  check(!/follow/.test(hook.replace(/\/\*[\s\S]*?\*\//g, "")), "あいさつはここで出さない（公式アカウント側）");
+  /* 友だち追加（follow）へのあいさつは公式アカウント側で出す。ここでは返さない。
+     ブロック（unfollow）は受ける（2026-09-11）。結び付きを外すだけで、何も送らない */
+  const hookCode = hook.replace(/\/\*[\s\S]*?\*\//g, "");
+  check(!/=== "follow"/.test(hookCode) && !/replyLine\([^)]*follow/.test(hookCode), "あいさつはここで出さない（公式アカウント側）");
+  check(/=== "unfollow"/.test(hookCode) && /unlinkLineId\(/.test(hookCode), "ブロックされたら結び付きを外す");
+  const unf = hookCode.slice(hookCode.indexOf('=== "unfollow"'), hookCode.indexOf('=== "unfollow"') + 260);
+  check(!/replyLine|pushLine/.test(unf), "ブロックした相手に、何も送らない");
 
   /* 合言葉に当たったのに黙るのはやめた（げんきさん 2026-09-09
      「特別教育ドットコムでは応答ない」）。返らない理由が3つあり、

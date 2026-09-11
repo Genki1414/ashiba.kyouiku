@@ -24,11 +24,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, reason: "誰のことか分かりません。" }, { status: 400 });
   }
 
-  const { data: target } = await supabase
+  const { data: target , error: targetErr } = await supabase
     .from("users")
     .select("id, role, company_id")
     .eq("id", id)
     .maybeSingle();
+  if (targetErr) return NextResponse.json({ ok: false, reason: `その人を読めませんでした（${targetErr.message}）` }, { status: 500 });
   if (!target || target.company_id !== me.companyId) {
     return NextResponse.json({ ok: false, reason: "自社の人ではありません。" }, { status: 403 });
   }
