@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase/server";
 import { currentOwner } from "@/lib/owner";
-import { companyRecords } from "@/lib/records";
+import { companyRecords, soloRecords } from "@/lib/records";
 import { currentUser } from "@/lib/supabase/session";
 
 /* 本部（この仕組みを売っている側）の元帳。
@@ -32,8 +32,14 @@ export async function GET(req: NextRequest) {
   }
 
   const only = req.nextUrl.searchParams.get("companyId");
+  /* 「個人」の欄（0039）。会社を通さずに受けた人は、どの事業者にも属さない */
+  if (only === SOLO_ID) return await solo(supabase);
   return only ? await one(supabase, only) : await all(supabase);
 }
+
+/** 個人の欄の印。事業者の番号（uuid）とはぶつからない */
+const SOLO_ID = "solo";
+const SOLO_NAME = "個人（会社を通さない申込み）";
 
 /* ── 事業者の一覧と、全体の数字 ── */
 async function all(supabase: NonNullable<ReturnType<typeof getServiceClient>>) {
@@ -92,23 +98,30 @@ async function all(supabase: NonNullable<ReturnType<typeof getServiceClient>>) {
   }
   /* 受講した人の数。1人が2講座を受けても1人として数える */
   const seen = new Map<string, Set<string>>();
+  /* 会社を通さずに受けた人（0039）。会社の欄には出ないので、別に数える */
+  const solo = { learners: 0, certs: 0, sales: 0, orders: 0 };
+  const soloUsers = new Set<string>();
   for (const e of enrolls) {
     const cid = e.company_id as string | null;
-    if (!cid) continue;
+    if (!cid) { soloUsers.add(e.user_id as string); continue; }
     if (!seen.has(cid)) seen.set(cid, new Set());
     seen.get(cid)!.add(e.user_id as string);
   }
+  solo.learners = soloUsers.size;
   for (const [cid, set] of seen) {
     const a = get(cid);
     if (a) a.learners = set.size;
   }
   for (const c of certs ?? []) {
     if (c.revoked_at) continue;
-    const a = get(byEnroll.get(c.enrollment_id as string) ?? null);
+    const cid = byEnroll.get(c.enrollment_id as string) ?? null;
+    if (!cid) { if (byEnroll.has(c.enrollment_id as string)) solo.certs++; continue; }
+    const a = get(cid);
     if (a) a.certs++;
   }
   for (const o of ords ?? []) {
-    const a = get(o.company_id as string);
+    /* 会社の無い注文は個人のもの（受講コードも実務トレーニングも） */
+    const a = o.company_id ? get(o.company_id as string) : solo;
     if (!a) continue;
     a.orders++;
     if (o.status === "paid") a.sales += (o.amount as number) ?? 0;
@@ -128,6 +141,8 @@ async function all(supabase: NonNullable<ReturnType<typeof getServiceClient>>) {
   return NextResponse.json({
     ok: true,
     companies: rows,
+    /* 個人の欄（0039）。画面はこれを一覧のいちばん上に出す */
+    solo: { id: SOLO_ID, name: SOLO_NAME, ...solo },
     totals: {
       /* 登録した事業者の数と、登録した人の数。
          「いくつ・何人まで来たか」が、まずここで分かるようにする */
@@ -136,10 +151,23 @@ async function all(supabase: NonNullable<ReturnType<typeof getServiceClient>>) {
       /* 登録はしたが、まだどこの事業者にも入っていない人 */
       loose: Math.max(0, (users ?? 0) - linked),
       linked,
-      learners: rows.reduce((n, r) => n + r.learners, 0),
-      certs: rows.reduce((n, r) => n + r.certs, 0),
-      sales: rows.reduce((n, r) => n + r.sales, 0),
+      /* 受講した人・修了証・売上は、個人のぶんも足す。
+         足さないと、ひとりで受けた人の売上がどこにも出ない */
+      learners: rows.reduce((n, r) => n + r.learners, 0) + solo.learners,
+      certs: rows.reduce((n, r) => n + r.certs, 0) + solo.certs,
+      sales: rows.reduce((n, r) => n + r.sales, 0) + solo.sales,
     },
+  });
+}
+
+/* ── 個人の欄の中身（0039）。会社を通さずに受けた人ぜんぶ ── */
+async function solo(supabase: NonNullable<ReturnType<typeof getServiceClient>>) {
+  const { people, totals } = await soloRecords(supabase);
+  return NextResponse.json({
+    ok: true,
+    company: { id: SOLO_ID, name: SOLO_NAME, joinCode: "", createdAt: "" },
+    people,
+    totals,
   });
 }
 

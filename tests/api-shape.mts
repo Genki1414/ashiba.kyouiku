@@ -2184,5 +2184,22 @@ console.log("── 下の行き先と、お知らせの出し方 ──");
   check(/opened: \{/.test(nt) && /受講できるようになりました/.test(nt), "入金確認の知らせは「受講できるようになりました」");
 }
 
+/* ── 本部の元帳に「個人」の欄（0039。げんきさん 2026-09-17「足して」）──
+   会社を通さずに受けた人は、どの事業者の元帳にも出ない。
+   3年保存の決まりは同じなので、本部が示せる場所が要る */
+{
+  const rec = strip(read("src/lib/records.ts"));
+  check(/export async function soloRecords/.test(rec) && /\.is\("company_id", null\)/.test(rec), "会社の無い受講の記録を、個人として集める");
+  check(/async function build\(/.test(rec) && (rec.match(/return build\(/g) ?? []).length === 2, "会社ぶんと個人ぶんは同じ組み立て（2つに書かない）");
+  check(/"個人"/.test(rec), "個人の欄では、立場は「個人」");
+  const led = strip(read("src/app/api/owner/ledger/route.ts"));
+  check(/only === SOLO_ID/.test(led) && /soloRecords\(/.test(led), "本部の元帳は companyId=solo で個人の欄を返す");
+  check(/solo\.learners/.test(led) && /\+ solo\.sales/.test(led), "全体の数字に個人のぶんも足す（売上がどこにも出ない、を防ぐ）");
+  const lc = strip(read("src/app/owner/LedgerClient.tsx"));
+  check(/data-testid=\{c\.id === SOLO_ID \? "ledger-solo" : "ledger-co"\}/.test(lc), "画面は個人の欄を出す");
+  check(/\[soloRow, \.\.\.\(j\.companies \?\? \[\]\)\]/.test(lc), "個人の欄は一覧のいちばん上");
+  check(/名簿も参加コードもありません/.test(lc), "個人の欄に参加コードを出さない");
+}
+
 console.log(`\n通り ${ok} ／ だめ ${ng}`);
 process.exit(ng ? 1 : 0);

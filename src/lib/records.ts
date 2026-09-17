@@ -30,7 +30,9 @@ export type Record1 = {
   createdAt: string | null;
 };
 
-export type PersonState = "在籍" | "申し込み中" | "退職" | "つながっていない";
+/* 「個人」は、会社を通さずに自分で申し込んだ人（0039）。
+   会社の元帳には出ない。本部の元帳の「個人」の欄にだけ出る */
+export type PersonState = "在籍" | "申し込み中" | "退職" | "つながっていない" | "個人";
 
 export type Person = {
   userId: string;
@@ -55,6 +57,8 @@ type Row = Record<string, unknown>;
 const rank = (s: PersonState) =>
   s === "在籍" ? 0 : s === "申し込み中" ? 1 : s === "退職" ? 2 : 3;
 
+const ENROLL_COLS = "id, user_id, course_id, seat_id, started_at, completed_at, closed_at, created_at";
+
 export async function companyRecords(
   supabase: SupabaseClient,
   companyId: string,
@@ -70,11 +74,36 @@ export async function companyRecords(
       .eq("company_id", companyId),
     supabase
       .from("enrollments")
-      .select("id, user_id, course_id, seat_id, started_at, completed_at, closed_at, created_at")
+      .select(ENROLL_COLS)
       .eq("company_id", companyId),
   ]);
-  const memberships = (mems ?? []) as Row[];
-  const enrolls = (ens ?? []) as Row[];
+  return build(supabase, {
+    memberships: (mems ?? []) as Row[],
+    enrolls: (ens ?? []) as Row[],
+    companyId,
+  });
+}
+
+/** 会社を通さずに受けた人の記録（0039「ひとりで受ける」）。
+
+    受講の記録に会社が無い（enrollments.company_id が空）ものを全部。
+    会社の元帳のどこにも出ないので、本部の元帳に「個人」の欄として出す。
+    3年保存の決まりは会社の受講と同じなので、同じ形で残す。 */
+export async function soloRecords(supabase: SupabaseClient): Promise<Records> {
+  const { data: ens } = await supabase
+    .from("enrollments")
+    .select(ENROLL_COLS)
+    .is("company_id", null);
+  return build(supabase, { memberships: [], enrolls: (ens ?? []) as Row[], companyId: null });
+}
+
+/* ここから下は、会社ぶんでも個人ぶんでも同じ組み立て。
+   2つに書くと、片方に足した項目がもう片方から抜ける */
+async function build(
+  supabase: SupabaseClient,
+  src: { memberships: Row[]; enrolls: Row[]; companyId: string | null },
+): Promise<Records> {
+  const { memberships, enrolls, companyId } = src;
 
   const ids = [...new Set([
     ...memberships.map((m) => m.user_id as string),
@@ -129,7 +158,10 @@ export async function companyRecords(
 
   const people: Person[] = ids.map((id) => {
     const m = memOf.get(id);
-    const state: PersonState = !m
+    /* 個人の欄（会社が無い）では、全員が「個人」 */
+    const state: PersonState = companyId === null
+      ? "個人"
+      : !m
       ? "つながっていない"
       : m.left_at
         ? "退職"

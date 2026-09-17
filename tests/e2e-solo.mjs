@@ -121,6 +121,62 @@ await dismiss();
 await page.getByTestId("solo-note").waitFor({ timeout: 8000 });
 check(/ログイン/.test(await page.getByTestId("solo-note").innerText()), "断られた理由が出る");
 
+/* ── 本部の元帳に「個人」の欄（げんきさん 2026-09-17「足して」）──
+   会社を通さずに受けた人は、どの事業者の元帳にも出ない。いちばん上に出す */
+{
+  await page.route("**/api/owner/orders", (route) =>
+    route.fulfill({ status: 200, contentType: "application/json",
+      body: JSON.stringify({ ok: true, orders: [], invoiceNo: "T0000000000000" }) }));
+  await page.route("**/api/owner/ledger**", (route) => {
+    const url = route.request().url();
+    if (url.includes("companyId=solo")) {
+      return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
+        ok: true,
+        company: { id: "solo", name: "個人（会社を通さない申込み）", joinCode: "", createdAt: "" },
+        people: [{
+          userId: "u1", name: "ひとり 太郎", email: "solo@x.jp", state: "個人", admin: false,
+          requestedAt: null, approvedAt: null, leftAt: null,
+          records: [{ id: "e1", course: "足場", seatCode: "ABCD-2345-6789", lessonsPassed: 13, watchedSec: 21600,
+            exam: { score: 20, total: 20, passed: true }, cert: { no: "2026-0042", at: "2026-09-20" },
+            startedAt: "2026-09-18", completedAt: "2026-09-20", closedAt: null, createdAt: "2026-09-18" }],
+        }],
+        totals: { people: 1, active: 0, gone: 0, certs: 1 },
+      }) });
+    }
+    return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
+      ok: true,
+      companies: [{ id: "c1", name: "試験工業", joinCode: "ABCD2345", createdAt: "2026-08-01",
+        active: 3, waiting: 0, gone: 1, learners: 3, certs: 2, sales: 14850, orders: 1 }],
+      solo: { id: "solo", name: "個人（会社を通さない申込み）", learners: 1, certs: 1, sales: 4950, orders: 1 },
+      totals: { companies: 1, users: 5, loose: 1, linked: 3, learners: 4, certs: 3, sales: 19800 },
+    }) });
+  });
+  await page.goto(`${BASE}/owner`);
+  await dismiss();
+  await page.waitForSelector('[data-testid="owner-tabs"]', { timeout: 8000 });
+  await page.locator('[data-testid="owner-tab"]', { hasText: "事業者と記録" }).click();
+  await page.getByTestId("ledger-solo").waitFor({ timeout: 8000 });
+  /* 一覧のいちばん上 */
+  const firstCard = page.locator('[data-testid="ledger-solo"], [data-testid="ledger-co"]').first();
+  check((await firstCard.getAttribute("data-testid")) === "ledger-solo", "個人の欄が一覧のいちばん上");
+  const head = (await page.getByTestId("ledger-solo").innerText()).replace(/\s+/g, "");
+  check(/受講1/.test(head) && /修了証1/.test(head) && /4,950円/.test(head), `個人の欄に受講・修了証・売上（${head.slice(0, 80)}）`);
+  check(!/在籍/.test(head), "個人の欄に在籍・退職は出さない");
+  /* 全体の数字に個人のぶんが入っている（4人・3枚・19,800円） */
+  const tot = (await page.getByTestId("ledger-totals").innerText()).replace(/\s+/g, "");
+  check(/4/.test(tot) && /19,800円/.test(tot), `全体の数字に個人のぶんも入る（${tot.slice(0, 80)}）`);
+  /* 開くと、人と記録が出る。参加コードは出ない */
+  await page.getByTestId("ledger-solo").getByTestId("ledger-open").click();
+  await page.getByTestId("ledger-person").waitFor({ timeout: 8000 });
+  const det = await page.getByTestId("ledger-solo").innerText();
+  check(/ひとり 太郎/.test(det) && /個人/.test(det), "個人の欄に人が出て、立場は「個人」");
+  check(/2026-0042/.test(det), "修了証の番号が出る");
+  check(!/参加コード/.test(det), "個人の欄に参加コードを出さない");
+  check((await page.getByTestId("ledger-admin").count()) === 0, "個人に教育担当者の札は出さない");
+  await page.screenshot({ path: `${SC}/solo-03-ledger.png` });
+  console.log("OK: 本部の元帳に個人の欄");
+}
+
 await browser.close();
 if (ng) { console.error(`${ng} 件失敗`); process.exit(1); }
 console.log("ALL OK");

@@ -73,7 +73,12 @@ const tone = (state: string) =>
     ? "border-grn text-grn"
     : state === "申し込み中"
       ? "border-yel text-yel"
-      : "border-line text-dim2";
+      : state === "個人"
+        ? "border-cyan text-cyan"
+        : "border-line text-dim2";
+
+/** 個人の欄（0039）。事業者ではないが、同じ一覧のいちばん上に置く */
+const SOLO_ID = "solo";
 
 export function LedgerClient({ onNote }: { onNote: (s: string) => void }) {
   const [cos, setCos] = useState<Co[] | null>(null);
@@ -95,7 +100,15 @@ export function LedgerClient({ onNote }: { onNote: (s: string) => void }) {
         onNote(j.reason ?? "読み込めませんでした。");
         return;
       }
-      setCos(j.companies ?? []);
+      /* 個人の欄を、事業者の一覧のいちばん上に。会社を通さずに受けた人は
+         どの事業者にも出ないので、ここに無いとどこにも出ない（0039） */
+      const so = j.solo as { learners: number; certs: number; sales: number; orders: number } | undefined;
+      const soloRow: Co = {
+        id: SOLO_ID, name: "個人（会社を通さない申込み）", joinCode: "", createdAt: "",
+        active: 0, waiting: 0, gone: 0,
+        learners: so?.learners ?? 0, certs: so?.certs ?? 0, sales: so?.sales ?? 0, orders: so?.orders ?? 0,
+      };
+      setCos([soloRow, ...(j.companies ?? [])]);
       setTotals(
         j.totals ?? { companies: 0, users: 0, loose: 0, linked: 0, learners: 0, certs: 0, sales: 0 },
       );
@@ -217,7 +230,11 @@ export function LedgerClient({ onNote }: { onNote: (s: string) => void }) {
 
       <div className="mt-3 grid gap-2">
         {hit.map((c) => (
-          <div key={c.id} className="rounded-xl border border-line bg-panel" data-testid="ledger-co">
+          <div
+            key={c.id}
+            className={`rounded-xl border bg-panel ${c.id === SOLO_ID ? "border-cyan" : "border-line"}`}
+            data-testid={c.id === SOLO_ID ? "ledger-solo" : "ledger-co"}
+          >
             <div className="flex items-center gap-2 p-3">
               <button
                 onClick={() => void openCompany(c.id)}
@@ -226,7 +243,9 @@ export function LedgerClient({ onNote }: { onNote: (s: string) => void }) {
               >
                 <div className="truncate text-[14px] font-black">{c.name}</div>
                 <div className="mt-0.5 text-[11px] text-dim2">
-                  在籍 {c.active}　申込 {c.waiting}　退職 {c.gone}　受講 {c.learners}　修了証 {c.certs}
+                  {c.id === SOLO_ID
+                    ? `ひとりで受けた人　受講 ${c.learners}　修了証 ${c.certs}　申込 ${c.orders}`
+                    : `在籍 ${c.active}　申込 ${c.waiting}　退職 ${c.gone}　受講 ${c.learners}　修了証 ${c.certs}`}
                   {c.sales > 0 ? `　${yen(c.sales)}` : ""}
                 </div>
               </button>
@@ -238,15 +257,27 @@ export function LedgerClient({ onNote }: { onNote: (s: string) => void }) {
                 {detail && detail.company.id === c.id && (
                   <>
                     <div className="text-[11.5px] text-dim">
-                      関わった人 {detail.totals.people}人（在籍 {detail.totals.active}／退職{" "}
-                      {detail.totals.gone}）　修了証 {detail.totals.certs}枚
-                      <br />
-                      参加コード <span className="font-mono">{detail.company.joinCode || "—"}</span>
-                      　{day(detail.company.createdAt)} から
+                      {c.id === SOLO_ID ? (
+                        <>
+                          会社を通さずに受けた人 {detail.totals.people}人　修了証 {detail.totals.certs}枚
+                          <br />
+                          名簿も参加コードもありません。記録は会社の受講と同じく3年保存します。
+                        </>
+                      ) : (
+                        <>
+                          関わった人 {detail.totals.people}人（在籍 {detail.totals.active}／退職{" "}
+                          {detail.totals.gone}）　修了証 {detail.totals.certs}枚
+                          <br />
+                          参加コード <span className="font-mono">{detail.company.joinCode || "—"}</span>
+                          　{day(detail.company.createdAt)} から
+                        </>
+                      )}
                     </div>
 
                     {!detail.people.length && (
-                      <div className="mt-2 text-[12px] text-dim2">まだ誰も居ません。</div>
+                      <div className="mt-2 text-[12px] text-dim2">
+                        {c.id === SOLO_ID ? "まだ居ません。" : "まだ誰も居ません。"}
+                      </div>
                     )}
 
                     <div className="mt-3 grid gap-2">
