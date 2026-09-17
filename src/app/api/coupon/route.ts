@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase/server";
 import { currentAdmin } from "@/lib/admin";
+import { currentUser } from "@/lib/supabase/session";
 import { findCourse, readyCourses } from "@/content/courses";
 import { unitPrice } from "@/lib/price.server";
 import { normalizeCouponCode } from "@/lib/coupon";
@@ -21,9 +22,13 @@ type Body = { code?: unknown; items?: Item[] };
 
 export async function POST(req: NextRequest) {
   const supabase = getServiceClient();
-  const admin = supabase ? await currentAdmin() : null;
-  if (!supabase || !admin) {
-    return NextResponse.json({ ok: false, reason: "教育担当者だけの操作です。" }, { status: 403 });
+  /* 確かめるだけ（書かない）。会社の担当者だけでなく、ひとりで受ける人
+     （0039）も使う。会社が無い人は、会社ごとの回数の上限は見ない
+     （coupon_check が p_company null を受ける） */
+  const user = supabase ? await currentUser() : null;
+  const admin = supabase && user ? await currentAdmin() : null;
+  if (!supabase || !user) {
+    return NextResponse.json({ ok: false, reason: "ログインが必要です。" }, { status: 403 });
   }
 
   const b = (await req.json().catch(() => ({}))) as Body;
@@ -49,7 +54,7 @@ export async function POST(req: NextRequest) {
 
   const { data, error } = await supabase.rpc("coupon_check", {
     p_code: code,
-    p_company: admin.companyId,
+    p_company: admin?.companyId ?? null,
     p_gross: gross,
   });
   if (error) {

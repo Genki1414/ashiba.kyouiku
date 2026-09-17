@@ -225,7 +225,7 @@ export async function POST(req: NextRequest) {
   }
   const { data: order , error: orderErr } = await supabase
     .from("orders")
-    .select("id, seats, status, method, kind, user_id, ordered_by, group_id")
+    .select("id, seats, status, method, kind, user_id, ordered_by, group_id, course_id")
     .eq("id", id)
     .maybeSingle();
   if (orderErr) return NextResponse.json({ ok: false, reason: `注文を読めませんでした（${orderErr.message}）` }, { status: 500 });
@@ -255,6 +255,24 @@ export async function POST(req: NextRequest) {
       { ok: false, reason: `その注文は「${order.status}」です。入金にはできません。` },
       { status: 409 },
     );
+  }
+
+  /* ── ひとりで受ける（0039）──
+     個人の受講コードの注文は、入金を立てると同時に**本人の席が立つ**。
+     コードを配る・打つ、という手順が無い。二度押しても席は増えない
+     （pay_solo_seat が数えている）。カード払いでも、Stripe の知らせが
+     届かなかったときに運営がここから立てられるようにしておく */
+  if (order.user_id && order.kind === "seat") {
+    const { data: done, error: soloErr } = await supabase.rpc("pay_solo_seat", { p_order: id });
+    if (soloErr) {
+      return NextResponse.json({ ok: false, reason: soloErr.message }, { status: 500 });
+    }
+    if (done === false) {
+      return NextResponse.json({ ok: false, reason: "その注文がありません。" }, { status: 404 });
+    }
+    /* 買った本人に返す。押すと、その講座がそのまま開く */
+    await addNotice(order.user_id as string, "opened", { courseId: (order.course_id as string) ?? null });
+    return NextResponse.json({ ok: true, granted: true });
   }
 
   /* 個人の注文は、入金を立てると同時に利用権が付く。

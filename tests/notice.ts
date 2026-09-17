@@ -129,6 +129,9 @@ console.log("\n── 返事のたびに残す ──");
     { p: "src/app/api/owner/issue/route.ts", k: "pass", why: "討議・実技を通した" },
     { p: "src/app/api/owner/issue/route.ts", k: "issue_ng", why: "発行申請を断った" },
     { p: "src/app/api/admin/assign/route.ts", k: "given", why: "受講コードを配った（本人に）" },
+    /* ひとりで受ける（0039）。入金を確認した瞬間に本人の席が立つ。運営の画面と Stripe の両方から */
+    { p: "src/app/api/owner/orders/route.ts", k: "opened", why: "個人の申込みの入金を確認して、講座を開けた" },
+    { p: "src/app/api/stripe/webhook/route.ts", k: "opened", why: "カードの入金で、講座を開けた" },
   ];
   for (const w of want) {
     const c = code(w.p);

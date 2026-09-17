@@ -2108,5 +2108,81 @@ console.log("── 下の行き先と、お知らせの出し方 ──");
   }
 }
 
+/* ── ひとりで受ける・無料の1単元（0039。げんきさん 2026-09-17）──
+   「利用者が増えない。会社登録が邪魔してる気がする」「1と3作って」 */
+{
+  const solo = strip(read("src/app/api/solo/route.ts"));
+  check(/currentUser\(\)/.test(solo) && !/currentAdmin/.test(solo), "ひとりで受けるは、本人だけ。担当者は要らない");
+  check(/kind: "seat"/.test(solo) && /user_id: user\.id/.test(solo), "個人の受講コードの注文（user_id・kind=seat）");
+  check(!/company_id/.test(solo), "会社を作らない・会社を書かない");
+  check(/seats: 1,/.test(solo), "1人ぶんだけ。人数は増やせない");
+  check(/learnFor\(supabase, user\.id, course\.id\)/.test(solo), "もう受けられる人には売らない");
+  check(/unitPrice\(course\.id\)/.test(solo) && !/b\.amount|b\.price/.test(solo), "金額はサーバで出す。画面の額は見ない");
+  check(/p_company: null/.test(solo) && /use_coupon/.test(solo), "クーポンは使える（会社は渡さない）");
+  check(/release_coupon_use/.test(solo), "注文を作れなかったらクーポンの利用を戻す");
+  check(/hasStripe\(\)/.test(solo) && /status: 503/.test(solo), "カードは鍵がある店だけ。無ければそう言う");
+  check(!/issueSeats|gen_seat_code|from\("seats"\)\s*\.insert/.test(solo), "申込みの時点では席を立てない（入金の前に受講できてしまう）");
+  check(/notify\("order"\)/.test(solo), "運営に知らせる（会社の申込みと同じ口）");
+
+  /* 入金を確認したら、本人の席がそのまま立つ。運営の画面と Stripe の両方 */
+  const oo = strip(read("src/app/api/owner/orders/route.ts"));
+  check(/order\.user_id && order\.kind === "seat"/.test(oo) && /pay_solo_seat/.test(oo), "運営の入金確認で、個人の席を立てる");
+  const wh = strip(read("src/app/api/stripe/webhook/route.ts"));
+  check(/r\.user_id && r\.kind === "seat"/.test(wh) && /pay_solo_seat/.test(wh), "Stripe の知らせでも、個人の席を立てる");
+  check(/status: 503/.test(wh.slice(wh.indexOf("pay_solo_seat"))), "席を立てられなかったら 200 を返さない（Stripe に送り直させる）");
+  const co = strip(read("src/app/api/stripe/checkout/route.ts"));
+  check(/order\.user_id === user\.id/.test(co), "カード払いは、申し込んだ本人も始められる");
+  check(/mine \? "solo" : "order"/.test(co), "戻り先は申し込んだ画面（個人は /solo）");
+  const cp = strip(read("src/app/api/coupon/route.ts"));
+  check(/admin\?\.companyId \?\? null/.test(cp) && /currentUser\(\)/.test(cp), "クーポンの確かめは、会社が無い人にも開く");
+
+  /* SQL：席は会社しか買えない、をやめた。入金＝席＝受講の記録を1つの関数で */
+  const mig = read("supabase/migrations/0039_solo_seat.sql");
+  check(/drop constraint if exists orders_seat_is_company/.test(mig), "0039 で orders_seat_is_company を外す");
+  check(/create or replace function public\.pay_solo_seat/.test(mig), "pay_solo_seat がある");
+  check(/select id into v_seat from public\.seats where order_id = p_order limit 1/.test(mig), "席は1つ。二度呼ばれても増やさない");
+  check(/enrollment_for\(v\.user_id, v\.course_id\)/.test(mig), "受講の記録に席を紐づける（修了証の門番が見る）");
+  check(/grant execute on function public\.pay_solo_seat\(uuid\) to service_role/.test(mig), "呼べるのはサーバだけ");
+  check(/select '0039'/.test(mig), "版は 0039");
+  check(read("src/content/schema.ts").includes('NEED_SCHEMA = "0039"'), "画面が待つ版も 0039（build:sql が書く）");
+
+  /* 画面：会社の話より先に、ひとりで受ける */
+  const sc = strip(read("src/app/solo/SoloClient.tsx"));
+  check(/<AskDone /.test(sc) && /solo-go/.test(sc), "申込みは確かめる札を通す");
+  check(/href="\/join"/.test(sc), "会社で受ける道も残す");
+  check(/legal\/tokushoho/.test(sc) && /legal\/terms/.test(sc) && /legal\/privacy/.test(sc), "申込みの手前に表記・規約・個人情報");
+  check(/api\/stripe\/checkout/.test(sc) && /st\.card &&/.test(sc), "カードは、鍵がある店でだけ出す");
+  const hc = strip(read("src/components/HomeCards.tsx"));
+  check(hc.indexOf('data-testid="home-solo"') < hc.indexOf('data-testid="home-join"'), "ホームは、ひとりで受けるを会社とつなぐより先に");
+  const ns = strip(read("src/components/NeedSeat.tsx"));
+  check(ns.indexOf("<SoloLink />") < ns.indexOf("<RequestCourse />"), "断りの画面も、ひとりで受けるを受講リクエストより先に");
+  check(/<TryLink \/>/.test(ns), "断りの画面から第1単元を見に行ける");
+  const jc = strip(read("src/app/join/JoinClient.tsx"));
+  check(/data-testid="join-solo"/.test(jc), "会社とつなぐ画面にも、ひとりで受ける");
+  const ob = strip(read("src/lib/onboarding.ts"));
+  check(/t: "受け方を選ぶ"/.test(ob) && /href: "\/solo"/.test(ob), "道のりの2段目は受け方を選ぶ（ひとりで受けるへ）");
+
+  /* 無料の1単元：ログインなし・記録なし・第1単元だけ */
+  const gate = read("src/lib/authGate.ts");
+  check(/\/\^\\\/edu\\\/\[\^\/\]\+\\\/try\$\//.test(gate), "開けるのは /edu/<講座>/try だけ（正規表現で1段だけ）");
+  check(/"\/try"/.test(gate), "講座を選ぶ入口も開ける");
+  const tp = strip(read("src/app/edu/[courseId]/try/page.tsx"));
+  check(!/canLearn/.test(tp), "お試しは見張らない（それが目的）");
+  check(/order\[0\]/.test(tp) && !/params\.lessonId|lessonId/.test(tp), "出すのは第1単元だけ。単元を選ばせない");
+  const tc = strip(read("src/app/edu/[courseId]/try/TryClient.tsx"));
+  check(!/progressClient|syncDelta|markQuizPassed|loadProgress|useVerification|CamWindow|loadPrep/.test(tc),
+    "時間も合格も記録しない。顔の照合もしない。準備へも送らない");
+  check(/devPlus=\{null\}/.test(tc), "開発用の札も出さない");
+  check(/try-solo/.test(tc) && /try-join/.test(tc), "終わったら、ひとりで受ける／会社で受けるの両方へ");
+  check(/記録しません/.test(tc), "記録しないことを画面に書く");
+  const lg = strip(read("src/app/login/LoginClient.tsx"));
+  check(/href="\/try"/.test(lg), "ログイン画面から、登録の前に見に行ける");
+  /* 下のタブは、お試しの単元でも隠れる（本番の単元と同じ正規表現） */
+  check(/\/\^\\\/edu\\\/\[\^\/\]\+\\\/\.\+\//.test(read("src/components/BottomNav.tsx")), "お試しの単元でも下のタブは出さない");
+  /* 知らせの種類 */
+  const nt = strip(read("src/lib/noticeText.ts"));
+  check(/opened: \{/.test(nt) && /受講できるようになりました/.test(nt), "入金確認の知らせは「受講できるようになりました」");
+}
+
 console.log(`\n通り ${ok} ／ だめ ${ng}`);
 process.exit(ng ? 1 : 0);

@@ -44,7 +44,7 @@ console.log("\n── いま居る所 ──");
     const s = learnerSteps(who(m));
     return s.findIndex((x) => x.state === "now");
   };
-  check(at({ member: "none" }) === 1, "未所属なら「会社とつなぐ」", `${at({ member: "none" })}`);
+  check(at({ member: "none" }) === 1, "未所属なら「受け方を選ぶ」", `${at({ member: "none" })}`);
   check(at({ member: "pending" }) === 2, "申込み中なら「許可を待つ」");
   check(at({ member: "active" }) === 3, "在籍したら次の段へ");
 
@@ -123,7 +123,10 @@ console.log("\n── 押せるのは、いまやることだけ ──");
   check(c.includes("showGuide"), "出すかどうかは showGuide で決める");
 
   const n = nowStep(learnerSteps(who({ member: "none" })));
-  check(!!n && n.t === "会社とつなぐ", "いまやることを1つ取り出せる", n?.t);
+  check(!!n && n.t === "受け方を選ぶ", "いまやることを1つ取り出せる", n?.t);
+  /* ひとりで受ける（0039）が先に書いてある。会社の道も同じ段に残る */
+  check(!!n && n.d.includes("ひとりで受ける") && n.d.includes("会社"), "ひとりで受ける道と会社の道の両方を書く", n?.d);
+  check(!!n && n.href === "/solo", "押すと、ひとりで受ける画面へ", n?.href);
   check(nowStep([]) === null, "空でも落ちない");
 }
 

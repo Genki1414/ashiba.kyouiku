@@ -110,19 +110,41 @@ export function HomeCards() {
     );
   }
 
+  /* ── ひとりで受ける（0039）を、会社の話より先に ──
+     げんきさん（2026-09-17）「利用者が増えない。会社登録が邪魔してる気がする」。
+     投稿を見て来る人は1人。会社の話が先に出ると「うちの話じゃない」と閉じる。
+     会社で受ける人の道（会社とつなぐ）は、そのまま下に残す */
+  if (me.member === "none" && !me.canLearn) {
+    cards.push(
+      <Link
+        key="solo"
+        href="/solo"
+        className="block rounded-xl border border-yel bg-[#1A1F14] p-4 no-underline"
+        data-testid="home-solo"
+      >
+        <div className="text-[11px] font-extrabold tracking-widest text-yel">はじめに</div>
+        <div className="mt-1 text-[15px] font-black text-txt">ひとりで受ける</div>
+        <div className="mt-1 text-[12px] leading-relaxed text-dim">
+          会社の登録は要りません。講座を選んで申し込み、お振込みの確認後にそのまま受講できます。
+          修了証は本人に出ます。
+        </div>
+      </Link>,
+    );
+  }
+
   if (me.member === "none") {
     cards.push(
       <Link
         key="join"
         href="/join"
-        className="block rounded-xl border border-yel bg-[#1A1F14] p-4 no-underline"
+        className="block rounded-xl border border-line bg-panel p-4 no-underline"
         data-testid="home-join"
       >
-        <div className="text-[11px] font-extrabold tracking-widest text-yel">はじめに</div>
+        <div className="text-[11px] font-extrabold tracking-widest text-dim">会社で受ける</div>
         <div className="mt-1 text-[15px] font-black text-txt">会社とつなぐ</div>
         <div className="mt-1 text-[12px] leading-relaxed text-dim">
-          自分の会社を検索して申し込みます。まだ登録のない会社は、その場で登録できます。
-          会社とつながっていないと、名簿に登録されず、修了証も発行できません。
+          会社が受講コードを用意する場合は、自分の会社を検索して申し込みます。
+          まだ登録のない会社は、その場で登録できます。会社とつながると、会社の名簿に載ります。
         </div>
       </Link>,
     );

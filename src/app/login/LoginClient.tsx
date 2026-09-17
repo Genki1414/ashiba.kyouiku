@@ -311,6 +311,18 @@ export function LoginClient() {
             : "登録したメールアドレスを入れてください。決め直しのリンクを送ります。"}
       </p>
 
+      {/* 登録の前に中身を見られる道（0039）。投稿から来た人は、
+          ここで登録を求められた時点で閉じる。先に見せて、払う理由を作る */}
+      {mode !== "forgot" && (
+        <Link
+          href="/try"
+          className="mt-3 block rounded-lg border border-line bg-panel p-3 text-center text-[12.5px] text-dim no-underline"
+          data-testid="login-try"
+        >
+          登録の前に、講座の第1単元を見てみる（無料）
+        </Link>
+      )}
+
       {/* 規約に同意する場面は、これまで申込みの画面（/order）にしか無かった。
           受講コードや参加コードで入った人は、そこを通らないまま修了していた。
           登録はどの入り方でも必ず通るので、ここに置く。

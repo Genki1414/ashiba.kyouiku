@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase/server";
 import { getStripe } from "@/lib/stripe";
 import { issueSeats } from "@/lib/seats";
+import { addNotice } from "@/lib/notice.server";
 
 /* Stripe からの知らせ。ここだけが「入金済み」を立てる。
 
@@ -81,7 +82,7 @@ export async function POST(req: NextRequest) {
     .update({ status: "paid", paid_at: new Date().toISOString(), stripe_session_id: session.id })
     .eq("group_id", group)
     .eq("status", "pending")
-    .select("id, seats");
+    .select("id, seats, user_id, kind, course_id");
   if (payErr) {
     /* **立てられなかった。**ここで 200 を返すと、払ったのに未入金のまま残る */
     console.error("stripe webhook 入金を立てられない", group, payErr.message);
@@ -112,7 +113,24 @@ export async function POST(req: NextRequest) {
   }
 
   let made = 0;
-  for (const r of won) made += await issueSeats(supabase, r.id as string, r.seats as number);
+  for (const r of won) {
+    /* ひとりで受ける（0039）。個人の受講コードの注文は、コードを配らず
+       本人の席をそのまま立てる。二度来ても増えない（pay_solo_seat が数える） */
+    if (r.user_id && r.kind === "seat") {
+      const { error: soloErr } = await supabase.rpc("pay_solo_seat", { p_order: r.id as string });
+      if (soloErr) {
+        console.error("stripe webhook 個人の席を立てられない", r.id, soloErr.message);
+        return NextResponse.json(
+          { ok: false, reason: "受講できる状態にできませんでした。あとで送り直してください。" },
+          { status: 503 },
+        );
+      }
+      made += 1;
+      await addNotice(r.user_id as string, "opened", { courseId: (r.course_id as string) ?? null });
+      continue;
+    }
+    made += await issueSeats(supabase, r.id as string, r.seats as number);
+  }
   /* 立てたのに1枚も出せていない。**払ったのに受講できない**ので、そう言う。
 
      **要る枚数で見る。**「0件だから失敗」にすると、席を出さない

@@ -696,6 +696,19 @@ export function JoinClient() {
       {/* ── まだどこにも属していない人 ── */}
       {!active && !pending && (
         <>
+          {/* ひとりで受ける（0039）を、会社の話より先に。
+              げんきさん（2026-09-17）「会社登録が邪魔してる気がする」 */}
+          <Link
+            href="/solo"
+            className="mt-4 block rounded-xl border border-yel bg-[#1A1F14] p-4 no-underline"
+            data-testid="join-solo"
+          >
+            <div className="text-[11px] tracking-[2px] text-yel">会社を通さない</div>
+            <div className="mt-1 text-[15px] font-black text-txt">ひとりで受ける</div>
+            <div className="mt-1 text-[12px] leading-relaxed text-dim">
+              会社の登録は要りません。講座を選んで申し込み、お振込みの確認後にそのまま受講できます。
+            </div>
+          </Link>
           {searchBox}
           {newBox}
           {codeBox}

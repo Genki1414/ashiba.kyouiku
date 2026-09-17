@@ -104,6 +104,18 @@ check(OPEN_PATHS.includes("/api/health"), "/api/health は通す一覧にある�
    開けないと困るのは、まさにログインできないとき */
 check(isOpenPath("/setup"), "/setup はログイン無しで開ける");
 
+/* ── 無料の1単元（0039）── /edu/<講座>/try だけ開ける。上も下も閉じたまま */
+check(isOpenPath("/try"), "講座を試す入口は、ログイン無しで開ける");
+check(isOpenPath("/edu/ashiba/try"), "第1単元のお試しは、ログイン無しで開ける");
+check(isOpenPath("/edu/shokucho/try"), "どの講座でも try は開ける");
+check(!isOpenPath("/edu/ashiba"), "講座の一覧（目次）は閉じたまま");
+check(!isOpenPath("/edu/ashiba/1-1"), "本番の単元は閉じたまま");
+check(!isOpenPath("/edu/ashiba/try/1-1"), "try の下は閉じたまま");
+check(!isOpenPath("/edu/ashiba/tryx"), "/tryx は /try ではない");
+check(!isOpenPath("/edu/try"), "講座が無い /edu/try は閉じたまま");
+check(!isOpenPath("/solo"), "ひとりで受ける（申込み）はログインが要る");
+check(!isOpenPath("/api/solo"), "その口もログインが要る");
+
 /* ── 合言葉を決め直す道 ──
    その会社で唯一の教育担当者が忘れたら、頼む相手が居ない。
    ここが閉じていると、メールのリンクを踏んでも入れない */

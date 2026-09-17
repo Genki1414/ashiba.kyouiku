@@ -30,6 +30,8 @@
 
 const OPEN = [
   "/login",
+  /* 無料の1単元の入口（0039）。講座を選ぶだけの画面。何も預からない */
+  "/try",
   "/setup",
   "/auth",
   "/offline.html",
@@ -50,6 +52,13 @@ const ASSET = /\.(png|jpe?g|gif|ico|svg|webmanifest|txt|xml|json|js|css|map|woff
 export function isOpenPath(p: string): boolean {
   if (p.startsWith("/_next/")) return true;
   if (ASSET.test(p)) return true;
+  /* ── 無料の1単元（0039）──
+     /edu/<講座>/try だけ。**その下も上も開けない。**
+     /edu/<講座> は一覧（売り物の目次）、/edu/<講座>/<単元> は本番の受講。
+     try は第1単元を見るだけで、時間も合格も記録しない
+     （src/app/edu/[courseId]/try/page.tsx）。
+     げんきさん（2026-09-17）「利用者が増えない」→ 払う前に中身を見せる */
+  if (/^\/edu\/[^/]+\/try$/.test(p)) return true;
   return OPEN.some((o) => p === o || p.startsWith(o + "/"));
 }
 

@@ -3,6 +3,7 @@ import { BRAND } from "@/content/brand";
 import { RequestCourse } from "./RequestCourse";
 import { OrderLink } from "./OrderLink";
 import { HeldInstead } from "./HeldInstead";
+import { SoloLink, TryLink } from "./SoloLink";
 
 /* 受講コードが無い人に出す画面。
 
@@ -40,6 +41,8 @@ export function NeedSeat({ why, company }: { why: "signin" | "seat"; company: st
         >
           ログインする
         </Link>
+        {/* 入る前に中身を見られる道（0039）。払う理由が「見た」に変わる */}
+        <TryLink />
       </main>
     );
   }
@@ -84,12 +87,15 @@ export function NeedSeat({ why, company }: { why: "signin" | "seat"; company: st
       {/* ── 並べる順は、ここに立った人がやることの順 ──
 
           ① コードを持っている　… 入れる
-          ② 持っていない　　　　… **担当者に受講リクエストを送る**
-          ③ 自分が担当者　　　　… 申し込む
-          ④ どれも今すぐでない　… 実務トレーニングで待つ
+          ② ひとりで受ける　　　… **自分で申し込む**（0039。会社の登録は要らない）
+          ③ 会社で受ける　　　　… 担当者に受講リクエストを送る
+          ④ 自分が担当者　　　　… 申し込む
+          ⑤ まだ決めない　　　　… 第1単元を見てみる／実務トレーニングで待つ
 
-          ②がいちばん多い。前はここが**いちばん下**で、
-          実務トレーニングの札より後ろにあった（2026-09-09 に直した）。 */}
+          投稿を見て来る人は1人なので、②を会社の話より先に出す
+          （げんきさん 2026-09-17「会社登録が邪魔してる気がする」）。 */}
+
+      <SoloLink />
 
       {/* 受講リクエストを担当者に送る。どの講座かは住所から取る */}
       <RequestCourse />
@@ -115,6 +121,7 @@ export function NeedSeat({ why, company }: { why: "signin" | "seat"; company: st
           実務トレーニングの第1章は、コード無しで遊べます
         </Link>
       )}
+      <TryLink />
       <Link href="/" className="mt-5 block text-center text-[12.5px] text-dim2 no-underline">
         ← ホームへ
       </Link>

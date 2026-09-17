@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase/server";
 import { currentAdmin } from "@/lib/admin";
+import { currentUser } from "@/lib/supabase/session";
 import { getStripe, siteUrl } from "@/lib/stripe";
 import { orderLabel } from "@/lib/orderLabel";
 
@@ -12,9 +13,12 @@ import { orderLabel } from "@/lib/orderLabel";
 export async function POST(req: NextRequest) {
   const stripe = getStripe();
   const supabase = getServiceClient();
-  const admin = supabase ? await currentAdmin() : null;
-  if (!supabase || !admin) {
-    return NextResponse.json({ ok: false, reason: "教育担当者だけの操作です。" }, { status: 403 });
+  /* 払えるのは2通り。会社の注文はその会社の教育担当者、
+     個人の注文（ひとりで受ける・0039）は申し込んだ本人 */
+  const user = supabase ? await currentUser() : null;
+  const admin = supabase && user ? await currentAdmin() : null;
+  if (!supabase || !user) {
+    return NextResponse.json({ ok: false, reason: "ログインが必要です。" }, { status: 403 });
   }
   if (!stripe) {
     return NextResponse.json(
@@ -26,11 +30,13 @@ export async function POST(req: NextRequest) {
   const { orderId } = (await req.json().catch(() => ({}))) as { orderId?: string };
   const { data: order , error: orderErr } = await supabase
     .from("orders")
-    .select("id, company_id, group_id, seats, amount, status, method, kind, course_id")
+    .select("id, company_id, user_id, group_id, seats, amount, status, method, kind, course_id")
     .eq("id", (orderId ?? "").trim())
     .maybeSingle();
   if (orderErr) return NextResponse.json({ ok: false, reason: `注文を読めませんでした（${orderErr.message}）` }, { status: 500 });
-  if (!order || order.company_id !== admin.companyId) {
+  const mine = !!order?.user_id && order.user_id === user.id;
+  const ours = !!order?.company_id && !!admin && order.company_id === admin.companyId;
+  if (!order || (!mine && !ours)) {
     return NextResponse.json({ ok: false, reason: "その注文がありません。" }, { status: 404 });
   }
   if (order.status === "paid") {
@@ -44,12 +50,12 @@ export async function POST(req: NextRequest) {
      行ごとにカード決済させると、途中でやめられたときに
      「足場だけ払って石綿は未払い」という半端な申込みが残る。 */
   const group = (order.group_id as string) ?? (order.id as string);
-  const { data: rows , error: rowsErr } = await supabase
+  let rowsQ = supabase
     .from("orders")
     .select("id, seats, amount, status, kind, course_id")
-    .eq("group_id", group)
-    .eq("company_id", admin.companyId)
-    .order("created_at", { ascending: true });
+    .eq("group_id", group);
+  rowsQ = mine ? rowsQ.eq("user_id", user.id) : rowsQ.eq("company_id", admin!.companyId);
+  const { data: rows , error: rowsErr } = await rowsQ.order("created_at", { ascending: true });
   if (rowsErr) return NextResponse.json({ ok: false, reason: `申込みの行を読めませんでした（${rowsErr.message}）` }, { status: 500 });
   const lines = (rows ?? []).length ? rows! : [order];
   if (lines.some((r) => r.status === "paid")) {
@@ -88,8 +94,9 @@ export async function POST(req: NextRequest) {
        **group も渡す。**戻りで group の行を全部入金にするため */
     client_reference_id: order.id as string,
     metadata: { order_id: order.id as string, group_id: group },
-    success_url: `${base}/order?paid=${order.id}`,
-    cancel_url: `${base}/order?cancelled=${order.id}`,
+    /* 戻り先は、申し込んだ画面。個人は /solo、会社は /order */
+    success_url: `${base}/${mine ? "solo" : "order"}?paid=${order.id}`,
+    cancel_url: `${base}/${mine ? "solo" : "order"}?cancelled=${order.id}`,
     });
   } catch (e) {
     console.error("stripe checkout 作れない", order.id, e instanceof Error ? e.message : String(e));
