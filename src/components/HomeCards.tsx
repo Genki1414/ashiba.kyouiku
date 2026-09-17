@@ -114,19 +114,26 @@ export function HomeCards() {
      げんきさん（2026-09-17）「利用者が増えない。会社登録が邪魔してる気がする」。
      投稿を見て来る人は1人。会社の話が先に出ると「うちの話じゃない」と閉じる。
      会社で受ける人の道（会社とつなぐ）は、そのまま下に残す */
-  if (me.member === "none" && !me.canLearn) {
+  /* もう1講座受けている人にも出す（消さない）。足場を受けた人が石綿も受けたいとき、
+     会社に属していない人には /join の「受講リクエスト」が使えない（担当者が居ない）。
+     消すと、ホームからほかの講座を買う道が無くなる */
+  if (me.member === "none") {
+    const again = me.canLearn;
     cards.push(
       <Link
         key="solo"
         href="/solo"
-        className="block rounded-xl border border-yel bg-[#1A1F14] p-4 no-underline"
+        className={`block rounded-xl border p-4 no-underline ${again ? "border-line bg-panel" : "border-yel bg-[#1A1F14]"}`}
         data-testid="home-solo"
       >
-        <div className="text-[11px] font-extrabold tracking-widest text-yel">はじめに</div>
+        <div className={`text-[11px] font-extrabold tracking-widest ${again ? "text-cyan" : "text-yel"}`}>
+          {again ? "ほかの講座も" : "はじめに"}
+        </div>
         <div className="mt-1 text-[15px] font-black text-txt">ひとりで受ける</div>
         <div className="mt-1 text-[12px] leading-relaxed text-dim">
-          会社の登録は要りません。講座を選んで申し込み、お振込みの確認後にそのまま受講できます。
-          修了証は本人に出ます。
+          {again
+            ? "講座を選んで申し込むと、お振込みの確認後にそのまま受講できます。"
+            : "会社の登録は要りません。講座を選んで申し込み、お振込みの確認後にそのまま受講できます。修了証は本人に出ます。"}
         </div>
       </Link>,
     );
