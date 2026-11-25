@@ -1,0 +1,110 @@
+<!doctype html><meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+@page{size:A4;margin:0}
+:root{--ink:#0e0e10;--y:#ffd400;--g:#6b6b73;--line:#d9d9de;--paper:#fff}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{background:#fff}
+body{font-family:'Noto Sans JP',sans-serif;-webkit-font-smoothing:antialiased;color:var(--ink)}
+.page{width:210mm;height:297mm;position:relative;overflow:hidden;background:var(--paper);display:flex;flex-direction:column}
+.stripe{height:5mm;background:repeating-linear-gradient(-45deg,var(--y) 0 6mm,var(--ink) 6mm 12mm)}
+.head{background:var(--ink);color:#fff;padding:7.5mm 12mm 6.5mm}
+.eyebrow{color:var(--y);font-weight:700;font-size:11pt;letter-spacing:.12em}
+h1{font-weight:900;font-size:33pt;line-height:1.18;margin-top:2.5mm;letter-spacing:-.01em}
+.lead{margin-top:3.5mm;font-size:14pt;font-weight:700;color:#e6e6ea}
+.lead b{color:var(--y);font-size:19pt;font-weight:900}
+.body{padding:5.5mm 12mm 0;flex:1;display:flex;flex-direction:column;gap:4.2mm}
+.pts{display:grid;grid-template-columns:1fr 1fr 1fr;gap:4mm}
+.pt{border:0.6mm solid var(--ink);border-radius:3mm;padding:3.5mm 4mm 3mm}
+.pt .n{font-weight:900;font-size:9pt;letter-spacing:.15em;color:var(--g)}
+.pt .t{font-weight:900;font-size:16.5pt;line-height:1.25;margin-top:1mm}
+.pt .t b{font-size:24pt;color:var(--ink)}
+.pt p{font-size:9.5pt;line-height:1.6;margin-top:2mm;color:#2a2a2f}
+.pt small{display:block;font-size:7.5pt;color:var(--g);margin-top:1.5mm;line-height:1.4}
+.row2{display:grid;grid-template-columns:1.25fr 1fr;gap:5mm}
+.box{border:0.6mm solid var(--ink);border-radius:3mm;overflow:hidden}
+.box .cap{background:var(--ink);color:var(--y);font-weight:900;font-size:10.5pt;letter-spacing:.1em;padding:2.2mm 4mm}
+.price{padding:2mm 4mm 2.5mm}
+.price .r{display:flex;justify-content:space-between;align-items:baseline;padding:1.5mm 0;border-bottom:0.3mm solid var(--line)}
+.price .r:last-child{border-bottom:0}
+.price .nm{font-weight:700;font-size:11pt}
+.price .nm span{font-weight:400;font-size:8.5pt;color:var(--g);margin-left:2mm}
+.price .v{font-weight:900;font-size:15pt;white-space:nowrap}
+.price .v small{font-size:8.5pt;font-weight:700}
+.price .more{font-size:8.5pt;color:var(--g);padding-top:2mm;line-height:1.5}
+.flow{padding:3mm 4mm 3mm}
+.flow .s{display:flex;gap:3mm;align-items:flex-start;padding:1.4mm 0}
+.flow .k{flex:none;width:7mm;height:7mm;border-radius:50%;background:var(--y);font-weight:900;font-size:10pt;display:flex;align-items:center;justify-content:center}
+.flow .d{font-size:10pt;line-height:1.45}
+.flow .d b{font-weight:900}
+.flow .d small{display:block;font-size:8pt;color:var(--g)}
+.qrrow{display:grid;grid-template-columns:auto 1fr;gap:6mm;align-items:center;border:0.6mm solid var(--ink);border-radius:3mm;padding:3.5mm 5mm;background:#fff8cc}
+.qr{width:34mm;height:34mm;background:#fff;padding:2mm;border-radius:2mm}
+.qr svg{width:100%;height:100%;display:block}
+.qrt .big{font-weight:900;font-size:17pt;line-height:1.3}
+.qrt .url{font-weight:700;font-size:13pt;margin-top:1.5mm;letter-spacing:.02em}
+.qrt p{font-size:9.5pt;line-height:1.55;margin-top:1.5mm;color:#2a2a2f}
+.foot{padding:3.2mm 12mm 3.5mm;border-top:0.3mm solid var(--line);display:grid;grid-template-columns:1fr auto;gap:4mm;align-items:end}
+.foot .co{font-weight:900;font-size:12pt}
+.foot .ad{font-size:8.5pt;color:#2a2a2f;line-height:1.6;margin-top:1mm}
+.foot .note{font-size:7.2pt;color:var(--g);line-height:1.5;text-align:right;max-width:70mm}
+</style>
+<div class="page" id="flyer">
+  <div class="stripe"></div>
+  <div class="head">
+    <div class="eyebrow">足場屋革命｜特別教育・職長教育（オンライン学科）</div>
+    <h1>まだ、人を出して<br>受けてますか。</h1>
+    <div class="lead">足場の特別教育の学科6時間を、スマホで。<b>1名から 4,950円</b>（税込）</div>
+  </div>
+  <div class="body">
+    <div class="pts">
+      <div class="pt"><div class="n">01　値段</div><div class="t"><b>4,950</b>円</div>
+        <p>足場の組立て等の特別教育、1名分・税込。5名でも 24,750円。教室に出す日当が消えません。</p>
+        <small>他社のオンライン講座は 8,000〜11,130円（2026年9月 当社調べ）</small></div>
+      <div class="pt"><div class="n">02　代返できない</div><div class="t">顔を見ながら<br>受けてもらう</div>
+        <p>受講中ずっと顔を照合。別の人が座ると、その場で止まります。映像は端末の外に出しません。</p>
+        <small>照合の記録が残るので、元請にそのまま出せます</small></div>
+      <div class="pt"><div class="n">03　手間なし</div><div class="t">会社の登録は<br>要りません</div>
+        <p>ひとりでも、会社でまとめてでも。途中で閉じても続きから。修了証は本人に出ます。</p>
+        <small>記録は3年保存。修了証の番号は誰でも照会できます</small></div>
+    </div>
+    <div class="row2">
+      <div class="box"><div class="cap">料金（1名分・税込）</div>
+        <div class="price">
+          <div class="r"><div class="nm">足場の組立て等 特別教育<span>学科6時間</span></div><div class="v">4,950<small>円</small></div></div>
+          <div class="r"><div class="nm">職長・安全衛生責任者教育<span>14時間</span></div><div class="v">7,700<small>円</small></div></div>
+          <div class="r"><div class="nm">フルハーネス 特別教育<span>4時間30分</span></div><div class="v">4,950<small>円</small></div></div>
+          <div class="r"><div class="nm">石綿 特別教育<span>4時間30分</span></div><div class="v">4,950<small>円</small></div></div>
+          <div class="r"><div class="nm">玉掛け（1トン未満）特別教育<span>5時間</span></div><div class="v">4,950<small>円</small></div></div>
+          <div class="more">ほか全73講座（3,850〜11,000円）。料金表はQRから。<br>請求書払い（銀行振込）。実技は事業者で行います。</div>
+        </div>
+      </div>
+      <div class="box"><div class="cap">受講までの流れ</div>
+        <div class="flow">
+          <div class="s"><div class="k">1</div><div class="d"><b>第1単元を無料で見る</b><small>登録なし。QRから</small></div></div>
+          <div class="s"><div class="k">2</div><div class="d"><b>申し込む</b><small>ひとりで（会社の登録なし）／会社でまとめて</small></div></div>
+          <div class="s"><div class="k">3</div><div class="d"><b>お振込みの確認後、そのまま受講</b><small>受講コードを打つ手間はありません</small></div></div>
+          <div class="s"><div class="k">4</div><div class="d"><b>修了証を発行</b><small>東北三上機材株式会社の名義。本人のスマホに</small></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="qrrow">
+      <div class="qr"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 29 29" shape-rendering="crispEdges"><path fill="#ffffff" d="M0 0h29v29H0z"/><path stroke="#0e0e10" d="M0 0.5h7m2 0h1m2 0h1m1 0h1m4 0h1m2 0h7M0 1.5h1m5 0h1m1 0h2m1 0h3m5 0h2m1 0h1m5 0h1M0 2.5h1m1 0h3m1 0h1m3 0h1m1 0h1m2 0h1m4 0h1m1 0h1m1 0h3m1 0h1M0 3.5h1m1 0h3m1 0h1m4 0h3m2 0h1m1 0h2m2 0h1m1 0h3m1 0h1M0 4.5h1m1 0h3m1 0h1m1 0h2m1 0h3m2 0h1m1 0h2m2 0h1m1 0h3m1 0h1M0 5.5h1m5 0h1m3 0h1m3 0h6m2 0h1m5 0h1M0 6.5h7m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h7M9 7.5h1m2 0h1m2 0h1m1 0h2M0 8.5h1m1 0h1m1 0h1m1 0h1m3 0h1m1 0h1m3 0h3m1 0h1m3 0h1m2 0h1M3 9.5h2m2 0h3m1 0h3m1 0h2m3 0h3m2 0h1m2 0h1M1 10.5h2m1 0h5m1 0h3m1 0h4m5 0h2m1 0h3M0 11.5h1m2 0h2m6 0h1m1 0h2m1 0h2m1 0h1m7 0h1M0 12.5h4m1 0h2m2 0h2m3 0h2m1 0h1m1 0h5m1 0h1m1 0h2M1 13.5h1m1 0h1m3 0h4m3 0h2m4 0h3m2 0h1m2 0h1M0 14.5h1m1 0h1m2 0h4m2 0h1m1 0h1m3 0h2m1 0h1m2 0h1m1 0h1m1 0h2M1 15.5h1m1 0h3m3 0h4m2 0h1m1 0h1m1 0h1m2 0h1m1 0h2m1 0h1M1 16.5h2m1 0h1m1 0h1m1 0h1m7 0h2m1 0h4m2 0h1m1 0h2M5 17.5h1m2 0h3m2 0h1m1 0h4m1 0h1m1 0h1m2 0h2m1 0h1M0 18.5h1m3 0h4m1 0h1m2 0h1m1 0h3m1 0h1m2 0h4m2 0h2M1 19.5h3m1 0h1m3 0h2m2 0h2m1 0h2m5 0h3m1 0h1M0 20.5h1m1 0h6m1 0h4m1 0h5m1 0h5M8 21.5h2m1 0h2m1 0h2m4 0h1m3 0h1m1 0h3M0 22.5h7m5 0h2m3 0h1m1 0h2m1 0h1m1 0h2m1 0h2M0 23.5h1m5 0h1m3 0h1m1 0h1m2 0h1m1 0h2m1 0h1m3 0h2m2 0h1M0 24.5h1m1 0h3m1 0h1m1 0h1m1 0h2m3 0h1m1 0h1m2 0h5m2 0h1M0 25.5h1m1 0h3m1 0h1m2 0h4m3 0h3m2 0h1m2 0h1m1 0h1M0 26.5h1m1 0h3m1 0h1m1 0h1m1 0h1m1 0h3m1 0h1m3 0h1m2 0h3m2 0h1M0 27.5h1m5 0h1m2 0h6m2 0h1m1 0h2m1 0h1m1 0h1m2 0h1M0 28.5h7m1 0h3m2 0h1m3 0h1m1 0h2m6 0h2"/></svg>
+</div>
+      <div class="qrt">
+        <div class="big">登録なしで、第1単元が見られます。</div>
+        <div class="url">kyouiku.ashibase.jp/try</div>
+        <p>中身を見てから決めてください。気に入ったら、そのまま申し込めます。LINE でも始められます。</p>
+      </div>
+    </div>
+  </div>
+  <div class="foot">
+    <div>
+      <div class="co">東北三上機材株式会社　教育事業担当</div>
+      <div class="ad">宮城県名取市牛野八幡23　TEL 022-738-7913（平日 9:00〜17:00）<br>info@tohoku-mikamikizai.co.jp　https://kyouiku.ashibase.jp</div>
+    </div>
+    <div class="note">労働安全衛生法第59条・安衛則第36条にもとづく特別教育の学科。価格は2026年11月時点、消費税10%込み。受講コードは発行から1年で失効します。</div>
+  </div>
+  <div class="stripe"></div>
+</div>
