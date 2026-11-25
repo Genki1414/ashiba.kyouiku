@@ -1767,7 +1767,7 @@ console.log("── 残っていた壁を全部（げんきさん 2026-09-11「�
     "支払方法は、カードの有無で出し分ける（入れた瞬間に虚偽にならない）");
   check(/k: "特別の販売条件"/.test(lg) && /受講コードは発行から1年で失効/.test(lg), "特別の販売条件がある");
   const tp = read("src/app/legal/tokushoho/page.tsx");
-  check(/tokushoho\(allPrices\(\), \{ card: hasStripe\(\), maxSeats: MAX_SEATS \}\)/.test(tp),
+  check(/tokushoho\(allPrices\(\), \{ card: hasStripe\(\), maxSeats: MAX_SEATS, memberPlans \}\)/.test(tp),
     "出し分けの元は、画面と同じ判定（hasStripe）");
   for (const f of ["tokushoho", "terms", "privacy"]) {
     const pg = read(`src/app/legal/${f}/page.tsx`);

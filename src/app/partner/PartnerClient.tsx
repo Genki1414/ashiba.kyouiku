@@ -7,7 +7,7 @@ import { CopyBtn } from "@/components/ui/CopyBtn";
 import { Loading } from "@/components/Loading";
 import { AskDone, type Ask, type RunResult } from "@/components/AskDone";
 import { yen } from "@/lib/pricing";
-import { CONTRACT_STATUS, PARTNER_STATUS, monthLabel, ymd, type ContractStatus, type PartnerStatus } from "@/lib/membership";
+import { CONTRACT_STATUS, DEFAULT_PARTNER_RATE, PARTNER_STATUS, TERMS, monthLabel, ymd, type ContractStatus, type PartnerStatus } from "@/lib/membership";
 
 /* 営業パートナー（0040・docs/120）。本人の画面。
 
@@ -176,9 +176,10 @@ export function PartnerClient() {
             {busy ? "…" : "登録する"}
           </Btn>
         </div>
-        <div className="mt-3 border-t border-line pt-3 text-[11.5px] leading-relaxed text-dim2">
-          報酬の率・支払い時期・契約終了後の扱いなどの条件は、別途お送りする業務委託契約書で定めます。
-          登録だけで報酬が発生することはありません。
+        <div className="mt-3 border-t border-line pt-3 text-[11.5px] leading-relaxed text-dim2" data-testid="partner-terms">
+          報酬は紹介した会社の月額会費（税抜）の{DEFAULT_PARTNER_RATE}%。入金が確認された月ごとに確定し、{TERMS.payoutRule}で振り込みます
+          （{yen(TERMS.payoutMin)}未満は翌月に繰越、振込手数料は当社負担、消費税込み、源泉徴収なし）。
+          詳しい条件は別途お送りする業務委託契約書で定めます。登録だけで報酬が発生することはありません。
         </div>
       </main>
     );
@@ -250,6 +251,7 @@ export function PartnerClient() {
       </div>
       <div className="mt-1 text-[11px] leading-relaxed text-dim2">
         確定は、紹介した会社の入金が確認された月ごとに立ちます。見込みは、いま有効な {t.activeContracts} 件の契約が払い続けたときの月あたりで、払われる額ではありません。
+        お支払いは{TERMS.payoutRule}（{yen(TERMS.payoutMin)}未満は翌月に繰越）。
       </div>
 
       {/* 紹介した会社 */}

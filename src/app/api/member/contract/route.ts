@@ -106,6 +106,7 @@ export async function GET() {
       startedOn: (c.started_on as string) ?? null,
       endsOn: (c.ends_on as string) ?? null,
       nextDueOn: (c.next_due_on as string) ?? null,
+      cancelRequestedOn: (c.cancel_requested_on as string) ?? null,
       createdAt: c.created_at as string,
       plan: plan ? planOf(plan as Record<string, unknown>) : null,
     },
@@ -141,7 +142,7 @@ export async function GET() {
   });
 }
 
-type Body = { planId?: unknown; code?: unknown; note?: unknown };
+type Body = { action?: unknown; planId?: unknown; code?: unknown; note?: unknown };
 
 export async function POST(req: NextRequest) {
   if (!membershipEnabled()) return closed();
@@ -151,6 +152,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, reason: "教育担当者だけの操作です。" }, { status: 403 });
   }
   const b = (await req.json().catch(() => ({}))) as Body;
+
+  /* ── 解約の申し出（docs/121）── 終了は申し出の月の翌月末。以後の会費は請求しない。
+     払った月のチケットは失効日まで使える。終了そのものは日次処理（cron）が行う */
+  if (b.action === "cancel") {
+    const open = await openContract(supabase, admin.companyId);
+    if (!open.ok) return NextResponse.json({ ok: false, reason: `契約を読めませんでした（${open.reason}）` }, { status: 500 });
+    if (!open.contract) return NextResponse.json({ ok: false, reason: "契約がありません。" }, { status: 404 });
+    const { data: endsOn, error } = await supabase.rpc("cancel_contract", { p_contract: open.contract.id, p_by: admin.userId });
+    if (error) return NextResponse.json({ ok: false, reason: error.message }, { status: 409 });
+    return NextResponse.json({ ok: true, endsOn: endsOn as string });
+  }
+
   const planId = String(b.planId ?? "").trim();
   if (!planId) return NextResponse.json({ ok: false, reason: "プランを選んでください。" }, { status: 400 });
 

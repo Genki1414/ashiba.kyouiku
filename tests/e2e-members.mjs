@@ -27,8 +27,8 @@ const confirmDone = async () => {
 const json = (body, status = 200) => ({ status, contentType: "application/json", body: JSON.stringify(body) });
 
 const plans = [
-  { id: "p1", kind: "member", name: "ライト", monthlyFee: 5000, ticketAmount: 10000, ticketMonths: 12, public: true, sortOrder: 1, note: "" },
-  { id: "p2", kind: "member", name: "スタンダード", monthlyFee: 10000, ticketAmount: 20000, ticketMonths: 12, public: true, sortOrder: 2, note: "" },
+  { id: "p1", kind: "member", name: "ライト", monthlyFee: 5000, ticketAmount: 10000, ticketMonths: 6, public: true, sortOrder: 1, note: "" },
+  { id: "p2", kind: "member", name: "スタンダード", monthlyFee: 10000, ticketAmount: 20000, ticketMonths: 6, public: true, sortOrder: 2, note: "" },
 ];
 
 /* ── 案内（ログイン無し）── */
@@ -38,7 +38,8 @@ for (const [path, cta] of [["/members", "lp-members-cta"], ["/agency", "lp-agenc
   await dismiss();
   await page.getByTestId("lp").waitFor({ timeout: 8000 });
   check((await page.getByTestId(cta).count()) === 1, `${path} に押す所がある`);
-  check((await page.getByTestId("lp-note").innerText()).includes("契約書"), `${path} に「条件は契約書で」`);
+  const note = await page.getByTestId("lp-note").innerText();
+  check(/6か月で失効/.test(note) && /自動更新/.test(note) && /返金はなく/.test(note), `${path} に条件（6か月・自動更新・返金なし）`);
   check((await page.getByTestId("bottom-nav").count()) === 0, `${path} に下の札は出ない`);
   const bg = await page.evaluate(() => getComputedStyle(document.querySelector(".lp")).backgroundColor);
   check(bg === "rgb(255, 255, 255)", `${path} は白地（${bg}）`);
@@ -102,7 +103,7 @@ check(/スタンダード/.test(body) && /10,000円/.test(body) && /11,000円/.t
 /* 申し込んだあとは契約が出る */
 member = {
   ...member,
-  contract: { id: "c1", kind: "member", status: "pending", method: "invoice", startedOn: null, endsOn: null, nextDueOn: null, createdAt: "2026-11-25T01:00:00Z", plan: plans[1] },
+  contract: { id: "c1", kind: "member", status: "pending", method: "invoice", startedOn: null, endsOn: null, nextDueOn: null, cancelRequestedOn: null, createdAt: "2026-11-25T01:00:00Z", plan: plans[1] },
   payments: [{ id: "pay1", periodMonth: "2026-11-01", net: 10000, tax: 1000, amount: 11000, ticketAmount: 20000, method: "invoice", status: "pending", dueOn: "2026-11-01", invoicedAt: null, paidAt: null }],
 };
 await confirmDone();
@@ -133,7 +134,27 @@ check((await page.getByTestId("member-order").getAttribute("href")) === "/order"
 check((await page.getByTestId("member-bill").count()) === 0, "入金待ちが無ければ支払いの札は出ない");
 check(/付与/.test(await page.getByTestId("member-txns").innerText()), "履歴に付与が出る");
 await page.screenshot({ path: `${SC}/members-03-active.png` });
-console.log("OK: 有効な契約の画面");
+/* 解約の申し出（docs/121）：翌月末で終了。札に「返金はありません」と出る */
+await page.getByTestId("member-cancel-go").waitFor({ timeout: 4000 });
+await page.unroute("**/api/member/contract");
+await page.route("**/api/member/contract", (route) => {
+  if (route.request().method() === "POST") {
+    sent = JSON.parse(route.request().postData() ?? "{}");
+    member = { ...member, contract: { ...member.contract, cancelRequestedOn: "2026-11-25", endsOn: "2026-12-31", nextDueOn: null } };
+    return route.fulfill(json({ ok: true, endsOn: "2026-12-31" }));
+  }
+  return route.fulfill(json(member));
+});
+await page.getByTestId("member-cancel-go").click();
+await page.getByTestId("ask-done-yes").waitFor({ timeout: 4000 });
+const cb = await page.getByTestId("ask-done").innerText();
+check(/翌月末/.test(cb) && /返金はありません/.test(cb), `解約の札に翌月末と返金なし（${cb.replace(/\s+/g, " ")}）`);
+await confirmDone();
+check(sent?.action === "cancel", `解約を送る（${JSON.stringify(sent)}）`);
+await page.getByTestId("member-cancel").waitFor({ timeout: 8000 });
+check(/2026\/12\/31/.test(await page.getByTestId("member-cancel").innerText()), "申し出のあと、終了日が出る");
+check((await page.getByTestId("member-cancel-go").count()) === 0, "二度は申し出させない");
+console.log("OK: 有効な契約の画面と解約の申し出");
 
 /* ── 受講コードの申込みに「チケットで払う」 ── */
 const courses = [
@@ -298,6 +319,19 @@ await page.goto(`${BASE}/member`);
 await dismiss();
 await page.getByTestId("member-ng").waitFor({ timeout: 8000 });
 check(/準備中/.test(await page.getByTestId("member-ng").innerText()), "断られた理由が出る");
+
+/* ── 規約と表記（制度を開けた店だけ条が足される） ── */
+await page.goto(`${BASE}/legal/terms`);
+await dismiss();
+const terms = await page.getByTestId("terms").innerText();
+check(/第5条/.test(terms) && /法人会員（月額プラン）とチケット/.test(terms) && /付与から6か月で失効/.test(terms), "規約に法人会員の条（6か月）");
+check(/第6条/.test(terms) && /営業パートナー/.test(terms) && /30%/.test(terms), "規約に営業パートナーの条");
+check(/第15条/.test(terms) && /準拠法/.test(terms), "あとの条番号がずれて最後は第15条");
+await page.goto(`${BASE}/legal/tokushoho`);
+await dismiss();
+const tk = await page.getByTestId("tokushoho").innerText();
+check(/法人会員（月額プラン）/.test(tk) && /付与から6か月有効/.test(tk) && /スタンダード/.test(tk), "特商法の表記に月額プランの欄");
+console.log("OK: 規約と表記");
 
 await browser.close();
 if (ng) { console.error(`NG ${ng}件`); process.exit(1); }

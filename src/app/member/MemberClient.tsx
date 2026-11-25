@@ -9,6 +9,7 @@ import { yen } from "@/lib/pricing";
 import {
   CONTRACT_STATUS,
   PAYMENT_STATUS,
+  TERMS,
   grossOf,
   monthLabel,
   normalizeRefCode,
@@ -33,6 +34,8 @@ type Contract = {
   startedOn: string | null;
   endsOn: string | null;
   nextDueOn: string | null;
+  /** 解約の申し出があった日。あれば ends_on で終わる */
+  cancelRequestedOn: string | null;
   createdAt: string;
   plan: Plan | null;
 };
@@ -146,8 +149,13 @@ export function MemberClient() {
         <h1 className="mt-2 text-[18px] font-black">法人会員に申し込む</h1>
         <p className="mt-2 text-[12.5px] leading-relaxed text-dim">
           {st.company} の月額プランです。毎月の会費（税抜）の2倍のチケットが付き、
-          受講コードの申込みにチケットで払えます。チケットは付与から12か月で失効します。
+          受講コードの申込みにチケットで払えます。チケットは付与から{TERMS.ticketMonthsMax}か月で失効します。
         </p>
+        <div className="mt-2 rounded-lg border border-line bg-panel px-3 py-2 text-[11.5px] leading-relaxed text-dim" data-testid="member-terms">
+          契約期間は{TERMS.contractMonths}か月。満了の1か月前までに申し出が無ければ同じ期間で更新します。
+          途中の解約は{TERMS.cancelNotice}で、以後の会費はかかりません。払った月のチケットは失効日まで使えます。
+          会費の返金はありません。契約が終わると残っているチケットは失効します。
+        </div>
         <Link href="/members" className="mt-1 inline-block text-[12px] text-cyan no-underline" data-testid="member-lp">
           制度の案内を見る
         </Link>
@@ -319,6 +327,63 @@ export function MemberClient() {
         ))}
         {!st.payments.length && <div className="text-[12px] text-dim2">まだありません。</div>}
       </div>
+
+      {/* 解約（docs/121）。申し出の月の翌月末で終わる。払った月のチケットは失効日まで使える */}
+      {c.status !== "ended" && (
+        <div className="mt-5 rounded-xl border border-line bg-panel p-3 text-[12px]" data-testid="member-cancel">
+          {c.cancelRequestedOn ? (
+            <div className="text-dim">
+              {ymd(c.cancelRequestedOn)} に解約を申し出ました。<strong className="text-txt">{ymd(c.endsOn)}</strong> で終了します。
+              それまで残っているチケットは使えます。以後の会費はかかりません。
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <div className="min-w-0 flex-1 text-dim">
+                解約は{TERMS.cancelNotice}です。申し出のあとも、終了日までチケットは使えます。
+              </div>
+              <button
+                onClick={() =>
+                  setAsk({
+                    title: "解約を申し出ますか",
+                    body: (
+                      <>
+                        <div>{c.plan?.name}　{yen(c.plan?.monthlyFee ?? 0)}／月</div>
+                        <div className="mt-1">{TERMS.cancelNotice}で終了し、以後の会費はかかりません。入金待ちの請求は取り消されます。</div>
+                        <div className="mt-1">払った月のチケットは失効日まで使えます。終了日に残っているチケットは失効し、返金はありません。</div>
+                      </>
+                    ),
+                    yes: "解約を申し出る",
+                    danger: true,
+                    done: "解約を受け付けました",
+                    run: async (): Promise<RunResult> => {
+                      setBusy(true);
+                      try {
+                        const res = await fetch("/api/member/contract", {
+                          method: "POST",
+                          headers: { "content-type": "application/json" },
+                          body: JSON.stringify({ action: "cancel" }),
+                        });
+                        const j = await res.json().catch(() => ({}));
+                        if (!res.ok || !j.ok) { setNote(j.reason ?? "申し出できませんでした。"); return false; }
+                        await load();
+                        return { done: "解約を受け付けました", doneBody: `${ymd(j.endsOn)} で終了します。それまでチケットは使えます。` };
+                      } finally {
+                        setBusy(false);
+                      }
+                    },
+                  })
+                }
+                className="shrink-0 rounded-lg border border-line px-3 py-1.5 text-[11.5px] text-dim2"
+                data-testid="member-cancel-go"
+                disabled={busy}
+              >
+                解約を申し出る
+              </button>
+            </div>
+          )}
+          {note && <div className="mt-2 text-[12px] text-red">{note}</div>}
+        </div>
+      )}
 
       {/* ロット */}
       <div className="mt-5 text-[11px] tracking-[2px] text-dim">チケットの内訳（失効日の順）</div>

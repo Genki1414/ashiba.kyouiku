@@ -3,6 +3,7 @@ import { LEGAL_REVISED, tokushoho } from "@/content/legal";
 import { allPrices } from "@/lib/price.server";
 import { hasStripe } from "@/lib/stripe";
 import { MAX_SEATS } from "@/lib/pricing";
+import { membershipEnabled, plansForLp } from "@/lib/membership.server";
 
 export const metadata = { title: "特定商取引法に基づく表記" };
 
@@ -12,9 +13,11 @@ export const metadata = { title: "特定商取引法に基づく表記" };
 export const dynamic = "force-dynamic";
 
 /* 特定商取引法に基づく表記。買う前に誰でも読めるところに置く */
-export default function TokushohoPage() {
-  /* カードを出しているかは、鍵の有無（画面と同じ判定）で決めて渡す */
-  const items = tokushoho(allPrices(), { card: hasStripe(), maxSeats: MAX_SEATS });
+export default async function TokushohoPage() {
+  /* カードを出しているかは、鍵の有無（画面と同じ判定）で決めて渡す。
+     法人会員の月額（0040・docs/121）は、制度を開けている店だけ載せる（売っていないものを書かない） */
+  const memberPlans = membershipEnabled() ? (await plansForLp("member")).plans : [];
+  const items = tokushoho(allPrices(), { card: hasStripe(), maxSeats: MAX_SEATS, memberPlans });
   return (
     <LegalPage title="特定商取引法に基づく表記" updated={LEGAL_REVISED}>
       <dl className="grid gap-0" data-testid="tokushoho">

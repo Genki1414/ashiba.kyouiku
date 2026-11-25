@@ -12,6 +12,7 @@
 import { readFileSync } from "node:fs";
 import {
   DEFAULT_PLANS,
+  TERMS,
   addDays,
   commissionOf,
   grossOf,
@@ -154,20 +155,42 @@ console.log("── 作りの決まり ──");
   /* Cron：合言葉。未設定なら誰も呼べない */
   const cr = strip(read("src/app/api/cron/members/route.ts"));
   check(/if \(!secret \|\| auth !== `Bearer \$\{secret\}`\)/.test(cr), "Cron は CRON_SECRET で見張る（未設定なら閉じる）");
-  check(/rpc\("expire_tickets"\)/.test(cr) && /openDuePayments\(/.test(cr), "失効と翌月の起票をする");
+  check(/runDaily\(/.test(cr) && /rpc\("expire_tickets"\)/.test(srv) && /openDuePayments\(/.test(srv), "失効と翌月の起票をする（runDaily）");
   const vj = JSON.parse(read("vercel.json")) as { crons?: { path: string; schedule: string }[] };
   check(!!vj.crons?.some((c) => c.path === "/api/cron/members"), "vercel.json に Cron がある");
-  /* LP：条件を決め打ちしない（§16）。税抜と書く */
-  for (const f of ["src/app/members/page.tsx", "src/app/agency/page.tsx", "src/app/partners/page.tsx"]) {
+  /* 条件（docs/121）は TERMS から出す。字を2か所に書かない（「12か月で失効」のような決め打ちを残さない） */
+  for (const f of ["src/app/members/page.tsx", "src/app/agency/page.tsx", "src/app/partners/page.tsx", "src/app/member/MemberClient.tsx", "src/components/lp/LpShell.tsx", "src/app/legal/terms/page.tsx"]) {
     const s = read(f);
-    check(!/返金します|自動更新され|解約は.*日前/.test(s), `${f} に未決の条件（返金・自動更新・解約期限）を書いていない`);
+    check(!/12か月で失効|12か月有効|6か月で失効/.test(s), `${f} にチケットの期間を決め打ちで書いていない（TERMS を使う）`);
+    check(/TERMS\./.test(s), `${f} は TERMS を読む`);
   }
   const lp = read("src/components/lp/LpShell.tsx");
-  check(/税抜表示/.test(lp) && /契約書で定めます/.test(lp), "案内に「税抜」と「条件は契約書で」が書いてある");
+  check(/税抜表示/.test(lp) && /自動更新/.test(lp) && /返金はなく/.test(lp), "案内に税抜・自動更新・返金なしが書いてある");
   /* 変更履歴にはまだ載せない（載せると全員に更新の知らせが出る。承認後に載せる） */
   check(!/法人会員|営業パートナー/.test(read("src/content/changelog.ts")), "承認前は更新のお知らせに載せない");
   /* 見張り */
   check(/"\/api\/cron"/.test(read("src/lib/authGate.ts")), "Cron の道は見張りを通す（ログインは無い）");
+  /* ── 条件（0041・docs/121）── */
+  eq(TERMS.ticketMonthsMax, 6, "チケットは6か月まで（資金決済法の届出不要）");
+  for (const p of DEFAULT_PLANS) check(p.ticketMonths <= TERMS.ticketMonthsMax, `${p.name} の有効期間は 6 か月以内`);
+  const mig = read("supabase/migrations/0041_members_terms.sql");
+  check(/check \(ticket_months between 1 and 6\)/.test(mig), "SQL でも 6 か月までに縛る");
+  check(/alter column ticket_months set default 6/.test(mig), "既定も 6 か月");
+  check(/create or replace function public\.cancel_contract/.test(mig) && /interval '2 months' - interval '1 day'/.test(mig), "解約は翌月末（SQL）");
+  check(/create or replace function public\.end_contract/.test(mig) && /'契約終了'/.test(mig), "終了で残りのチケットを失効（SQL）");
+  check(/create or replace function public\.renew_contracts/.test(mig) && /interval '12 months'/.test(mig), "自動更新は12か月（SQL）");
+  check(/select '0041'/.test(mig), "版は 0041");
+  check(/NEED_SCHEMA = "0041"/.test(read("src/content/schema.ts")), "画面が待つ版も 0041");
+  check(/rpc\("end_contract"/.test(om) && !/status: "ended" \}\)\.eq/.test(om), "本部の終了は end_contract（手で ended を書かない）");
+  check(/rpc\("cancel_contract"/.test(om) && /rpc\("cancel_contract"/.test(mc), "解約の申し出は本部からも担当者からも cancel_contract");
+  check(/months > TERMS\.ticketMonthsMax/.test(om), "プランの編集で 6 か月を超えさせない");
+  check(/runDaily\(/.test(cr) && /rpc\("renew_contracts"\)/.test(srv) && /rpc\("end_contract"/.test(srv) && /TERMS\.suspendAfterDays/.test(srv), "日次処理：自動更新・解約の終了・滞納の停止");
+  const tp = read("src/app/legal/terms/page.tsx");
+  check(/membershipEnabled\(\)/.test(tp) && /法人会員（月額プラン）とチケット/.test(tp) && /営業パートナー/.test(tp), "規約は制度を開けた店だけ条を足す");
+  const ts = read("src/app/legal/tokushoho/page.tsx");
+  check(/membershipEnabled\(\) \? \(await plansForLp\("member"\)\)\.plans : \[\]/.test(ts), "特商法の表記も、開けた店だけ月額を載せる");
+  check(/法人会員（月額プラン）/.test(read("src/content/legal.ts")), "表記に法人会員の欄がある");
+
   /* SQL の試験が残っていること */
   const sql = read("supabase/tests/members.sql");
   check(/足りなければ止まる/.test(sql) && /refund_contract_payment/.test(sql), "SQL の試験（不足・返金）がある");

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { LpShell } from "@/components/lp/LpShell";
 import { membershipEnabled, plansForLp } from "@/lib/membership.server";
-import { grossOf } from "@/lib/membership";
+import { TERMS, grossOf } from "@/lib/membership";
 import { yen } from "@/lib/pricing";
 
 /* 販売代理店の案内（0040・docs/120、指示書 5・12）。
@@ -36,7 +36,7 @@ export default async function AgencyLp() {
 
       <section>
         <h2>プランと料金</h2>
-        <p>税抜。契約期間は12か月です。</p>
+        <p>税抜。契約期間は{TERMS.contractMonths}か月（自動更新）。チケットは付与から{TERMS.ticketMonthsMax}か月有効です。</p>
         <div data-testid="lp-plans">
           {plans.map((p) => (
             <div key={p.id} className="card" data-testid="lp-plan">
@@ -54,7 +54,7 @@ export default async function AgencyLp() {
         <h2>申込みの流れ</h2>
         <div className="steps">
           <div><b>問い合わせる</b>下の連絡先か、法人会員の申込み画面の連絡事項に「販売代理店」と書いてください。</div>
-          <div><b>契約書を取り交わす</b>条件（チケットの扱い・解約・協力会社への配布）は契約書で定めます。</div>
+          <div><b>契約書を取り交わす</b>解約・更新・チケットの失効は法人会員と同じ条件です。協力会社への配布は第2段階で定めます。</div>
           <div><b>初月の請求書・入金・チケット付与</b>法人会員と同じ流れです。</div>
         </div>
       </section>

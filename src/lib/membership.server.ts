@@ -1,6 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { addDays, DEFAULT_PLANS, jstDate, type Plan } from "./membership";
+import { addDays, DEFAULT_PLANS, TERMS, jstDate, type Plan } from "./membership";
 import { getServiceClient } from "./supabase/server";
 
 /* 会員制度の、サーバだけの部分。
@@ -78,7 +78,7 @@ export async function openContract(
   const { data, error } = await supabase
     .from("contracts")
     .select(
-      "id, company_id, plan_id, kind, status, method, started_on, ends_on, next_due_on, referrer_id, note, created_at, ended_at",
+      "id, company_id, plan_id, kind, status, method, started_on, ends_on, next_due_on, cancel_requested_on, referrer_id, note, created_at, ended_at",
     )
     .eq("company_id", companyId)
     .neq("status", "ended")
@@ -160,4 +160,49 @@ export async function plansForLp(kind: "member" | "agency"): Promise<{ plans: Pl
     return { plans: fallback, live: false };
   }
   return { plans: r.plans.length ? r.plans : fallback, live: r.plans.length > 0 };
+}
+
+export type Daily = { ok: true; expired: number; renewed: number; ended: number; suspended: number; opened: number; contracts: number } | { ok: false; reason: string };
+
+/* ── 日次処理（docs/121）── 毎朝 Cron が呼ぶ。運営の画面からも手で回せる。順番に意味がある：
+   1. 期限切れのチケットを失効（expire_tickets）
+   2. 満了が30日以内で申し出の無い契約を12か月更新（renew_contracts）
+   3. 解約の申し出があり終了日を過ぎた契約を終える（end_contract。残りのチケットは失効）
+   4. 会費の支払期限を14日過ぎた有効な契約を停止（入金で再開）
+   5. 翌月の会費の入金行を起こす（openDuePayments）
+   どれも二度呼んで二度は起きない（SQL が状態を見る）。 */
+export async function runDaily(supabase: SupabaseClient, now: Date = new Date()): Promise<Daily> {
+  const today = jstDate(now);
+  const { data: expired, error: eErr } = await supabase.rpc("expire_tickets");
+  if (eErr) return { ok: false, reason: `失効の処理に失敗（${eErr.message}）` };
+  const { data: renewed, error: rErr } = await supabase.rpc("renew_contracts");
+  if (rErr) return { ok: false, reason: `自動更新に失敗（${rErr.message}）` };
+
+  let ended = 0;
+  const { data: toEnd, error: tErr } = await supabase
+    .from("contracts").select("id").neq("status", "ended").not("cancel_requested_on", "is", null).lt("ends_on", today);
+  if (tErr) return { ok: false, reason: `終了する契約を読めません（${tErr.message}）` };
+  for (const c of toEnd ?? []) {
+    const { error } = await supabase.rpc("end_contract", { p_contract: c.id, p_by: "cron", p_note: "解約の申し出による終了" });
+    if (error) console.error("契約を終えられません:", c.id, error.message);
+    else ended++;
+  }
+
+  let suspended = 0;
+  const limit = addDays(today, -TERMS.suspendAfterDays);
+  const { data: late, error: lErr } = await supabase
+    .from("contract_payments").select("contract_id").eq("status", "pending").lt("due_on", limit);
+  if (lErr) return { ok: false, reason: `滞納を読めません（${lErr.message}）` };
+  const lateIds = [...new Set((late ?? []).map((p) => p.contract_id as string))];
+  if (lateIds.length) {
+    const { data: susp, error: sErr } = await supabase
+      .from("contracts").update({ status: "suspended" }).in("id", lateIds).eq("status", "active").select("id");
+    if (sErr) return { ok: false, reason: `停止できません（${sErr.message}）` };
+    suspended = susp?.length ?? 0;
+    for (const c of susp ?? []) await adminLog(supabase, "cron", "suspend_overdue", c.id as string, { after: { limit } });
+  }
+
+  const opened = await openDuePayments(supabase, now);
+  if (!opened.ok) return { ok: false, reason: `請求の起票に失敗（${opened.reason}）` };
+  return { ok: true, expired: Number(expired) || 0, renewed: Number(renewed) || 0, ended, suspended, opened: opened.opened, contracts: opened.contracts };
 }

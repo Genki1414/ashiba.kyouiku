@@ -138,7 +138,12 @@ const priceLine = (price: number): string => {
 export const LEGAL_ENACTED = "2026年8月24日";
 export const LEGAL_REVISED = "2026年9月11日";
 
+/** 法人会員（0040・docs/121）のプランを表記に載せるときの形 */
+export type TokushohoPlan = { name: string; monthlyFee: number; ticketAmount: number; ticketMonths: number };
+
 export type TokushohoOpts = {
+  /** 法人会員の月額プラン。制度を開けている店だけ渡す（無ければ載せない） */
+  memberPlans?: TokushohoPlan[];
   /** カード払いを出しているか（STRIPE_SECRET_KEY の有無）。
       サーバの page が hasStripe() で決めて渡す。ここで Stripe を読み込まない */
   card?: boolean;
@@ -179,6 +184,25 @@ export function tokushoho(prices: CoursePrice[], opts: TokushohoOpts = {}): Item
       env: "SEAT_UNIT_PRICE",
       note: "申込みの画面に、人数を入れた合計金額を出します。",
     },
+    /* 法人会員の月額（0040・docs/121）。制度を開けている店だけ。
+       値段は plans の表から来る（運営が画面で直せるので決め打ちにしない） */
+    ...(opts.memberPlans?.length
+      ? [
+          {
+            k: "法人会員（月額プラン）",
+            v: opts.memberPlans
+              .map((p) => `${p.name}　月額 ${priceLine(p.monthlyFee)}　毎月 ${p.ticketAmount.toLocaleString("ja-JP")}円分のチケット（付与から${p.ticketMonths}か月有効）`)
+              .join("\n"),
+            env: "",
+            note:
+              "契約期間は12か月。満了の1か月前までに申し出が無ければ同じ条件で12か月更新します。" +
+              "途中の解約は申し出の月の翌月末で終了し、以後の会費はかかりません。" +
+              "会費は前払い（請求書の発行から1週間以内）。支払期限を14日過ぎるとチケットが使えなくなり、入金で戻ります。" +
+              "会費の返金はありません。契約終了時に残っているチケットは失効します。" +
+              "チケットは受講コードの通常価格（税抜）ぶんを引くもので、現金には戻せません。",
+          },
+        ]
+      : []),
     {
       k: "商品代金以外の必要料金",
       v: "インターネットの通信料はお客様のご負担です。銀行振込の手数料はお客様のご負担です。",

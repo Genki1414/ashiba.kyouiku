@@ -30,18 +30,37 @@ export type Plan = {
   note: string;
 };
 
-/** 初期プラン（0040 の seed と同じ）。LP がデータベースを読めなかったときの代わりと、試験に使う。
+/* ── 決めた条件（0041・docs/121。げんきさん 2026-11-25「届出不要な状態にして。他もおすすめの構成で」）──
+   ここに1か所で持ち、案内・申込み・規約・特商法の表記が全部ここを読む。2か所に書かない */
+export const TERMS = {
+  /** チケットは付与から何か月以内か。**6 を超えない**（資金決済法 第4条第2号。6か月内なら届出・供託の対象外） */
+  ticketMonthsMax: 6,
+  /** 契約期間（か月）。満了の1か月前までに申し出が無ければ同じ期間で自動更新 */
+  contractMonths: 12,
+  /** 途中解約：申し出の月の翌月末で終了。以後の会費は請求しない */
+  cancelNotice: "申し出の月の翌月末",
+  /** 会費の支払期限（請求書の発行から日数）。受講コードの注文と同じ */
+  dueDays: 7,
+  /** 期限を過ぎて何日で停止するか。入金で再開 */
+  suspendAfterDays: 14,
+  /** 営業パートナーの報酬：月末締め・翌月末払い */
+  payoutRule: "月末締め・翌月末払い",
+  /** 報酬の最低支払額（円）。未達は翌月に繰り越す */
+  payoutMin: 5000,
+} as const;
+
+/** 初期プラン（0040 の seed と同じ。有効期間は 0041 で 6 か月）。LP がデータベースを読めなかったときの代わりと、試験に使う。
     **本物は plans の表。**運営が画面で直すので、ここを直しても本番の額は変わらない */
 export const DEFAULT_PLANS: Omit<Plan, "id">[] = [
-  { kind: "member", name: "ライト", monthlyFee: 5000, ticketAmount: 10000, ticketMonths: 12, public: true, sortOrder: 1, note: "" },
-  { kind: "member", name: "スタンダード", monthlyFee: 10000, ticketAmount: 20000, ticketMonths: 12, public: true, sortOrder: 2, note: "" },
-  { kind: "member", name: "ビジネス", monthlyFee: 20000, ticketAmount: 40000, ticketMonths: 12, public: true, sortOrder: 3, note: "" },
-  { kind: "member", name: "エンタープライズ", monthlyFee: 50000, ticketAmount: 100000, ticketMonths: 12, public: true, sortOrder: 4, note: "" },
-  { kind: "agency", name: "代理店 1万", monthlyFee: 10000, ticketAmount: 20000, ticketMonths: 12, public: true, sortOrder: 11, note: "" },
-  { kind: "agency", name: "代理店 2万", monthlyFee: 20000, ticketAmount: 40000, ticketMonths: 12, public: true, sortOrder: 12, note: "" },
-  { kind: "agency", name: "代理店 3万", monthlyFee: 30000, ticketAmount: 60000, ticketMonths: 12, public: true, sortOrder: 13, note: "" },
-  { kind: "agency", name: "代理店 5万", monthlyFee: 50000, ticketAmount: 100000, ticketMonths: 12, public: true, sortOrder: 14, note: "" },
-  { kind: "agency", name: "代理店 10万", monthlyFee: 100000, ticketAmount: 200000, ticketMonths: 12, public: true, sortOrder: 15, note: "" },
+  { kind: "member", name: "ライト", monthlyFee: 5000, ticketAmount: 10000, ticketMonths: 6, public: true, sortOrder: 1, note: "" },
+  { kind: "member", name: "スタンダード", monthlyFee: 10000, ticketAmount: 20000, ticketMonths: 6, public: true, sortOrder: 2, note: "" },
+  { kind: "member", name: "ビジネス", monthlyFee: 20000, ticketAmount: 40000, ticketMonths: 6, public: true, sortOrder: 3, note: "" },
+  { kind: "member", name: "エンタープライズ", monthlyFee: 50000, ticketAmount: 100000, ticketMonths: 6, public: true, sortOrder: 4, note: "" },
+  { kind: "agency", name: "代理店 1万", monthlyFee: 10000, ticketAmount: 20000, ticketMonths: 6, public: true, sortOrder: 11, note: "" },
+  { kind: "agency", name: "代理店 2万", monthlyFee: 20000, ticketAmount: 40000, ticketMonths: 6, public: true, sortOrder: 12, note: "" },
+  { kind: "agency", name: "代理店 3万", monthlyFee: 30000, ticketAmount: 60000, ticketMonths: 6, public: true, sortOrder: 13, note: "" },
+  { kind: "agency", name: "代理店 5万", monthlyFee: 50000, ticketAmount: 100000, ticketMonths: 6, public: true, sortOrder: 14, note: "" },
+  { kind: "agency", name: "代理店 10万", monthlyFee: 100000, ticketAmount: 200000, ticketMonths: 6, public: true, sortOrder: 15, note: "" },
 ];
 
 /** 契約の状態。pending=入金待ち／active=有効／suspended=停止／ended=終了 */

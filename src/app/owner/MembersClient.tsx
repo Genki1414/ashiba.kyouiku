@@ -8,6 +8,7 @@ import {
   CONTRACT_STATUS,
   PARTNER_STATUS,
   PAYMENT_STATUS,
+  TERMS,
   grossOf,
   monthLabel,
   monthStart,
@@ -33,7 +34,7 @@ type Payment = {
 };
 type Contract = {
   id: string; companyId: string; company: string; kind: string; status: ContractStatus; method: string;
-  startedOn: string | null; endsOn: string | null; nextDueOn: string | null; note: string; createdAt: string;
+  startedOn: string | null; endsOn: string | null; nextDueOn: string | null; cancelRequestedOn?: string | null; note: string; createdAt: string;
   plan: Plan | null;
   referrer: { id: string; name: string; code: string; locked: boolean } | null;
   balance: { total: number; expiring: number; nextExpire: string | null };
@@ -62,7 +63,8 @@ type Loaded = {
 
 const ACTION: Record<string, string> = {
   paid: "入金を確認", invoiced: "請求書を送付", cancel_payment: "請求を取消", refund: "返金", open: "請求を起票",
-  month_open: "月次：請求を起票", expire: "月次：失効", contract_status: "契約の状態", contract_plan: "プラン変更",
+  month_open: "日次処理", expire: "失効", contract_status: "契約の状態", contract_plan: "プラン変更", cancel: "解約の申し出",
+  suspend_overdue: "滞納で停止",
   referrer: "紹介元の変更", partner_status: "パートナーの状態", partner_rate: "報酬率", partner_code: "紹介コード",
   payout: "報酬を支払い済み", plan_save: "プラン編集", targets: "目標",
 };
@@ -281,6 +283,7 @@ export function MembersClient({ onNote }: { onNote: (s: string) => void }) {
               <div className="mt-2 border-t border-line pt-2 text-[12px]" data-testid="members-contract-detail">
                 <div className="text-dim2">
                   {ymd(c.createdAt)} 申込{c.startedOn ? `　開始 ${ymd(c.startedOn)}　満了 ${ymd(c.endsOn)}` : ""}
+                  {c.cancelRequestedOn ? <span className="ml-1 rounded border border-org px-1 text-[10px] text-org">解約 {ymd(c.endsOn)} まで</span> : null}
                   {c.note ? <><br />連絡 {c.note}</> : null}
                 </div>
                 <div className="mt-2 grid gap-1">
@@ -317,8 +320,12 @@ export function MembersClient({ onNote }: { onNote: (s: string) => void }) {
                     <button onClick={() => setAsk({ title: "契約を再開しますか", body: <>{c.company}</>, yes: "再開する", done: "再開しました",
                       run: () => post({ action: "contract_status", contractId: c.id, status: "active" }) })} className="rounded border border-grn px-2 py-1 text-[11px] text-grn">再開</button>
                   )}
+                  {c.status !== "ended" && !c.cancelRequestedOn && (
+                    <button onClick={() => setAsk({ title: "解約の申し出を受けますか", body: <>{c.company}。申し出の月の翌月末で終了し、以後の請求は起こしません。入金待ちの請求は取り消されます。払った月のチケットは失効日まで使えます。</>, yes: "受ける", danger: true, done: "受けました",
+                      run: () => post({ action: "cancel", contractId: c.id }) })} className="rounded border border-org px-2 py-1 text-[11px] text-org" data-testid="members-cancel">解約を受ける</button>
+                  )}
                   {c.status !== "ended" && (
-                    <button onClick={() => setAsk({ title: "契約を終了しますか", body: <>{c.company}。終了した契約は戻せません。残っているチケットの扱いは契約書に従って別に対応してください。</>, yes: "終了する", danger: true, done: "終了しました",
+                    <button onClick={() => setAsk({ title: "契約を終了しますか", body: <>{c.company}。終了した契約は戻せません。残っているチケットは失効し、入金待ちの請求は取り消されます（docs/121）。</>, yes: "終了する", danger: true, done: "終了しました",
                       run: () => post({ action: "contract_status", contractId: c.id, status: "ended" }) })} className="rounded border border-red px-2 py-1 text-[11px] text-red" data-testid="members-end">終了</button>
                   )}
                   {c.status !== "ended" && (
@@ -416,7 +423,8 @@ export function MembersClient({ onNote }: { onNote: (s: string) => void }) {
                           <div key={m} className="flex items-center gap-2 text-[11.5px]">
                             <span>{monthLabel(m)}</span>
                             <span className="text-dim">確定 {yen(total)}</span>
-                            <button onClick={() => setAsk({ title: "支払い済みにしますか", body: <>{p.name}　{monthLabel(m)}　{yen(total)}。実際の振込みを済ませてから押してください。</>, yes: "支払い済みにする", done: "記録しました",
+                            {total < TERMS.payoutMin && <span className="text-[10.5px] text-org">{yen(TERMS.payoutMin)}未満（翌月に繰越）</span>}
+                            <button onClick={() => setAsk({ title: "支払い済みにしますか", body: <>{p.name}　{monthLabel(m)}　{yen(total)}。実際の振込みを済ませてから押してください。{total < TERMS.payoutMin ? `${yen(TERMS.payoutMin)}未満なので、ふだんは翌月に繰り越します。` : ""}</>, yes: "支払い済みにする", done: "記録しました",
                               run: () => post({ action: "payout", partnerId: p.id, month: m }) })} className="ml-auto rounded border border-yel px-2 py-0.5 text-[10.5px] text-yel" data-testid="members-payout">
                               支払い済みにする
                             </button>
@@ -479,10 +487,10 @@ export function MembersClient({ onNote }: { onNote: (s: string) => void }) {
       )}
 
       {/* ── 月次 ── */}
-      <div className="mt-5 text-[11px] tracking-[2px] text-dim">月次処理（毎朝 Vercel Cron が同じことをします）</div>
+      <div className="mt-5 text-[11px] tracking-[2px] text-dim">日次処理（毎朝 Vercel Cron が同じことをします）</div>
       <div className="mt-1 grid grid-cols-2 gap-2">
-        <button onClick={() => setAsk({ title: "次の月の請求を起こしますか", body: <>有効な契約のうち、次回が10日以内のものに入金行を起こします。もう起こしてあるものは何も起きません。</>, yes: "起こす", done: "起こしました",
-          run: () => post({ action: "month_open" }) })} className="rounded-lg border border-line p-2.5 text-[12px]" data-testid="members-month-open">翌月分の請求を起こす</button>
+        <button onClick={() => setAsk({ title: "日次処理を回しますか", body: <>期限切れのチケットの失効、満了30日前の自動更新、解約の申し出があった契約の終了、支払期限を14日過ぎた契約の停止、翌月の請求の起票。もう済んでいるものは何も起きません。</>, yes: "回す", done: "回しました",
+          run: () => post({ action: "month_open" }) })} className="rounded-lg border border-line p-2.5 text-[12px]" data-testid="members-month-open">日次処理を回す</button>
         <button onClick={() => setAsk({ title: "期限切れのチケットを失効させますか", body: <>期限を過ぎて残っているチケットを 0 にし、履歴に残します。</>, yes: "失効させる", done: "失効させました",
           run: () => post({ action: "expire" }) })} className="rounded-lg border border-line p-2.5 text-[12px]" data-testid="members-expire">期限切れを失効させる</button>
       </div>

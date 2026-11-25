@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { LpShell } from "@/components/lp/LpShell";
 import { Simulator } from "@/components/lp/Simulator";
 import { membershipEnabled, plansForLp } from "@/lib/membership.server";
-import { DEFAULT_PARTNER_RATE, commissionOf } from "@/lib/membership";
+import { DEFAULT_PARTNER_RATE, TERMS, commissionOf } from "@/lib/membership";
 import { yen } from "@/lib/pricing";
 
 /* 営業パートナーの案内（0040・docs/120、指示書 7・12）。
@@ -59,7 +59,11 @@ export default async function PartnersLp() {
           <div><b>自分の会社を紹介できますか</b>できません。自分の紹介コードは自分の会社の申込みには使えません。</div>
           <div><b>紹介元はあとから変わりますか</b>契約が成立した時点で固定されます。変える必要があるときは運営が理由を残して変えます。</div>
           <div><b>見込みと確定の違いは</b>見込みは「いまの契約が払い続けたら」の額。確定は入金が確認された分だけで、画面では別の数字として出ます。</div>
-          <div><b>報酬の支払い時期や、契約が終わったあとの扱いは</b>業務委託契約書で定めます。登録のあとにお送りします。</div>
+          <div><b>報酬はいつ払われますか</b>{TERMS.payoutRule}です。確定した月の分を、翌月末までに登録の口座へ振り込みます。振込手数料は当社が負担します。{yen(TERMS.payoutMin)}に満たない月は翌月に繰り越します。</div>
+          <div><b>報酬に税金は</b>報酬は消費税込みの額です。源泉徴収は行いません（紹介手数料は源泉徴収の対象になりません）。確定申告はご自身で行ってください。インボイス登録番号は振込先の欄に書けます。</div>
+          <div><b>紹介した会社が解約したら</b>その会社の最後の入金の月まで報酬が確定します。以後は発生しません。</div>
+          <div><b>パートナーをやめたら</b>やめた月までに確定した報酬は払います。以後、紹介した会社が払い続けても新しい報酬は発生しません。</div>
+          <div><b>詳しい条件は</b>業務委託契約書で定めます。登録のあとにお送りします。</div>
         </div>
       </section>
 

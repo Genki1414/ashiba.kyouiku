@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { LpShell } from "@/components/lp/LpShell";
 import { membershipEnabled, plansForLp } from "@/lib/membership.server";
-import { grossOf } from "@/lib/membership";
+import { TERMS, grossOf } from "@/lib/membership";
 import { yen } from "@/lib/pricing";
 import { BRAND } from "@/content/brand";
 
@@ -28,13 +28,13 @@ export default async function MembersLp() {
           <div><b>プランを選んで申し込む</b>請求書払い。初月の請求書をお送りします。</div>
           <div><b>入金の確認でチケットが付く</b>会費の2倍の額が、その月のチケットになります。</div>
           <div><b>受講コードをチケットで申し込む</b>受講コードの申込み画面に「チケットで払う」が出ます。請求書は出ません。</div>
-          <div><b>毎月くり返す</b>翌月分の請求書は月末までに届きます。チケットは付与から12か月で失効します。</div>
+          <div><b>毎月くり返す</b>翌月分の請求書は月末までに届きます。チケットは付与から{TERMS.ticketMonthsMax}か月で失効します。</div>
         </div>
       </section>
 
       <section>
         <h2>プランと料金</h2>
-        <p>税抜。契約期間は12か月です。</p>
+        <p>税抜。契約期間は{TERMS.contractMonths}か月（自動更新）。チケットは付与から{TERMS.ticketMonthsMax}か月有効です。</p>
         <div data-testid="lp-plans">
           {plans.map((p, i) => (
             <div key={p.id} className={`card${i === 1 ? " hi" : ""}`} data-testid="lp-plan">
@@ -72,7 +72,10 @@ export default async function MembersLp() {
         <div className="faq">
           <div><b>受講者の名簿や修了証は今までと同じですか</b>同じです。会社の名簿・受講の記録・修了証の仕組みはそのまま。払い方にチケットが増えるだけです。</div>
           <div><b>チケットが足りない月は</b>足りないぶんは、今までどおり請求書払いかカードで申し込めます。</div>
-          <div><b>使わなかったチケットは</b>付与から12か月のあいだ使えます。失効・解約時の扱いは契約書で定めます。</div>
+          <div><b>使わなかったチケットは</b>付与から{TERMS.ticketMonthsMax}か月のあいだ使えます。過ぎると失効し、返金はありません。</div>
+          <div><b>解約したいときは</b>{TERMS.cancelNotice}で終了します。以後の会費はかかりません。払った月のチケットは失効日まで使えますが、契約終了時に残っているぶんは失効します。</div>
+          <div><b>契約期間は</b>{TERMS.contractMonths}か月です。満了の1か月前までに申し出が無ければ、同じ条件で{TERMS.contractMonths}か月更新します。</div>
+          <div><b>会費を払い忘れたら</b>支払期限（請求書の発行から{TERMS.dueDays}日）を{TERMS.suspendAfterDays}日過ぎると、チケットが使えなくなります。入金が確認されると元に戻ります。</div>
           <div><b>会社の登録がまだです</b><Link href="/join">会社とつなぐ</Link> から事業者を登録し、教育担当者になってからお申し込みください。</div>
         </div>
       </section>

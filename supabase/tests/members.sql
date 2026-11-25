@@ -149,3 +149,50 @@ end $$;
 \echo -- 15) 履歴は全部残っている（grant 2・spend・return・expire・refund 2）
 select 'expected: 種類 = ' || string_agg(kind || ':' || n, ' ' order by kind)
   from (select kind, count(*) n from public.ticket_txns where contract_id = 'e0000000-0000-0000-0000-000000000071' group by kind) t;
+
+-- ═══ 0041：条件（docs/121）═══
+
+\echo -- 16) チケットの有効期間は 6 か月まで（資金決済法の届出不要の範囲に縛る）
+select 'expected: 6か月が最大 = ' || max(ticket_months) || ' / 既定 6 = ' || (select column_default from information_schema.columns where table_name = 'plans' and column_name = 'ticket_months') from public.plans;
+do $$ begin
+  update public.plans set ticket_months = 12 where name = 'ライト';
+  raise exception 'ここへ来てはいけない（12か月が入った）';
+exception when others then
+  if sqlerrm like '%ここへ来てはいけない%' then raise; end if;
+  raise notice 'expected: %', sqlerrm;
+end $$;
+
+\echo -- 17) 解約の申し出：終了日は翌月末、次回の請求は消え、入金待ちは取消。二度目は何もしない
+-- 前の契約は終わらせておく（開いている契約は1社に1つ）
+update public.contracts set status = 'ended', ended_at = now() where id = 'e0000000-0000-0000-0000-000000000071';
+insert into public.contracts (id, company_id, plan_id, kind, status, method, started_on, ends_on, next_due_on)
+values ('e0000000-0000-0000-0000-000000000073', 'c0000000-0000-0000-0000-000000000071',
+        (select id from public.plans where name = 'ライト'), 'member', 'pending', 'invoice', null, null, null);
+select public.open_contract_payment('e0000000-0000-0000-0000-000000000073', '2027-02-01') \gset
+select 'expected: true = ' || public.pay_contract_payment((select id from public.contract_payments where contract_id = 'e0000000-0000-0000-0000-000000000073' and period_month = '2027-02-01'), 'test');
+select public.open_contract_payment('e0000000-0000-0000-0000-000000000073', '2027-03-01') \gset
+select 'expected: 翌月末 = ' || public.cancel_contract('e0000000-0000-0000-0000-000000000073', 'test')
+     || ' / 計算 = ' || (date_trunc('month', (now() at time zone 'Asia/Tokyo')::date) + interval '2 months' - interval '1 day')::date;
+select 'expected: next_due 無し・申し出あり = ' || (next_due_on is null) || ' ' || (cancel_requested_on is not null) from public.contracts where id = 'e0000000-0000-0000-0000-000000000073';
+select 'expected: 入金待ち 0 件・取消 1 件 = ' || count(*) filter (where status = 'pending') || ' ' || count(*) filter (where status = 'cancelled')
+  from public.contract_payments where contract_id = 'e0000000-0000-0000-0000-000000000073';
+select 'expected: 払った月のチケットは残る 10000 = ' || total from public.ticket_balance('e0000000-0000-0000-0000-000000000073');
+select 'expected: 二度目も同じ日 = ' || (public.cancel_contract('e0000000-0000-0000-0000-000000000073', 'test') = ends_on) from public.contracts where id = 'e0000000-0000-0000-0000-000000000073';
+
+\echo -- 18) 契約の終了：残りのチケットは失効（履歴に「契約終了」）。二度呼んでも二度は消さない
+select 'expected: 失効 10000 = ' || public.end_contract('e0000000-0000-0000-0000-000000000073', 'test', '試験で終了');
+select 'expected: 残高 0 = ' || total from public.ticket_balance('e0000000-0000-0000-0000-000000000073');
+select 'expected: ended = ' || status || ' / 契約終了の履歴 1 = ' || (select count(*) from public.ticket_txns where contract_id = 'e0000000-0000-0000-0000-000000000073' and note = '契約終了')
+  from public.contracts where id = 'e0000000-0000-0000-0000-000000000073';
+select 'expected: 二度目は 0 = ' || public.end_contract('e0000000-0000-0000-0000-000000000073', 'test');
+
+\echo -- 19) 自動更新：満了が30日以内で申し出の無い有効な契約だけ、12か月のびる
+insert into public.contracts (id, company_id, plan_id, kind, status, method, started_on, ends_on, next_due_on)
+values ('e0000000-0000-0000-0000-000000000074', 'c0000000-0000-0000-0000-000000000071',
+        (select id from public.plans where name = 'ライト'), 'member', 'active', 'invoice',
+        '2026-01-01', (now() at time zone 'Asia/Tokyo')::date + 10, (now() at time zone 'Asia/Tokyo')::date + 10);
+select 'expected: 更新 1 件 = ' || public.renew_contracts();
+select 'expected: 12か月のびた = ' || (ends_on = ((now() at time zone 'Asia/Tokyo')::date + 10 + interval '12 months')::date) || ' / renewed_at あり = ' || (renewed_at is not null)
+  from public.contracts where id = 'e0000000-0000-0000-0000-000000000074';
+select 'expected: もう一度は 0 件 = ' || public.renew_contracts();
+update public.contracts set status = 'ended', ended_at = now() where id = 'e0000000-0000-0000-0000-000000000074';

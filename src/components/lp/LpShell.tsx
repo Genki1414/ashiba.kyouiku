@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { seller } from "@/content/legal";
 import { BRAND } from "@/content/brand";
+import { TERMS } from "@/lib/membership";
 
 /* 会員制度の案内（0040・docs/120）の枠。3枚で同じ見た目。
 
@@ -8,10 +9,9 @@ import { BRAND } from "@/content/brand";
    この教材の画面は黒地（現場で見る）だが、案内は会社の事務所で読むものなので白地。
    外枠（.shell）の黒は、この div の白で覆う。下の札（BottomNav）は navHidden で出さない。
 
-   ── 書かないこと ──
-   契約の条件（解約・返金・未使用チケット・自動更新・報酬の支払い時期）は、
-   げんきさんが決めるまで**ここに書かない**（指示書 §16）。
-   「条件は契約書で定めます」とだけ書く。 */
+   ── 条件（docs/121）──
+   げんきさん（2026-11-25）「届出不要な状態にして。他もおすすめの構成で」で決めた。
+   字は src/lib/membership.ts の TERMS から出す。2か所に書かない。 */
 
 export function LpShell({
   eyebrow,
@@ -82,8 +82,11 @@ export function LpShell({
       {children}
 
       <div className="note" data-testid="lp-note">
-        料金はすべて税抜表示です（消費税10%が加わります）。解約・返金・未使用チケットの扱い・自動更新・
-        報酬のお支払い時期などの条件は、お申し込み時にお渡しする利用規約・契約書で定めます。
+        料金はすべて税抜表示です（消費税10%が加わります）。
+        チケットは付与から{TERMS.ticketMonthsMax}か月で失効します。契約期間は{TERMS.contractMonths}か月で、
+        満了の1か月前までに申し出が無ければ同じ期間で自動更新します。途中の解約は{TERMS.cancelNotice}で、
+        以後の会費はかかりません。会費の返金はなく、契約終了時に残っているチケットは失効します。
+        詳しい条件は利用規約・契約書で定めます。
       </div>
 
       <footer>

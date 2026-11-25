@@ -2,13 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase/server";
 import { currentOwner } from "@/lib/owner";
 import { addNotices } from "@/lib/notice.server";
-import { commissionOf, mrrOf, normalizeRefCode } from "@/lib/membership";
+import { TERMS, commissionOf, mrrOf, normalizeRefCode } from "@/lib/membership";
 import {
   adminLog,
   listPlans,
   membershipEnabled,
-  openDuePayments,
   planOf,
+  runDaily,
 } from "@/lib/membership.server";
 
 /* 本部の「会員と報酬」（0040・docs/120）。運営だけ。
@@ -41,7 +41,7 @@ export async function GET() {
     listPlans(supabase, { all: true }),
     supabase
       .from("contracts")
-      .select("id, company_id, plan_id, kind, status, method, started_on, ends_on, next_due_on, referrer_id, note, created_at, ended_at")
+      .select("id, company_id, plan_id, kind, status, method, started_on, ends_on, next_due_on, cancel_requested_on, referrer_id, note, created_at, ended_at")
       .order("created_at", { ascending: false }),
     supabase
       .from("contract_payments")
@@ -141,6 +141,7 @@ export async function GET() {
       startedOn: (c.started_on as string) ?? null,
       endsOn: (c.ends_on as string) ?? null,
       nextDueOn: (c.next_due_on as string) ?? null,
+      cancelRequestedOn: (c.cancel_requested_on as string) ?? null,
       note: (c.note as string) ?? "",
       createdAt: c.created_at as string,
       plan: pl,
@@ -351,10 +352,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, paymentId: data as string, month });
     }
     case "month_open": {
-      const r = await openDuePayments(supabase);
+      /* 日次処理を手で回す（cron と同じ：失効・自動更新・解約の終了・滞納の停止・翌月の起票） */
+      const r = await runDaily(supabase);
       if (!r.ok) return bad(r.reason, 500);
       await log(null, { after: r });
-      return NextResponse.json({ ok: true, opened: r.opened, contracts: r.contracts });
+      return NextResponse.json({ ok: true, opened: r.opened, contracts: r.contracts, expired: r.expired, renewed: r.renewed, ended: r.ended, suspended: r.suspended });
     }
     case "expire": {
       const { data, error } = await supabase.rpc("expire_tickets");
@@ -369,6 +371,13 @@ export async function POST(req: NextRequest) {
       const st = String(b.status ?? "");
       if (!id) return bad("契約が分かりません。");
       if (!["active", "suspended", "ended"].includes(st)) return bad("状態が分かりません。");
+      /* 終了は SQL（end_contract）。残りのチケットの失効と入金待ちの取消を一度にやる */
+      if (st === "ended") {
+        const { data: expired, error } = await supabase.rpc("end_contract", { p_contract: id, p_by: owner, p_note: String(b.note ?? "") });
+        if (error) return bad(error.message, 409);
+        await log(id, { after: { status: "ended", expired: Number(expired) || 0, note: b.note ?? "" } });
+        return NextResponse.json({ ok: true, expired: Number(expired) || 0 });
+      }
       const { data: before, error: bErr } = await supabase.from("contracts").select("status").eq("id", id).maybeSingle();
       if (bErr) return bad(bErr.message, 500);
       if (!before) return bad("その契約がありません。", 404);
@@ -382,6 +391,15 @@ export async function POST(req: NextRequest) {
       if (error) return bad(error.message, 500);
       await log(id, { before: { status: before.status }, after: { status: st, note: b.note ?? "" } });
       return NextResponse.json({ ok: true });
+    }
+    case "cancel": {
+      /* 解約の申し出（運営が代わりに受けた）。終了日は翌月末。終了そのものは cron（daily） */
+      const id = String(b.contractId ?? "").trim();
+      if (!id) return bad("契約が分かりません。");
+      const { data: endsOn, error } = await supabase.rpc("cancel_contract", { p_contract: id, p_by: owner });
+      if (error) return bad(error.message, 409);
+      await log(id, { after: { endsOn } });
+      return NextResponse.json({ ok: true, endsOn: endsOn as string });
     }
     case "contract_plan": {
       const id = String(b.contractId ?? "").trim();
@@ -510,7 +528,8 @@ export async function POST(req: NextRequest) {
       if (!name) return bad("プランの名前を書いてください。");
       if (fee === null || fee < 0) return bad("月額は 0 以上の整数で。");
       if (ticket === null || ticket < 0) return bad("チケットは 0 以上の整数で。");
-      if (months === null || months < 1 || months > 36) return bad("有効期間は 1〜36 か月。");
+      /* 6か月を超えると前払式支払手段の届出・供託の対象になる（docs/121）。SQL の check でも止まる */
+      if (months === null || months < 1 || months > TERMS.ticketMonthsMax) return bad(`有効期間は 1〜${TERMS.ticketMonthsMax} か月（資金決済法の届出不要の範囲）。`);
       const row = { kind, name, monthly_fee: fee, ticket_amount: ticket, ticket_months: months, public: p.public !== false, sort_order: sort, note: String(p.note ?? "").trim() || null };
       if (p.id) {
         const { data: before, error: bErr } = await supabase.from("plans").select("*").eq("id", String(p.id)).maybeSingle();
