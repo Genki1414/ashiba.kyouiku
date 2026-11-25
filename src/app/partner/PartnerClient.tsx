@@ -179,7 +179,7 @@ export function PartnerClient() {
         <div className="mt-3 border-t border-line pt-3 text-[11.5px] leading-relaxed text-dim2" data-testid="partner-terms">
           報酬は紹介した会社の月額会費（税抜）の{DEFAULT_PARTNER_RATE}%。入金が確認された月ごとに確定し、{TERMS.payoutRule}で振り込みます
           （{yen(TERMS.payoutMin)}未満は翌月に繰越、振込手数料は当社負担、消費税込み、源泉徴収なし）。
-          詳しい条件は別途お送りする業務委託契約書で定めます。登録だけで報酬が発生することはありません。
+          詳しい条件は<a href="/legal/partner-agreement.pdf" className="text-cyan no-underline" data-testid="partner-agreement-pdf">業務委託契約書（PDF）</a>のとおりです。登録だけで報酬が発生することはありません。
         </div>
       </main>
     );

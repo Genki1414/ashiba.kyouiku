@@ -136,7 +136,7 @@ const priceLine = (price: number): string => {
    なので、直した日が実態と違うのはまずい。
    **法務の3ページの文言を直したら、ここも直す。**1か所にしてある */
 export const LEGAL_ENACTED = "2026年8月24日";
-export const LEGAL_REVISED = "2026年9月11日";
+export const LEGAL_REVISED = "2026年11月25日";
 
 /** 法人会員（0040・docs/121）のプランを表記に載せるときの形 */
 export type TokushohoPlan = { name: string; monthlyFee: number; ticketAmount: number; ticketMonths: number };

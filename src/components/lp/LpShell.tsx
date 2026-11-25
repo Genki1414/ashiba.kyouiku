@@ -101,6 +101,8 @@ export function LpShell({
           <Link href="/legal/tokushoho">特定商取引法に基づく表記</Link>
           <Link href="/legal/terms">利用規約</Link>
           <Link href="/legal/privacy">個人情報の取扱い</Link>
+          <a href="/legal/member-contract.pdf">法人会員利用契約書（PDF）</a>
+          <a href="/legal/partner-agreement.pdf">営業パートナー業務委託契約書（PDF）</a>
           <Link href="/">{BRAND.name} へ</Link>
         </nav>
       </footer>

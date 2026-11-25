@@ -77,6 +77,8 @@ export async function GET() {
     member,
     owner: !!owner,
     needsJoin: member === "none",
+    /* 会員制度（0040）を開けている店か。マイページに「営業パートナー」の入口を出す */
+    membership: membershipEnabled(),
     canLearn: learn.ok,
     courses: readyCourses().length,
     company: co?.name ?? "",

@@ -155,6 +155,7 @@ export function MemberClient() {
           契約期間は{TERMS.contractMonths}か月。満了の1か月前までに申し出が無ければ同じ期間で更新します。
           途中の解約は{TERMS.cancelNotice}で、以後の会費はかかりません。払った月のチケットは失効日まで使えます。
           会費の返金はありません。契約が終わると残っているチケットは失効します。
+          <a href="/legal/member-contract.pdf" className="ml-1 text-cyan no-underline" data-testid="member-contract-pdf">契約書（PDF）</a>
         </div>
         <Link href="/members" className="mt-1 inline-block text-[12px] text-cyan no-underline" data-testid="member-lp">
           制度の案内を見る

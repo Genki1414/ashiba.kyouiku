@@ -166,8 +166,9 @@ console.log("── 作りの決まり ──");
   }
   const lp = read("src/components/lp/LpShell.tsx");
   check(/税抜表示/.test(lp) && /自動更新/.test(lp) && /返金はなく/.test(lp), "案内に税抜・自動更新・返金なしが書いてある");
-  /* 変更履歴にはまだ載せない（載せると全員に更新の知らせが出る。承認後に載せる） */
-  check(!/法人会員|営業パートナー/.test(read("src/content/changelog.ts")), "承認前は更新のお知らせに載せない");
+  /* 開けた（2026-11-25「2・3・4進めて」）。更新のお知らせに載せ、規約の改定日を直した */
+  check(/法人会員/.test(read("src/content/changelog.ts")) && /営業パートナー/.test(read("src/content/changelog.ts")), "更新のお知らせに載せた");
+  check(/LEGAL_REVISED = "2026年11月25日"/.test(read("src/content/legal.ts")), "規約の改定日を開けた日に直した");
   /* 見張り */
   check(/"\/api\/cron"/.test(read("src/lib/authGate.ts")), "Cron の道は見張りを通す（ログインは無い）");
   /* ── 条件（0041・docs/121）── */

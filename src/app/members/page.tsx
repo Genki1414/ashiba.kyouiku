@@ -76,6 +76,7 @@ export default async function MembersLp() {
           <div><b>解約したいときは</b>{TERMS.cancelNotice}で終了します。以後の会費はかかりません。払った月のチケットは失効日まで使えますが、契約終了時に残っているぶんは失効します。</div>
           <div><b>契約期間は</b>{TERMS.contractMonths}か月です。満了の1か月前までに申し出が無ければ、同じ条件で{TERMS.contractMonths}か月更新します。</div>
           <div><b>会費を払い忘れたら</b>支払期限（請求書の発行から{TERMS.dueDays}日）を{TERMS.suspendAfterDays}日過ぎると、チケットが使えなくなります。入金が確認されると元に戻ります。</div>
+          <div><b>契約書は</b><a href="/legal/member-contract.pdf">法人会員利用契約書（PDF）</a>をご覧ください。申込みの画面で利用規約に同意し、初月の入金が確認された時点で成立します。</div>
           <div><b>会社の登録がまだです</b><Link href="/join">会社とつなぐ</Link> から事業者を登録し、教育担当者になってからお申し込みください。</div>
         </div>
       </section>

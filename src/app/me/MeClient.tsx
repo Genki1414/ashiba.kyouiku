@@ -9,6 +9,7 @@ import { Btn } from "@/components/ui/Btn";
 import { Bar } from "@/components/ui/Bar";
 import { dur } from "@/components/ui/format";
 import { claimDevice, wipeDevice } from "@/lib/device";
+import { loadMe, readMe } from "@/lib/me";
 
 import { HeldQuals } from "./HeldQuals";
 import { Notices } from "@/components/Notices";
@@ -76,6 +77,12 @@ export function MeClient() {
   const [busyReq, setBusyReq] = useState<string | null>(null);
   /* 確かめる→やる→終わった（2026-09-10）。保存・外す・送る・ログアウト */
   const [ask, setAsk] = useState<Ask | null>(null);
+  /* 会員制度（0040）を開けている店か。営業パートナーの入口を出す。
+     /api/me の答えは端末に覚えてあるので、まずそれで描き、うしろで聞き直す */
+  const [membership, setMembership] = useState<boolean>(() => readMe()?.membership === true);
+  useEffect(() => {
+    void loadMe().then((m) => { if (m) setMembership(m.membership === true); });
+  }, []);
 
   const load = useCallback(async () => {
     try {
@@ -625,6 +632,19 @@ export function MeClient() {
           className="mt-3 block rounded-xl border border-line bg-panel p-3.5 text-center text-[13px] text-txt no-underline"
         >
           受講管理へ
+        </Link>
+      )}
+
+      {/* 営業パートナー（0040・docs/121）。法人会員を紹介して報酬を受け取る人の入口。
+          誰でも登録できる（承認は運営）。開けている店だけ */}
+      {membership && (
+        <Link
+          href="/partner"
+          className="mt-3 block rounded-xl border border-line bg-panel p-3.5 no-underline"
+          data-testid="me-partner"
+        >
+          <div className="text-[11px] font-extrabold tracking-widest text-cyan">営業パートナー</div>
+          <div className="mt-1 text-[13px] text-txt">法人会員を紹介して、月額会費の30%を受け取る</div>
         </Link>
       )}
 
