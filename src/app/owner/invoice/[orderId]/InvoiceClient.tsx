@@ -23,6 +23,8 @@ type Inv = {
     gross?: number; discount?: number; couponName?: string;
     taxRate: number; due: string | null; at: string | null; invoicedAt?: string | null;
     paidAt: string | null; status: string; note: string; solo: boolean;
+    /** order=受講コードなどの注文／contract=法人会員の月額（0040） */
+    kind?: "order" | "contract";
   };
   seller: {
     name: string; ceo: string; address: string; tel: string; email: string; invoiceNo: string;
@@ -37,7 +39,16 @@ const day = (s: string | null) => {
   return Number.isNaN(d.getTime()) ? "" : `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`;
 };
 
-export function InvoiceClient({ orderId, mine = false }: { orderId: string; mine?: boolean }) {
+export function InvoiceClient({
+  orderId,
+  mine = false,
+  paymentId,
+}: {
+  orderId: string;
+  mine?: boolean;
+  /** 法人会員の月額の請求書（0040）。これがあるときは orderId を使わない */
+  paymentId?: string;
+}) {
   const [inv, setInv] = useState<Inv | null>(null);
   /* 確かめる→やる→終わった（2026-09-10）。知らせは1回きり */
   const [ask, setAsk] = useState<Ask | null>(null);
@@ -47,12 +58,15 @@ export function InvoiceClient({ orderId, mine = false }: { orderId: string; mine
   const back = mine ? "/" : "/owner";
   const backLabel = mine ? "← ホーム" : "← 本部";
 
+  const query = paymentId
+    ? `paymentId=${encodeURIComponent(paymentId)}`
+    : `orderId=${encodeURIComponent(orderId)}`;
   useEffect(() => {
-    fetch(`/api/owner/invoice?orderId=${encodeURIComponent(orderId)}`, { cache: "no-store" })
+    fetch(`/api/owner/invoice?${query}`, { cache: "no-store" })
       .then((r) => r.json())
       .then((j) => (j?.ok ? setInv(j as Inv) : setNg(j?.reason ?? "画面を表示できません。")))
       .catch(() => setNg("接続できません。"));
-  }, [orderId]);
+  }, [query]);
 
   if (ng) {
     return (
@@ -88,8 +102,12 @@ export function InvoiceClient({ orderId, mine = false }: { orderId: string; mine
             <Link href={back} className="backlink text-[13px] text-dim no-underline">{backLabel}</Link>
             {/* 発行された請求書は、払ったあともここから開ける（一覧に残る） */}
             {mine && (
-              <Link href="/invoices" className="text-[12px] text-cyan no-underline" data-testid="invoice-list-link">
-                請求書の一覧
+              <Link
+                href={o.kind === "contract" ? "/member" : "/invoices"}
+                className="text-[12px] text-cyan no-underline"
+                data-testid="invoice-list-link"
+              >
+                {o.kind === "contract" ? "法人会員の画面" : "請求書の一覧"}
               </Link>
             )}
           </div>
@@ -117,7 +135,7 @@ export function InvoiceClient({ orderId, mine = false }: { orderId: string; mine
                         const r = await fetch("/api/owner/invoice", {
                           method: "POST",
                           headers: { "content-type": "application/json" },
-                          body: JSON.stringify({ orderId }),
+                          body: JSON.stringify(paymentId ? { paymentId } : { orderId }),
                         });
                         const j = await r.json().catch(() => ({}));
                         if (r.ok && j.ok) {
@@ -192,7 +210,9 @@ export function InvoiceClient({ orderId, mine = false }: { orderId: string; mine
              いつまでに払えばよいかが分からない */}
           <div className="mt-2 text-[12.5px]" data-testid="invoice-due">
             お支払期限　<strong>{o.due ? day(o.due) : "請求書の発行から1週間"}</strong>
-            <span className="text-[11.5px]">（お振込みの確認後、受講コードを発行します）</span>
+            <span className="text-[11.5px]">
+              {o.kind === "contract" ? "（お振込みの確認後、チケットを付与します）" : "（お振込みの確認後、受講コードを発行します）"}
+            </span>
           </div>
           {o.paidAt && (
             <div className="mt-1 text-[12.5px]">{day(o.paidAt)} に入金を確認いたしました。</div>
@@ -284,7 +304,9 @@ export function InvoiceClient({ orderId, mine = false }: { orderId: string; mine
           )}
           <div className="mt-2 text-[11px] leading-relaxed">
             振込手数料はお客様のご負担にてお願いいたします。
-            お振込みの確認後、受講コードを発行してお送りします。
+            {o.kind === "contract"
+              ? "お振込みの確認後、その月のチケットを付与します。"
+              : "お振込みの確認後、受講コードを発行してお送りします。"}
           </div>
         </div>
       </main>

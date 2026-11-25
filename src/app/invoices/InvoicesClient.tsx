@@ -98,13 +98,16 @@ export function InvoicesClient() {
                 <span className="ml-auto text-[15px] font-black" data-testid="invoice-row-total">{yen(e.amount)}</span>
               </div>
               <div className="mt-1 text-[11px] text-dim2">
-                {e.method === "card" ? "カード払い" : "請求書払い"}
+                {e.method === "card" ? "カード払い" : e.method === "ticket" ? "チケット払い" : "請求書払い"}
                 {e.paidAt ? `　${day(e.paidAt)} 入金` : ""}
               </div>
 
               {e.method === "card" ? (
                 /* カードは請求書を出さない（カード会社の明細が控えになる） */
                 <div className="mt-2 text-[11.5px] text-dim2">カード払いのため、請求書の発行はありません。</div>
+              ) : e.method === "ticket" ? (
+                /* チケットは月額の会費で先に払っている。請求書は会費のほう（/member） */
+                <div className="mt-2 text-[11.5px] text-dim2">法人会員のチケットで支払い済みのため、請求書の発行はありません。</div>
               ) : e.invoicedAt ? (
                 <Link
                   href={`/invoice/${e.id}`}

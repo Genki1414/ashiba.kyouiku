@@ -8,6 +8,7 @@ import { readyCourses } from "@/content/courses";
 import { getServiceClient } from "@/lib/supabase/server";
 import { unpaidInvoices } from "@/lib/invoiceAccess";
 import { courseMarks, heldCourseIds } from "@/lib/held";
+import { membershipEnabled } from "@/lib/membership.server";
 
 /* いまの自分の立場。ホームの出し分けに使う。
 
@@ -51,6 +52,8 @@ export async function GET() {
       ...who,
       admin: true,
       owner: !!owner,
+      /* 会員制度（0040）を開けている店か。担当者のホームに「法人会員」の札を出す */
+      membership: membershipEnabled(),
       member: "active" as const,
       needsJoin: false,
       canLearn: learn.ok,

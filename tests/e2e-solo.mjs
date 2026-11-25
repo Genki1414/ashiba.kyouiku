@@ -171,7 +171,8 @@ check(/ログイン/.test(await page.getByTestId("solo-note").innerText()), "断
   const det = await page.getByTestId("ledger-solo").innerText();
   check(/ひとり 太郎/.test(det) && /個人/.test(det), "個人の欄に人が出て、立場は「個人」");
   check(/2026-0042/.test(det), "修了証の番号が出る");
-  check(!/参加コード/.test(det), "個人の欄に参加コードを出さない");
+  /* 「名簿も参加コードもありません」の一文は出てよい。コードそのもの（参加コード XXXX）が無いこと */
+  check(!/参加コード(?!もありません)/.test(det), "個人の欄に参加コードを出さない");
   check((await page.getByTestId("ledger-admin").count()) === 0, "個人に教育担当者の札は出さない");
   await page.screenshot({ path: `${SC}/solo-03-ledger.png` });
   console.log("OK: 本部の元帳に個人の欄");

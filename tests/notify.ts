@@ -15,7 +15,7 @@ const code = (p: string) =>
   read(p).replace(/\/\*[\s\S]*?\*\//g, " ").replace(/^\s*\/\/.*$/gm, " ");
 
 const SITE = "https://kyouiku.ashibase.jp";
-const KINDS: NotifyKind[] = ["member", "order", "cert", "train", "company"];
+const KINDS: NotifyKind[] = ["member", "order", "cert", "train", "company", "contract", "renewal", "partner"];
 
 console.log("── 本文に何を書くか ──");
 {
@@ -111,10 +111,14 @@ console.log("\n── どこから知らせるか ──");
     ["src/app/api/issue/route.ts", "cert"],
     ["src/app/api/train-order/route.ts", "train"],
     ["src/app/api/admin/setup/route.ts", "company"],
+    /* 会員制度（0040）。申込み・月次の請求（件数つき）・パートナーの登録 */
+    ["src/app/api/member/contract/route.ts", "contract"],
+    ["src/app/api/cron/members/route.ts", "renewal"],
+    ["src/app/api/partner/route.ts", "partner"],
   ];
   for (const [p, k] of hooks) {
     const c = code(p);
-    check(c.includes(`notify("${k}")`), `${p}: ${kindText(k)} を知らせる`);
+    check(c.includes(`notify("${k}"`), `${p}: ${kindText(k)} を知らせる`);
     check(c.includes('from "@/lib/notify.server"'), `${p}: server 側から呼ぶ`);
   }
   check(hooks.length === KINDS.length, "知らせる種類と、知らせる所の数が合っている");

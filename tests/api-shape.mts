@@ -784,7 +784,14 @@ console.log("── 受講コードを出すとき ──");
   /* 請求書に「お振込みの確認後、受講コードを発行します」と書いてあるのに
      申込みと同時に配ると、払わずに受講できる */
   const order = read("src/app/api/order/route.ts");
-  check(!/issueSeats/.test(order), "申し込んだだけでは、受講コードを作らない");
+  /* チケット払い（0040）だけは、その場で引けてその場で立つ。**それ以外の道で issueSeats を呼ばない**。
+     issueSeats は「method === "ticket" && ticket」の中にしか書かれていないこと */
+  {
+    const tk = order.indexOf('if (method === "ticket" && ticket) {');
+    const first = order.indexOf("issueSeats(supabase");
+    check(tk > 0 && first > tk, "申し込んだだけでは、受講コードを作らない（チケットで引けたときだけ）");
+    check(order.indexOf("issueSeats(supabase", first + 1) === -1, "受講コードを立てる所は、チケットの道の1か所だけ");
+  }
 
   const owner = read("src/app/api/owner/orders/route.ts");
   check(/issueSeats/.test(owner), "入金を確認したときに作る");
@@ -1468,7 +1475,7 @@ console.log("── 請求書の一覧と、紙にしたときの形 ──");
   check(/className="shell /.test(lay), "外枠に .shell が付いている（印刷の決まりの当て先）");
   const inv = read("src/app/owner/invoice/[orderId]/InvoiceClient.tsx");
   check(/page-break-inside: avoid/.test(inv), "請求書の紙は途中で割らない");
-  check(/href="\/invoices"/.test(inv) && /mine &&/.test(inv), "買った側の請求書から一覧へ戻れる");
+  check(/"\/invoices"/.test(inv) && /mine &&/.test(inv), "買った側の請求書から一覧へ戻れる");
 
   const api = read("src/app/api/invoices/route.ts");
   check(/currentUser\(\)/.test(api) && /status: 403/.test(api), "ログインしていなければ断る");
@@ -2144,7 +2151,7 @@ console.log("── 下の行き先と、お知らせの出し方 ──");
   check(/enrollment_for\(v\.user_id, v\.course_id\)/.test(mig), "受講の記録に席を紐づける（修了証の門番が見る）");
   check(/grant execute on function public\.pay_solo_seat\(uuid\) to service_role/.test(mig), "呼べるのはサーバだけ");
   check(/select '0039'/.test(mig), "版は 0039");
-  check(read("src/content/schema.ts").includes('NEED_SCHEMA = "0039"'), "画面が待つ版も 0039（build:sql が書く）");
+  check(/NEED_SCHEMA = "00(39|4\d)"/.test(read("src/content/schema.ts")), "画面が待つ版は 0039 以上（build:sql が書く）");
 
   /* 画面：会社の話より先に、ひとりで受ける */
   const sc = strip(read("src/app/solo/SoloClient.tsx"));

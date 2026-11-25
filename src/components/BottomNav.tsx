@@ -38,6 +38,8 @@ export function navHidden(path: string): boolean {
   if (path === "/login" || path.startsWith("/auth")) return true;
   /* 実務トレーニング（ゲーム）は画面いっぱいに使う */
   if (path.startsWith("/training")) return true;
+  /* 会員制度の案内（0040）は白地の1枚もの。黒い札が下に乗ると浮く */
+  if (path === "/members" || path === "/agency" || path === "/partners") return true;
   /* 単元・修了試験・討議は、見ている途中で押させない。
      /edu と /edu/<講座> は一覧なので出す */
   if (/^\/edu\/[^/]+\/.+/.test(path)) return true;

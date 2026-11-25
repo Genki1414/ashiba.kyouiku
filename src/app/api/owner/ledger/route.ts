@@ -68,7 +68,7 @@ async function all(supabase: NonNullable<ReturnType<typeof getServiceClient>>) {
   const [{ data: mems }, { data: ens }, { data: ords }, { count: users }] = await Promise.all([
     supabase.from("memberships").select("company_id, approved_at, left_at"),
     supabase.from("enrollments").select("id, company_id, user_id"),
-    supabase.from("orders").select("company_id, amount, status"),
+    supabase.from("orders").select("company_id, amount, status, method"),
     /* 登録した人の数。事業者と紐付いていない人もふくむ（登録しただけの人） */
     supabase.from("users").select("id", { count: "exact", head: true }),
   ]);
@@ -124,7 +124,8 @@ async function all(supabase: NonNullable<ReturnType<typeof getServiceClient>>) {
     const a = o.company_id ? get(o.company_id as string) : solo;
     if (!a) continue;
     a.orders++;
-    if (o.status === "paid") a.sales += (o.amount as number) ?? 0;
+    /* 売上は現金のぶん。チケット払い（0040）は会費で先に入っている（二重に数えない） */
+    if (o.status === "paid" && o.method !== "ticket") a.sales += (o.amount as number) ?? 0;
   }
 
   const rows = companies.map((c) => ({

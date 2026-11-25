@@ -14,6 +14,7 @@ import { AskDone, type Ask, type RunResult } from "@/components/AskDone";
 import { CatalogClient } from "./CatalogClient";
 import { CouponClient } from "./CouponClient";
 import { LineClient } from "./LineClient";
+import { MembersClient } from "./MembersClient";
 
 /* 本部の画面。二つある。
 
@@ -42,7 +43,7 @@ type Order = {
   items?: { courseId: string | null; kind: string | null; seats: number; amount: number }[];
   seats: number;
   amount: number;
-  method: "card" | "invoice";
+  method: "card" | "invoice" | "ticket";
   status: "pending" | "paid" | "cancelled";
   due_date: string | null;
   paid_at: string | null;
@@ -68,13 +69,13 @@ const day = (s: string | null) => {
   return Number.isNaN(d.getTime()) ? "" : `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`;
 };
 
-export function OwnerClient() {
+export function OwnerClient({ membership = false }: { membership?: boolean }) {
   const [orders, setOrders] = useState<Order[] | null>(null);
   const [ng, setNg] = useState("");
   const [hint, setHint] = useState("");
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
-  const [tab, setTab] = useState<"orders" | "issue" | "ledger" | "train" | "keep" | "catalog" | "coupon" | "line">("orders");
+  const [tab, setTab] = useState<"orders" | "issue" | "ledger" | "train" | "keep" | "catalog" | "coupon" | "line" | "members">("orders");
   /* 請求書に載せる登録番号。書くときに毎回どこかから探すことになるので、
      入金待ちの並びのすぐ上に出しておく */
   const [invoiceNo, setInvoiceNo] = useState("");
@@ -172,7 +173,9 @@ export function OwnerClient() {
 
   const waiting = orders.filter((o) => o.status === "pending" && o.method === "invoice");
   const sold = orders.filter((o) => o.status === "paid");
-  const yenSum = sold.reduce((s, o) => s + o.amount, 0);
+  /* 売上は現金のぶんだけ。チケット払い（0040）は月額の会費で先に入っているので、
+     ここに足すと二重に数える */
+  const yenSum = sold.filter((o) => o.method !== "ticket").reduce((s, o) => s + o.amount, 0);
 
   return (
     <main className="px-5 py-8 pb-12">
@@ -191,6 +194,8 @@ export function OwnerClient() {
           ["line", "LINE"],
           ["keep", "保存期間"],
           ["catalog", "特別教育の目録"],
+          /* 会員制度（0040）。MEMBERSHIP_ENABLED の店だけ出す（owner/page.tsx が渡す） */
+          ...(membership ? ([["members", "会員と報酬"]] as const) : []),
         ] as const).map(([k, t]) => (
           <button
             key={k}
@@ -214,6 +219,7 @@ export function OwnerClient() {
       {tab === "catalog" && <CatalogClient />}
       {tab === "coupon" && <CouponClient onNote={setNote} />}
       {tab === "line" && <LineClient onNote={setNote} />}
+      {tab === "members" && membership && <MembersClient onNote={setNote} />}
 
       {tab === "orders" && (
       <>
@@ -271,7 +277,7 @@ export function OwnerClient() {
                 ? "実務トレーニング"
                 : `${(o.items?.length ?? 1) > 1 ? `${o.items!.length}講座 ` : ""}${o.seats}名`}
               　{yen(o.amount)}　
-              <span className="text-dim">{o.method === "card" ? "カード" : "請求書"}</span>
+              <span className="text-dim">{o.method === "card" ? "カード" : o.method === "ticket" ? "チケット" : "請求書"}</span>
             </div>
             {/* 講座ごとの明細。**1回の申込みは1枚のカード**にしたので（0029）、
                 中身はここで出す。出さないと、何を売ったのか分からない */}
@@ -315,6 +321,12 @@ export function OwnerClient() {
                 しか書いておらず、送ったのかどうかが画面から分からなかった
                 （げんきさん 2026-09-09）。送った日は買った側にも効く
                 （送るまで、ホームに「請求書が届いています」が出ない）。 */}
+            {o.method === "ticket" ? (
+              /* チケット払いは請求書が無い（会費で先に払っている） */
+              <div className="mt-2 text-[11.5px] text-dim2" data-testid="owner-ticket-paid">
+                法人会員のチケットで支払い済み。請求書はありません。
+              </div>
+            ) : (
             <Link
               href={`/owner/invoice/${o.id}`}
               className={`mt-2 block rounded-lg border p-2 text-center text-[11.5px] no-underline ${
@@ -326,6 +338,7 @@ export function OwnerClient() {
                 ? `請求書を送信済み（${day(o.invoiced_at)}）　もう一度開く`
                 : "請求書を発行する（未送信）"}
             </Link>
+            )}
 
             {o.status === "pending" && (
               <div className="mt-3 grid grid-cols-2 gap-2">

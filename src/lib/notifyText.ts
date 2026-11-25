@@ -13,7 +13,10 @@ import { BRAND } from "@/content/brand";
 
    だから「参加申込が1件」と、その画面への行き先だけを送る。 */
 
-export type NotifyKind = "member" | "order" | "cert" | "train" | "company";
+export type NotifyKind =
+  | "member" | "order" | "cert" | "train" | "company"
+  /* 会員制度（0040・docs/120）。法人会員の申込み／月額の請求／営業パートナーの登録 */
+  | "contract" | "renewal" | "partner";
 
 type Def = { t: string; path: string; why: string };
 
@@ -45,6 +48,21 @@ const DEFS: Record<NotifyKind, Def> = {
     t: "事業者の登録",
     path: "/owner",
     why: "新しい会社が使い始めました",
+  },
+  contract: {
+    t: "法人会員の申込",
+    path: "/owner",
+    why: "請求書を送ってください",
+  },
+  renewal: {
+    t: "法人会員の月額の請求",
+    path: "/owner",
+    why: "請求書を送ってください",
+  },
+  partner: {
+    t: "営業パートナーの登録",
+    path: "/owner",
+    why: "承認してください",
   },
 };
 

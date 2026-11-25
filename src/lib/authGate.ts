@@ -42,6 +42,14 @@ const OPEN = [
   "/api/line",
   "/api/handoff/use",
   "/legal",
+  /* 会員制度の案内（0040）。まだ登録していない会社・パートナーが読む。
+     /ref は紹介 URL の入口（クッキーを置いて /members へ送る）。
+     /api/cron は Vercel Cron が呼ぶ（ログインは無い。合言葉で見張る） */
+  "/members",
+  "/agency",
+  "/partners",
+  "/ref",
+  "/api/cron",
   "/manifest.webmanifest",
   "/sw.js",
 ];

@@ -106,6 +106,8 @@
     "test:stats": "tsx tests/lesson-stats.mts",
     "test:quals": "tsx tests/quals.ts",
     "test:coupon": "tsx tests/coupon.ts",
+    "test:members": "tsx tests/members.ts",
+    "test:e2e:members": "node tests/e2e-members.mjs",
     "test:line": "tsx tests/line.ts",
     "line:menu": "tsx scripts/line-richmenu.ts",
     "test:coname": "tsx tests/company-name.ts",

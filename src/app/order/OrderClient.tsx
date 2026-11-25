@@ -22,7 +22,7 @@ type Order = {
   seats: number;
   unit_price: number;
   amount: number;
-  method: "card" | "invoice";
+  method: "card" | "invoice" | "ticket";
   status: "pending" | "paid" | "cancelled";
   due_date: string | null;
   paid_at: string | null;
@@ -54,7 +54,11 @@ type Loaded = {
   codes: Code[];
   /* 受講コードは1講座ぶん。どの講座を買うかを選ぶ */
   courses: CourseTab[];
+  /** 法人会員のチケット（0040）。有効な契約がある会社だけ。無ければ null */
+  ticket?: { contractId: string; total: number; expiring: number; nextExpire: string | null } | null;
 };
+
+type Method = "card" | "invoice" | "ticket";
 
 const day = (s: string | null) => {
   if (!s) return "";
@@ -120,6 +124,8 @@ export function OrderClient() {
         requests: j.requests ?? {},
         /* 配る相手。同じく、ここで拾わないと「配る」が1つも出ない */
         members: Array.isArray(j.members) ? j.members : [],
+        /* 法人会員のチケット。ここで拾わないと「チケットで払う」が出ない */
+        ticket: j.ticket ?? null,
       });
       setNg("");
     } catch {
@@ -197,7 +203,7 @@ export function OrderClient() {
 
   /* 申し込む。**確かめる札の中から呼ぶ**（下の askOrder）。
      返すのは「終わった字」。断られたら false（理由は画面の上に出す） */
-  const order = async (method: "card" | "invoice"): Promise<RunResult> => {
+  const order = async (method: Method): Promise<RunResult> => {
     /* 送るのは「講座と人数」の並び。**画面で金額は作らない**
        （サーバがもう一度計算する。見せる額と請求する額を食い違わせない） */
     const items = Object.entries(picked)
@@ -224,6 +230,19 @@ export function OrderClient() {
         return false;
       }
       const cp = j.coupon as { name?: string; discount?: number } | null;
+      if (method === "ticket") {
+        /* チケットは、その場で引けてその場で受講コードが立つ。請求書は出ない */
+        const tk = j.ticket as { spent?: number; left?: number } | null;
+        const msg =
+          `受講コードを発行しました（${j.seatsIssued ?? 0}枚）。` +
+          `チケットから ${yen(tk?.spent ?? 0)}（税抜）を引きました。残り ${yen(tk?.left ?? 0)}。`;
+        setNote(msg);
+        setPicked({});
+        setCode("");
+        setCoupon(null);
+        await load();
+        return { done: "受講コードが出ました", doneBody: msg + " 受講コードの一覧から配ってください。" };
+      }
       if (method === "invoice") {
         /* ここは太字にできない（そのまま文字として出る）ので、
            記号を書かない。**1枚** と書いたら、画面に ** が出た */
@@ -298,10 +317,13 @@ export function OrderClient() {
 
   /* 申し込む前に、**何を・何名・いくら**を出して確かめる。
      押した瞬間に注文が立つと、講座を1つ選び間違えたまま請求書が出る */
-  const askOrder = (method: "card" | "invoice") => {
+  const askOrder = (method: Method) => {
     if (!rows.length) return;
     setAsk({
-      title: method === "invoice" ? "請求書払いで申し込みますか" : "カードで支払いますか",
+      title:
+        method === "invoice" ? "請求書払いで申し込みますか"
+        : method === "ticket" ? "チケットで払いますか"
+        : "カードで支払いますか",
       body: (
         <>
           <div className="grid gap-0.5">
@@ -310,18 +332,24 @@ export function OrderClient() {
             ))}
           </div>
           <div className="mt-2 text-txt">
-            合計 {yen(net2 + tax2)}（税込）
+            {method === "ticket" ? (
+              <>チケットから {yen(net2)}（税抜）を引きます。残り {yen(Math.max(0, (st.ticket?.total ?? 0) - net2))}。</>
+            ) : (
+              <>合計 {yen(net2 + tax2)}（税込）</>
+            )}
             {off > 0 && `　クーポン −${yen(off)}`}
           </div>
           <div className="mt-2">
             {method === "invoice"
               ? "請求書をお送りします。お振込みの確認後に受講コードが出ます。"
-              : "カード会社の画面に移ります。お支払いの確認後に受講コードが出ます。"}
+              : method === "ticket"
+                ? "受講コードはその場で出ます。請求書は出ません。"
+                : "カード会社の画面に移ります。お支払いの確認後に受講コードが出ます。"}
           </div>
         </>
       ),
-      yes: method === "invoice" ? "申し込む" : "支払いへ進む",
-      done: "お申し込みを受け付けました",
+      yes: method === "invoice" ? "申し込む" : method === "ticket" ? "チケットで払う" : "支払いへ進む",
+      done: method === "ticket" ? "受講コードが出ました" : "お申し込みを受け付けました",
       run: () => order(method),
     });
   };
@@ -582,6 +610,31 @@ export function OrderClient() {
         />
 
         <div className="mt-4 grid gap-2">
+          {/* ── 法人会員のチケット（0040）── 有効な契約がある会社だけ出る。
+              税抜のぶんを残高から引き、その場で受講コードが立つ。
+              足りないときは押させない（押しても SQL が断るが、先に分かる方がよい） */}
+          {st.ticket && (
+            <>
+              <Btn
+                tone="y"
+                dis={busy || !rows.length || net2 > st.ticket.total}
+                onClick={() => askOrder("ticket")}
+                testid="order-ticket"
+              >
+                {busy ? "…" : `チケットで払う（残り ${yen(st.ticket.total)}）`}
+              </Btn>
+              {!!rows.length && net2 > st.ticket.total && (
+                <div className="text-center text-[11.5px] leading-relaxed text-org" data-testid="order-ticket-short">
+                  チケットが {yen(net2 - st.ticket.total)} 足りません。足りないぶんは請求書払いかカードでお申し込みください。
+                </div>
+              )}
+              {st.ticket.expiring > 0 && (
+                <div className="text-center text-[11px] text-dim2" data-testid="order-ticket-expiring">
+                  30日以内に {yen(st.ticket.expiring)} が失効します。
+                </div>
+              )}
+            </>
+          )}
           {/* 何も選んでいないうちは押せない。押せてしまうと、
               「申し込めませんでした」で止まるだけの一手が増える */}
           {canCard && (
@@ -656,7 +709,7 @@ export function OrderClient() {
                 <div className="mt-1 text-[11.5px] text-dim2">
                   {st.courses.length > 1 &&
                     `${st.courses.find((c) => c.id === o.course_id)?.short ?? o.course_id}　`}
-                  {o.method === "card" ? "カード" : "請求書"}　{day(o.created_at)} 申込
+                  {o.method === "card" ? "カード" : o.method === "ticket" ? "チケット" : "請求書"}　{day(o.created_at)} 申込
                   {o.due_date && o.status === "pending" ? `　支払期限 ${day(o.due_date)}` : ""}
                   {o.paid_at ? `　${day(o.paid_at)} 入金` : ""}
                 </div>

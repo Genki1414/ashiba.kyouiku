@@ -34,6 +34,7 @@ const PUBLIC: Record<string, string> = {
   "line/webhook/route.ts": "LINE から届く。向こうはログインを持たない。代わりに署名を確かめる",
   "stripe/webhook/route.ts": "Stripe から届く。同上。署名を確かめる",
   "handoff/use/route.ts":  "ログインの引き継ぎ。**入っていない人が叩く**ので閉じられない。見張りはコードそのもの（1回きり・5分）",
+  "cron/members/route.ts": "Vercel Cron が呼ぶ（0040）。向こうはログインを持たない。見張りは CRON_SECRET（Authorization: Bearer）。未設定なら誰も呼べない",
 };
 
 /* 見張りと認められる呼び出し */

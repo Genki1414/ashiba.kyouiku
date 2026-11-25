@@ -116,6 +116,19 @@ check(!isOpenPath("/edu/try"), "講座が無い /edu/try は閉じたまま");
 check(!isOpenPath("/solo"), "ひとりで受ける（申込み）はログインが要る");
 check(!isOpenPath("/api/solo"), "その口もログインが要る");
 
+/* ── 会員制度（0040）── 案内と紹介 URL の入口は登録前の人が読む。申込みと口は閉じたまま */
+check(isOpenPath("/members"), "法人会員の案内は、ログイン無しで開ける");
+check(isOpenPath("/agency"), "販売代理店の案内も開ける");
+check(isOpenPath("/partners"), "営業パートナーの案内も開ける");
+check(isOpenPath("/ref"), "紹介 URL の入口は開ける（クッキーを置いて案内へ送るだけ）");
+check(isOpenPath("/api/cron/members"), "Vercel Cron の口は開ける（合言葉で見張る）");
+check(!isOpenPath("/member"), "法人会員の申込み・残高はログインが要る");
+check(!isOpenPath("/partner"), "パートナーの登録・報酬もログインが要る");
+check(!isOpenPath("/api/member/contract"), "契約の口もログインが要る");
+check(!isOpenPath("/api/partner"), "パートナーの口もログインが要る");
+check(!isOpenPath("/api/owner/members"), "本部の口もログインが要る");
+check(!isOpenPath("/membersx"), "/membersx は /members ではない");
+
 /* ── 合言葉を決め直す道 ──
    その会社で唯一の教育担当者が忘れたら、頼む相手が居ない。
    ここが閉じていると、メールのリンクを踏んでも入れない */

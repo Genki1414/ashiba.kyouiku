@@ -110,6 +110,25 @@ export function HomeCards() {
     );
   }
 
+  /* ── 法人会員（0040）。制度を開けている店の担当者だけ ──
+     月額のチケットの残高と請求書は /member。受講管理（/admin）とは別の話なので札を分ける */
+  if (me.admin && me.membership) {
+    cards.push(
+      <Link
+        key="member"
+        href="/member"
+        className="block rounded-xl border border-line bg-panel p-4 no-underline"
+        data-testid="home-member"
+      >
+        <div className="text-[11px] font-extrabold tracking-widest text-cyan">法人会員</div>
+        <div className="mt-1 text-[15px] font-black text-txt">月額プランとチケット</div>
+        <div className="mt-1 text-[12px] leading-relaxed text-dim">
+          毎月の会費の2倍のチケットが付き、受講コードの申込みにチケットで払えます。残高と請求書はここから。
+        </div>
+      </Link>,
+    );
+  }
+
   /* ── ひとりで受ける（0039）を、会社の話より先に ──
      げんきさん（2026-09-17）「利用者が増えない。会社登録が邪魔してる気がする」。
      投稿を見て来る人は1人。会社の話が先に出ると「うちの話じゃない」と閉じる。

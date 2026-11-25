@@ -132,6 +132,8 @@ console.log("\n── 返事のたびに残す ──");
     /* ひとりで受ける（0039）。入金を確認した瞬間に本人の席が立つ。運営の画面と Stripe の両方から */
     { p: "src/app/api/owner/orders/route.ts", k: "opened", why: "個人の申込みの入金を確認して、講座を開けた" },
     { p: "src/app/api/stripe/webhook/route.ts", k: "opened", why: "カードの入金で、講座を開けた" },
+    /* 法人会員（0040）。会費の入金を確認して、チケットを付けた */
+    { p: "src/app/api/owner/members/route.ts", k: "tickets", why: "会費の入金を確認して、チケットを付けた" },
   ];
   for (const w of want) {
     const c = code(w.p);
@@ -241,7 +243,7 @@ console.log("\n── 誰から届いたか ──");
     check(noticeFrom(k) === "admin", `${k} は会社の教育担当者から`, noticeFrom(k));
   }
   /* 運営が起こすもの。入金の確認・討議まわり・実務トレーニング */
-  for (const k of ["seat", "train", "slot", "room", "pass", "issue_ng"]) {
+  for (const k of ["seat", "train", "slot", "room", "pass", "issue_ng", "tickets"]) {
     check(noticeFrom(k) === "owner", `${k} は運営から`, noticeFrom(k));
   }
   /* 知らない字でも落とさない。古い版が残した行かもしれない */

@@ -5,6 +5,7 @@
 | `e2e-lesson.mjs` | 受講画面（1単元が最後まで通る） | 実ブラウザ。端末内記録モード |
 | `e2e-prep-exam.mjs` | 同意→本人確認→受講中の照合→修了試験 | 実ブラウザ＋フェイクカメラ |
 | `supabase-mode.mjs` | サーバ記録モードで、記録が実際に DB の行になること | DB接続が必要 |
+| `e2e-members.mjs` | 会員制度（0040）：案内3枚・紹介 URL・法人会員の申込み・チケットで払う・パートナー・本部の会員と報酬 | `MEMBERSHIP_ENABLED=1 npm run dev -- -p 3100` のあと |
 | `postgrest-shim.mjs` | 検証用の PostgREST 互換サーバ（本物ではない） | ローカル PostgreSQL |
 
 ## E2E（実ブラウザ）

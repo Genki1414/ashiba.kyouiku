@@ -7,6 +7,8 @@ import { maySeeInvoice } from "@/lib/invoiceAccess";
 import { seller, bankReady } from "@/content/legal";
 import { TAX_RATE } from "@/lib/pricing";
 import { findCourse } from "@/content/courses";
+import { membershipEnabled } from "@/lib/membership.server";
+import { monthLabel } from "@/lib/membership";
 
 /* 請求書に載せる中身。
 
@@ -22,6 +24,11 @@ export async function GET(req: NextRequest) {
   if (!supabase) {
     return NextResponse.json({ ok: false, reason: "Supabase が未設定です。" }, { status: 503 });
   }
+
+  /* 法人会員の月額の請求書（0040）。注文ではなく contract_payments から出す。
+     形は同じ（画面は1つ） */
+  const paymentId = (req.nextUrl.searchParams.get("paymentId") ?? "").trim();
+  if (paymentId) return contractInvoice(supabase, paymentId);
 
   const id = (req.nextUrl.searchParams.get("orderId") ?? "").trim();
   if (!id) {
@@ -188,7 +195,6 @@ export async function GET(req: NextRequest) {
     ? items[0].what
     : `${items[0].what} ほか${items.length - 1}件`;
 
-  const s = seller();
   return NextResponse.json({
     ok: true,
     order: {
@@ -218,18 +224,91 @@ export async function GET(req: NextRequest) {
       invoicedAt: (o.invoiced_at as string) ?? null,
       note: (o.note as string) ?? "",
       solo: !!o.user_id,
+      kind: "order",
     },
-    seller: {
-      name: s.name,
-      ceo: s.ceo,
-      address: s.address,
-      tel: s.tel,
-      email: s.email,
-      invoiceNo: s.invoiceNo,
-      /* 振込先。そろっていなければ返さない。
-         中途半端に出すと、振り込めないのに振り込めるように見える */
-      bank: bankReady(s.bank) ? s.bank : null,
+    seller: sellerOut(),
+  });
+}
+
+function sellerOut() {
+  const s = seller();
+  return {
+    name: s.name,
+    ceo: s.ceo,
+    address: s.address,
+    tel: s.tel,
+    email: s.email,
+    invoiceNo: s.invoiceNo,
+    /* 振込先。そろっていなければ返さない。
+       中途半端に出すと、振り込めないのに振り込めるように見える */
+    bank: bankReady(s.bank) ? s.bank : null,
+  };
+}
+
+/* ── 法人会員の月額の請求書（0040）──
+   見られるのは本部と、その契約の事業者の担当者だけ。
+   金額は contract_payments の行（起こしたときの plans の額）。あとでプランの額を
+   変えても、もう出した請求書の字は変わらない */
+async function contractInvoice(supabase: NonNullable<ReturnType<typeof getServiceClient>>, paymentId: string) {
+  if (!membershipEnabled()) return NextResponse.json({ ok: false, reason: "準備中です。" }, { status: 404 });
+  const { data: p, error: pErr } = await supabase
+    .from("contract_payments")
+    .select("id, contract_id, period_month, net, tax, amount, ticket_amount, method, status, due_on, invoiced_at, paid_at, created_at")
+    .eq("id", paymentId)
+    .maybeSingle();
+  if (pErr) return NextResponse.json({ ok: false, reason: `請求を読めませんでした（${pErr.message}）` }, { status: 500 });
+  if (!p) return NextResponse.json({ ok: false, reason: "その請求がありません。" }, { status: 404 });
+  const { data: c, error: cErr } = await supabase
+    .from("contracts")
+    .select("id, company_id, plan_id, kind, status")
+    .eq("id", p.contract_id as string)
+    .maybeSingle();
+  if (cErr || !c) return NextResponse.json({ ok: false, reason: `契約を読めませんでした（${cErr?.message ?? "無い"}）` }, { status: 500 });
+
+  const owner = await currentOwner();
+  const admin = owner ? null : await currentAdmin();
+  if (!owner && admin?.companyId !== (c.company_id as string)) {
+    return NextResponse.json({ ok: false, reason: "その請求書は見られません。" }, { status: 403 });
+  }
+
+  const [{ data: co, error: coErr }, { data: pl, error: plErr }] = await Promise.all([
+    supabase.from("companies").select("name").eq("id", c.company_id as string).maybeSingle(),
+    supabase.from("plans").select("name, kind").eq("id", c.plan_id as string).maybeSingle(),
+  ]);
+  if (coErr || plErr) return NextResponse.json({ ok: false, reason: `宛名を読めませんでした（${(coErr ?? plErr)?.message}）` }, { status: 500 });
+
+  const net = Number(p.net) || 0;
+  const tax = Number(p.tax) || 0;
+  const amount = Number(p.amount) || 0;
+  const label = `${c.kind === "agency" ? "販売代理店" : "法人会員"} ${(pl?.name as string) ?? ""} 月額会費（${monthLabel(p.period_month as string)}）`;
+  return NextResponse.json({
+    ok: true,
+    order: {
+      id: p.id as string,
+      no: `M${String(p.id).slice(0, 7).toUpperCase()}`,
+      to: (co?.name as string) ?? "",
+      addr: "",
+      what: label,
+      items: [{ what: label, qty: 1, unit: net, net, tax, amount, discount: 0 }],
+      qty: 1,
+      unit: net,
+      gross: net,
+      discount: 0,
+      couponName: "",
+      net,
+      tax,
+      amount,
+      taxRate: TAX_RATE,
+      due: (p.due_on as string) ?? null,
+      at: (p.created_at as string) ?? null,
+      paidAt: (p.paid_at as string) ?? null,
+      status: (p.status as string) ?? "pending",
+      invoicedAt: (p.invoiced_at as string) ?? null,
+      note: `お振込みの確認後、チケット ${(Number(p.ticket_amount) || 0).toLocaleString("ja-JP")}円分を付与します。`,
+      solo: false,
+      kind: "contract",
     },
+    seller: sellerOut(),
   });
 }
 
@@ -244,7 +323,21 @@ export async function POST(req: NextRequest) {
   if (!owner) {
     return NextResponse.json({ ok: false, reason: "本部だけの操作です。" }, { status: 403 });
   }
-  const b = (await req.json().catch(() => ({}))) as { orderId?: string };
+  const b = (await req.json().catch(() => ({}))) as { orderId?: string; paymentId?: string };
+  /* 法人会員の月額（0040）。はじめに送った日時のまま */
+  const pid = (b.paymentId ?? "").trim();
+  if (pid) {
+    if (!membershipEnabled()) return NextResponse.json({ ok: false, reason: "準備中です。" }, { status: 404 });
+    const { data: cur, error: rErr } = await supabase
+      .from("contract_payments").select("invoiced_at").eq("id", pid).maybeSingle();
+    if (rErr) return NextResponse.json({ ok: false, reason: rErr.message }, { status: 500 });
+    if (!cur) return NextResponse.json({ ok: false, reason: "その請求がありません。" }, { status: 404 });
+    if (cur.invoiced_at) return NextResponse.json({ ok: true, invoicedAt: cur.invoiced_at as string });
+    const at = new Date().toISOString();
+    const { error: uErr } = await supabase.from("contract_payments").update({ invoiced_at: at }).eq("id", pid).is("invoiced_at", null);
+    if (uErr) return NextResponse.json({ ok: false, reason: uErr.message }, { status: 500 });
+    return NextResponse.json({ ok: true, invoicedAt: at });
+  }
   const id = (b.orderId ?? "").trim();
   if (!id) {
     return NextResponse.json({ ok: false, reason: "注文が分かりません。" }, { status: 400 });

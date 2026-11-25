@@ -3,12 +3,13 @@ import { groupAmounts, normalizeCouponCode, spreadDiscount } from "@/lib/coupon"
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase/server";
 import { currentAdmin } from "@/lib/admin";
-import { listSeats, seatCounts } from "@/lib/seats";
+import { issueSeats, listSeats, seatCounts } from "@/lib/seats";
 import { heldCourseIds } from "@/lib/held";
 import { findCourse, readyCourses } from "@/content/courses";
 import { dueDateStr, quote } from "@/lib/pricing";
 import { unitPrice } from "@/lib/price.server";
 import { notify } from "@/lib/notify.server";
+import { membershipEnabled, openContract, ticketBalance } from "@/lib/membership.server";
 
 /* 申込み。教育担当者だけ。
 
@@ -26,12 +27,31 @@ type Body = {
   items?: Item[];
   courseId?: string;
   seats?: number;
-  method?: "card" | "invoice";
+  /** ticket は法人会員のチケット（0040）。税抜のぶんを残高から引く。請求書は出ない */
+  method?: "card" | "invoice" | "ticket";
   billTo?: string;
   note?: string;
   /** クーポン。無ければ、いつもどおりの値段 */
   code?: unknown;
 };
+
+type Ticket = { contractId: string; total: number; expiring: number; nextExpire: string | null };
+
+/** その事業者の有効な契約と、チケットの残高。無ければ null。
+    読めなかったら null にせず投げる（「残高 0」に化けると、払えるのに札が消える） */
+async function ticketFor(
+  supabase: NonNullable<ReturnType<typeof getServiceClient>>,
+  companyId: string,
+): Promise<Ticket | null> {
+  if (!membershipEnabled()) return null;
+  const open = await openContract(supabase, companyId);
+  if (!open.ok) throw new Error(open.reason);
+  const c = open.contract;
+  if (!c || c.status !== "active") return null;
+  const bal = await ticketBalance(supabase, c.id as string);
+  if (!bal.ok) throw new Error(bal.reason);
+  return { contractId: c.id as string, ...bal.balance };
+}
 
 export async function GET() {
   const supabase = getServiceClient();
@@ -107,6 +127,16 @@ export async function GET() {
       })),
     ),
   ]);
+  /* ── 法人会員のチケット（0040）──
+     有効な契約があれば、残高を返す。画面はこれで「チケットで払う」を出す。
+     制度を開けていない店・契約の無い会社には null（札そのものが出ない） */
+  let ticket: Ticket | null = null;
+  try {
+    ticket = await ticketFor(supabase, admin.companyId);
+  } catch (e) {
+    return NextResponse.json({ ok: false, reason: `チケットを読めませんでした（${e instanceof Error ? e.message : String(e)}）` }, { status: 500 });
+  }
+
   const members = (us ?? [])
     .map((u) => ({
       id: u.id as string,
@@ -131,6 +161,8 @@ export async function GET() {
     requests,
     /* 在籍している人。受講コードの一覧の「配る」で選ぶ */
     members,
+    /* 法人会員のチケット。無ければ null */
+    ticket,
     /* 受講コードは講座ごと。どれを買うかを選んでもらう。
        単価もここで一緒に返す（画面では計算しない） */
     courses: readyCourses().map((c) => ({
@@ -186,8 +218,26 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, reason: "講座がありません。" }, { status: 400 });
   }
 
-  const method = b.method === "card" ? "card" : "invoice";
+  const method = b.method === "card" ? "card" : b.method === "ticket" ? "ticket" : "invoice";
   const now = new Date();
+
+  /* ── チケットで払う（0040）──
+     法人会員の有効な契約が要る。残高の確認は SQL（spend_tickets）が行ロックの中でやる。
+     ここで見るのは「契約があるか」だけ。見せるために残高も読む */
+  let ticket: Ticket | null = null;
+  if (method === "ticket") {
+    if (!membershipEnabled()) {
+      return NextResponse.json({ ok: false, reason: "チケットは使えません。" }, { status: 404 });
+    }
+    try {
+      ticket = await ticketFor(supabase, admin.companyId);
+    } catch (e) {
+      return NextResponse.json({ ok: false, reason: `チケットを読めませんでした（${e instanceof Error ? e.message : String(e)}）` }, { status: 500 });
+    }
+    if (!ticket) {
+      return NextResponse.json({ ok: false, reason: "有効な法人会員の契約がありません。" }, { status: 409 });
+    }
+  }
   /* 支払期限は請求書の発行から1週間（げんきさん 2026-09-11）。
      請求書は申し込んだその場で出るので、起点はここでよい。
      **日本の日付で切る**（dueDateStr）。世界標準時のまま切ると、
@@ -255,6 +305,8 @@ export async function POST(req: NextRequest) {
         /* クーポンを使ったときだけ足す。**使っていない申込みは、
            版が古いデータベースでも今までどおり通る** */
         ...(couponId ? { coupon_id: couponId, discount: shares[i] } : {}),
+        /* チケットで払うときだけ、契約を結ぶ（0040） */
+        ...(ticket ? { contract_id: ticket.contractId } : {}),
       })),
     )
     .select("id, course_id, amount");
@@ -279,6 +331,54 @@ export async function POST(req: NextRequest) {
       },
       { status: 500 },
     );
+  }
+
+  /* ── チケットで払う（0040）──
+     税抜の合計を残高から引く（spend_tickets。古いロットから、負にしない）。
+     引けたら、その場で入金済みにして受講コードを立てる。
+     **引けなければ注文を下げる。**注文だけ残すと、払っていない入金待ちが
+     運営の画面に並び、請求書を送ってしまう */
+  if (method === "ticket" && ticket) {
+    const first = made[0].id as string;
+    const { data: left, error: tErr } = await supabase.rpc("spend_tickets", {
+      p_contract: ticket.contractId,
+      p_amount: money.net,
+      p_order: first,
+      p_by: admin.userId,
+    });
+    if (tErr) {
+      await supabase.from("orders").delete().eq("group_id", groupId);
+      if (couponId) await supabase.rpc("release_coupon_use", { p_group: groupId });
+      return NextResponse.json({ ok: false, reason: tErr.message }, { status: 409 });
+    }
+    const { error: uErr } = await supabase
+      .from("orders")
+      .update({ status: "paid", paid_at: now.toISOString() })
+      .eq("group_id", groupId);
+    if (uErr) {
+      /* 引いたのに注文が立たない。引いたぶんを戻して断る（return_tickets は同じ注文を二度戻さない） */
+      await supabase.rpc("return_tickets", { p_order: first, p_by: admin.userId });
+      await supabase.from("orders").delete().eq("group_id", groupId);
+      if (couponId) await supabase.rpc("release_coupon_use", { p_group: groupId });
+      return NextResponse.json({ ok: false, reason: `注文を立てられませんでした（${uErr.message}）` }, { status: 500 });
+    }
+    let issued = 0;
+    for (const [i, m] of made.entries()) {
+      issued += await issueSeats(supabase, m.id as string, lines[i].seats);
+    }
+    return NextResponse.json({
+      ok: true,
+      orderId: first,
+      groupId,
+      course: { id: made[0].course_id as string, short: lines[0].short },
+      items: lines.map((l, i) => ({ courseId: l.courseId, short: l.short, seats: l.seats, amount: money.amounts[i] })),
+      method,
+      coupon: couponId ? { name: couponName, discount } : null,
+      quote: { seats: lines.reduce((n, l) => n + l.seats, 0), total: money.amount },
+      seatsIssued: issued,
+      /* 引いた額（税抜）と、引いたあとの残高 */
+      ticket: { spent: money.net, left: Number(left) || 0 },
+    });
   }
 
   /* 運営に知らせる。**申込み1件につき1回。**講座の数だけ鳴らすと、

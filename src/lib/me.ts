@@ -41,6 +41,8 @@ export type Me = {
   company: string;
   /** 取得済みの講座（修了証が出ている・よそで取ったと入れた）。一覧の札に「取得済」を出す */
   held?: string[];
+  /** 会員制度（0040）を開けている店の担当者。ホームに「法人会員」の札を出す */
+  membership?: boolean;
 };
 
 const shape = (j: Record<string, unknown>): Me => ({
@@ -59,6 +61,7 @@ const shape = (j: Record<string, unknown>): Me => ({
   bills: Array.isArray(j.bills) ? j.bills : [],
   company: (j.company as string) ?? "",
   held: Array.isArray(j.held) ? (j.held as unknown[]).filter((x): x is string => typeof x === "string") : [],
+  membership: j.membership === true,
 });
 
 /** 前に聞いた答え。無ければ null */
