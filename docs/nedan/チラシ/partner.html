@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>営業パートナー募集 チラシ</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+@page{size:A4;margin:0}
+*{box-sizing:border-box}
+:root{--navy:#0B1F3A;--blue:#1E5EFF;--lt:#E8EFFF;--ink:#1A2333;--mute:#5B6B82;--line:#D9E1EC}
+html,body{margin:0;background:#fff}
+body{font-family:'Noto Sans JP',sans-serif;-webkit-font-smoothing:antialiased;color:var(--ink)}
+.flyer{width:210mm;height:297mm;position:relative;overflow:hidden;background:#fff;display:flex;flex-direction:column}
+.hero{background:var(--navy);color:#fff;padding:10mm 14mm 8mm}
+.eyebrow{color:#9DB4FF;font-weight:900;font-size:10.5pt;letter-spacing:.2em}
+h1{margin:2.5mm 0 0;font-size:24pt;line-height:1.25;font-weight:900}
+h1 em{font-style:normal;color:#FFD54A}
+.hero p{margin:3mm 0 0;font-size:10.5pt;line-height:1.6;color:#CBD6EA}
+.body{padding:6mm 14mm 0;flex:1;display:flex;flex-direction:column;gap:4.5mm}
+.row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:4mm}
+.pt{background:var(--lt);border-radius:4mm;padding:3.5mm 4mm}
+.pt .n{font-size:18pt;font-weight:900;color:var(--blue);line-height:1}
+.pt .t{margin-top:1.5mm;font-size:10pt;font-weight:900;color:var(--navy)}
+.pt .d{margin-top:1mm;font-size:8.5pt;color:var(--mute);line-height:1.55}
+h2{margin:0;font-size:12.5pt;font-weight:900;color:var(--navy);border-left:3mm solid var(--blue);padding-left:3mm}
+table{width:100%;border-collapse:collapse;font-size:9.5pt;margin-top:2mm}
+th,td{padding:1.6mm 2mm;border-bottom:1px solid var(--line);text-align:left}
+th{font-size:8.5pt;color:var(--mute);font-weight:700}
+td.n{text-align:right;white-space:nowrap;font-weight:900}
+tr.hi td{background:var(--lt)}
+.steps{display:grid;grid-template-columns:repeat(4,1fr);gap:3mm;margin-top:2mm}
+.st{position:relative;padding:3mm 3mm 3mm 11mm;border:1px solid var(--line);border-radius:3mm;font-size:8.8pt;line-height:1.5}
+.st::before{content:attr(data-n);position:absolute;left:3mm;top:3mm;width:6mm;height:6mm;border-radius:50%;background:var(--navy);color:#fff;font-weight:900;display:grid;place-items:center;font-size:9pt}
+.st b{display:block;color:var(--navy);font-size:9.5pt}
+.faq{display:grid;grid-template-columns:1fr 1fr;gap:2.5mm 5mm;margin-top:2mm;font-size:8.8pt;line-height:1.5}
+.faq b{display:block;color:var(--navy)}
+.foot{margin-top:auto;background:var(--lt);padding:5mm 14mm 6mm;display:flex;gap:6mm;align-items:center}
+.foot .qr{width:26mm;height:26mm;background:#fff;border-radius:2mm;padding:1.5mm;flex:none}
+.foot .qr img{width:100%;height:100%;display:block}
+.foot .c{font-size:9.5pt;line-height:1.7;color:var(--ink)}
+.foot .c b{font-size:12pt;color:var(--navy)}
+.foot .url{font-weight:900;color:var(--blue);font-size:12pt}
+.small{font-size:8pt;color:var(--mute);line-height:1.5}
+</style>
+</head>
+<body>
+<div class="flyer" id="flyer">
+  <div class="hero">
+    <div class="eyebrow">営業パートナー募集　足場屋革命ー教育／特別教育ドットコム</div>
+    <h1>紹介した会社が払い続けるかぎり、<br><em>報酬も毎月続く。</em></h1>
+    <p>特別教育の月額プラン（法人会員）を紹介してください。その会社の月額会費（税抜）の30%が、入金のあった月ごとに確定します。資材屋・元請・現場監督・個人、どなたでも。</p>
+  </div>
+  <div class="body">
+    <div class="row">
+      <div class="pt"><div class="n">30%</div><div class="t">月額会費の30%</div><div class="d">スタンダード（月1万円）1社で月3,000円。会員でいるあいだ毎月。</div></div>
+      <div class="pt"><div class="n">0円</div><div class="t">登録・費用・ノルマなし</div><div class="d">やることは紹介 URL（QR）を渡すだけ。契約・請求・入金確認は当社。</div></div>
+      <div class="pt"><div class="n">翌月末</div><div class="t">月末締め・翌月末払い</div><div class="d">5,000円未満は翌月に繰越。振込手数料は当社負担。</div></div>
+    </div>
+
+    <div>
+      <h2>報酬の目安（スタンダード 月額 10,000円 を紹介した場合）</h2>
+      <table>
+        <tr><th>紹介した会社</th><th style="text-align:right">月あたり</th><th style="text-align:right">年あたり</th><th>備考</th></tr>
+        <tr><td>1社</td><td class="n">3,000円</td><td class="n">36,000円</td><td class="small">5,000円未満の月は翌月に繰越</td></tr>
+        <tr><td>5社</td><td class="n">15,000円</td><td class="n">180,000円</td><td></td></tr>
+        <tr class="hi"><td>10社</td><td class="n">30,000円</td><td class="n">360,000円</td><td></td></tr>
+        <tr><td>20社</td><td class="n">60,000円</td><td class="n">720,000円</td><td></td></tr>
+        <tr><td>ビジネス（月2万円）10社</td><td class="n">60,000円</td><td class="n">720,000円</td><td></td></tr>
+      </table>
+      <div class="small" style="margin-top:1.5mm">見込みは「いまの契約が払い続けたら」の額。確定は紹介先の入金が確認された分だけ。紹介の紹介（多段）に報酬は付きません。</div>
+    </div>
+
+    <div>
+      <h2>登録から報酬まで</h2>
+      <div class="steps">
+        <div class="st" data-n="1"><b>アプリに登録</b>LINE でログイン。マイページの「営業パートナー」から。</div>
+        <div class="st" data-n="2"><b>契約書を取り交わす</b>業務委託契約書（PDF）を確認。当社が承認。</div>
+        <div class="st" data-n="3"><b>URL と QR を渡す</b>押した会社・コードを打った会社が紹介先に。</div>
+        <div class="st" data-n="4"><b>毎月、確定</b>画面で確定・見込み・支払済を確認。明細も出ます。</div>
+      </div>
+    </div>
+
+    <div>
+      <h2>よくある質問</h2>
+      <div class="faq">
+        <div><b>自分の会社を紹介できますか</b>できません。紹介元は契約成立の時点で固定されます。</div>
+        <div><b>税金は</b>報酬は消費税込み。源泉徴収はしません（ご自身で申告）。インボイス番号は任意で登録できます。</div>
+        <div><b>紹介した会社が解約したら</b>最後の入金の月まで確定。以後は発生しません。</div>
+        <div><b>やめたくなったら</b>1か月前の申し出で終了。終了月までの確定分はお支払いします。</div>
+      </div>
+    </div>
+  </div>
+  <div class="foot">
+    <div class="qr"><img src="qr-partners.svg" alt="QR"></div>
+    <div class="c">
+      <b>詳しくは</b>　<span class="url">kyouiku.ashibase.jp/partners</span><br>
+      東北三上機材株式会社　教育事業担当　宮城県名取市牛野八幡23<br>
+      TEL 022-738-7913　info@tohoku-mikamikizai.co.jp
+      <div class="small">報酬の条件は営業パートナー業務委託契約書によります。「報酬を分けるから」と誘う勧誘はできません。</div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,105 @@
+<!doctype html><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+  :root{ --ink:#0e0e10; --y:#ffd400; --w:#ffffff; --g:#a5a5ad; --navy:#0B1F3A; --blue:#4F8BFF; }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:#222;font-family:'Noto Sans JP',sans-serif;-webkit-font-smoothing:antialiased}
+  .s{width:1080px;height:1080px;position:relative;overflow:hidden;background:var(--navy);color:var(--w);
+     padding:96px 92px;display:flex;flex-direction:column;margin:0 0 24px}
+  .stripe{position:absolute;left:0;right:0;height:22px;
+     background:repeating-linear-gradient(-45deg,var(--y) 0 26px,var(--navy) 26px 52px)}
+  .stripe.t{top:0} .stripe.b{bottom:0}
+  .kicker{font-weight:700;font-size:30px;letter-spacing:.09em;color:var(--y)}
+  .num{font-weight:900;font-size:150px;line-height:.9;color:var(--y);letter-spacing:-.02em}
+  h1{font-weight:900;font-size:100px;line-height:1.24;letter-spacing:-.01em}
+  h2{font-weight:900;font-size:80px;line-height:1.3;letter-spacing:-.01em}
+  p{font-weight:400;font-size:42px;line-height:1.85;color:#e3e8f0}
+  .sp{flex:1} .sp2{flex:.4}
+  .bar{width:132px;height:11px;background:var(--y);border-radius:99px}
+  .foot{font-weight:700;font-size:30px;color:#9DB4FF;letter-spacing:.05em}
+  .yl{color:var(--y)}
+  .box{border:5px solid var(--y);border-radius:22px;padding:38px 44px;font-weight:900;font-size:52px;line-height:1.45;text-align:center}
+  table{width:100%;border-collapse:collapse;font-size:40px;margin-top:20px}
+  th,td{padding:22px 10px;border-bottom:3px solid #2A3E63;text-align:left}
+  th{font-weight:700;color:#9DB4FF;font-size:30px}
+  td.n{text-align:right;font-weight:900;white-space:nowrap}
+  tr.hi td{background:#132B52}
+</style>
+
+<!-- 1 -->
+<div class="s" id="p1">
+  <div class="stripe t"></div>
+  <div class="kicker">法人会員制度　足場屋革命ー教育</div>
+  <div style="height:52px"></div>
+  <h1>毎月の会費の<span class="yl">2倍</span>、<br>教育に使える<br>チケットが付く。</h1>
+  <div class="sp"></div>
+  <div class="bar"></div>
+  <div style="height:34px"></div>
+  <p style="font-size:46px;font-weight:700;color:#fff">月1万円で、毎月2万円ぶんの特別教育。</p>
+  <div style="height:14px"></div>
+  <div class="foot">→ スワイプ</div>
+  <div class="stripe b"></div>
+</div>
+
+<!-- 2 -->
+<div class="s" id="p2">
+  <div class="stripe t"></div>
+  <div class="sp2"></div>
+  <div class="num">01</div>
+  <div style="height:44px"></div>
+  <h2>見積りも振込も、<br>毎回いらない。</h2>
+  <div style="height:44px"></div>
+  <div class="bar"></div>
+  <div style="height:44px"></div>
+  <p>新人が入るたびの請求書・振込が消えます。<br>受講コードはチケットでその場で発行。<br>月1回の会費だけ。</p>
+  <div class="sp"></div>
+  <div class="foot">チケットは付与から6か月有効</div>
+  <div class="stripe b"></div>
+</div>
+
+<!-- 3 -->
+<div class="s" id="p3">
+  <div class="stripe t"></div>
+  <div class="kicker">プランと料金（税抜）</div>
+  <table>
+    <tr><th>プラン</th><th style="text-align:right">月額</th><th style="text-align:right">毎月のチケット</th></tr>
+    <tr><td>ライト</td><td class="n">5,000円</td><td class="n">10,000円</td></tr>
+    <tr class="hi"><td>スタンダード</td><td class="n">10,000円</td><td class="n">20,000円</td></tr>
+    <tr><td>ビジネス</td><td class="n">20,000円</td><td class="n">40,000円</td></tr>
+    <tr><td>エンタープライズ</td><td class="n">50,000円</td><td class="n">100,000円</td></tr>
+  </table>
+  <div class="sp"></div>
+  <p style="font-size:36px">契約12か月・自動更新。途中の解約は翌月末まで。</p>
+  <div style="height:14px"></div>
+  <div class="foot">チケットは受講コードの通常価格（税抜）ぶんを引きます</div>
+  <div class="stripe b"></div>
+</div>
+
+<!-- 4 -->
+<div class="s" id="p4">
+  <div class="stripe t"></div>
+  <div class="sp2"></div>
+  <div class="num">02</div>
+  <div style="height:44px"></div>
+  <h2>スタンダードなら、<br>年 <span class="yl">53人分</span>。</h2>
+  <div style="height:44px"></div>
+  <div class="bar"></div>
+  <div style="height:44px"></div>
+  <p>年間の会費 12万円で、24万円ぶんの教育。<br>足場の特別教育（4,500円）なら約53人分。<br>職長教育（7,000円）なら約34人分。</p>
+  <div class="sp"></div>
+  <div class="foot">通常価格より年 12万円お得</div>
+  <div class="stripe b"></div>
+</div>
+
+<!-- 5 -->
+<div class="s" id="p5">
+  <div class="stripe t"></div>
+  <div class="kicker">はじめ方</div>
+  <div style="height:40px"></div>
+  <p style="font-size:44px;line-height:1.9"><span class="yl">1.</span> アプリで「会社とつなぐ」<br><span class="yl">2.</span> ホームの「法人会員」でプランを選ぶ<br><span class="yl">3.</span> 初月を振込 → チケットが付く<br><span class="yl">4.</span> 「チケットで払う」で受講コード</p>
+  <div class="sp"></div>
+  <div class="box">kyouiku.ashibase.jp/members</div>
+  <div style="height:30px"></div>
+  <div class="foot">東北三上機材株式会社　TEL 022-738-7913</div>
+  <div class="stripe b"></div>
+</div>
