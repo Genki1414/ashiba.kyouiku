@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { AskDone, type Ask, type RunResult } from "@/components/AskDone";
-import { yen } from "@/lib/pricing";
+import { overdue, yen } from "@/lib/pricing";
 import {
   CONTRACT_STATUS,
   PARTNER_STATUS,
@@ -54,8 +54,9 @@ type Dash = {
   mrr: number; arr: number; net: number; expectedCommission: number; activeContracts: number; pendingContracts: number;
   approvedPartners: number; pendingPartners: number; pendingPayments: number; confirmedUnpaid: number; paidCommissions: number; cashIn: number;
 };
+type Company = { id: string; name: string; parentId: string | null };
 type Loaded = {
-  plans: Plan[]; contracts: Contract[]; partners: Partner[]; commissions: Commission[];
+  plans: Plan[]; companies: Company[]; contracts: Contract[]; partners: Partner[]; commissions: Commission[];
   payouts: { id: string; partnerId: string; periodMonth: string; total: number; status: string; paidAt: string | null }[];
   targets: Targets; dashboard: Dash;
   logs: { id: string; actor: string; action: string; target: string; after: unknown; at: string }[];
@@ -64,7 +65,7 @@ type Loaded = {
 const ACTION: Record<string, string> = {
   paid: "入金を確認", invoiced: "請求書を送付", cancel_payment: "請求を取消", refund: "返金", open: "請求を起票",
   month_open: "日次処理", expire: "失効", contract_status: "契約の状態", contract_plan: "プラン変更", cancel: "解約の申し出",
-  suspend_overdue: "滞納で停止",
+  suspend_overdue: "滞納で停止", remind: "支払いの催促", set_parent: "協力会社",
   referrer: "紹介元の変更", partner_status: "パートナーの状態", partner_rate: "報酬率", partner_code: "紹介コード",
   payout: "報酬を支払い済み", plan_save: "プラン編集", targets: "目標",
 };
@@ -89,6 +90,7 @@ export function MembersClient({ onNote }: { onNote: (s: string) => void }) {
       }
       setSt({
         plans: j.plans ?? [],
+        companies: j.companies ?? [],
         contracts: j.contracts ?? [],
         partners: j.partners ?? [],
         commissions: j.commissions ?? [],
@@ -215,7 +217,21 @@ export function MembersClient({ onNote }: { onNote: (s: string) => void }) {
             <div className="mt-0.5 text-[11.5px] text-dim2">
               {monthLabel(p.periodMonth)}　期限 {ymd(p.dueOn)}　付与 {yen(p.ticketAmount)}
               {p.c.referrer ? `　紹介 ${p.c.referrer.name}` : ""}
+              {/* 期限超過（docs/122）。14日過ぎると日次処理が停止する。それまでに催促する */}
+              {overdue(p.dueOn) && (
+                <span className="ml-1 rounded border border-red px-1 py-0.5 text-[10.5px] text-red" data-testid="members-overdue">期限超過</span>
+              )}
             </div>
+            {overdue(p.dueOn) && (
+              <button
+                onClick={() => setAsk({ title: "お支払いの催促を送りますか", body: <>{p.c.company} の担当者に「会費のお支払いが確認できていません」のお知らせ（LINE にも）を送ります。</>, yes: "送る", done: "送りました",
+                  run: () => post({ action: "remind", paymentId: p.id }) })}
+                className="mt-1.5 w-full rounded-lg border border-red p-2 text-[11.5px] text-red"
+                data-testid="members-remind"
+              >
+                お支払いの催促を送る
+              </button>
+            )}
             <div className="mt-2 grid grid-cols-2 gap-2">
               <Link
                 href={`/invoice/member/${p.id}?owner=1`}
@@ -371,6 +387,38 @@ export function MembersClient({ onNote }: { onNote: (s: string) => void }) {
                   </select>
                   <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="理由（必須）" className="min-w-0 flex-1 rounded border border-line bg-bg px-2 py-1 text-[11px]" data-testid="members-referrer-reason" />
                 </div>
+                {/* 協力会社（docs/122）。代理店の契約だけ。下に付けた会社の受講コードを、代理店のチケットで買える */}
+                {c.kind === "agency" && (
+                  <div className="mt-2 rounded-lg border border-cyan px-2.5 py-2" data-testid="members-children">
+                    <div className="text-[11px] tracking-[2px] text-dim">協力会社</div>
+                    <div className="mt-1 grid gap-1">
+                      {st.companies.filter((x) => x.parentId === c.companyId).map((x) => (
+                        <div key={x.id} className="flex items-center gap-2 text-[11.5px]">
+                          <span>{x.name}</span>
+                          <button onClick={() => setAsk({ title: "協力会社から外しますか", body: <>{x.name} を {c.company} の下から外します。もう買ってある受講コードはそのまま使えます。</>, yes: "外す", danger: true, done: "外しました",
+                            run: () => post({ action: "set_parent", companyId: x.id, parentId: null }) })} className="ml-auto text-[10.5px] text-dim2">外す</button>
+                        </div>
+                      ))}
+                      {!st.companies.some((x) => x.parentId === c.companyId) && <div className="text-[11px] text-dim2">まだありません。</div>}
+                    </div>
+                    <select
+                      value=""
+                      onChange={(e) => {
+                        const x = st.companies.find((y) => y.id === e.target.value);
+                        if (!x) return;
+                        setAsk({ title: "協力会社として付けますか", body: <>{x.name} を {c.company} の下に付けます。{c.company} の担当者が、{x.name} の受講コードを自社のチケットで申し込めるようになります。</>, yes: "付ける", done: "付けました",
+                          run: () => post({ action: "set_parent", companyId: x.id, parentId: c.companyId }) });
+                      }}
+                      className="mt-1 w-full rounded border border-line bg-bg px-2 py-1 text-[11px]"
+                      data-testid="members-children-add"
+                    >
+                      <option value="">協力会社を足す…</option>
+                      {st.companies.filter((x) => x.id !== c.companyId && !x.parentId).map((x) => (
+                        <option key={x.id} value={x.id}>{x.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -434,6 +482,15 @@ export function MembersClient({ onNote }: { onNote: (s: string) => void }) {
                     </div>
                   ) : <div className="mt-2 text-[11px] text-dim2">未払いの確定分はありません。</div>;
                 })()}
+                {/* 支払い済みの明細（docs/122）。印刷して渡す・CSV */}
+                {st.payouts.filter((po) => po.partnerId === p.id).map((po) => (
+                  <Link key={po.id} href={`/owner/payout/${po.id}`} className="mt-1 flex items-baseline gap-2 text-[11.5px] no-underline" data-testid="members-payout-link">
+                    <span className="text-dim2">{monthLabel(po.periodMonth)}</span>
+                    <span className="text-txt">{yen(po.total)}</span>
+                    <span className="text-[10.5px] text-dim2">{po.paidAt ? `${ymd(po.paidAt)} 支払` : ""}</span>
+                    <span className="ml-auto text-cyan">明細を開く</span>
+                  </Link>
+                ))}
               </div>
             )}
           </div>
@@ -493,6 +550,16 @@ export function MembersClient({ onNote }: { onNote: (s: string) => void }) {
           run: () => post({ action: "month_open" }) })} className="rounded-lg border border-line p-2.5 text-[12px]" data-testid="members-month-open">日次処理を回す</button>
         <button onClick={() => setAsk({ title: "期限切れのチケットを失効させますか", body: <>期限を過ぎて残っているチケットを 0 にし、履歴に残します。</>, yes: "失効させる", done: "失効させました",
           run: () => post({ action: "expire" }) })} className="rounded-lg border border-line p-2.5 text-[12px]" data-testid="members-expire">期限切れを失効させる</button>
+      </div>
+
+      {/* 報酬の月まとめ CSV（docs/122）。締めのときに会計へ渡す */}
+      <div className="mt-2 flex flex-wrap items-center gap-2 text-[11.5px]" data-testid="members-csv">
+        <span className="text-dim2">報酬の CSV</span>
+        {[thisMonth, nextMonth(thisMonth) === thisMonth ? thisMonth : `${thisMonth.slice(0, 4)}-${String(Number(thisMonth.slice(5, 7)) - 1 || 12).padStart(2, "0")}-01`].map((m, i) => (
+          <a key={m + i} href={`/api/owner/payout?month=${m.slice(0, 7)}&format=csv`} className="rounded border border-line px-2 py-1 text-cyan no-underline">
+            {monthLabel(m)}
+          </a>
+        ))}
       </div>
 
       {/* ── ログ ── */}

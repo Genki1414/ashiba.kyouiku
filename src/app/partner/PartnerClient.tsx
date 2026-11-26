@@ -230,6 +230,17 @@ export function PartnerClient() {
           <CopyBtn text={st.url} label="URL をコピー" />
           <CopyBtn text={p.code} label="コードをコピー" />
         </div>
+        {/* QR（docs/122）。紙で渡す用。中身は紹介 URL だけ */}
+        <div className="mt-3 flex items-center gap-3" data-testid="partner-qr">
+          <img src="/api/partner/qr" alt={`紹介 URL の QR（${p.code}）`} width={96} height={96} className="rounded bg-white p-1" />
+          <div className="text-[11.5px] leading-relaxed text-dim">
+            この QR を読むと紹介 URL が開きます。チラシや名刺に貼れます。
+            <br />
+            <a href="/api/partner/qr" download={`ref-${p.code}.svg`} className="text-cyan no-underline" data-testid="partner-qr-download">
+              QR を保存（SVG）
+            </a>
+          </div>
+        </div>
         <div className="mt-2 text-[11.5px] leading-relaxed text-dim2">
           この URL を押した会社は、法人会員の申込みにあなたの紹介が付きます（90日のあいだ）。
           申込みの画面でコードを打ってもらっても同じです。
@@ -292,6 +303,23 @@ export function PartnerClient() {
         ))}
         {!st.commissions.length && <div className="text-[12px] text-dim2">まだありません。</div>}
       </div>
+
+      {/* 支払い済みの明細（docs/122）。印刷・CSV はその先で */}
+      {!!st.payouts.length && (
+        <>
+          <div className="mt-5 text-[11px] tracking-[2px] text-dim">お支払いの明細</div>
+          <div className="mt-1 grid gap-1" data-testid="partner-payouts">
+            {st.payouts.map((po) => (
+              <Link key={po.id} href={`/partner/payout/${po.id}`} className="flex items-baseline gap-2 border-b border-line py-1.5 text-[12px] no-underline">
+                <span className="text-dim2">{monthLabel(po.periodMonth)}</span>
+                <span className="ml-auto font-mono text-txt">{yen(po.total)}</span>
+                <span className="text-[10.5px] text-dim2">{po.status === "paid" ? `${ymd(po.paidAt)} 支払` : "予定"}</span>
+                <span className="text-cyan">明細</span>
+              </Link>
+            ))}
+          </div>
+        </>
+      )}
 
       {/* 振込先。本人と運営だけが見る */}
       <div className="mt-5 flex items-baseline">

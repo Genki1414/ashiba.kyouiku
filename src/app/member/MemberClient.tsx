@@ -13,6 +13,8 @@ import {
   grossOf,
   monthLabel,
   normalizeRefCode,
+  seatsPerYear,
+  yearlySavingsOf,
   ymd,
   type ContractStatus,
   type PaymentStatus,
@@ -176,6 +178,12 @@ export function MemberClient() {
               <div className="mt-1 text-[12px] text-dim">
                 税込 {yen(grossOf(p.monthlyFee))}　毎月チケット {yen(p.ticketAmount)}（{p.ticketMonths}か月有効）
               </div>
+              {/* 削減額（docs/122）。年の会費と年のチケットの差。足場の特別教育（4,500円）なら何人ぶんか */}
+              {yearlySavingsOf(p) > 0 && (
+                <div className="mt-1 text-[11.5px] text-grn" data-testid="member-plan-savings">
+                  年 {yen(p.monthlyFee * 12)} で {yen(p.ticketAmount * 12)} ぶんの教育。通常価格より {yen(yearlySavingsOf(p))} お得（足場の特別教育なら約{seatsPerYear(p, 4500)}人分）
+                </div>
+              )}
               {p.note && <div className="mt-1 text-[11.5px] text-dim2">{p.note}</div>}
             </button>
           ))}

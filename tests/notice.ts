@@ -134,6 +134,11 @@ console.log("\n── 返事のたびに残す ──");
     { p: "src/app/api/stripe/webhook/route.ts", k: "opened", why: "カードの入金で、講座を開けた" },
     /* 法人会員（0040）。会費の入金を確認して、チケットを付けた */
     { p: "src/app/api/owner/members/route.ts", k: "tickets", why: "会費の入金を確認して、チケットを付けた" },
+    /* 請求書は起票と同時に出る（docs/122）。催促は運営が押す */
+    { p: "src/lib/membership.server.ts", k: "member_bill", why: "月額の請求書を起こした（自動）" },
+    { p: "src/app/api/owner/members/route.ts", k: "member_due", why: "会費の支払いを催促した" },
+    /* 協力会社のぶんを代理店のチケットで買った → その会社の担当者へ */
+    { p: "src/app/api/order/route.ts", k: "seat", why: "協力会社の受講コードを代理店のチケットで立てた" },
   ];
   for (const w of want) {
     const c = code(w.p);
@@ -243,7 +248,7 @@ console.log("\n── 誰から届いたか ──");
     check(noticeFrom(k) === "admin", `${k} は会社の教育担当者から`, noticeFrom(k));
   }
   /* 運営が起こすもの。入金の確認・討議まわり・実務トレーニング */
-  for (const k of ["seat", "train", "slot", "room", "pass", "issue_ng", "tickets"]) {
+  for (const k of ["seat", "train", "slot", "room", "pass", "issue_ng", "tickets", "member_bill", "member_due"]) {
     check(noticeFrom(k) === "owner", `${k} は運営から`, noticeFrom(k));
   }
   /* 知らない字でも落とさない。古い版が残した行かもしれない */

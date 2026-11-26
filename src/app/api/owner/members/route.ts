@@ -5,6 +5,7 @@ import { addNotices } from "@/lib/notice.server";
 import { TERMS, commissionOf, mrrOf, normalizeRefCode } from "@/lib/membership";
 import {
   adminLog,
+  companyAdmins,
   listPlans,
   membershipEnabled,
   planOf,
@@ -202,9 +203,14 @@ export async function GET() {
     return n + (sp && sp.status === "approved" ? commissionOf(c.plan?.monthlyFee ?? 0, Number(sp.rate) || 0) : 0);
   }, 0);
 
+  /* 全部の会社（協力会社を代理店の下に付けるときの選び先。docs/122） */
+  const { data: allCos, error: acErr } = await supabase.from("companies").select("id, name, parent_id").order("name");
+  if (acErr) return NextResponse.json({ ok: false, reason: `会社を読めませんでした（${acErr.message}）` }, { status: 500 });
+
   return NextResponse.json({
     ok: true,
     plans: plans.plans,
+    companies: (allCos ?? []).map((c) => ({ id: c.id as string, name: (c.name as string) ?? "", parentId: (c.parent_id as string) ?? null })),
     contracts: outContracts,
     partners: outPartners,
     commissions,
@@ -257,6 +263,7 @@ type Body = {
   contractId?: string;
   companyId?: string;
   partnerId?: string | null;
+  parentId?: string | null;
   planId?: string;
   month?: string;
   status?: string;
@@ -562,6 +569,40 @@ export async function POST(req: NextRequest) {
       const { error } = await supabase.from("targets").upsert({ id: 1, ...patch }, { onConflict: "id" });
       if (error) return bad(error.message, 500);
       await log("targets", { before, after: patch });
+      return NextResponse.json({ ok: true });
+    }
+    case "remind": {
+      /* 入金の催促（docs/122）。担当者に「会費のお支払いが確認できていません」。入金待ちの行だけ */
+      const id = String(b.paymentId ?? "").trim();
+      if (!id) return bad("入金行が分かりません。");
+      const { data: p, error: pErr } = await supabase.from("contract_payments").select("status, contract_id").eq("id", id).maybeSingle();
+      if (pErr) return bad(pErr.message, 500);
+      if (!p) return bad("その入金行がありません。", 404);
+      if (p.status !== "pending") return bad("入金待ちの行だけ催促できます。", 409);
+      const { data: c, error: cErr } = await supabase.from("contracts").select("company_id").eq("id", p.contract_id as string).maybeSingle();
+      if (cErr || !c) return bad(cErr?.message ?? "契約がありません。", 500);
+      const n = await addNotices(await companyAdmins(supabase, c.company_id as string), "member_due");
+      await log(id, { after: { notified: n } });
+      return NextResponse.json({ ok: true, notified: n });
+    }
+    case "set_parent": {
+      /* 協力会社（docs/122）。子の会社を代理店（親）の下に付ける。親のチケットで子の受講コードを買える */
+      const companyId = String(b.companyId ?? "").trim();
+      const parentId = b.parentId ? String(b.parentId).trim() : null;
+      if (!companyId) return bad("会社が分かりません。");
+      if (parentId === companyId) return bad("自分を自分の親にはできません。");
+      if (parentId) {
+        const { data: parent, error: paErr } = await supabase.from("companies").select("id, parent_id").eq("id", parentId).maybeSingle();
+        if (paErr) return bad(paErr.message, 500);
+        if (!parent) return bad("親の会社がありません。", 404);
+        if (parent.parent_id) return bad("親の会社がさらに誰かの下に付いています（2段にはしない）。", 409);
+      }
+      const { data: before, error: bErr } = await supabase.from("companies").select("parent_id").eq("id", companyId).maybeSingle();
+      if (bErr) return bad(bErr.message, 500);
+      if (!before) return bad("その会社がありません。", 404);
+      const { error } = await supabase.from("companies").update({ parent_id: parentId }).eq("id", companyId);
+      if (error) return bad(error.message, 500);
+      await log(companyId, { before: { parentId: before.parent_id }, after: { parentId } });
       return NextResponse.json({ ok: true });
     }
     default:

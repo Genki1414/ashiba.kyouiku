@@ -6,6 +6,7 @@ import { notify } from "@/lib/notify.server";
 import { BRAND } from "@/content/brand";
 import { REF_COOKIE, monthStart, normalizeRefCode } from "@/lib/membership";
 import {
+  issuePaymentInvoice,
   listPlans,
   membershipEnabled,
   openContract,
@@ -253,6 +254,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, reason: `請求を起こせませんでした（${oErr.message}）` }, { status: 500 });
   }
 
+  /* 請求書はその場で出る（docs/122）。担当者に「請求書が届いています」 */
+  await issuePaymentInvoice(supabase, paymentId as string);
   await notify("contract");
 
   return NextResponse.json({

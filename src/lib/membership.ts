@@ -49,6 +49,15 @@ export const TERMS = {
   payoutMin: 5000,
 } as const;
 
+/** 教育費の削減額（年）。チケットは会費の2倍なので、通常価格で買うより会費のぶんだけ安い。
+    年間 = （チケット − 会費）× 12。会費より少ないチケットのプランなら 0 */
+export const yearlySavingsOf = (p: Pick<Plan, "monthlyFee" | "ticketAmount">): number =>
+  Math.max(0, (p.ticketAmount - p.monthlyFee) * 12);
+
+/** 年間のチケットで、その単価（税抜）の講座が何人ぶん受けられるか */
+export const seatsPerYear = (p: Pick<Plan, "ticketAmount">, unitPrice: number): number =>
+  unitPrice > 0 ? Math.floor((p.ticketAmount * 12) / unitPrice) : 0;
+
 /** 初期プラン（0040 の seed と同じ。有効期間は 0041 で 6 か月）。LP がデータベースを読めなかったときの代わりと、試験に使う。
     **本物は plans の表。**運営が画面で直すので、ここを直しても本番の額は変わらない */
 export const DEFAULT_PLANS: Omit<Plan, "id">[] = [

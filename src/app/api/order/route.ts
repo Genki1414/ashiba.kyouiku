@@ -9,7 +9,8 @@ import { findCourse, readyCourses } from "@/content/courses";
 import { dueDateStr, quote } from "@/lib/pricing";
 import { unitPrice } from "@/lib/price.server";
 import { notify } from "@/lib/notify.server";
-import { membershipEnabled, openContract, ticketBalance } from "@/lib/membership.server";
+import { companyAdmins, membershipEnabled, openContract, ticketBalance } from "@/lib/membership.server";
+import { addNotices } from "@/lib/notice.server";
 
 /* 申込み。教育担当者だけ。
 
@@ -29,13 +30,27 @@ type Body = {
   seats?: number;
   /** ticket は法人会員のチケット（0040）。税抜のぶんを残高から引く。請求書は出ない */
   method?: "card" | "invoice" | "ticket";
+  /** 協力会社のぶんを代理店のチケットで買う（docs/122）。method は ticket だけ */
+  forCompanyId?: string;
   billTo?: string;
   note?: string;
   /** クーポン。無ければ、いつもどおりの値段 */
   code?: unknown;
 };
 
-type Ticket = { contractId: string; total: number; expiring: number; nextExpire: string | null };
+type Ticket = { contractId: string; kind: string; total: number; expiring: number; nextExpire: string | null };
+
+/** 協力会社（docs/122）。代理店（kind=agency）の下に付いた会社。代理店のチケットで受講コードを買ってやれる */
+async function childrenOf(
+  supabase: NonNullable<ReturnType<typeof getServiceClient>>,
+  ticket: Ticket | null,
+  companyId: string,
+): Promise<{ id: string; name: string }[]> {
+  if (!ticket || ticket.kind !== "agency") return [];
+  const { data, error } = await supabase.from("companies").select("id, name").eq("parent_id", companyId).order("name");
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((c) => ({ id: c.id as string, name: (c.name as string) ?? "" }));
+}
 
 /** その事業者の有効な契約と、チケットの残高。無ければ null。
     読めなかったら null にせず投げる（「残高 0」に化けると、払えるのに札が消える） */
@@ -50,7 +65,7 @@ async function ticketFor(
   if (!c || c.status !== "active") return null;
   const bal = await ticketBalance(supabase, c.id as string);
   if (!bal.ok) throw new Error(bal.reason);
-  return { contractId: c.id as string, ...bal.balance };
+  return { contractId: c.id as string, kind: (c.kind as string) ?? "member", ...bal.balance };
 }
 
 export async function GET() {
@@ -131,8 +146,10 @@ export async function GET() {
      有効な契約があれば、残高を返す。画面はこれで「チケットで払う」を出す。
      制度を開けていない店・契約の無い会社には null（札そのものが出ない） */
   let ticket: Ticket | null = null;
+  let children: { id: string; name: string }[] = [];
   try {
     ticket = await ticketFor(supabase, admin.companyId);
+    children = await childrenOf(supabase, ticket, admin.companyId);
   } catch (e) {
     return NextResponse.json({ ok: false, reason: `チケットを読めませんでした（${e instanceof Error ? e.message : String(e)}）` }, { status: 500 });
   }
@@ -163,6 +180,8 @@ export async function GET() {
     members,
     /* 法人会員のチケット。無ければ null */
     ticket,
+    /* 協力会社（代理店だけ）。選ぶと、その会社の受講コードを代理店のチケットで買う */
+    children,
     /* 受講コードは講座ごと。どれを買うかを選んでもらう。
        単価もここで一緒に返す（画面では計算しない） */
     courses: readyCourses().map((c) => ({
@@ -238,6 +257,28 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, reason: "有効な法人会員の契約がありません。" }, { status: 409 });
     }
   }
+
+  /* ── 協力会社のぶん（docs/122）──
+     代理店（kind=agency）の担当者が、自社の下に付いた会社の受講コードを、自社のチケットで買う。
+     注文は**協力会社の注文**として立つ（company_id は協力会社）。受講コードは協力会社の担当者が配る。
+     チケット以外の払い方では認めない（請求書の宛先が二重になる） */
+  const forId = String(b.forCompanyId ?? "").trim();
+  let targetCompany = { id: admin.companyId, name: admin.companyName };
+  if (forId && forId !== admin.companyId) {
+    if (method !== "ticket" || !ticket) {
+      return NextResponse.json({ ok: false, reason: "協力会社のぶんはチケットでだけ申し込めます。" }, { status: 400 });
+    }
+    if (ticket.kind !== "agency") {
+      return NextResponse.json({ ok: false, reason: "協力会社のぶんを申し込めるのは販売代理店の契約だけです。" }, { status: 403 });
+    }
+    const { data: child, error: chErr } = await supabase
+      .from("companies").select("id, name, parent_id").eq("id", forId).maybeSingle();
+    if (chErr) return NextResponse.json({ ok: false, reason: `協力会社を読めませんでした（${chErr.message}）` }, { status: 500 });
+    if (!child || child.parent_id !== admin.companyId) {
+      return NextResponse.json({ ok: false, reason: "その会社は自社の協力会社ではありません。" }, { status: 403 });
+    }
+    targetCompany = { id: child.id as string, name: (child.name as string) ?? "" };
+  }
   /* 支払期限は請求書の発行から1週間（げんきさん 2026-09-11）。
      請求書は申し込んだその場で出るので、起点はここでよい。
      **日本の日付で切る**（dueDateStr）。世界標準時のまま切ると、
@@ -290,7 +331,7 @@ export async function POST(req: NextRequest) {
     .from("orders")
     .insert(
       lines.map((l, i) => ({
-        company_id: admin.companyId,
+        company_id: targetCompany.id,
         group_id: groupId,
         course_id: l.courseId,
         seats: l.seats,
@@ -300,7 +341,7 @@ export async function POST(req: NextRequest) {
         status: "pending",
         due_date: due,
         ordered_by: admin.userId,
-        bill_to: (b.billTo ?? "").trim() || null,
+        bill_to: (b.billTo ?? "").trim() || (targetCompany.id !== admin.companyId ? `${targetCompany.name}（${admin.companyName} のチケット）` : null),
         note: (b.note ?? "").trim() || null,
         /* クーポンを使ったときだけ足す。**使っていない申込みは、
            版が古いデータベースでも今までどおり通る** */
@@ -365,6 +406,10 @@ export async function POST(req: NextRequest) {
     let issued = 0;
     for (const [i, m] of made.entries()) {
       issued += await issueSeats(supabase, m.id as string, lines[i].seats);
+    }
+    /* 協力会社のぶんなら、その会社の担当者に「受講コードが出ました」（配るのはその担当者） */
+    if (targetCompany.id !== admin.companyId) {
+      await addNotices(await companyAdmins(supabase, targetCompany.id), "seat", { courseId: lines[0].courseId });
     }
     return NextResponse.json({
       ok: true,

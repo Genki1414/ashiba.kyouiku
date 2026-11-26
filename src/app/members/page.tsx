@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { LpShell } from "@/components/lp/LpShell";
 import { membershipEnabled, plansForLp } from "@/lib/membership.server";
-import { TERMS, grossOf } from "@/lib/membership";
+import { TERMS, grossOf, seatsPerYear, yearlySavingsOf } from "@/lib/membership";
 import { yen } from "@/lib/pricing";
 import { BRAND } from "@/content/brand";
 
@@ -46,6 +46,11 @@ export default async function MembersLp() {
                 毎月のチケット <b>{yen(p.ticketAmount)}</b>　税込 {yen(grossOf(p.monthlyFee))}　有効期間 {p.ticketMonths}か月
                 {p.note ? `　${p.note}` : ""}
               </div>
+              {yearlySavingsOf(p) > 0 && (
+                <div className="sub" style={{ color: "var(--blue)", fontWeight: 700 }} data-testid="lp-plan-savings">
+                  年 {yen(yearlySavingsOf(p))} お得（足場の特別教育なら約{seatsPerYear(p, 4500)}人分）
+                </div>
+              )}
             </div>
           ))}
         </div>

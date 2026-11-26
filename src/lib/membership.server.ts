@@ -2,6 +2,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { addDays, DEFAULT_PLANS, TERMS, jstDate, type Plan } from "./membership";
 import { getServiceClient } from "./supabase/server";
+import { addNotices } from "./notice.server";
 
 /* 会員制度の、サーバだけの部分。
 
@@ -137,14 +138,60 @@ export async function openDuePayments(
       .eq("period_month", month)
       .maybeSingle();
     if (before) continue;
-    const { error: e } = await supabase.rpc("open_contract_payment", { p_contract: c.id, p_month: month });
+    const { data: pid, error: e } = await supabase.rpc("open_contract_payment", { p_contract: c.id, p_month: month });
     if (e) {
       console.error("入金行を起こせません:", c.id, e.message);
       continue;
     }
     opened++;
+    /* 起こしたら、その場で請求書を出す（docs/122。運営が「相手に知らせる」を押さなくてよい） */
+    await issuePaymentInvoice(supabase, pid as string);
   }
   return { ok: true, opened, contracts: (data ?? []).length };
+}
+
+/** その事業者の教育担当者（お知らせの宛先）。読めなければ空（お知らせは飾り） */
+export async function companyAdmins(supabase: SupabaseClient, companyId: string): Promise<string[]> {
+  const { data, error } = await supabase.from("users").select("id").eq("company_id", companyId).eq("role", "admin");
+  if (error) {
+    console.error("担当者を読めません:", error.message);
+    return [];
+  }
+  return (data ?? []).map((u) => u.id as string);
+}
+
+/* ── 請求書の自動送付（docs/122）──
+   月額の請求書は contract_payments の行がそのまま元（/invoice/member/<行>）。
+   起票と同時に invoiced_at を入れ、担当者に「請求書が届いています」を残す。
+   運営の「相手に知らせる」は、もう押してあるのと同じになる（押しても日付は動かない）。
+   二度呼んでも二度は知らせない（invoiced_at を見る） */
+export async function issuePaymentInvoice(supabase: SupabaseClient, paymentId: string): Promise<boolean> {
+  const { data: p, error } = await supabase
+    .from("contract_payments")
+    .select("id, invoiced_at, contract_id")
+    .eq("id", paymentId)
+    .maybeSingle();
+  if (error || !p) {
+    if (error) console.error("請求書を出せません:", error.message);
+    return false;
+  }
+  if (p.invoiced_at) return true;
+  const { error: uErr } = await supabase
+    .from("contract_payments")
+    .update({ invoiced_at: new Date().toISOString() })
+    .eq("id", paymentId)
+    .is("invoiced_at", null);
+  if (uErr) {
+    console.error("請求書の発行日を書けません:", uErr.message);
+    return false;
+  }
+  const { data: c, error: cErr } = await supabase.from("contracts").select("company_id").eq("id", p.contract_id as string).maybeSingle();
+  if (cErr || !c) {
+    if (cErr) console.error("契約を読めません:", cErr.message);
+    return true;
+  }
+  await addNotices(await companyAdmins(supabase, c.company_id as string), "member_bill");
+  return true;
 }
 
 /** LP に出すプラン。データベースを読めなければ seed と同じ既定値（console.error を残す）。

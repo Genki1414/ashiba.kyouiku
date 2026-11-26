@@ -25,8 +25,10 @@ import {
   normalizeRefCode,
   progressPct,
   refUrl,
+  seatsPerYear,
   simulateCommission,
   taxOf,
+  yearlySavingsOf,
 } from "../src/lib/membership";
 
 let ok = 0;
@@ -191,6 +193,25 @@ console.log("── 作りの決まり ──");
   const ts = read("src/app/legal/tokushoho/page.tsx");
   check(/membershipEnabled\(\) \? \(await plansForLp\("member"\)\)\.plans : \[\]/.test(ts), "特商法の表記も、開けた店だけ月額を載せる");
   check(/法人会員（月額プラン）/.test(read("src/content/legal.ts")), "表記に法人会員の欄がある");
+
+  /* ── docs/122：請求書の自動送付・催促・協力会社・明細・QR ── */
+  check(/export async function issuePaymentInvoice/.test(srv) && /if \(p\.invoiced_at\) return true;/.test(srv), "請求書の自動送付は二度知らせない");
+  check(/await issuePaymentInvoice\(supabase, pid as string\)/.test(srv), "翌月の起票でも請求書を出す");
+  check(/await issuePaymentInvoice\(supabase, paymentId as string\)/.test(mc), "申込みの初月も請求書を出す");
+  check(/case "remind"/.test(om) && /p\.status !== "pending"/.test(om) && /"member_due"/.test(om), "催促は入金待ちの行だけ");
+  check(/case "set_parent"/.test(om) && /parent\.parent_id\) return bad/.test(om), "協力会社は2段にしない");
+  check(/forId && forId !== admin\.companyId/.test(order) && /method !== "ticket" \|\| !ticket/.test(order), "協力会社のぶんはチケットでだけ");
+  check(/ticket\.kind !== "agency"/.test(order) && /child\.parent_id !== admin\.companyId/.test(order), "協力会社のぶんは代理店が、自社の下の会社だけ");
+  check(/company_id: targetCompany\.id/.test(order), "注文は協力会社の注文として立つ");
+  const po = strip(read("src/app/api/owner/payout/route.ts"));
+  check(/sp\.user_id !== me\?\.id/.test(po) && /owner \? supabase\.from\("partner_bank"\)/.test(po), "明細は本部と本人。振込先は本部にだけ");
+  check(/if \(!owner\) return NextResponse\.json\(\{ ok: false, reason: "本部だけの口です。" \}/.test(po), "月まとめの CSV は本部だけ");
+  check(/﻿|\\uFEFF/.test(po), "CSV は BOM 付き（Excel で開ける）");
+  const qr = strip(read("src/app/api/partner/qr/route.ts"));
+  check(/refUrl\(siteUrl\(\), sp\.code as string\)/.test(qr) && !/name|email/.test(qr.replace(/filename/g, "")), "QR の中身は紹介 URL だけ（氏名もメールも入れない）");
+  eq(yearlySavingsOf({ monthlyFee: 10000, ticketAmount: 20000 }), 120000, "スタンダードの年の削減額は 12万円");
+  eq(seatsPerYear({ ticketAmount: 20000 }, 4500), 53, "足場の特別教育なら年 53 人分");
+  eq(yearlySavingsOf({ monthlyFee: 10000, ticketAmount: 5000 }), 0, "会費より少ないチケットなら 0");
 
   /* SQL の試験が残っていること */
   const sql = read("supabase/tests/members.sql");

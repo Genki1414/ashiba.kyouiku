@@ -55,7 +55,9 @@ type Loaded = {
   /* 受講コードは1講座ぶん。どの講座を買うかを選ぶ */
   courses: CourseTab[];
   /** 法人会員のチケット（0040）。有効な契約がある会社だけ。無ければ null */
-  ticket?: { contractId: string; total: number; expiring: number; nextExpire: string | null } | null;
+  ticket?: { contractId: string; kind?: string; total: number; expiring: number; nextExpire: string | null } | null;
+  /** 協力会社（docs/122）。販売代理店の下に付いた会社。選ぶと、その会社のぶんを自社のチケットで買う */
+  children?: { id: string; name: string }[];
 };
 
 type Method = "card" | "invoice" | "ticket";
@@ -98,6 +100,8 @@ export function OrderClient() {
   const [couponBusy, setCouponBusy] = useState(false);
   const [busy, setBusy] = useState(false);
   const [canCard, setCanCard] = useState(false);
+  /* 協力会社のぶんを買うとき、その会社の id。空なら自社（docs/122） */
+  const [forCompany, setForCompany] = useState("");
   /* 確かめる→やる→終わった（げんきさん 2026-09-10「請求書払いで申し込む
      とか…確認表示や完了表示のポップアップがない」）。
      申込みは金が動く。押した瞬間に通す釦にしない */
@@ -126,6 +130,8 @@ export function OrderClient() {
         members: Array.isArray(j.members) ? j.members : [],
         /* 法人会員のチケット。ここで拾わないと「チケットで払う」が出ない */
         ticket: j.ticket ?? null,
+        /* 協力会社。ここで拾わないと「申し込む会社」の選び先が出ない */
+        children: Array.isArray(j.children) ? j.children : [],
       });
       setNg("");
     } catch {
@@ -219,7 +225,7 @@ export function OrderClient() {
       const res = await fetch("/api/order", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ items, method, billTo, note: memo, code: coupon ? code : "" }),
+        body: JSON.stringify({ items, method, billTo, note: memo, code: coupon ? code : "", forCompanyId: forCompany || undefined }),
       });
       const j = await res.json().catch(() => ({}));
       if (!res.ok || !j.ok) {
@@ -421,6 +427,30 @@ export function OrderClient() {
             <span className="mt-0.5 block text-[11.5px] text-dim">
               リクエストのある講座を上に出しています。押すと、その件数が人数に入ります。
             </span>
+          </div>
+        )}
+
+        {/* 協力会社（docs/122）。販売代理店だけ。選ぶと、その会社の受講コードを自社のチケットで買う。
+            請求書払い・カードは自社のぶんだけ（宛先が二重になる） */}
+        {!!st.children?.length && (
+          <div className="mb-3 rounded-lg border border-cyan bg-panel px-3 py-2.5" data-testid="order-for">
+            <label className="mb-1 block text-[11px] tracking-[2px] text-dim">申し込む会社</label>
+            <select
+              value={forCompany}
+              onChange={(e) => setForCompany(e.target.value)}
+              className="w-full rounded-lg border border-line bg-bg px-3 py-2 text-[13px]"
+              data-testid="order-for-select"
+            >
+              <option value="">{st.company}（自社）</option>
+              {st.children.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}（協力会社）</option>
+              ))}
+            </select>
+            {forCompany && (
+              <div className="mt-1 text-[11.5px] leading-relaxed text-dim" data-testid="order-for-note">
+                協力会社のぶんは自社のチケットで払います。受講コードはその会社の教育担当者に届き、その担当者が配ります。
+              </div>
+            )}
           </div>
         )}
 
@@ -637,14 +667,16 @@ export function OrderClient() {
           )}
           {/* 何も選んでいないうちは押せない。押せてしまうと、
               「申し込めませんでした」で止まるだけの一手が増える */}
-          {canCard && (
+          {canCard && !forCompany && (
             <Btn tone="y" dis={busy || !rows.length} onClick={() => askOrder("card")} testid="order-card">
               {busy ? "…" : "カードで支払う"}
             </Btn>
           )}
+          {!forCompany && (
           <Btn dis={busy || !rows.length} onClick={() => askOrder("invoice")} testid="order-invoice">
             {busy ? "…" : "請求書払いで申し込む"}
           </Btn>
+          )}
           {!rows.length && (
             <div className="text-center text-[11.5px] text-dim2" data-testid="order-none">
               受講する講座をお選びください。複数選択できます。
